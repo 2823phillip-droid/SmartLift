@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.eggs/
+*.egg-info
+logs/
+*.db
+.env
+
+# Node
+node_modules/
+dist/
+.vite/
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Android platform (abandoned — iOS only)
+android/
+
+# Caps lock / temp
+*.swp
+*~
