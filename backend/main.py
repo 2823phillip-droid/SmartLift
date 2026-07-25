@@ -718,7 +718,9 @@ def end_session(session_id: int, db: Session = Depends(get_db), current_user: Us
 
 @app.post("/api/set-logs", response_model=SetLogOut)
 def create_set_log(payload: SetLogCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    log = SetLog(**payload.dict())
+    data = payload.model_dump()
+    data["user_id"] = current_user.id
+    log = SetLog(**data)
     db.add(log)
     db.commit()
     db.refresh(log)
@@ -803,7 +805,9 @@ def get_exercise_name_progress(name: str, limit: int = 5000, db: Session = Depen
 
 @app.post("/api/coach-messages", response_model=CoachMessageOut)
 def create_coach_message(payload: CoachMessageCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    msg = CoachMessage(**payload.dict())
+    data = payload.model_dump()
+    data["user_id"] = current_user.id
+    msg = CoachMessage(**data)
     db.add(msg)
     db.commit()
     db.refresh(msg)
