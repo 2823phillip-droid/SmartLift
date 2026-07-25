@@ -1,6 +1,7 @@
 import { captureError } from "./utils/logger";
 
 let apiBase: string | null = null;
+let authToken: string | null = null;
 
 export function getApiBase(): string {
   return apiBase || "";
@@ -10,18 +11,30 @@ export function setApiBase(next: string) {
   apiBase = next;
 }
 
+export function getAuthToken(): string | null {
+  return authToken;
+}
+
+export function setAuthToken(next: string | null) {
+  authToken = next;
+}
+
 async function request(path: string, options: RequestInit = {}) {
   const base = apiBase || import.meta.env.VITE_API_BASE || "http://192.168.1.111:8000/api";
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), 4000);
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      ...(options.headers as Record<string, string> | undefined),
+    };
+    if (authToken) {
+      headers["Authorization"] = `Bearer ${authToken}`;
+    }
     const res = await fetch(`${base}${path}`, {
       ...options,
       signal: controller.signal,
-      headers: {
-        "Content-Type": "application/json",
-        ...options.headers,
-      },
+      headers: headers as Record<string, string>,
     });
     if (!res.ok) {
       const text = await res.text();
@@ -39,13 +52,17 @@ async function request(path: string, options: RequestInit = {}) {
       try {
         const fallbackController = new AbortController();
         const fallbackTimer = setTimeout(() => fallbackController.abort(), 3500);
+        const fallbackHeaders: Record<string, string> = {
+          "Content-Type": "application/json",
+          ...(options.headers as Record<string, string> | undefined),
+        };
+        if (authToken) {
+          fallbackHeaders["Authorization"] = `Bearer ${authToken}`;
+        }
         const fallbackRes = await fetch(`http://192.168.1.111:8000/api${path}`, {
           ...options,
           signal: fallbackController.signal,
-          headers: {
-            "Content-Type": "application/json",
-            ...options.headers,
-          },
+          headers: fallbackHeaders as Record<string, string>,
         });
         clearTimeout(fallbackTimer);
         if (fallbackRes.ok) {
@@ -297,4 +314,32 @@ export const api = {
     }),
   listAITrainerAdjustments: (sessionId?: number) =>
     request(`/ai-trainer/adjustments${sessionId ? `?session_id=${sessionId}` : ""}`),
+
+  // Auth
+  signup: (email: string, password: string, first_name?: string, last_name?: string) =>
+    request("/auth/signup", {
+      method: "POST",
+      body: JSON.stringify({ email, password, first_name, last_name }),
+    }),
+  login: (email: string, password: string) =>
+    request("/auth/login", {
+      method: "POST",
+      body: JSON.stringify({ email, password }),
+    }),
+  google: (idToken: string) =>
+    request("/auth/google", {
+      method: "POST",
+      body: JSON.stringify({ id_token: idToken }),
+    }),
+  apple: (identityToken: string) =>
+    request("/auth/apple", {
+      method: "POST",
+      body: JSON.stringify({ identity_token: identityToken }),
+    }),
+  me: () => request("/auth/me"),
+  updateProfile: (first_name?: string, last_name?: string) =>
+    request("/auth/profile", {
+      method: "PUT",
+      body: JSON.stringify({ first_name, last_name }),
+    }),
 };

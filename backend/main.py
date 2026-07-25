@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException
+from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.orm import Session
@@ -10,14 +10,21 @@ import os
 import logging
 import time
 import traceback
+import secrets
+import hashlib
+import httpx
 from logging.handlers import RotatingFileHandler
+from passlib.context import CryptContext
 
 from db import SessionLocal, init_db
 from models import (
-    Context, WorkoutTemplate, ExerciseLibrary, ExerciseEntry,
+    User, UserRole, Context, WorkoutTemplate, ExerciseLibrary, ExerciseEntry,
     WorkoutSession, SetLog, CoachMessage, AlgorithmState, RoutineType, SessionStatus, CoachRole, AppSetting,
     WorkoutLibrary, WorkoutLibraryExercise, BodyWeightLog, AITrainerAdjustment
 )
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+AUTH_TOKEN_PREFIX = "Bearer "
 
 app = FastAPI(title="Workout Logger")
 
@@ -255,23 +262,198 @@ class BodyWeightLogOut(BaseModel):
     class Config:
         from_attributes = True
 
+# --- Auth ---
+
+class UserCreate(BaseModel):
+    email: str
+    password: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+class UserOut(BaseModel):
+    id: int
+    email: str
+    role: str
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class TokenOut(BaseModel):
+    token: str
+    user: UserOut
+
+class LoginIn(BaseModel):
+    email: str
+    password: str
+
+class GoogleLoginIn(BaseModel):
+    id_token: str
+
+class AppleLoginIn(BaseModel):
+    identity_token: str
+
+def _find_or_create_user_by_email(db: Session, email: str, preferred_role: str = "user", first_name: Optional[str] = None, last_name: Optional[str] = None) -> User:
+    user = db.query(User).filter(User.email == email).first()
+    if user:
+        updated = False
+        if first_name and not user.first_name:
+            user.first_name = first_name
+            updated = True
+        if last_name and not user.last_name:
+            user.last_name = last_name
+            updated = True
+        if updated:
+            db.commit()
+            db.refresh(user)
+        return user
+    user = User(
+        email=email,
+        hashed_password="",
+        role=preferred_role,
+        first_name=first_name,
+        last_name=last_name,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return user
+
+def _issue_token_for_user(user: User) -> TokenOut:
+    token = _make_token()
+    user.token_hash = _token_hash(token)
+    if not user.hashed_password:
+        user.hashed_password = ""
+    return TokenOut(
+        token=token,
+        user=UserOut(
+            id=user.id,
+            email=user.email,
+            role=user.role.value,
+            first_name=user.first_name,
+            last_name=user.last_name,
+        ),
+    )
+
+def _verify_password(password: str, hashed: str) -> bool:
+    return pwd_context.verify(password, hashed)
+
+def _make_token() -> str:
+    raw = secrets.token_urlsafe(32)
+    return raw
+
+def _token_hash(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+@app.post("/api/auth/signup", response_model=TokenOut)
+def signup(payload: UserCreate, db: Session = Depends(get_db)):
+    existing = db.query(User).filter(User.email == payload.email).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    user = User(
+        email=payload.email,
+        hashed_password=pwd_context.hash(payload.password),
+        role="user",
+        first_name=payload.first_name,
+        last_name=payload.last_name,
+    )
+    token = _make_token()
+    user.token_hash = _token_hash(token)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return TokenOut(
+        token=token,
+        user=UserOut(id=user.id, email=user.email, role=user.role.value, first_name=user.first_name, last_name=user.last_name),
+    )
+
+@app.post("/api/auth/login", response_model=TokenOut)
+def login(payload: LoginIn, db: Session = Depends(get_db)):
+    logger.info(json.dumps({"type": "login", "email": payload.email, "password_length": len(payload.password), "password_prefix": payload.password[:2]}))
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user or not _verify_password(payload.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    token = _make_token()
+    user.token_hash = _token_hash(token)
+    db.commit()
+    db.refresh(user)
+    return TokenOut(
+        token=token,
+        user=UserOut(id=user.id, email=user.email, role=user.role.value, first_name=user.first_name, last_name=user.last_name),
+    )
+
+@app.post("/api/auth/google", response_model=TokenOut)
+async def google_login(payload: GoogleLoginIn, db: Session = Depends(get_db)):
+    async with httpx.AsyncClient(timeout=10) as client:
+        resp = await client.get("https://oauth2.googleapis.com/tokeninfo", params={"id_token": payload.id_token})
+    if resp.status_code != 200:
+        raise HTTPException(status_code=401, detail="Invalid Google token")
+    data = resp.json()
+    email = data.get("email")
+    if not email or not data.get("email_verified"):
+        raise HTTPException(status_code=400, detail="Google account missing verified email")
+    given_name = data.get("given_name")
+    family_name = data.get("family_name")
+    user = _find_or_create_user_by_email(db, email, preferred_role="user", first_name=given_name, last_name=family_name)
+    return _issue_token_for_user(user)
+
+@app.post("/api/auth/apple", response_model=TokenOut)
+async def apple_login(payload: AppleLoginIn, db: Session = Depends(get_db)):
+    raise HTTPException(status_code=501, detail="Apple login is not configured yet")
+
+@app.get("/api/auth/me", response_model=UserOut)
+def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    token = authorization.split(" ", 1)[1]
+    token_hash = _token_hash(token)
+    user = db.query(User).filter(User.token_hash == token_hash).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    return UserOut(id=user.id, email=user.email, role=user.role.value, first_name=user.first_name, last_name=user.last_name)
+
+def get_current_user_dep(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)) -> User:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    token = authorization.split(" ", 1)[1]
+    token_hash = _token_hash(token)
+    user = db.query(User).filter(User.token_hash == token_hash).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    return user
+
+class ProfileUpdateIn(BaseModel):
+    first_name: Optional[str] = None
+    last_name: Optional[str] = None
+
+@app.put("/api/auth/profile", response_model=UserOut)
+def update_profile(payload: ProfileUpdateIn, current_user: User = Depends(get_current_user_dep), db: Session = Depends(get_db)):
+    if payload.first_name is not None:
+        current_user.first_name = payload.first_name
+    if payload.last_name is not None:
+        current_user.last_name = payload.last_name
+    db.commit()
+    db.refresh(current_user)
+    return UserOut(id=current_user.id, email=current_user.email, role=current_user.role.value, first_name=current_user.first_name, last_name=current_user.last_name)
+
 # --- Body Weight ---
 
 @app.get("/api/body-weight", response_model=List[BodyWeightLogOut])
-def list_body_weight_logs(db: Session = Depends(get_db)):
-    return db.query(BodyWeightLog).order_by(BodyWeightLog.logged_at.asc()).all()
+def list_body_weight_logs(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    return db.query(BodyWeightLog).filter(BodyWeightLog.user_id == current_user.id).order_by(BodyWeightLog.logged_at.asc()).all()
 
 @app.post("/api/body-weight", response_model=BodyWeightLogOut)
-def create_body_weight_log(payload: BodyWeightLogCreate, db: Session = Depends(get_db)):
-    log = BodyWeightLog(weight_lbs=payload.weight_lbs, notes=payload.notes)
+def create_body_weight_log(payload: BodyWeightLogCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    log = BodyWeightLog(weight_lbs=payload.weight_lbs, notes=payload.notes, user_id=current_user.id)
     db.add(log)
     db.commit()
     db.refresh(log)
     return log
 
 @app.delete("/api/body-weight/{log_id}")
-def delete_body_weight_log(log_id: int, db: Session = Depends(get_db)):
-    log = db.query(BodyWeightLog).filter(BodyWeightLog.id == log_id).first()
+def delete_body_weight_log(log_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    log = db.query(BodyWeightLog).filter(BodyWeightLog.id == log_id, BodyWeightLog.user_id == current_user.id).first()
     if not log:
         raise HTTPException(status_code=404, detail="Body weight log not found")
     db.delete(log)
@@ -281,12 +463,13 @@ def delete_body_weight_log(log_id: int, db: Session = Depends(get_db)):
 # --- Contexts ---
 
 @app.post("/api/contexts", response_model=ContextOut)
-def create_context(payload: ContextCreate, db: Session = Depends(get_db)):
+def create_context(payload: ContextCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     ctx = Context(
         name=payload.name,
         description=payload.description,
         equipment_tags=json.dumps(payload.equipment_tags or []),
         default_rest_seconds=payload.default_rest_seconds,
+        user_id=current_user.id,
     )
     db.add(ctx)
     db.commit()
@@ -301,8 +484,8 @@ def create_context(payload: ContextCreate, db: Session = Depends(get_db)):
     )
 
 @app.get("/api/contexts", response_model=List[ContextOut])
-def list_contexts(db: Session = Depends(get_db)):
-    contexts = db.query(Context).all()
+def list_contexts(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    contexts = db.query(Context).filter(Context.user_id == current_user.id).all()
     return [
         ContextOut(
             id=c.id,
@@ -316,8 +499,8 @@ def list_contexts(db: Session = Depends(get_db)):
     ]
 
 @app.get("/api/contexts/{context_id}", response_model=ContextOut)
-def get_context(context_id: int, db: Session = Depends(get_db)):
-    c = db.query(Context).filter(Context.id == context_id).first()
+def get_context(context_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    c = db.query(Context).filter(Context.id == context_id, Context.user_id == current_user.id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Context not found")
     return ContextOut(
@@ -330,8 +513,8 @@ def get_context(context_id: int, db: Session = Depends(get_db)):
     )
 
 @app.delete("/api/contexts/{context_id}")
-def delete_context(context_id: int, db: Session = Depends(get_db)):
-    c = db.query(Context).filter(Context.id == context_id).first()
+def delete_context(context_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    c = db.query(Context).filter(Context.id == context_id, Context.user_id == current_user.id).first()
     if not c:
         raise HTTPException(status_code=404, detail="Context not found")
     db.delete(c)
@@ -341,13 +524,14 @@ def delete_context(context_id: int, db: Session = Depends(get_db)):
 # --- Templates ---
 
 @app.post("/api/templates", response_model=WorkoutTemplateOut)
-def create_template(payload: WorkoutTemplateCreate, db: Session = Depends(get_db)):
+def create_template(payload: WorkoutTemplateCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     tpl = WorkoutTemplate(
         context_id=payload.context_id,
         name=payload.name,
         type=payload.type,
         order=payload.order,
         default_rest_seconds=payload.default_rest_seconds,
+        user_id=current_user.id,
     )
     db.add(tpl)
     db.commit()
@@ -355,25 +539,25 @@ def create_template(payload: WorkoutTemplateCreate, db: Session = Depends(get_db
     return _template_out(tpl)
 
 @app.get("/api/templates/{template_id}", response_model=WorkoutTemplateOut)
-def get_template(template_id: int, db: Session = Depends(get_db)):
-    tpl = db.query(WorkoutTemplate).filter(WorkoutTemplate.id == template_id).first()
+def get_template(template_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    tpl = db.query(WorkoutTemplate).filter(WorkoutTemplate.id == template_id, WorkoutTemplate.user_id == current_user.id).first()
     if not tpl:
         raise HTTPException(status_code=404, detail="Template not found")
     return _template_out(tpl)
 
 @app.get("/api/contexts/{context_id}/templates", response_model=List[WorkoutTemplateOut])
-def list_templates(context_id: int, db: Session = Depends(get_db)):
-    tpls = db.query(WorkoutTemplate).filter(WorkoutTemplate.context_id == context_id).order_by(WorkoutTemplate.order).all()
+def list_templates(context_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    tpls = db.query(WorkoutTemplate).filter(WorkoutTemplate.context_id == context_id, WorkoutTemplate.user_id == current_user.id).order_by(WorkoutTemplate.order).all()
     return [_template_out(t) for t in tpls]
 
 @app.get("/api/templates", response_model=List[WorkoutTemplateOut])
-def list_all_templates(db: Session = Depends(get_db)):
-    tpls = db.query(WorkoutTemplate).order_by(WorkoutTemplate.context_id, WorkoutTemplate.order).all()
+def list_all_templates(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    tpls = db.query(WorkoutTemplate).filter(WorkoutTemplate.user_id == current_user.id).order_by(WorkoutTemplate.context_id, WorkoutTemplate.order).all()
     return [_template_out(t) for t in tpls]
 
 @app.put("/api/templates/{template_id}", response_model=WorkoutTemplateOut)
-def update_template(template_id: int, payload: WorkoutTemplateUpdate, db: Session = Depends(get_db)):
-    tpl = db.query(WorkoutTemplate).filter(WorkoutTemplate.id == template_id).first()
+def update_template(template_id: int, payload: WorkoutTemplateUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    tpl = db.query(WorkoutTemplate).filter(WorkoutTemplate.id == template_id, WorkoutTemplate.user_id == current_user.id).first()
     if not tpl:
         raise HTTPException(status_code=404, detail="Template not found")
     tpl.name = payload.name
@@ -388,8 +572,8 @@ def update_template(template_id: int, payload: WorkoutTemplateUpdate, db: Sessio
     return _template_out(tpl)
 
 @app.delete("/api/templates/{template_id}")
-def delete_template(template_id: int, db: Session = Depends(get_db)):
-    tpl = db.query(WorkoutTemplate).filter(WorkoutTemplate.id == template_id).first()
+def delete_template(template_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    tpl = db.query(WorkoutTemplate).filter(WorkoutTemplate.id == template_id, WorkoutTemplate.user_id == current_user.id).first()
     if not tpl:
         raise HTTPException(status_code=404, detail="Template not found")
     db.delete(tpl)
@@ -399,16 +583,16 @@ def delete_template(template_id: int, db: Session = Depends(get_db)):
 # --- Exercises ---
 
 @app.post("/api/exercises", response_model=ExerciseEntryOut)
-def create_exercise(payload: ExerciseEntryCreate, db: Session = Depends(get_db)):
-    ex = ExerciseEntry(**payload.dict())
+def create_exercise(payload: ExerciseEntryCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    ex = ExerciseEntry(**payload.dict(), user_id=current_user.id)
     db.add(ex)
     db.commit()
     db.refresh(ex)
     return ex
 
 @app.put("/api/exercises/{exercise_id}", response_model=ExerciseEntryOut)
-def update_exercise(exercise_id: int, payload: ExerciseEntryCreate, db: Session = Depends(get_db)):
-    ex = db.query(ExerciseEntry).filter(ExerciseEntry.id == exercise_id).first()
+def update_exercise(exercise_id: int, payload: ExerciseEntryCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    ex = db.query(ExerciseEntry).filter(ExerciseEntry.id == exercise_id, ExerciseEntry.user_id == current_user.id).first()
     if not ex:
         raise HTTPException(status_code=404, detail="Exercise not found")
     for field, value in payload.dict(exclude_unset=True).items():
@@ -418,8 +602,8 @@ def update_exercise(exercise_id: int, payload: ExerciseEntryCreate, db: Session 
     return ex
 
 @app.delete("/api/exercises/{exercise_id}")
-def delete_exercise(exercise_id: int, db: Session = Depends(get_db)):
-    ex = db.query(ExerciseEntry).filter(ExerciseEntry.id == exercise_id).first()
+def delete_exercise(exercise_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    ex = db.query(ExerciseEntry).filter(ExerciseEntry.id == exercise_id, ExerciseEntry.user_id == current_user.id).first()
     if not ex:
         raise HTTPException(status_code=404, detail="Exercise not found")
     db.delete(ex)
@@ -427,17 +611,17 @@ def delete_exercise(exercise_id: int, db: Session = Depends(get_db)):
     return {"ok": True}
 
 @app.get("/api/exercises", response_model=List[ExerciseEntryOut])
-def list_exercises(db: Session = Depends(get_db)):
-    return db.query(ExerciseEntry).all()
+def list_exercises(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    return db.query(ExerciseEntry).filter(ExerciseEntry.user_id == current_user.id).all()
 
 @app.get("/api/templates/{template_id}/exercises", response_model=List[ExerciseEntryOut])
-def list_template_exercises(template_id: int, db: Session = Depends(get_db)):
-    return db.query(ExerciseEntry).filter(ExerciseEntry.template_id == template_id).order_by(ExerciseEntry.order).all()
+def list_template_exercises(template_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    return db.query(ExerciseEntry).filter(ExerciseEntry.template_id == template_id, ExerciseEntry.user_id == current_user.id).order_by(ExerciseEntry.order).all()
 
 # --- Exercise Library ---
 
 @app.get("/api/exercise-library", response_model=List[ExerciseLibraryOut])
-def search_exercise_library(q: str = "", db: Session = Depends(get_db)):
+def search_exercise_library(q: str = "", db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     query = db.query(ExerciseLibrary)
     if q:
         query = query.filter(ExerciseLibrary.name.ilike(f"%{q}%"))
@@ -446,7 +630,7 @@ def search_exercise_library(q: str = "", db: Session = Depends(get_db)):
 # --- Sessions ---
 
 @app.post("/api/sessions", response_model=SessionOut)
-def create_session(payload: SessionCreate, db: Session = Depends(get_db)):
+def create_session(payload: SessionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     session = WorkoutSession(
         template_id=payload.template_id,
         pre_workout_mood=payload.pre_workout_mood,
@@ -473,8 +657,8 @@ def create_session(payload: SessionCreate, db: Session = Depends(get_db)):
     )
 
 @app.get("/api/sessions", response_model=List[SessionOut])
-def list_sessions(db: Session = Depends(get_db)):
-    sessions = db.query(WorkoutSession).order_by(WorkoutSession.started_at.desc()).limit(50).all()
+def list_sessions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    sessions = db.query(WorkoutSession).filter(WorkoutSession.user_id == current_user.id).order_by(WorkoutSession.started_at.desc()).limit(50).all()
     return [
         SessionOut(
             id=s.id,
@@ -489,8 +673,8 @@ def list_sessions(db: Session = Depends(get_db)):
     ]
 
 @app.get("/api/sessions/{session_id}", response_model=SessionOut)
-def get_session(session_id: int, db: Session = Depends(get_db)):
-    s = db.query(WorkoutSession).filter(WorkoutSession.id == session_id).first()
+def get_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    s = db.query(WorkoutSession).filter(WorkoutSession.id == session_id, WorkoutSession.user_id == current_user.id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Session not found")
     return SessionOut(
@@ -504,8 +688,8 @@ def get_session(session_id: int, db: Session = Depends(get_db)):
     )
 
 @app.post("/api/sessions/{session_id}/end", response_model=SessionOut)
-def end_session(session_id: int, db: Session = Depends(get_db)):
-    s = db.query(WorkoutSession).filter(WorkoutSession.id == session_id).first()
+def end_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    s = db.query(WorkoutSession).filter(WorkoutSession.id == session_id, WorkoutSession.user_id == current_user.id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Session not found")
     s.ended_at = datetime.utcnow()
@@ -532,7 +716,7 @@ def end_session(session_id: int, db: Session = Depends(get_db)):
 # --- Set Logs ---
 
 @app.post("/api/set-logs", response_model=SetLogOut)
-def create_set_log(payload: SetLogCreate, db: Session = Depends(get_db)):
+def create_set_log(payload: SetLogCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     log = SetLog(**payload.dict())
     db.add(log)
     db.commit()
@@ -550,16 +734,16 @@ def create_set_log(payload: SetLogCreate, db: Session = Depends(get_db)):
     return log
 
 @app.get("/api/sessions/{session_id}/set-logs", response_model=List[SetLogOut])
-def list_session_set_logs(session_id: int, db: Session = Depends(get_db)):
-    return db.query(SetLog).filter(SetLog.session_id == session_id).order_by(SetLog.set_index).all()
+def list_session_set_logs(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    return db.query(SetLog).filter(SetLog.user_id == current_user.id).filter(SetLog.session_id == session_id, SetLog.user_id == current_user.id).order_by(SetLog.set_index).all()
 
 @app.get("/api/exercises/{exercise_entry_id}/progress", response_model=ExerciseProgressResponse)
-def get_exercise_progress(exercise_entry_id: int, limit: int = 50, db: Session = Depends(get_db)):
+def get_exercise_progress(exercise_entry_id: int, limit: int = 50, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     entry = db.query(ExerciseEntry).get(exercise_entry_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Exercise entry not found")
     logs = (
-        db.query(SetLog)
+        db.query(SetLog).filter(SetLog.user_id == current_user.id)
         .filter(SetLog.exercise_entry_id == exercise_entry_id, SetLog.actual_weight.is_not(None))
         .order_by(SetLog.completed_at.desc())
         .limit(limit)
@@ -577,7 +761,7 @@ def get_exercise_progress(exercise_entry_id: int, limit: int = 50, db: Session =
 
 
 @app.get("/api/exercise-names", response_model=List[str])
-def list_distinct_exercise_names(db: Session = Depends(get_db)):
+def list_distinct_exercise_names(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     return [
         row[0]
         for row in db.query(ExerciseEntry.name)
@@ -590,13 +774,13 @@ def list_distinct_exercise_names(db: Session = Depends(get_db)):
 
 
 @app.get("/api/exercise-names/{name}/progress", response_model=ExerciseNameProgressResponse)
-def get_exercise_name_progress(name: str, limit: int = 5000, db: Session = Depends(get_db)):
+def get_exercise_name_progress(name: str, limit: int = 5000, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     entries = db.query(ExerciseEntry).filter(ExerciseEntry.name == name).all()
     entry_ids = [e.id for e in entries]
     if not entry_ids:
         raise HTTPException(status_code=404, detail="Exercise not found")
     logs = (
-        db.query(SetLog)
+        db.query(SetLog).filter(SetLog.user_id == current_user.id)
         .filter(SetLog.exercise_entry_id.in_(entry_ids), SetLog.actual_weight.is_not(None))
         .order_by(SetLog.completed_at.desc())
         .limit(limit)
@@ -617,7 +801,7 @@ def get_exercise_name_progress(name: str, limit: int = 5000, db: Session = Depen
 # --- Coach Messages ---
 
 @app.post("/api/coach-messages", response_model=CoachMessageOut)
-def create_coach_message(payload: CoachMessageCreate, db: Session = Depends(get_db)):
+def create_coach_message(payload: CoachMessageCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     msg = CoachMessage(**payload.dict())
     db.add(msg)
     db.commit()
@@ -638,8 +822,8 @@ def create_coach_message(payload: CoachMessageCreate, db: Session = Depends(get_
     )
 
 @app.get("/api/sessions/{session_id}/coach-messages", response_model=List[CoachMessageOut])
-def list_coach_messages(session_id: int, db: Session = Depends(get_db)):
-    msgs = db.query(CoachMessage).filter(CoachMessage.session_id == session_id).order_by(CoachMessage.timestamp).all()
+def list_coach_messages(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    msgs = db.query(CoachMessage).filter(CoachMessage.session_id == session_id, CoachMessage.user_id == current_user.id).order_by(CoachMessage.timestamp).all()
     return [
         CoachMessageOut(
             id=m.id,
@@ -666,7 +850,7 @@ class AISuggestionResponse(BaseModel):
     next_reps: Optional[int] = None
 
 @app.post("/api/ai/next-suggestion", response_model=AISuggestionResponse)
-def ai_next_suggestion(payload: AISuggestionRequest, db: Session = Depends(get_db)):
+def ai_next_suggestion(payload: AISuggestionRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     # Stub: can be wired to local Ollama or cloud LLM later
     logger.info(json.dumps({
         "type": "ai",
@@ -696,7 +880,7 @@ def ai_next_suggestion(payload: AISuggestionRequest, db: Session = Depends(get_d
     return AISuggestionResponse(message=msg, next_weight=None, next_reps=None)
 
 @app.post("/api/seed")
-def seed_data(db: Session = Depends(get_db)):
+def seed_data(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     logger.info(json.dumps({"type": "seed", "event": "start"}))
     # Seed exercise library if empty
     if db.query(ExerciseLibrary).count() == 0:
@@ -772,24 +956,29 @@ def seed_data(db: Session = Depends(get_db)):
         db.add_all(sample)
         db.commit()
 
-    # Seed a sample context + template if none
-    if db.query(Context).count() == 0:
-        ctx = Context(name="Home Gym", description="Basement setup", equipment_tags=json.dumps(["bench","barbell","dumbbell","cable"]))
+    # Seed a sample context + template if none for this user
+    if db.query(Context).filter(Context.user_id == current_user.id).count() == 0:
+        ctx = Context(
+            name="Home Gym",
+            description="Basement setup",
+            equipment_tags=json.dumps(["bench","barbell","dumbbell","cable"]),
+            user_id=current_user.id,
+        )
         db.add(ctx)
         db.commit()
         db.refresh(ctx)
 
-        tpl = WorkoutTemplate(context_id=ctx.id, name="Push Day A", type=RoutineType.strength, order=0)
+        tpl = WorkoutTemplate(context_id=ctx.id, name="Push Day A", type=RoutineType.strength, order=0, user_id=current_user.id)
         db.add(tpl)
         db.commit()
         db.refresh(tpl)
 
         exercises = [
-            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Bench Press"), name="Bench Press", sets_target=4, reps_target=10, start_weight=135, rest_seconds=120, order=0),
-            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Incline Dumbbell Press"), name="Incline Dumbbell Press", sets_target=3, reps_target=10, start_weight=40, rest_seconds=90, order=1),
-            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Cable Flyes"), name="Cable Flyes", sets_target=3, reps_target=15, start_weight=20, rest_seconds=75, order=2),
-            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Overhead Press"), name="Overhead Press", sets_target=3, reps_target=8, start_weight=65, rest_seconds=120, order=3),
-            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Tricep Pushdown"), name="Tricep Pushdown", sets_target=3, reps_target=12, start_weight=30, rest_seconds=60, order=4),
+            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Bench Press"), name="Bench Press", sets_target=4, reps_target=10, start_weight=135, rest_seconds=120, order=0, user_id=current_user.id),
+            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Incline Dumbbell Press"), name="Incline Dumbbell Press", sets_target=3, reps_target=10, start_weight=40, rest_seconds=90, order=1, user_id=current_user.id),
+            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Cable Flyes"), name="Cable Flyes", sets_target=3, reps_target=15, start_weight=20, rest_seconds=75, order=2, user_id=current_user.id),
+            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Overhead Press"), name="Overhead Press", sets_target=3, reps_target=8, start_weight=65, rest_seconds=120, order=3, user_id=current_user.id),
+            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Tricep Pushdown"), name="Tricep Pushdown", sets_target=3, reps_target=12, start_weight=30, rest_seconds=60, order=4, user_id=current_user.id),
         ]
         db.add_all(exercises)
         db.commit()
@@ -908,7 +1097,7 @@ class AITrainerAdjustmentBatch(BaseModel):
 
 
 @app.post("/api/ai-trainer/adjustments/batch", response_model=List[AITrainerAdjustmentOut])
-def save_ai_trainer_adjustments(payload: AITrainerAdjustmentBatch, db: Session = Depends(get_db)):
+def save_ai_trainer_adjustments(payload: AITrainerAdjustmentBatch, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     session = db.query(WorkoutSession).filter(WorkoutSession.id == payload.session_id).first()
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
@@ -942,8 +1131,8 @@ def save_ai_trainer_adjustments(payload: AITrainerAdjustmentBatch, db: Session =
 
 
 @app.get("/api/ai-trainer/adjustments", response_model=List[AITrainerAdjustmentOut])
-def list_ai_trainer_adjustments(session_id: Optional[int] = None, db: Session = Depends(get_db)):
-    q = db.query(AITrainerAdjustment)
+def list_ai_trainer_adjustments(session_id: Optional[int] = None, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    q = db.query(AITrainerAdjustment).filter(AITrainerAdjustment.user_id == current_user.id)
     if session_id:
         q = q.filter(AITrainerAdjustment.session_id == session_id)
     return q.order_by(AITrainerAdjustment.created_at.desc()).limit(200).all()
@@ -987,19 +1176,19 @@ class WorkoutLibraryImportOut(BaseModel):
         from_attributes = True
 
 @app.get("/api/workout-library", response_model=List[WorkoutLibraryOut])
-def list_workout_library(db: Session = Depends(get_db)):
-    return db.query(WorkoutLibrary).all()
+def list_workout_library(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    return db.query(WorkoutLibrary).filter(WorkoutLibrary.user_id == current_user.id).all()
 
 @app.get("/api/workout-library/{library_id}", response_model=WorkoutLibraryOut)
-def get_workout_library(library_id: int, db: Session = Depends(get_db)):
-    w = db.query(WorkoutLibrary).filter(WorkoutLibrary.id == library_id).first()
+def get_workout_library(library_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    w = db.query(WorkoutLibrary).filter(WorkoutLibrary.id == library_id, WorkoutLibrary.user_id == current_user.id).first()
     if not w:
         raise HTTPException(status_code=404, detail="Workout not found")
     return w
 
 @app.post("/api/workout-library/import", response_model=WorkoutLibraryImportOut)
-def import_workout_library(payload: WorkoutLibraryImportIn, db: Session = Depends(get_db)):
-    w = db.query(WorkoutLibrary).filter(WorkoutLibrary.id == payload.library_id).first()
+def import_workout_library(payload: WorkoutLibraryImportIn, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    w = db.query(WorkoutLibrary).filter(WorkoutLibrary.id == payload.library_id, WorkoutLibrary.user_id == current_user.id).first()
     if not w:
         raise HTTPException(status_code=404, detail="Workout not found")
 
@@ -1044,15 +1233,17 @@ def import_workout_library(payload: WorkoutLibraryImportIn, db: Session = Depend
     return WorkoutLibraryImportOut(context_id=ctx.id, template_id=tpl.id, exercises_imported=len(created))
 
 @app.get("/api/settings/{key}", response_model=SettingOut)
-def get_setting(key: str, db: Session = Depends(get_db)):
-    s = db.query(AppSetting).filter(AppSetting.key == key).first()
+def get_setting(key: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    print(f"[settings] GET /api/settings/{key} user={current_user.id}")
+    s = db.query(AppSetting).filter(AppSetting.key == key, AppSetting.user_id == current_user.id).first()
     return SettingOut(key=key, value=s.value if s else None)
 
 @app.put("/api/settings/{key}", response_model=SettingOut)
-def put_setting(key: str, payload: SettingOut, db: Session = Depends(get_db)):
-    s = db.query(AppSetting).filter(AppSetting.key == key).first()
+def put_setting(key: str, payload: SettingOut, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    print(f"[settings] PUT /api/settings/{key} user={current_user.id} value={payload.value!r}")
+    s = db.query(AppSetting).filter(AppSetting.key == key, AppSetting.user_id == current_user.id).first()
     if not s:
-        s = AppSetting(key=key, value=payload.value)
+        s = AppSetting(key=key, value=payload.value, user_id=current_user.id)
         db.add(s)
     else:
         s.value = payload.value
@@ -1061,8 +1252,9 @@ def put_setting(key: str, payload: SettingOut, db: Session = Depends(get_db)):
     return SettingOut(key=s.key, value=s.value)
 
 @app.get("/api/settings", response_model=List[SettingOut])
-def list_settings(db: Session = Depends(get_db)):
-    settings = db.query(AppSetting).all()
+def list_settings(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    print(f"[settings] GET /api/settings user={current_user.id}")
+    settings = db.query(AppSetting).filter(AppSetting.user_id == current_user.id).all()
     return [SettingOut(key=s.key, value=s.value) for s in settings]
 
 # --- Helpers ---

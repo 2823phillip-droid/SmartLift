@@ -155,6 +155,7 @@ Next (business build-out):
 - [ ] Stripe subscriptions
 - [ ] AI coaching endpoint (currently a UI stub)
 - [ ] Mac Studio: local AI model for coaching
+- [ ] Meal prep tracking / nutrition logging
 - [ ] TestFlight / App Store launch
 - [ ] Git remote for easier Mac syncing
 

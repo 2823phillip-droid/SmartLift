@@ -16,30 +16,47 @@ export default function SettingsScreen({ onBack, onModeChange }: { onBack: () =>
     let cancelled = false;
     setLoading(true);
     setSettingsError(null);
-    initApiBaseFromSettings().then(async () => {
+
+    const load = async () => {
+      try {
+        await initApiBaseFromSettings();
+      } catch {
+        // non-fatal: request() still falls back to LAN/env if apiBase is missing
+      }
       if (cancelled) return;
       setApiBaseState(getApiBase());
       try {
         const items = await api.listSettings();
         const map: Record<string, string> = {};
         items.forEach((s: SettingItem) => { if (s.value != null) map[s.key] = s.value; });
-        setSettings(map);
+        if (!cancelled) setSettings(map);
       } catch (err) {
         if (!cancelled) setSettingsError((err as Error)?.message || "Failed to load settings");
       } finally {
         if (!cancelled) setLoading(false);
       }
-    });
+    };
+
+    load();
     return () => { cancelled = true; };
   }, []);
 
   const save = async (key: string) => {
+    const mode = settings[key] ?? "";
     setSaving(key);
     setSaved(null);
-    await api.setSetting(key, settings[key] ?? "");
-    setSaving(null);
-    setSaved(key);
-    setTimeout(() => setSaved(null), 1500);
+    try {
+      await api.setSetting(key, mode);
+      setSaved(key);
+      setSettingsError(null);
+      setTimeout(() => setSaved(null), 1500);
+    } catch (err) {
+      const msg = (err as Error)?.message || `Failed to save ${key}`;
+      setSettingsError(msg);
+      console.error("[SettingsScreen] save error", key, msg);
+    } finally {
+      setSaving(null);
+    }
   };
 
   const updateApiBase = async () => {
@@ -79,7 +96,8 @@ export default function SettingsScreen({ onBack, onModeChange }: { onBack: () =>
         <div className="text-center text-slate-500 py-10">Loading settings...</div>
       ) : settingsError ? (
         <div className="text-center space-y-3 py-10">
-          <p className="text-red-400 text-sm">{settingsError}</p>
+          <p className="text-red-400 text-sm font-mono break-words">{settingsError}</p>
+          <p className="text-slate-500 text-xs">API: {apiBaseState || "(none)"}</p>
           <button
             onClick={() => {
               setSettingsError(null);
@@ -88,7 +106,7 @@ export default function SettingsScreen({ onBack, onModeChange }: { onBack: () =>
                 const map: Record<string, string> = {};
                 items.forEach((s) => { if (s.value != null) map[s.key] = s.value; });
                 setSettings(map);
-              }).catch((err) => setSettingsError(err?.message || "Failed again"));
+              }).catch((err) => setSettingsError((err as Error)?.message || "Failed again"));
             }}
             className="rounded-xl bg-slate-800 px-4 py-2 text-sm hover:bg-slate-700"
           >
@@ -200,9 +218,10 @@ export default function SettingsScreen({ onBack, onModeChange }: { onBack: () =>
               {(["manual", "ai_trainer"] as const).map((mode) => (
                 <button
                   key={mode}
-                  onClick={() => {
+                  onClick={async () => {
                     setSettings((s) => ({ ...s, workout_mode: mode }));
-                    save("workout_mode").then(() => onModeChange?.(mode));
+                    await save("workout_mode");
+                    onModeChange?.(mode);
                   }}
                   className={`flex-1 rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${
                     (settings["workout_mode"] ?? "manual") === mode
