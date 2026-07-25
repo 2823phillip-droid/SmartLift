@@ -632,6 +632,7 @@ def search_exercise_library(q: str = "", db: Session = Depends(get_db), current_
 @app.post("/api/sessions", response_model=SessionOut)
 def create_session(payload: SessionCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     session = WorkoutSession(
+        user_id=current_user.id,
         template_id=payload.template_id,
         pre_workout_mood=payload.pre_workout_mood,
         pre_workout_tags=json.dumps(payload.pre_workout_tags or []),
