@@ -12,50 +12,130 @@ export function setApiBase(next: string) {
 
 async function request(path: string, options: RequestInit = {}) {
   const base = apiBase || import.meta.env.VITE_API_BASE || "http://192.168.1.111:8000/api";
-  const res = await fetch(`${base}${path}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...options.headers,
-    },
-  });
-  if (!res.ok) {
-    const text = await res.text();
-    const error = new Error(`API error ${res.status}: ${text}`);
-    captureError(error, {
-      context: { path, method: options.method, status: res.status },
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 4000);
+  try {
+    const res = await fetch(`${base}${path}`, {
+      ...options,
+      signal: controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...options.headers,
+      },
     });
-    throw error;
+    if (!res.ok) {
+      const text = await res.text();
+      const error = new Error(`API error ${res.status}: ${text}`);
+      captureError(error, {
+        context: { path, method: options.method, status: res.status },
+      });
+      throw error;
+    }
+    if (res.status === 204) return null;
+    return res.json();
+  } catch (err) {
+    // Auto-fallback to LAN if the chosen base is dead
+    if (base !== "http://192.168.1.111:8000/api") {
+      try {
+        const fallbackController = new AbortController();
+        const fallbackTimer = setTimeout(() => fallbackController.abort(), 3500);
+        const fallbackRes = await fetch(`http://192.168.1.111:8000/api${path}`, {
+          ...options,
+          signal: fallbackController.signal,
+          headers: {
+            "Content-Type": "application/json",
+            ...options.headers,
+          },
+        });
+        clearTimeout(fallbackTimer);
+        if (fallbackRes.ok) {
+          apiBase = "http://192.168.1.111:8000/api";
+          if (fallbackRes.status === 204) return null;
+          return fallbackRes.json();
+        }
+      } catch {
+        // fall through
+      }
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
   }
-  if (res.status === 204) return null;
-  return res.json();
+}
+
+async function probe(base: string): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    const test = await fetch(`${base}/settings/${encodeURIComponent("api_base")}`, { signal: controller.signal });
+    clearTimeout(timer);
+    return test.ok;
+  } catch {
+    return false;
+  }
+}
+
+async function fetchWithTimeout(url: string): Promise<Response | null> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2500);
+    const res = await fetch(url, { signal: controller.signal });
+    clearTimeout(timer);
+    return res;
+  } catch {
+    return null;
+  }
 }
 
 export async function initApiBaseFromSettings() {
-  try {
-    const defaultBase = import.meta.env.VITE_API_BASE || "http://192.168.1.111:8000/api";
-    const res = await fetch(`${defaultBase}/settings/${encodeURIComponent("api_base")}`);
-    if (res.ok) {
-      const data = await res.json();
+  const candidates: string[] = [];
+
+  // 1) LAN default first — fastest on WiFi and avoids dead tunnel first-hop
+  candidates.push("http://192.168.1.111:8000/api");
+
+  // 2) baked env var from build
+  const envBase = import.meta.env.VITE_API_BASE;
+  if (envBase) candidates.push(envBase);
+
+  // 3) stored backend setting
+  const storedBase = envBase || "http://192.168.1.111:8000/api";
+  const storedRes = await fetchWithTimeout(`${storedBase}/settings/${encodeURIComponent("api_base")}`);
+  if (storedRes?.ok) {
+    try {
+      const data = await storedRes.json();
       const value = data?.value;
       if (value && typeof value === "string") {
         const candidate = value.trim().replace(/\/$/, "");
         if (/^https?:\/\//i.test(candidate) && candidate.length > 7) {
-          // probe: if candidate base is actually reachable, use it; otherwise ignore it
-          try {
-            const test = await fetch(`${candidate}/settings/${encodeURIComponent("api_base")}`);
-            if (test.ok) {
-              apiBase = candidate;
-              return;
-            }
-          } catch {
-            // bad stored base; fall back to default
-          }
+          candidates.unshift(candidate);
         }
       }
+    } catch {
+      // ignore bad JSON
     }
-  } catch {
-    // keep default
+  }
+
+  // dedupe preserving order
+  const seen = new Set<string>();
+  const unique = candidates.filter((c) => {
+    const k = c.replace(/\/$/, "");
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+
+  let found = false;
+  for (const candidate of unique) {
+    if (await probe(candidate)) {
+      apiBase = candidate.replace(/\/$/, "");
+      found = true;
+      break;
+    }
+  }
+
+  // fallback: if nothing responded, still set to LAN so subsequent requests have a target
+  if (!found) {
+    apiBase = "http://192.168.1.111:8000/api";
   }
 }
 
@@ -82,6 +162,7 @@ export const api = {
       body: JSON.stringify(data),
     }),
   getExercises: (templateId: number) => request(`/templates/${templateId}/exercises`),
+  getAllExercises: () => request("/exercises"),
   createExercise: (data: {
     template_id: number;
     exercise_library_id?: number;
@@ -115,6 +196,9 @@ export const api = {
       body: JSON.stringify(data),
     }),
   deleteExercise: (id: number) => request(`/exercises/${id}`, { method: "DELETE" }),
+  getExerciseProgress: (exerciseEntryId: number) => request(`/exercises/${exerciseEntryId}/progress`),
+  getExerciseNameProgress: (name: string) => request(`/exercise-names/${encodeURIComponent(name)}/progress`),
+  getExerciseNames: () => request("/exercise-names"),
   searchExerciseLibrary: (q = "") => request(`/exercise-library?${q ? `q=${encodeURIComponent(q)}` : ""}`),
 
   getWorkoutLibrary: () => request("/workout-library"),
@@ -174,6 +258,14 @@ export const api = {
 
   seed: () => request("/seed", { method: "POST" }),
 
+  getBodyWeightLogs: () => request("/body-weight"),
+  createBodyWeightLog: (data: { weight_lbs: number; notes?: string }) =>
+    request("/body-weight", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  deleteBodyWeightLog: (id: number) => request(`/body-weight/${id}`, { method: "DELETE" }),
+
   getSetting: (key: string) => request(`/settings/${encodeURIComponent(key)}`),
   setSetting: (key: string, value: string) =>
     request(`/settings/${encodeURIComponent(key)}`, {
@@ -181,4 +273,28 @@ export const api = {
       body: JSON.stringify({ key, value }),
     }),
   listSettings: () => request("/settings"),
+  saveAITrainerAdjustments: (data: {
+    session_id: number;
+    template_id?: number;
+    total_volume?: number;
+    total_sets?: number;
+    effort_avg?: number;
+    adjustments: Array<{
+      exercise_entry_id?: number;
+      exercise_name: string;
+      proposed_weight?: number;
+      proposed_reps?: number;
+      proposed_sets?: number;
+      proposed_rest_seconds?: number;
+      proposed_order?: number;
+      effort_avg?: number;
+      progression_type?: string;
+    }>;
+  }) =>
+    request("/ai-trainer/adjustments/batch", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  listAITrainerAdjustments: (sessionId?: number) =>
+    request(`/ai-trainer/adjustments${sessionId ? `?session_id=${sessionId}` : ""}`),
 };

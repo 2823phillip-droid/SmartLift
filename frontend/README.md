@@ -1,32 +1,67 @@
-# React + TypeScript + Vite
+# SmartLift Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+React + TypeScript + Vite mobile-first app, wrapped with Capacitor for iOS distribution.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Vite + React 19 + TypeScript
+- Tailwind CSS v4
+- Ionicons
+- Capacitor (iOS)
+- Recharts (weight-over-time graphs)
 
-## React Compiler
+## Quick Start
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+npm install
+npm run dev    # :5173
+npm run build  # dist/ -> Capacitor webDir
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+## API Configuration
+
+Reads backend base URL from `VITE_API_BASE`. On dev/Linux:
+
+```
+VITE_API_BASE=http://192.168.1.111:8000/api
+```
+
+For iOS / tunnel, use the URL stored in backend settings / Cloudflare tunnel.
+
+## Project Structure
+
+```
+src/
+├── api/             # HTTP client + endpoints
+├── components/      # Reusable UI
+├── widgets/         # Page sections (Home, History, Settings)
+├── App.tsx          # Router + layout
+└── main.tsx         # Entry
+```
+
+## Screens
+
+- **Home** — Start Workout from routine, recent activity
+- **History** — Tabs: By workout / By date / By exercise
+- **Settings** — Body-weight quick log, API config
+
+## iOS Build
+
+From Linux:
+
+1. Build: `npm run build`
+2. Push source to MacBook
+3. On Mac: `npm install && npm run build`
+4. `./node_modules/.bin/cap add ios`
+5. `./node_modules/.bin/cap sync ios`
+6. `./node_modules/.bin/cap open ios`
+7. Xcode → Play
+
+## Styling
+
+- Mobile-first layouts; safe-area padding on full-width headers.
+- `viewport-fit=cover` + `env(safe-area-inset-*)` for notch devices.
+
+## License
+
+Private — all rights reserved.

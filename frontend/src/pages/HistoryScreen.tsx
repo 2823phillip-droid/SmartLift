@@ -1,6 +1,15 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { api } from "../api";
 import type { WorkoutSession, SetLog, CoachMessage } from "../types";
+import {
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+} from "recharts";
 
 type SessionDetail = {
   session: WorkoutSession;
@@ -8,15 +17,65 @@ type SessionDetail = {
   messages: CoachMessage[];
 };
 
-export default function HistoryScreen({ onBack, viewMode: initialViewMode = "by_workout" }: { onBack: () => void; viewMode?: "by_workout" | "by_date" | "by_exercise" }) {
+type Timeframe = "week" | "3m" | "6m" | "1y" | "5y" | "all";
+
+const TIMEFRAMES: { key: Timeframe; label: string }[] = [
+  { key: "week", label: "Week" },
+  { key: "3m", label: "3M" },
+  { key: "6m", label: "6M" },
+  { key: "1y", label: "1Y" },
+  { key: "5y", label: "5Y" },
+  { key: "all", label: "All" },
+];
+
+const TIMEFRAME_MS: Record<Timeframe, number> = {
+  week: 7 * 24 * 60 * 60 * 1000,
+  "3m": 90 * 24 * 60 * 60 * 1000,
+  "6m": 180 * 24 * 60 * 60 * 1000,
+  "1y": 365 * 24 * 60 * 60 * 1000,
+  "5y": 1825 * 24 * 60 * 60 * 1000,
+  all: Infinity,
+};
+
+function filterPoints(
+  points: { date: string; weight: number; reps: number }[],
+  timeframe: Timeframe
+) {
+  if (timeframe === "all") return points;
+  const cutoff = Date.now() - TIMEFRAME_MS[timeframe];
+  return points.filter((p) => new Date(p.date).getTime() >= cutoff);
+}
+
+export default function HistoryScreen({
+  onBack,
+  viewMode: initialViewMode = "by_workout",
+}: {
+  onBack: () => void;
+  viewMode?: "by_workout" | "by_date" | "by_exercise";
+}) {
   const [viewMode, setViewMode] = useState(initialViewMode);
   const [sessions, setSessions] = useState<WorkoutSession[]>([]);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [details, setDetails] = useState<Record<number, SessionDetail>>({});
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [timeframe, setTimeframe] = useState<Timeframe>("all");
+  const [exerciseMap, setExerciseMap] = useState<Record<number, string>>({});
 
   useEffect(() => {
     api.getSessions().then(setSessions);
+  }, []);
+
+  useEffect(() => {
+    api
+      .getAllExercises()
+      .then((items: any[]) => {
+        const map: Record<number, string> = {};
+        items.forEach((e) => {
+          map[e.id] = e.name || `Exercise ${e.id}`;
+        });
+        setExerciseMap(map);
+      })
+      .catch(() => {});
   }, []);
 
   const expand = async (id: number) => {
@@ -68,22 +127,22 @@ export default function HistoryScreen({ onBack, viewMode: initialViewMode = "by_
         }, {})
       : null;
 
-  const exerciseHistory = (() => {
+  const exerciseHistory = useMemo(() => {
     if (viewMode !== "by_exercise") return null;
-    const map = new Map<string, { date: string; weight: number; reps: number; sessionId: number }[]>();
+    const map = new Map<string, { date: string; weight: number; reps: number }[]>();
     for (const session of sessions) {
       const detail = details[session.id];
       if (!detail?.logs?.length) continue;
       const date = formatDateOnly(session.started_at);
       for (const log of detail.logs) {
-        const key = `Set ${log.set_index}`;
-        const arr = map.get(key) || [];
-        arr.push({ date, weight: log.actual_weight || 0, reps: log.actual_reps || 0, sessionId: session.id });
-        map.set(key, arr);
+        const name = exerciseMap[log.exercise_entry_id] || `Exercise ${log.exercise_entry_id}`;
+        const arr = map.get(name) || [];
+        arr.push({ date, weight: log.actual_weight || 0, reps: log.actual_reps || 0 });
+        map.set(name, arr);
       }
     }
     return map;
-  })();
+  }, [viewMode, sessions, details, exerciseMap]);
 
   return (
     <div className="space-y-4">
@@ -115,41 +174,124 @@ export default function HistoryScreen({ onBack, viewMode: initialViewMode = "by_
 
       {viewMode === "by_exercise" && exerciseHistory && (
         <div className="space-y-4">
-          {[...exerciseHistory.entries()].map(([setKey, entries]) => {
-            const sorted = entries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-            const max = Math.max(...sorted.map((e) => e.weight));
-            const graphHeight = 140;
-            const points = sorted
-              .map((e, idx) => {
-                const x = sorted.length > 1 ? (idx / (sorted.length - 1)) * 340 : 170;
-                const y = graphHeight - (e.weight / (max || 1)) * graphHeight;
-                return `${x},${y}`;
-              })
-              .join(" ");
-            return (
-              <div key={setKey} className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
-                <div className="font-semibold text-sm">{setKey}</div>
-                <div className="text-xs text-slate-400">Weight over time</div>
-                <svg viewBox={`0 0 340 ${graphHeight}`} className="w-full h-auto">
-                  <polyline fill="none" stroke="rgb(99 102 241)" strokeWidth="2" points={points} />
-                  {sorted.map((e, idx) => {
-                    const x = sorted.length > 1 ? (idx / (sorted.length - 1)) * 340 : 170;
-                    const y = graphHeight - (e.weight / (max || 1)) * graphHeight;
-                    return (
-                      <g key={idx}>
-                        <circle cx={x} cy={y} r="3" fill="rgb(99 102 241)" />
-                        <title>{`${e.date}: ${e.weight} lbs × ${e.reps} reps`}</title>
-                      </g>
-                    );
-                  })}
-                </svg>
-                <div className="flex justify-between text-[10px] text-slate-500 px-1">
-                  {sorted.length > 0 && <span>{sorted[0].date}</span>}
-                  {sorted.length > 1 && <span>{sorted[sorted.length - 1].date}</span>}
+          <div className="flex flex-wrap gap-2">
+            {TIMEFRAMES.map((t) => (
+              <button
+                key={t.key}
+                onClick={() => setTimeframe(t.key)}
+                className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
+                  timeframe === t.key
+                    ? "bg-indigo-600 text-white"
+                    : "border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {[...exerciseHistory.entries()]
+            .map(([name, entries]) => ({ name, entries: filterPoints(entries, timeframe) }))
+            .filter((entry) => entry.entries.length > 0)
+            .sort((a, b) => b.name.localeCompare(a.name))
+            .map(({ name, entries }) => {
+              const sorted = entries.sort(
+                (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+              );
+              const chartData = sorted.map((e) => ({
+                date: e.date,
+                weight: e.weight,
+                reps: e.reps,
+                shortDate: new Date(e.date).toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                }),
+              }));
+
+              return (
+                <div key={name} className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-2">
+                  <div className="font-semibold text-sm">{name}</div>
+                  <div className="text-xs text-slate-400">Weight over time</div>
+                  {chartData.length > 1 ? (
+                    <div className="h-48 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="setFill" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="5%" stopColor="rgb(99,102,241)" stopOpacity={0.1} />
+                              <stop offset="95%" stopColor="rgb(99,102,241)" stopOpacity={0} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" stroke="rgba(148,163,184,0.12)" vertical={false} />
+                          <XAxis
+                            dataKey="shortDate"
+                            tick={{ fontSize: 10, fill: "#94a3b8" }}
+                            axisLine={{ stroke: "rgba(148,163,184,0.2)" }}
+                            tickLine={false}
+                            minTickGap={40}
+                          />
+                          <YAxis
+                            tickFormatter={(v: number) => `${Math.round(v)} lbs`}
+                            tick={{ fontSize: 10, fill: "#94a3b8" }}
+                            axisLine={false}
+                            tickLine={false}
+                            width={55}
+                          />
+                          <Tooltip
+                            formatter={(value: any) => [`${Math.round(value)} lbs`, "Weight"]}
+                            labelFormatter={(label) => {
+                              const pt = chartData.find((d) => d.shortDate === label);
+                              return pt ? pt.date : label;
+                            }}
+                            contentStyle={{
+                              backgroundColor: "#0f172a",
+                              border: "1px solid #1e293b",
+                              borderRadius: "8px",
+                              fontSize: "11px",
+                            }}
+                            labelStyle={{ color: "#94a3b8" }}
+                            itemStyle={{ color: "#e2e8f0" }}
+                          />
+                          <Line
+                            type="monotone"
+                            dataKey="weight"
+                            stroke="rgb(99,102,241)"
+                            strokeWidth={2}
+                            dot={{ r: 3, fill: "rgb(99,102,241)" }}
+                            activeDot={{ r: 5 }}
+                          />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  ) : chartData.length === 1 ? (
+                    <div className="text-xs text-slate-500 text-center py-3">
+                      {chartData[0].shortDate}: {chartData[0].weight} lbs
+                    </div>
+                  ) : (
+                    <div className="text-xs text-slate-500 text-center py-3">No data</div>
+                  )}
+                  <div className="flex justify-between text-[10px] text-slate-500 px-1">
+                    {sorted.length > 0 && (
+                      <span>
+                        {new Date(sorted[0].date).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    )}
+                    {sorted.length > 1 && (
+                      <span>
+                        {new Date(sorted[sorted.length - 1].date).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        })}
+                      </span>
+                    )}
+                  </div>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
         </div>
       )}
 

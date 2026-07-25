@@ -1,8 +1,24 @@
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useMemo } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { GripVertical } from "lucide-react";
 import { api } from "../api";
-import type { ExerciseEntry, SetLog, WorkoutTemplate } from "../types";
-
-type SetSuggestion = { weight: number; reps: number; effort: number };
+import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
 
 export default function ActiveWorkoutScreen({
   sessionId,
@@ -11,59 +27,40 @@ export default function ActiveWorkoutScreen({
 }: {
   sessionId: number;
   templateId: number;
-  onEnd: () => void;
+  onEnd?: (summary?: {
+    exerciseOrder: number[];
+    setsTargetChanges: Record<number, number>;
+    restOverrides: Record<number, number>;
+    weightChanges: Record<number, number>;
+    repsChanges: Record<number, number>;
+    orderChanged: boolean;
+  }) => void;
 }) {
   const [exercises, setExercises] = useState<ExerciseEntry[]>([]);
   const [template, setTemplate] = useState<WorkoutTemplate | null>(null);
-  const [globalRest, setGlobalRest] = useState(90);
-  const [currentExerciseIndex, setCurrentExerciseIndex] = useState(0);
-  const [currentSet, setCurrentSet] = useState(1);
-  const [actualWeight, setActualWeight] = useState("");
-  const [actualReps, setActualReps] = useState("");
-  const [effort, setEffort] = useState(3);
   const [logs, setLogs] = useState<SetLog[]>([]);
-  const [suggestion, setSuggestion] = useState("");
-  const [restSeconds, setRestSeconds] = useState<number | null>(null);
-  const [timerMode, setTimerMode] = useState<"exercise" | "routine" | "global">("global");
-  const [customRest, setCustomRest] = useState("");
+  const [globalRest, setGlobalRest] = useState(90);
+  const [exerciseRestOverrides, setExerciseRestOverrides] = useState<Record<number, number>>({});
+  const [exerciseRestEditing, setExerciseRestEditing] = useState<Record<number, boolean>>({});
+  const [exerciseRestDraft, setExerciseRestDraft] = useState<Record<number, string>>({});
   const [workoutStart, setWorkoutStart] = useState<Date | null>(null);
   const [workoutElapsed, setWorkoutElapsed] = useState(0);
+  const [restSeconds, setRestSeconds] = useState<number | null>(null);
+
+  const [expandedExerciseId, setExpandedExerciseId] = useState<number | null>(null);
+  const [draftWeight, setDraftWeight] = useState("");
+  const [draftReps, setDraftReps] = useState("");
+  const [draftEffort, setDraftEffort] = useState(3);
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
+  const [addSetExerciseId, setAddSetExerciseId] = useState<number | null>(null);
+  const [displaySetsTarget, setDisplaySetsTarget] = useState<Record<number, number>>({});
+  const [lastSetByExercise, setLastSetByExercise] = useState<Record<number, {weight: number; reps: number} | null>>({});
+  const [originalExercises, setOriginalExercises] = useState<ExerciseEntry[]>([]);
+  const [isDragActive, setIsDragActive] = useState(false);
+
   const restTimerRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
-  const currentExercise = exercises[currentExerciseIndex];
-  const totalSets = currentExercise?.sets_target || 0;
-
-  const parseSetSuggestions = (entry?: ExerciseEntry): SetSuggestion[] => {
-    if (!entry?.per_set_data) return [];
-    try {
-      const parsed = JSON.parse(entry.per_set_data);
-      if (Array.isArray(parsed)) return parsed as SetSuggestion[];
-    } catch {
-      // ignore bad JSON
-    }
-    return [];
-  };
-
-  const setSuggestionFor = (setIndex: number): SetSuggestion | null => {
-    const suggestions = parseSetSuggestions(currentExercise);
-    const idx = Math.max(0, Math.min(setIndex - 1, suggestions.length - 1));
-    return suggestions[idx] || null;
-  };
-
-  const resolveRest = (): number => {
-    if (timerMode === "routine" && template?.default_rest_seconds && template.default_rest_seconds > 0) {
-      return template.default_rest_seconds;
-    }
-    if (timerMode === "global") return globalRest;
-    if (currentExercise?.rest_seconds && currentExercise.rest_seconds > 0) return currentExercise.rest_seconds;
-    if (template?.default_rest_seconds && template.default_rest_seconds > 0) return template.default_rest_seconds;
-    return globalRest;
-  };
-
-  const formattedRest = customRest === "" ? String(resolveRest()) : customRest;
-  const effectiveRestForTimer = Number(formattedRest);
 
   useEffect(() => {
     Promise.all([
@@ -84,14 +81,53 @@ export default function ActiveWorkoutScreen({
       if (session?.started_at) {
         setWorkoutStart(new Date(session.started_at));
       }
+      setOriginalExercises(exercisesData);
+
+      // auto-expand first incomplete exercise
+      if (exercisesData.length) {
+        const incomplete = exercisesData.find((e: ExerciseEntry) =>
+          setLogsData.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
+        );
+        if (incomplete) setExpandedExerciseId(incomplete.id);
+        else if (exercisesData.length) setExpandedExerciseId(exercisesData[0].id);
+      }
+      // fetch last logged weight/reps per exercise name across history
+      const uniqueNames = Array.from(new Set(exercisesData.map((e: ExerciseEntry) => e.name))) as string[];
+      const historyResults = await Promise.allSettled(
+        uniqueNames.map((name: string) => api.getExerciseNameProgress(name))
+      );
+      const resolved: Record<number, {weight: number; reps: number} | null> = {};
+      for (const exercise of exercisesData) {
+        const idx = uniqueNames.indexOf(exercise.name);
+        const result = idx >= 0 ? historyResults[idx] : undefined;
+        if (result && result.status === "fulfilled") {
+          const data = result.value as any;
+          if (!data.seeded && data.points && data.points.length > 0) {
+            const last = data.points[data.points.length - 1];
+            resolved[exercise.id] = { weight: last.weight, reps: last.reps };
+          } else {
+            resolved[exercise.id] = null;
+          }
+        } else {
+          resolved[exercise.id] = null;
+        }
+      }
+      setLastSetByExercise(resolved);
     });
   }, [sessionId, templateId]);
 
   useEffect(() => {
     if (!workoutStart) return;
+    let lastElapsed = 0;
     const tick = () => {
-      const elapsed = Math.floor((Date.now() - workoutStart.getTime()) / 1000);
-      setWorkoutElapsed(elapsed > 0 ? elapsed : 0);
+      const direct = Math.floor((Date.now() - workoutStart.getTime()) / 1000);
+      if (direct > 0) {
+        lastElapsed = direct;
+        setWorkoutElapsed(direct);
+      } else {
+        lastElapsed += 1;
+        setWorkoutElapsed(lastElapsed);
+      }
     };
     tick();
     elapsedTimerRef.current = window.setInterval(tick, 1000);
@@ -110,12 +146,80 @@ export default function ActiveWorkoutScreen({
         .aiNextSuggestion({
           session_id: sessionId,
           context: "",
-          current_exercise_name: currentExercise?.name || "",
+          current_exercise_name: getCurrentExercise()?.name || "",
           last_set_effort: lastLog.effort,
         })
-        .then((res) => setSuggestion(res.message));
+        .then(() => {
+          // suggestions shown per-exercise in UI
+        });
     }
   }, [logs.length]);
+
+  const getCurrentExercise = (): ExerciseEntry | undefined => {
+    return exercises.find((e) => e.id === expandedExerciseId);
+  };
+
+  const parseSetSuggestions = (entry?: ExerciseEntry): SetSuggestion[] => {
+    if (!entry?.per_set_data) return [];
+    try {
+      const parsed = JSON.parse(entry.per_set_data);
+      if (Array.isArray(parsed)) return parsed as SetSuggestion[];
+    } catch {
+      // ignore bad JSON
+    }
+    return [];
+  };
+
+  const exerciseCompletedCount = useMemo(() => {
+    const counts: Record<number, number> = {};
+    for (const log of logs) {
+      counts[log.exercise_entry_id] = (counts[log.exercise_entry_id] || 0) + 1;
+    }
+    return counts;
+  }, [logs]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function handleDragStart() {
+    setIsDragActive(true);
+    setExpandedExerciseId(null);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setIsDragActive(false);
+    if (!over || active.id === over.id) return;
+    setExercises((prev) => {
+      const activeIndex = prev.findIndex((e) => e.id === active.id);
+      const overIndex = prev.findIndex((e) => e.id === over.id);
+      return arrayMove(prev, activeIndex, overIndex);
+    });
+  }
+
+  function handleDragCancel() {
+    setIsDragActive(false);
+  }
+
+  const resolveDisplayTarget = (exercise: ExerciseEntry): number => {
+    return displaySetsTarget[exercise.id] ?? exercise.sets_target;
+  };
+
+  const allDone = useMemo(() => {
+    return exercises.length > 0 && exercises.every(e => (exerciseCompletedCount[e.id] || 0) >= resolveDisplayTarget(e));
+  }, [exercises, exerciseCompletedCount, displaySetsTarget]);
+
+  const resolveRest = (): number => {
+    const currentExercise = getCurrentExercise();
+    if (currentExercise && exerciseRestOverrides[currentExercise.id]) {
+      return exerciseRestOverrides[currentExercise.id];
+    }
+    return globalRest;
+  };
+
+  const currentRest = resolveRest();
 
   const clearRestTimer = () => {
     if (restTimerRef.current) {
@@ -124,69 +228,9 @@ export default function ActiveWorkoutScreen({
     }
   };
 
-  const logSet = async () => {
-    if (!currentExercise || !actualWeight || !actualReps) return;
-    const w = parseFloat(actualWeight);
-    const r = parseInt(actualReps, 10);
-    const setSugg = setSuggestionFor(currentSet);
-    const log = await api.createSetLog({
-      session_id: sessionId,
-      exercise_entry_id: currentExercise.id,
-      set_index: currentSet,
-      suggested_weight: setSugg?.weight ?? currentExercise.start_weight,
-      suggested_reps: setSugg?.reps ?? currentExercise.reps_target,
-      actual_weight: w,
-      actual_reps: r,
-      effort,
-      notes: notes || undefined,
-    });
-    setLogs((l) => [...l, log]);
-    setNotes("");
-    setShowNotes(false);
-
-    await api.createCoachMessage({
-      session_id: sessionId,
-      role: "in_workout",
-      content:
-        effort <= 2
-          ? `Set ${currentSet} done at ${w}x${r}, effort ${effort}. We'll push a bit harder next set.`
-          : effort >= 4
-          ? `Set ${currentSet} done at ${w}x${r}, effort ${effort}. Great work.`
-          : `Set ${currentSet} done at ${w}x${r}, effort ${effort}. Solid.`,
-    });
-
-    const rest = Number(formattedRest);
-
-    if (currentSet >= totalSets) {
-      if (currentExerciseIndex < exercises.length - 1) {
-        setCurrentExerciseIndex((i) => i + 1);
-        setCurrentSet(1);
-        setActualWeight("");
-        setActualReps("");
-        setEffort(3);
-        if (rest > 0) startRest(rest);
-      } else {
-        await api.endSession(sessionId);
-        await api.createCoachMessage({
-          session_id: sessionId,
-          role: "post_workout",
-          content: `Workout complete. ${logs.length + 1} total sets logged. Great session.`,
-        });
-        onEnd();
-      }
-    } else {
-      setCurrentSet((s) => s + 1);
-      setActualWeight("");
-      setActualReps("");
-      setEffort(3);
-      if (rest > 0) startRest(rest);
-    }
-  };
-
   const startRest = (seconds: number) => {
     clearRestTimer();
     setRestSeconds(seconds);
-    setCustomRest("");
     let remaining = seconds;
     restTimerRef.current = window.setInterval(() => {
       remaining -= 1;
@@ -198,55 +242,152 @@ export default function ActiveWorkoutScreen({
     }, 1000);
   };
 
-  useEffect(() => {
-    return clearRestTimer;
-  }, []);
-
-  if (!currentExercise) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-        <div className="w-16 h-16 rounded-full bg-emerald-950/50 border border-emerald-800 flex items-center justify-center">
-          <svg className="w-8 h-8 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <h2 className="text-2xl font-bold">Workout Complete</h2>
-        <button
-          onClick={onEnd}
-          className="rounded-2xl bg-emerald-600 px-6 py-4 font-semibold text-base hover:bg-emerald-500 active:scale-95 transition-all shadow-lg shadow-emerald-900/30"
-        >
-          See Summary
-        </button>
-      </div>
-    );
-  }
-
-  const currentSetSuggestion = setSuggestionFor(currentSet);
-
-  const formatElapsed = (totalSeconds: number) => {
-    const h = Math.floor(totalSeconds / 3600);
-    const m = Math.floor((totalSeconds % 3600) / 60);
-    const s = totalSeconds % 60;
-    if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
-    return `${m}:${s.toString().padStart(2, "0")}`;
+  const expandExercise = (exercise: ExerciseEntry) => {
+    setExpandedExerciseId(exercise.id);
+    setAddSetExerciseId(null);
+    const history = lastSetByExercise[exercise.id];
+    setDraftWeight(history ? String(history.weight) : "0");
+    setDraftReps(history ? String(history.reps) : "0");
+    setDraftEffort(3);
+    setNotes("");
+    setShowNotes(false);
   };
 
-  const canLog = actualWeight && actualReps;
-  const isResting = restSeconds !== null && restSeconds > 0;
+  const toggleExerciseRestEdit = (exercise: ExerciseEntry, enabled: boolean) => {
+    if (enabled) {
+      setExerciseRestEditing((prev) => ({ ...prev, [exercise.id]: true }));
+      setExerciseRestDraft((prev) => ({
+        ...prev,
+        [exercise.id]: String(exerciseRestOverrides[exercise.id] ?? globalRest),
+      }));
+    } else {
+      setExerciseRestEditing((prev) => {
+        const next = { ...prev };
+        delete next[exercise.id];
+        return next;
+      });
+      setExerciseRestDraft((prev) => {
+        const next = { ...prev };
+        delete next[exercise.id];
+        return next;
+      });
+    }
+  };
+
+  const commitExerciseRest = (exercise: ExerciseEntry, value: string) => {
+    const val = parseInt(value, 10);
+    if (!Number.isNaN(val) && val >= 0) {
+      setExerciseRestOverrides((prev) => ({ ...prev, [exercise.id]: val }));
+    }
+  };
+
+  const logSet = async (): Promise<boolean> => {
+    const currentExercise = getCurrentExercise();
+    if (!currentExercise || !draftWeight || !draftReps) return false;
+    const w = parseFloat(draftWeight);
+    const r = parseInt(draftReps, 10);
+    const suggestions = parseSetSuggestions(currentExercise);
+    const existing = logs.filter((l: SetLog) => l.exercise_entry_id === currentExercise.id).length;
+    const setIndex = existing + 1;
+    const sugg = suggestions[setIndex - 1];
+    const isExtraSet = addSetExerciseId === currentExercise.id;
+
+    try {
+      const log = await api.createSetLog({
+        session_id: sessionId,
+        exercise_entry_id: currentExercise.id,
+        set_index: setIndex,
+        suggested_weight: sugg?.weight ?? currentExercise.start_weight,
+        suggested_reps: sugg?.reps ?? currentExercise.reps_target,
+        actual_weight: w,
+        actual_reps: r,
+        effort: draftEffort,
+        notes: notes || undefined,
+      });
+      setLogs((l) => [...l, log]);
+
+      await api.createCoachMessage({
+        session_id: sessionId,
+        role: "in_workout",
+        content:
+          draftEffort <= 2
+            ? `Set ${setIndex} done at ${w}x${r}, effort ${draftEffort}. We'll push a bit harder next set.`
+            : draftEffort >= 4
+            ? `Set ${setIndex} done at ${w}x${r}, effort ${draftEffort}. Great work.`
+            : `Set ${setIndex} done at ${w}x${r}, effort ${draftEffort}. Solid.`,
+      });
+    } catch (err) {
+      console.error("Failed to log set", err);
+      return false;
+    }
+
+    const rest = currentRest;
+
+    if (isExtraSet) {
+      setAddSetExerciseId(null);
+      setNotes("");
+      setShowNotes(false);
+      const history = lastSetByExercise[currentExercise.id];
+      setDraftWeight(history ? String(history.weight) : "0");
+      setDraftReps(history ? String(history.reps) : "0");
+      if (rest > 0) startRest(rest);
+      return false;
+    }
+
+    const displayTarget = resolveDisplayTarget(currentExercise);
+    const currentExerciseCompleted = (exerciseCompletedCount[currentExercise.id] || 0) + 1;
+    const exerciseIsDone = currentExerciseCompleted >= displayTarget;
+    const workoutIsDone = allDone || exercises.every(e => (exerciseCompletedCount[e.id] || 0) + (e.id === currentExercise.id ? 1 : 0) >= resolveDisplayTarget(e));
+
+    if (workoutIsDone) {
+      await endWorkout(1);
+      return true;
+    }
+
+    if (exerciseIsDone) {
+      setNotes("");
+      setShowNotes(false);
+      const next = exercises.find((e: ExerciseEntry) => e.id !== currentExercise.id && (exerciseCompletedCount[e.id] || 0) < resolveDisplayTarget(e));
+      if (next) {
+        expandExercise(next);
+        if (rest > 0) startRest(rest);
+      }
+      return true;
+    }
+
+    setNotes("");
+    setShowNotes(false);
+    if (!exerciseIsDone && !workoutIsDone) {
+      const history = lastSetByExercise[currentExercise.id];
+      setDraftWeight(history ? String(history.weight) : "0");
+      setDraftReps(history ? String(history.reps) : "0");
+    }
+    if (rest > 0) {
+      startRest(rest);
+    }
+    return false;
+  };
 
   const nextSetDuringRest = (): { name: string; set: number; weight: number | string; reps: number | string } | null => {
-    if (!isResting) return null;
-    // Completed set logic mirrors logSet
-    if (currentSet < totalSets) {
+    if (!restSeconds || restSeconds <= 0) return null;
+    const currentExercise = getCurrentExercise();
+    if (!currentExercise) return null;
+    const existing = logs.filter(l => l.exercise_entry_id === currentExercise.id).length;
+    const nextSetIndex = existing + 1;
+
+    if (nextSetIndex <= resolveDisplayTarget(currentExercise)) {
+      const suggestions = parseSetSuggestions(currentExercise);
+      const sugg = suggestions[nextSetIndex - 1];
       return {
         name: currentExercise.name,
-        set: currentSet,
-        weight: setSuggestionFor(currentSet)?.weight ?? currentExercise.start_weight,
-        reps: setSuggestionFor(currentSet)?.reps ?? currentExercise.reps_target,
+        set: nextSetIndex,
+        weight: sugg?.weight ?? currentExercise.start_weight,
+        reps: sugg?.reps ?? currentExercise.reps_target,
       };
     }
-    if (currentExerciseIndex < exercises.length - 1) {
-      const nextExercise = exercises[currentExerciseIndex + 1];
+
+    const nextExercise = exercises.find(e => e.id !== currentExercise.id && (exerciseCompletedCount[e.id] || 0) < resolveDisplayTarget(e));
+    if (nextExercise) {
       return {
         name: nextExercise.name,
         set: 1,
@@ -262,15 +403,86 @@ export default function ActiveWorkoutScreen({
     setRestSeconds(null);
   };
 
+  const buildEndSummary = (): any => {
+    const setsTargetChanges: Record<number, number> = {};
+    for (const ex of exercises) {
+      const original = originalExercises.find((o) => o.id === ex.id);
+      const current = displaySetsTarget[ex.id] ?? ex.sets_target;
+      if (original && current !== original.sets_target) {
+        setsTargetChanges[ex.id] = current;
+      }
+    }
+    const restOverrides: Record<number, number> = {};
+    for (const [id, val] of Object.entries(exerciseRestOverrides)) {
+      const exId = Number(id);
+      const original = originalExercises.find((o) => o.id === exId);
+      if (original && val !== original.rest_seconds) {
+        restOverrides[exId] = val;
+      }
+    }
+    const weightChanges: Record<number, number> = {};
+    const repsChanges: Record<number, number> = {};
+    for (const ex of exercises) {
+      const original = originalExercises.find((o) => o.id === ex.id);
+      if (!original) continue;
+      const logsForEx = logs
+        .filter((l) => l.exercise_entry_id === ex.id)
+        .sort((a, b) => a.set_index - b.set_index);
+      const last = logsForEx[logsForEx.length - 1];
+      if (last && last.actual_weight != null && last.actual_weight !== original.start_weight) {
+        weightChanges[ex.id] = last.actual_weight;
+      }
+      if (last && last.actual_reps != null && last.actual_reps !== original.reps_target) {
+        repsChanges[ex.id] = last.actual_reps;
+      }
+    }
+    const orderChanged = JSON.stringify(originalExercises.map((e) => e.id)) !== JSON.stringify(exercises.map((e) => e.id));
+    return {
+      exerciseOrder: exercises.map((e) => e.id),
+      setsTargetChanges,
+      restOverrides,
+      weightChanges,
+      repsChanges,
+      orderChanged,
+    };
+  };
+
+  const endWorkout = async (extraSets = 0) => {
+    clearRestTimer();
+    await api.endSession(sessionId);
+    const totalSets = logs.length + extraSets;
+    await api.createCoachMessage({
+      session_id: sessionId,
+      role: "post_workout",
+      content: `Workout complete. ${totalSets} total sets logged. Great session.`,
+    });
+    onEnd?.(buildEndSummary());
+  };
+
+  const finishWorkout = async () => {
+    await endWorkout(0);
+  };
+
+  const formatElapsed = (totalSeconds: number) => {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    if (h > 0) return `${h}:${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+    return `${m}:${s.toString().padStart(2, "0")}`;
+  };
+
+  const isResting = restSeconds !== null && restSeconds > 0;
+  const canLog = Boolean(draftWeight) && Boolean(draftReps);
+
   return (
     <div className="space-y-4 pb-4">
       {/* Header */}
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <h2 className="text-xl font-bold truncate">{currentExercise.name}</h2>
+            <h2 className="text-xl font-bold truncate">{template?.name || "Workout"}</h2>
             <p className="text-xs text-slate-400 mt-0.5">
-              Set {currentSet} of {totalSets}
+              {exercises.length} exercises · {logs.length} sets logged
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -278,33 +490,14 @@ export default function ActiveWorkoutScreen({
               <div className="text-base font-bold text-emerald-300 tabular-nums leading-none">{formatElapsed(workoutElapsed)}</div>
               <div className="text-[10px] text-emerald-200 uppercase tracking-wide mt-1">Elapsed</div>
             </div>
-            <div className="rounded-xl border border-amber-800 bg-amber-950/40 px-3 py-2 text-center min-w-[70px]">
-              <div className="text-base font-bold text-amber-300 tabular-nums leading-none">{effectiveRestForTimer}s</div>
-              <div className="text-[10px] text-amber-200 uppercase tracking-wide mt-1">Rest</div>
-            </div>
           </div>
-        </div>
-
-        <div className="flex items-center gap-1.5 bg-slate-900/50 rounded-xl p-1.5 border border-slate-800">
-          {["exercise", "routine", "global"].map((mode) => (
-            <button
-              key={mode}
-              onClick={() => setTimerMode(mode as typeof timerMode)}
-              className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all capitalize ${
-                timerMode === mode
-                  ? "bg-indigo-600 text-white shadow-md shadow-indigo-900/20"
-                  : "text-slate-500 hover:text-slate-300 hover:bg-slate-800/50"
-              }`}
-            >
-              {mode}
-            </button>
-          ))}
         </div>
       </div>
 
+      {/* Rest overlay */}
       {isResting && (
-        <div className="space-y-3">
-          <div className="rounded-2xl border border-amber-800 bg-amber-950/50 p-6 text-center">
+        <div className="rounded-2xl border border-amber-800 bg-amber-950/50 p-5 space-y-3">
+          <div className="text-center">
             <div className="text-5xl font-bold text-amber-300 tabular-nums tracking-tight">{restSeconds}</div>
             <div className="text-xs text-amber-200 uppercase tracking-widest mt-2 font-semibold">Rest</div>
           </div>
@@ -328,99 +521,343 @@ export default function ActiveWorkoutScreen({
         </div>
       )}
 
-      {suggestion && !isResting && (
-        <div className="rounded-2xl border border-indigo-800/60 bg-indigo-950/30 p-4">
-          <div className="flex items-center gap-1.5 mb-1">
-            <svg className="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            <div className="text-xs text-indigo-400 font-semibold uppercase tracking-wider">Coach</div>
-          </div>
-          <p className="text-sm text-indigo-200 leading-relaxed">{suggestion}</p>
-        </div>
-      )}
-
-      {!isResting && (
-        <>
+      {/* Exercise layers */}
+      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} modifiers={[restrictToVerticalAxis]}>
+        <SortableContext items={exercises.map((ex) => ex.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-3">
-            <label className="text-sm font-semibold">This Set</label>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <input
-                  type="number"
-                  value={actualWeight}
-                  onChange={(e) => setActualWeight(e.target.value)}
-                  placeholder={`Suggested ${currentSetSuggestion?.weight ?? currentExercise.start_weight}`}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-4 text-center text-2xl font-bold tabular-nums
-                             focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
+            {exercises.map((exercise) => {
+              const completed = exerciseCompletedCount[exercise.id] || 0;
+              const displayTarget = resolveDisplayTarget(exercise);
+              const isExpanded = exercise.id === expandedExerciseId;
+              const exerciseLogs = logs.filter(l => l.exercise_entry_id === exercise.id);
+              const isComplete = completed >= displayTarget;
+              const editingRest = !!exerciseRestEditing[exercise.id];
+              const addingSet = addSetExerciseId === exercise.id;
+
+              return (
+                <SortableExerciseCard
+                  key={exercise.id}
+                  exercise={exercise}
+                  exerciseLogs={exerciseLogs}
+                  completed={completed}
+                  displayTarget={displayTarget}
+                  isExpanded={isExpanded}
+                  isComplete={isComplete}
+                  editingRest={editingRest}
+                  addingSet={addingSet}
+                  isDragActive={isDragActive}
+                  isResting={isResting}
+                  onExpand={() => !isResting && expandExercise(exercise)}
+                  onAddSet={() => {
+                    setDisplaySetsTarget((prev) => ({
+                      ...prev,
+                      [exercise.id]: (prev[exercise.id] ?? exercise.sets_target) + 1,
+                    }));
+                    expandExercise(exercise);
+                    setAddSetExerciseId(exercise.id);
+                  }}
+                  onCancelAddSet={() => setAddSetExerciseId(null)}
+                  onToggleRestEdit={() => toggleExerciseRestEdit(exercise, !editingRest)}
+                  editingRestValue={exerciseRestDraft[exercise.id] ?? String(globalRest)}
+                  onRestChange={(val) => {
+                    setExerciseRestDraft((prev) => ({ ...prev, [exercise.id]: val }));
+                    commitExerciseRest(exercise, val);
+                  }}
+                  draftWeight={draftWeight}
+                  draftReps={draftReps}
+                  draftEffort={draftEffort}
+                  onDraftWeightChange={setDraftWeight}
+                  onDraftRepsChange={setDraftReps}
+                  onDraftEffortChange={setDraftEffort}
+                  showNotes={showNotes}
+                  notes={notes}
+                  onToggleNotes={() => setShowNotes((v) => !v)}
+                  onNotesChange={setNotes}
+                  canLog={canLog}
+                  onLogSet={() => logSet()}
                 />
-                <div className="text-[10px] text-slate-500 text-center mt-1 uppercase tracking-wider">Weight</div>
-              </div>
-              <div>
-                <input
-                  type="number"
-                  value={actualReps}
-                  onChange={(e) => setActualReps(e.target.value)}
-                  placeholder={`Suggested ${currentSetSuggestion?.reps ?? currentExercise.reps_target}`}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-4 text-center text-2xl font-bold tabular-nums
-                             focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
-                />
-                <div className="text-[10px] text-slate-500 text-center mt-1 uppercase tracking-wider">Reps</div>
-              </div>
+              );
+            })}
+          </div>
+        </SortableContext>
+      </DndContext>
+
+      {/* Completion */}
+      {allDone && (
+        <button
+          onClick={finishWorkout}
+          className="w-full rounded-2xl bg-emerald-600 px-5 py-4 text-base font-semibold hover:bg-emerald-500 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/30"
+        >
+          Finish Workout
+        </button>
+      )}
+    </div>
+  )
+}
+
+function SortableExerciseCard({
+  exercise,
+  exerciseLogs,
+  completed,
+  displayTarget,
+  isExpanded,
+  isComplete,
+  editingRest,
+  addingSet,
+  isDragActive,
+  isResting,
+  onExpand,
+  onAddSet,
+  onCancelAddSet,
+  onToggleRestEdit,
+  editingRestValue,
+  onRestChange,
+  draftWeight,
+  draftReps,
+  draftEffort,
+  onDraftWeightChange,
+  onDraftRepsChange,
+  onDraftEffortChange,
+  showNotes,
+  notes,
+  onToggleNotes,
+  onNotesChange,
+  canLog,
+  onLogSet,
+}: {
+  exercise: ExerciseEntry;
+  exerciseLogs: SetLog[];
+  completed: number;
+  displayTarget: number;
+  isExpanded: boolean;
+  isComplete: boolean;
+  editingRest: boolean;
+  addingSet: boolean;
+  isDragActive: boolean;
+  isResting: boolean;
+  onExpand: () => void;
+  onAddSet: () => void;
+  onCancelAddSet: () => void;
+  onToggleRestEdit: () => void;
+  editingRestValue: string;
+  onRestChange: (val: string) => void;
+  draftWeight: string;
+  draftReps: string;
+  draftEffort: number;
+  onDraftWeightChange: (val: string) => void;
+  onDraftRepsChange: (val: string) => void;
+  onDraftEffortChange: (val: number) => void;
+  showNotes: boolean;
+  notes: string;
+  onToggleNotes: () => void;
+  onNotesChange: (val: string) => void;
+  canLog: boolean;
+  onLogSet: () => Promise<boolean>;
+}) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: exercise.id });
+  const style = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transition,
+    opacity: isDragging ? 1 : undefined,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="relative group">
+      <div
+        {...listeners}
+        {...attributes}
+        className="absolute left-2 top-2 z-10 flex items-center justify-center rounded-lg bg-slate-900/80 border border-slate-800 px-1.5 py-1 text-slate-600 active:cursor-grabbing"
+      >
+        <GripVertical className="w-3.5 h-3.5" />
+      </div>
+      <div className="pl-8">
+        {isDragActive ? (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold text-slate-200 truncate">{exercise.name}</div>
+              {isComplete && (
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-full px-2 py-0.5">
+                  Done
+                </span>
+              )}
             </div>
           </div>
-
-          <div className="space-y-2">
-            <label className="text-sm font-semibold">Effort</label>
-            <div className="grid grid-cols-5 gap-2">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => setEffort(n)}
-                  className={`py-3 text-base font-bold rounded-xl border transition-all ${
-                    effort === n
-                      ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-900/20 scale-[1.02] set-active"
-                      : "border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300"
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-2">
+        ) : (
+          <div
+            className={`rounded-2xl border transition-all ${
+              isExpanded
+                ? "border-indigo-800 bg-slate-900/80 shadow-lg shadow-indigo-950/20"
+                : "border-slate-800 bg-slate-900/50 hover:border-slate-700"
+            }`}
+          >
             <button
-              onClick={() => setShowNotes((v) => !v)}
-              className="text-sm text-slate-400 hover:text-slate-300 transition-colors flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-slate-800/50 w-fit"
+              onClick={onExpand}
+              disabled={isResting}
+              className="w-full flex items-center justify-between p-4 text-left disabled:opacity-60"
             >
-              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              {showNotes ? "Hide Note" : "Add Note"}
+              <div className="flex-1 min-w-0">
+                <div className="text-sm font-semibold text-slate-200 truncate">{exercise.name}</div>
+                <div className="text-xs text-slate-500 mt-0.5">
+                  {completed}/{displayTarget} sets · {exercise.start_weight} lbs × {exercise.reps_target} reps target
+                </div>
+              </div>
+              <div className="flex items-center gap-2 ml-3">
+                {isComplete && (
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-full px-2 py-0.5">
+                    Done
+                  </span>
+                )}
+                {!isResting && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onAddSet();
+                    }}
+                    className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-300 hover:border-slate-600"
+                  >
+                    Add Set
+                  </button>
+                )}
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    value={editingRestValue}
+                    disabled={!editingRest}
+                    onChange={(e) => onRestChange(e.target.value)}
+                    className={`w-14 rounded-lg border px-2 py-1 text-center text-xs tabular-nums transition-colors ${
+                      editingRest
+                        ? "border-indigo-500 bg-slate-950 text-slate-200 focus:outline-none focus:border-indigo-400"
+                        : "border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed"
+                    }`}
+                  />
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onToggleRestEdit();
+                    }}
+                    className={`flex h-6 w-10 items-center rounded-full border px-0.5 transition-colors ${
+                      editingRest ? "border-indigo-500 bg-indigo-600 justify-end" : "border-slate-700 bg-slate-800 justify-start"
+                    }`}
+                    title={editingRest ? "Disable rest override" : "Enable rest override"}
+                  >
+                    <div className="h-4 w-4 rounded-full bg-white shadow-sm" />
+                  </button>
+                </div>
+                <svg
+                  className={`w-5 h-5 text-slate-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </div>
             </button>
-            {showNotes && (
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Any thoughts on this set?"
-                className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm resize-none focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
-                rows={2}
-              />
+
+            {isExpanded && (
+              <div className="px-4 pb-4 space-y-3">
+                {exerciseLogs.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Completed Sets</div>
+                    {exerciseLogs.map((log) => (
+                      <div key={log.id} className="flex items-center justify-between rounded-xl bg-slate-950/50 border border-slate-800 px-3 py-2">
+                        <span className="text-xs text-slate-500 font-semibold">Set {log.set_index}</span>
+                        <span className="text-xs text-slate-300 font-semibold">{log.actual_weight} lbs × {log.actual_reps} reps</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {(!isComplete || addingSet) && !isResting && (
+                  <>
+                    {addingSet && (
+                      <button
+                        onClick={onCancelAddSet}
+                        className="text-xs text-slate-400 hover:text-slate-300 transition-colors mb-1"
+                      >
+                        ← Cancel
+                      </button>
+                    )}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <input
+                          type="number"
+                          value={draftWeight}
+                          onChange={(e) => onDraftWeightChange(e.target.value)}
+                          placeholder={`${exercise.start_weight}`}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-4 text-center text-2xl font-bold tabular-nums focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
+                        />
+                        <div className="text-[10px] text-slate-500 text-center mt-1 uppercase tracking-wider">Weight</div>
+                      </div>
+                      <div>
+                        <input
+                          type="number"
+                          value={draftReps}
+                          onChange={(e) => onDraftRepsChange(e.target.value)}
+                          placeholder={`${exercise.reps_target}`}
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-4 text-center text-2xl font-bold tabular-nums focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
+                        />
+                        <div className="text-[10px] text-slate-500 text-center mt-1 uppercase tracking-wider">Reps</div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <label className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Effort {draftEffort}/5</label>
+                      <div className="grid grid-cols-5 gap-2">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <button
+                            key={n}
+                            onClick={() => onDraftEffortChange(n)}
+                            className={`py-3 text-base font-bold rounded-xl border transition-all ${
+                              draftEffort === n
+                                ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-900/20 scale-[1.02]"
+                                : "border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300"
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <button
+                        onClick={onToggleNotes}
+                        className="text-sm text-slate-400 hover:text-slate-300 transition-colors flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-slate-800/50 w-fit"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                        </svg>
+                        {showNotes ? "Hide Note" : "Add Note"}
+                      </button>
+                      {showNotes && (
+                        <textarea
+                          value={notes}
+                          onChange={(e) => onNotesChange(e.target.value)}
+                          placeholder="Any thoughts on this set?"
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm resize-none focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
+                          rows={2}
+                        />
+                      )}
+                    </div>
+
+                    <button
+                      onClick={async () => {
+                        await onLogSet();
+                      }}
+                      disabled={!canLog}
+                      className="w-full rounded-2xl bg-emerald-600 px-5 py-4 text-base font-semibold hover:bg-emerald-500 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/30 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+                    >
+                      Complete Set
+                    </button>
+                  </>
+                )}
+              </div>
             )}
           </div>
-
-          <button
-            onClick={logSet}
-            disabled={!canLog}
-            className="w-full rounded-2xl bg-emerald-600 px-5 py-4.5 text-base font-semibold
-                       hover:bg-emerald-500 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/30
-                       disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
-          >
-            Complete Set
-          </button>
-        </>
-      )}
+        )}
+      </div>
     </div>
   );
 }

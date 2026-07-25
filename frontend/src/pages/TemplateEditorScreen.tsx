@@ -23,7 +23,7 @@ export default function TemplateEditorScreen({
   const [routineRest, setRoutineRest] = useState(90);
   const [exercises, setExercises] = useState<
     { id?: number; name: string; sets: SetRow[]; rest_seconds: number }[]
-  >([{ name: "", sets: [{ weight: 0, reps: 10, effort: 3 }], rest_seconds: 90 }]);
+  >([{ name: "", sets: [{ weight: 0, reps: 0, effort: 3 }], rest_seconds: 90 }]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -75,7 +75,7 @@ export default function TemplateEditorScreen({
       const next = [...list];
       next[exIdx] = {
         ...next[exIdx],
-        sets: [...next[exIdx].sets, { weight: 0, reps: 10, effort: 3 }],
+        sets: [...next[exIdx].sets, { weight: 0, reps: 0, effort: 3 }],
       };
       return next;
     });
@@ -170,7 +170,7 @@ export default function TemplateEditorScreen({
   const addFromLibrary = (ex: ExerciseLibraryItem) => {
     setExercises((e) => [
       ...e,
-      { name: ex.name, sets: [{ weight: 0, reps: 10, effort: 3 }], rest_seconds: ex.default_rest_seconds || 90 },
+      { name: ex.name, sets: [{ weight: 0, reps: 0, effort: 3 }], rest_seconds: ex.default_rest_seconds || 90 },
     ]);
     setSearch("");
     setResults([]);
@@ -384,7 +384,7 @@ export default function TemplateEditorScreen({
             ))}
 
             <button
-              onClick={() => setExercises([...exercises, { name: "", sets: [{ weight: 0, reps: 10, effort: 3 }], rest_seconds: 90 }])}
+              onClick={() => setExercises([...exercises, { name: "", sets: [{ weight: 0, reps: 0, effort: 3 }], rest_seconds: 90 }])}
               className="w-full rounded-2xl border-2 border-dashed border-slate-700 hover:border-indigo-500/50 px-4 py-4 text-sm text-slate-500 hover:text-indigo-300 transition-colors font-medium"
             >
               + Add Exercise

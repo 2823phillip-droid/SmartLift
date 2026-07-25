@@ -16,7 +16,7 @@ from db import SessionLocal, init_db
 from models import (
     Context, WorkoutTemplate, ExerciseLibrary, ExerciseEntry,
     WorkoutSession, SetLog, CoachMessage, AlgorithmState, RoutineType, SessionStatus, CoachRole, AppSetting,
-    WorkoutLibrary, WorkoutLibraryExercise
+    WorkoutLibrary, WorkoutLibraryExercise, BodyWeightLog, AITrainerAdjustment
 )
 
 app = FastAPI(title="Workout Logger")
@@ -212,6 +212,21 @@ class SetLogOut(BaseModel):
     class Config:
         from_attributes = True
 
+class ExerciseProgressPoint(BaseModel):
+    date: str
+    weight: float
+    reps: int
+
+class ExerciseProgressResponse(BaseModel):
+    exercise_entry_id: int
+    name: str
+    points: List[ExerciseProgressPoint]
+
+class ExerciseNameProgressResponse(BaseModel):
+    name: str
+    points: List[ExerciseProgressPoint]
+    seeded: bool = False
+
 class CoachMessageCreate(BaseModel):
     session_id: int
     role: CoachRole
@@ -226,6 +241,42 @@ class CoachMessageOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+class BodyWeightLogCreate(BaseModel):
+    weight_lbs: float
+    notes: Optional[str] = None
+
+class BodyWeightLogOut(BaseModel):
+    id: int
+    weight_lbs: float
+    logged_at: datetime
+    notes: Optional[str]
+
+    class Config:
+        from_attributes = True
+
+# --- Body Weight ---
+
+@app.get("/api/body-weight", response_model=List[BodyWeightLogOut])
+def list_body_weight_logs(db: Session = Depends(get_db)):
+    return db.query(BodyWeightLog).order_by(BodyWeightLog.logged_at.asc()).all()
+
+@app.post("/api/body-weight", response_model=BodyWeightLogOut)
+def create_body_weight_log(payload: BodyWeightLogCreate, db: Session = Depends(get_db)):
+    log = BodyWeightLog(weight_lbs=payload.weight_lbs, notes=payload.notes)
+    db.add(log)
+    db.commit()
+    db.refresh(log)
+    return log
+
+@app.delete("/api/body-weight/{log_id}")
+def delete_body_weight_log(log_id: int, db: Session = Depends(get_db)):
+    log = db.query(BodyWeightLog).filter(BodyWeightLog.id == log_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Body weight log not found")
+    db.delete(log)
+    db.commit()
+    return {"ok": True}
 
 # --- Contexts ---
 
@@ -360,7 +411,7 @@ def update_exercise(exercise_id: int, payload: ExerciseEntryCreate, db: Session 
     ex = db.query(ExerciseEntry).filter(ExerciseEntry.id == exercise_id).first()
     if not ex:
         raise HTTPException(status_code=404, detail="Exercise not found")
-    for field, value in payload.dict(exclude_unset=False).items():
+    for field, value in payload.dict(exclude_unset=True).items():
         setattr(ex, field, value)
     db.commit()
     db.refresh(ex)
@@ -501,6 +552,67 @@ def create_set_log(payload: SetLogCreate, db: Session = Depends(get_db)):
 @app.get("/api/sessions/{session_id}/set-logs", response_model=List[SetLogOut])
 def list_session_set_logs(session_id: int, db: Session = Depends(get_db)):
     return db.query(SetLog).filter(SetLog.session_id == session_id).order_by(SetLog.set_index).all()
+
+@app.get("/api/exercises/{exercise_entry_id}/progress", response_model=ExerciseProgressResponse)
+def get_exercise_progress(exercise_entry_id: int, limit: int = 50, db: Session = Depends(get_db)):
+    entry = db.query(ExerciseEntry).get(exercise_entry_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="Exercise entry not found")
+    logs = (
+        db.query(SetLog)
+        .filter(SetLog.exercise_entry_id == exercise_entry_id, SetLog.actual_weight.is_not(None))
+        .order_by(SetLog.completed_at.desc())
+        .limit(limit)
+        .all()
+    )
+    points = [
+        ExerciseProgressPoint(
+            date=log.completed_at.isoformat(),
+            weight=float(log.actual_weight or 0),
+            reps=int(log.actual_reps or 0),
+        )
+        for log in reversed(logs)
+    ]
+    return ExerciseProgressResponse(exercise_entry_id=exercise_entry_id, name=entry.name, points=points)
+
+
+@app.get("/api/exercise-names", response_model=List[str])
+def list_distinct_exercise_names(db: Session = Depends(get_db)):
+    return [
+        row[0]
+        for row in db.query(ExerciseEntry.name)
+        .join(SetLog, SetLog.exercise_entry_id == ExerciseEntry.id)
+        .filter(SetLog.actual_weight.is_not(None))
+        .distinct()
+        .order_by(ExerciseEntry.name)
+        .all()
+    ]
+
+
+@app.get("/api/exercise-names/{name}/progress", response_model=ExerciseNameProgressResponse)
+def get_exercise_name_progress(name: str, limit: int = 5000, db: Session = Depends(get_db)):
+    entries = db.query(ExerciseEntry).filter(ExerciseEntry.name == name).all()
+    entry_ids = [e.id for e in entries]
+    if not entry_ids:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+    logs = (
+        db.query(SetLog)
+        .filter(SetLog.exercise_entry_id.in_(entry_ids), SetLog.actual_weight.is_not(None))
+        .order_by(SetLog.completed_at.desc())
+        .limit(limit)
+        .all()
+    )
+    points = [
+        ExerciseProgressPoint(
+            date=log.completed_at.isoformat(),
+            weight=float(log.actual_weight or 0),
+            reps=int(log.actual_reps or 0),
+        )
+        for log in reversed(logs)
+    ]
+    seeded = len(logs) > 0 and all(bool(log.is_seeded) for log in logs)
+    return ExerciseNameProgressResponse(name=name, points=points, seeded=seeded)
+
 
 # --- Coach Messages ---
 
@@ -751,8 +863,92 @@ class SettingOut(BaseModel):
     key: str
     value: Optional[str] = None
 
-# --- Workout Library ---
 
+# --- AI Trainer Adjustments ---
+
+class AITrainerAdjustmentIn(BaseModel):
+    exercise_entry_id: Optional[int] = None
+    exercise_name: str
+    proposed_weight: Optional[float] = None
+    proposed_reps: Optional[int] = None
+    proposed_sets: Optional[int] = None
+    proposed_rest_seconds: Optional[int] = None
+    proposed_order: Optional[int] = None
+    effort_avg: Optional[float] = None
+    progression_type: Optional[str] = None
+
+
+class AITrainerAdjustmentOut(BaseModel):
+    id: int
+    session_id: int
+    template_id: Optional[int]
+    exercise_entry_id: Optional[int]
+    exercise_name: str
+    proposed_weight: Optional[float]
+    proposed_reps: Optional[int]
+    proposed_sets: Optional[int]
+    proposed_rest_seconds: Optional[int]
+    proposed_order: Optional[int]
+    effort_avg: Optional[float]
+    progression_type: Optional[str]
+    applied: bool
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AITrainerAdjustmentBatch(BaseModel):
+    session_id: int
+    template_id: Optional[int] = None
+    total_volume: Optional[float] = None
+    total_sets: Optional[int] = None
+    effort_avg: Optional[float] = None
+    adjustments: List[AITrainerAdjustmentIn] = []
+
+
+@app.post("/api/ai-trainer/adjustments/batch", response_model=List[AITrainerAdjustmentOut])
+def save_ai_trainer_adjustments(payload: AITrainerAdjustmentBatch, db: Session = Depends(get_db)):
+    session = db.query(WorkoutSession).filter(WorkoutSession.id == payload.session_id).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    saved = []
+    for item in payload.adjustments:
+        row = AITrainerAdjustment(
+            session_id=payload.session_id,
+            template_id=payload.template_id or session.template_id,
+            exercise_entry_id=item.exercise_entry_id,
+            exercise_name=item.exercise_name,
+            proposed_weight=item.proposed_weight,
+            proposed_reps=item.proposed_reps,
+            proposed_sets=item.proposed_sets,
+            proposed_rest_seconds=item.proposed_rest_seconds,
+            proposed_order=item.proposed_order,
+            effort_avg=item.effort_avg or payload.effort_avg,
+            progression_type=item.progression_type or "linear",
+        )
+        db.add(row)
+        db.commit()
+        db.refresh(row)
+        saved.append(row)
+    if saved:
+        logger.info(json.dumps({
+            "type": "ai_trainer",
+            "event": "adjustments_saved",
+            "session_id": payload.session_id,
+            "count": len(saved),
+        }))
+    return saved
+
+
+@app.get("/api/ai-trainer/adjustments", response_model=List[AITrainerAdjustmentOut])
+def list_ai_trainer_adjustments(session_id: Optional[int] = None, db: Session = Depends(get_db)):
+    q = db.query(AITrainerAdjustment)
+    if session_id:
+        q = q.filter(AITrainerAdjustment.session_id == session_id)
+    return q.order_by(AITrainerAdjustment.created_at.desc()).limit(200).all()
+
+# --- Workout Library ---
 class WorkoutLibraryExerciseOut(BaseModel):
     id: int
     workout_library_id: int

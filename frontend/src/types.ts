@@ -83,6 +83,31 @@ export interface CoachMessage {
   timestamp: string;
 }
 
+export interface ExerciseProgressPoint {
+  date: string;
+  weight: number;
+  reps: number;
+}
+
+export interface ExerciseProgressResponse {
+  exercise_entry_id: number;
+  name: string;
+  points: ExerciseProgressPoint[];
+}
+
+export interface ExerciseNameProgressResponse {
+  name: string;
+  points: ExerciseProgressPoint[];
+  seeded?: boolean;
+}
+
+export interface BodyWeightLog {
+  id: number;
+  weight_lbs: number;
+  logged_at: string;
+  notes?: string;
+}
+
 export interface WorkoutLibraryExercise {
   id: number;
   workout_library_id: number;
@@ -111,4 +136,21 @@ export interface WorkoutLibraryImportResult {
   context_id: number;
   template_id: number;
   exercises_imported: number;
+}
+
+export interface AITrainerAdjustment {
+  id: number;
+  session_id: number;
+  template_id?: number;
+  exercise_entry_id?: number;
+  exercise_name: string;
+  proposed_weight?: number;
+  proposed_reps?: number;
+  proposed_sets?: number;
+  proposed_rest_seconds?: number;
+  proposed_order?: number;
+  effort_avg?: number;
+  progression_type?: string;
+  applied: boolean;
+  created_at: string;
 }

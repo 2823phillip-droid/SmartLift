@@ -99,6 +99,7 @@ class SetLog(Base):
     actual_reps = Column(Integer, nullable=True)
     effort = Column(Integer, nullable=True)  # 1-5
     notes = Column(Text)
+    is_seeded = Column(Boolean, default=False, nullable=False)
     completed_at = Column(DateTime, default=datetime.utcnow)
 
     session = relationship("WorkoutSession", back_populates="set_logs")
@@ -162,3 +163,28 @@ class WorkoutLibraryExercise(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     workout = relationship("WorkoutLibrary", back_populates="exercises")
+
+class BodyWeightLog(Base):
+    __tablename__ = "body_weight_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    weight_lbs = Column(Float, nullable=False)
+    logged_at = Column(DateTime, default=datetime.utcnow)
+    notes = Column(Text, nullable=True)
+
+
+class AITrainerAdjustment(Base):
+    __tablename__ = "ai_trainer_adjustments"
+    id = Column(Integer, primary_key=True, index=True)
+    session_id = Column(Integer, ForeignKey("workout_sessions.id", ondelete="CASCADE"), nullable=False)
+    template_id = Column(Integer, ForeignKey("workout_templates.id", ondelete="SET NULL"), nullable=True)
+    exercise_entry_id = Column(Integer, ForeignKey("exercise_entries.id", ondelete="SET NULL"), nullable=True)
+    exercise_name = Column(String, nullable=False)
+    proposed_weight = Column(Float, nullable=True)
+    proposed_reps = Column(Integer, nullable=True)
+    proposed_sets = Column(Integer, nullable=True)
+    proposed_rest_seconds = Column(Integer, nullable=True)
+    proposed_order = Column(Integer, nullable=True)
+    effort_avg = Column(Float, nullable=True)
+    progression_type = Column(String, nullable=True)
+    applied = Column(Boolean, default=False, nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow)

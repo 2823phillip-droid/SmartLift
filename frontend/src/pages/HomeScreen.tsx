@@ -1,162 +1,299 @@
-import { useEffect, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  useSortable,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
+import { GripVertical } from "lucide-react";
 import { api } from "../api";
-import type { WorkoutSession } from "../types";
+import type { ExerciseNameProgressResponse } from "../types";
+import ProgressWidget from "../components/ProgressWidget";
+import BodyWeightWidget from "../components/BodyWeightWidget";
 
-export default function HomeScreen({
-  onQuickStart,
-  onBuildWorkout,
-  onHistory,
-  onLibrary,
-  onSeed,
-}: {
-  onQuickStart: () => void;
-  onBuildWorkout: () => void;
-  onHistory: () => void;
-  onLibrary: () => void;
-  onSeed: () => void;
-}) {
-  const [recentSessions, setRecentSessions] = useState<WorkoutSession[]>([]);
-  const [recentCount, setRecentCount] = useState(0);
+const WIDGETS_KEY = "smartlift.widgets";
+
+function loadWidgets(): Widget[] {
+  try {
+    const raw = localStorage.getItem(WIDGETS_KEY);
+    if (!raw) return [];
+    return JSON.parse(raw) as Widget[];
+  } catch {
+    return [];
+  }
+}
+
+function saveWidgets(next: Widget[]) {
+  try {
+    localStorage.setItem(WIDGETS_KEY, JSON.stringify(next));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+type Timeframe = "week" | "3m" | "6m" | "1y" | "5y" | "all";
+
+const TIMEFRAMES: { key: Timeframe; label: string }[] = [
+  { key: "week", label: "Week" },
+  { key: "3m", label: "3 Months" },
+  { key: "6m", label: "6 Months" },
+  { key: "1y", label: "1 Year" },
+  { key: "5y", label: "5 Years" },
+  { key: "all", label: "All" },
+];
+
+const TIMEFRAME_MS: Record<Timeframe, number> = {
+  week: 7 * 24 * 60 * 60 * 1000,
+  "3m": 90 * 24 * 60 * 60 * 1000,
+  "6m": 180 * 24 * 60 * 60 * 1000,
+  "1y": 365 * 24 * 60 * 60 * 1000,
+  "5y": 1825 * 24 * 60 * 60 * 1000,
+  all: Infinity,
+};
+
+function filterPoints(points: { date: string; weight: number; reps: number }[], timeframe: Timeframe) {
+  if (timeframe === "all") return points;
+  const cutoff = Date.now() - TIMEFRAME_MS[timeframe];
+  return points.filter((p) => new Date(p.date).getTime() >= cutoff);
+}
+
+export type Widget = {
+  name: string;
+  points: { date: string; weight: number; reps: number }[];
+  seeded?: boolean;
+};
+
+export default function HomeScreen() {
+  const [widgets, setWidgets] = useState<Widget[]>(loadWidgets);
+  const [allExercises, setAllExercises] = useState<string[]>([]);
+  const [open, setOpen] = useState(false);
+  const [addingName, setAddingName] = useState<string | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [timeframe, setTimeframe] = useState<Timeframe>("all");
+
+  const filteredWidgets = useMemo(
+    () => widgets.map((w) => ({ ...w, points: filterPoints(w.points, timeframe) })),
+    [widgets, timeframe]
+  );
 
   useEffect(() => {
-    api.getSessions().then((sessions) => {
-      setRecentSessions(sessions.slice(0, 5));
-      setRecentCount(sessions.length);
+    saveWidgets(widgets);
+  }, [widgets]);
+
+  const addedNames = useMemo(() => new Set(widgets.map((w) => w.name)), [widgets]);
+
+  const loadProgress = async (name: string): Promise<Widget | null> => {
+    setAddingName(name);
+    try {
+      const resp: ExerciseNameProgressResponse = await api.getExerciseNameProgress(name);
+      if (resp.points.length === 0) return null;
+      return { name: resp.name, points: resp.points, seeded: resp.seeded };
+    } catch (e) {
+      setLastError(String(e).slice(0, 160));
+      return null;
+    } finally {
+      setAddingName(null);
+    }
+  };
+
+  const addWidget = async (name: string) => {
+    const w = await loadProgress(name);
+    if (!w) return;
+    setWidgets((prev) => [...prev, w]);
+    setOpen(false);
+  };
+
+  const removeWidget = (name: string) => setWidgets((prev) => prev.filter((w) => w.name !== name));
+
+  const activeIds = useMemo(() => new Set(filteredWidgets.map((w) => w.name)), [filteredWidgets]);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const [isDragActive, setIsDragActive] = useState(false);
+
+  function handleDragStart() {
+    setIsDragActive(true);
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    setIsDragActive(false);
+    if (!over || active.id === over.id) return;
+    setWidgets((prev) => {
+      const visible = prev.filter((w) => activeIds.has(w.name));
+      const hidden = prev.filter((w) => !activeIds.has(w.name));
+      const newVisible = arrayMove(visible, visible.findIndex((w) => w.name === active.id), visible.findIndex((w) => w.name === over.id));
+      return [...newVisible, ...hidden];
     });
-  }, []);
+  }
+
+  function handleDragCancel() {
+    setIsDragActive(false);
+  }
+
+  const sortableItems = useMemo(() => filteredWidgets.map((w) => w.name), [filteredWidgets]);
+
+  // Load all distinct exercise names once for the picker
+  const loadPicker = async () => {
+    setLastError(null);
+    try {
+      const items: string[] = await api.getExerciseNames();
+      setAllExercises(items);
+      setOpen(true);
+    } catch (e) {
+      setLastError(String(e).slice(0, 160));
+    }
+  };
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <h2 className="text-3xl font-bold tracking-tight">Welcome back</h2>
-        <p className="text-slate-400 text-sm">Your AI coach is ready. Pick a path.</p>
+      <div className="rounded-3xl border border-indigo-800/60 bg-gradient-to-br from-indigo-950 to-slate-950 p-6 relative overflow-hidden">
+        <div className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-2">SmartLift</div>
+        <h2 className="text-3xl font-bold tracking-tight mb-1">Your lift, upgraded.</h2>
+        <p className="text-slate-400 text-sm">Track progress at a glance. Add widgets below.</p>
       </div>
 
+      {/* Stats row */}
       <div className="grid grid-cols-2 gap-3">
-        <button
-          onClick={onQuickStart}
-          className="rounded-2xl border border-slate-800 bg-slate-900/50 hover:border-emerald-500/40
-                     p-4 text-left transition-colors group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600/20 border border-emerald-800/60 flex items-center justify-center text-emerald-300 group-hover:border-emerald-500/50 transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <div className="font-semibold text-xs text-slate-200">Start a Workout</div>
-              <div className="text-[11px] text-slate-500 mt-0.5">Quick start from routines</div>
-            </div>
-          </div>
-        </button>
-
-        <button
-          onClick={onBuildWorkout}
-          className="rounded-2xl border border-slate-800 bg-slate-900/50 hover:border-indigo-500/40
-                     p-4 text-left transition-colors group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-800/60 flex items-center justify-center text-indigo-300 group-hover:border-indigo-500/50 transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-              </svg>
-            </div>
-            <div>
-              <div className="font-semibold text-xs text-slate-200">Build a Workout</div>
-              <div className="text-[11px] text-slate-500 mt-0.5">Manual build</div>
-            </div>
-          </div>
-        </button>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1">Streak</div>
+          <div className="text-xl font-bold">--</div>
+        </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1">Total volume</div>
+          <div className="text-xl font-bold">--</div>
+        </div>
       </div>
 
+      <BodyWeightWidget timeframe={timeframe} />
+
+      <div className="flex flex-wrap gap-2">
+        {TIMEFRAMES.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTimeframe(t.key)}
+            className={`px-3 py-1 rounded-lg text-[11px] font-semibold transition-colors ${
+              timeframe === t.key
+                ? "bg-indigo-600 text-white"
+                : "border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-slate-200"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Widgets */}
       <div className="space-y-3">
-        <button
-          onClick={onLibrary}
-          className="rounded-2xl border border-slate-800 bg-slate-900/50 hover:border-emerald-500/40
-                     p-4 text-left transition-colors group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-600/20 border border-emerald-800/60 flex items-center justify-center text-emerald-300 group-hover:border-emerald-500/50 transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477 4.5 1.253" />
-              </svg>
-            </div>
-            <div>
-              <div className="font-semibold text-sm">Prebuilt Workouts</div>
-              <div className="text-xs text-slate-500 mt-0.5">Quick-start from library</div>
-            </div>
-            <svg className="w-4 h-4 text-slate-600 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-          </div>
-        </button>
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold px-1">Goals</div>
+          <button
+            onClick={loadPicker}
+            className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-indigo-800 bg-indigo-950/40 text-indigo-200 hover:border-indigo-500/60 transition-colors"
+          >
+            + Add Widget
+          </button>
+        </div>
 
-        <button
-          onClick={onHistory}
-          className="rounded-2xl border border-slate-800 bg-slate-900/50 hover:border-amber-500/40
-                     p-4 text-left transition-colors group"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-600/20 border border-amber-800/60 flex items-center justify-center text-amber-300 group-hover:border-amber-500/50 transition-colors">
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </div>
-            <div>
-              <div className="font-semibold text-sm">Workout History</div>
-              <div className="text-xs text-slate-500 mt-0.5">
-                {recentCount > 0 ? `${recentCount} session${recentCount !== 1 ? 's' : ''} logged` : "No sessions yet"}
-              </div>
-            </div>
-            <svg className="w-4 h-4 text-slate-600 ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
+        {widgets.length === 0 && !open && (
+          <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/20 p-6 text-center">
+            <div className="text-xs text-slate-600">Tap "+ Add Widget" to track an exercise.</div>
+            <div className="text-[11px] text-slate-700 mt-1">Bench Press, Squat, Deadlift, etc.</div>
           </div>
-        </button>
+        )}
+
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} modifiers={[restrictToVerticalAxis]}>
+          <SortableContext items={sortableItems} strategy={verticalListSortingStrategy}>
+            <div className="grid grid-cols-1 gap-3">
+              {filteredWidgets.map((w) => (
+                <SortableWidget key={w.name} id={w.name} widget={w} onRemove={() => removeWidget(w.name)} isCompact={isDragActive} />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
       </div>
 
-      {recentSessions.length > 0 && (
-        <div className="space-y-3">
-          <h3 className="text-xs text-slate-500 uppercase tracking-widest font-semibold px-1">Recent</h3>
-          <div className="space-y-2">
-            {recentSessions.map((s) => {
-              const duration = s.started_at && s.ended_at
-                ? Math.round((new Date(s.ended_at).getTime() - new Date(s.started_at).getTime()) / 60000)
-                : null;
-              return (
-                <div
-                  key={s.id}
-                  className="rounded-2xl border border-slate-800 bg-slate-900/30 px-4 py-3 flex items-center justify-between"
-                >
-                  <div>
-                    <div className="text-sm font-semibold">Session #{s.id}</div>
-                    <div className="text-xs text-slate-500">
-                      {s.template_id ? `Template #${s.template_id}` : "No template"}
-                      {s.started_at ? ` · ${new Date(s.started_at).toLocaleDateString()}` : ""}
-                      {duration !== null && ` · ${duration} min`}
+      {/* Picker bottom sheet */}
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
+          <div className="relative w-full max-w-lg rounded-t-3xl border-t border-x border-slate-800 bg-slate-950 p-5 max-h-[80vh] flex flex-col">
+            <div className="text-sm font-semibold mb-3">Pick an exercise</div>
+            <div className="space-y-2 overflow-y-auto flex-1 pr-1">
+              {allExercises.map((name) => {
+                const canAdd = !addedNames.has(name);
+                const loading = addingName === name;
+                return (
+                  <button
+                    key={name}
+                    disabled={!canAdd}
+                    onClick={() => addWidget(name)}
+                    className={`w-full rounded-2xl border px-4 py-3 text-left transition-colors ${
+                      canAdd ? "border-slate-800 bg-slate-900/50 hover:border-indigo-500/60" : "border-slate-900 bg-slate-900/30 text-slate-600"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-semibold">{name}</div>
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        {!canAdd ? "Added" : loading ? "Loading..." : "Add"}
+                      </div>
                     </div>
-                  </div>
-                  <span className={`text-[10px] font-semibold px-2 py-1 rounded-lg uppercase tracking-wide ${
-                    s.ended_at ? "text-emerald-400 bg-emerald-950/40 border border-emerald-800" : "text-amber-400 bg-amber-950/40 border border-amber-800"
-                  }`}>
-                    {s.ended_at ? "Done" : "Active"}
-                  </span>
-                </div>
-              );
-            })}
+                  </button>
+                );
+              })}
+            </div>
+            <button onClick={() => setOpen(false)} className="mt-4 w-full rounded-xl border border-slate-800 py-3 text-sm text-slate-400 hover:text-slate-200 transition-colors">Close</button>
+            {lastError && <div className="mt-2 text-xs text-rose-400">{lastError}</div>}
           </div>
         </div>
       )}
+    </div>
+  );
+}
 
-      <button
-        onClick={onSeed}
-        className="w-full rounded-xl border border-slate-800 px-4 py-3 text-xs text-slate-500
-                   hover:bg-slate-900 hover:text-slate-300 transition-colors"
+function SortableWidget({ id, widget, onRemove, isCompact }: { id: string; widget: Widget; onRemove: () => void; isCompact?: boolean }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transition,
+    opacity: isDragging ? 1 : undefined,
+    zIndex: isDragging ? 50 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="relative group">
+      <div
+        {...listeners}
+        {...attributes}
+        className="absolute left-2 top-2 z-10 flex items-center justify-center rounded-lg bg-slate-900/80 border border-slate-800 px-1.5 py-1 text-slate-600 active:cursor-grabbing"
       >
-        Seed Demo Data
-      </button>
+        <GripVertical className="w-3.5 h-3.5" />
+      </div>
+      <div className="pl-8">
+        {isCompact ? (
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+            <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold px-1">{widget.name}</div>
+          </div>
+        ) : (
+          <ProgressWidget widget={widget} onRemove={onRemove} />
+        )}
+      </div>
     </div>
   );
 }

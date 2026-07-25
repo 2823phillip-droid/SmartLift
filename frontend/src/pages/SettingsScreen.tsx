@@ -1,21 +1,36 @@
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, getApiBase, initApiBaseFromSettings } from "../api";
+import BodyWeightQuickLog from "../components/BodyWeightQuickLog";
 
 type SettingItem = { key: string; value: string | null };
 
-export default function SettingsScreen({ onBack }: { onBack: () => void }) {
+export default function SettingsScreen({ onBack, onModeChange }: { onBack: () => void; onModeChange?: (mode: "manual" | "ai_trainer") => void }) {
   const [settings, setSettings] = useState<Record<string, string>>({});
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
   const [saved, setSaved] = useState<string | null>(null);
+  const [apiBaseState, setApiBaseState] = useState("");
+  const [settingsError, setSettingsError] = useState<string | null>(null);
 
   useEffect(() => {
-    api.listSettings().then((items: SettingItem[]) => {
-      const map: Record<string, string> = {};
-      items.forEach((s) => { if (s.value != null) map[s.key] = s.value; });
-      setSettings(map);
-      setLoading(false);
+    let cancelled = false;
+    setLoading(true);
+    setSettingsError(null);
+    initApiBaseFromSettings().then(async () => {
+      if (cancelled) return;
+      setApiBaseState(getApiBase());
+      try {
+        const items = await api.listSettings();
+        const map: Record<string, string> = {};
+        items.forEach((s: SettingItem) => { if (s.value != null) map[s.key] = s.value; });
+        setSettings(map);
+      } catch (err) {
+        if (!cancelled) setSettingsError((err as Error)?.message || "Failed to load settings");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
     });
+    return () => { cancelled = true; };
   }, []);
 
   const save = async (key: string) => {
@@ -59,16 +74,34 @@ export default function SettingsScreen({ onBack }: { onBack: () => void }) {
           Back
         </button>
       </div>
-
+      <div className="text-xs text-slate-500">API base: {apiBaseState || "(none)"}</div>
       {loading ? (
         <div className="text-center text-slate-500 py-10">Loading settings...</div>
+      ) : settingsError ? (
+        <div className="text-center space-y-3 py-10">
+          <p className="text-red-400 text-sm">{settingsError}</p>
+          <button
+            onClick={() => {
+              setSettingsError(null);
+              initApiBaseFromSettings().then(() => setApiBaseState(getApiBase()));
+              api.listSettings().then((items: SettingItem[]) => {
+                const map: Record<string, string> = {};
+                items.forEach((s) => { if (s.value != null) map[s.key] = s.value; });
+                setSettings(map);
+              }).catch((err) => setSettingsError(err?.message || "Failed again"));
+            }}
+            className="rounded-xl bg-slate-800 px-4 py-2 text-sm hover:bg-slate-700"
+          >
+            Retry
+          </button>
+        </div>
       ) : (
         <div className="space-y-3">
           {/* Global Rest Timer */}
           <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
             <div className="flex items-center gap-2">
               <svg className="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 0 0118 0z" />
               </svg>
               <div>
                 <div className="font-semibold text-sm">Global Rest Timer</div>
@@ -108,6 +141,20 @@ export default function SettingsScreen({ onBack }: { onBack: () => void }) {
             </div>
           </div>
 
+          {/* Body Weight Quick Log */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 6l3 1m0 0l-3 9a7 7 0 1118 0l-3-9M6 4h12" />
+              </svg>
+              <div>
+                <div className="font-semibold text-sm">Body Weight</div>
+                <div className="text-xs text-slate-500">Quick log from Settings</div>
+              </div>
+            </div>
+            <BodyWeightQuickLog />
+          </div>
+
           {/* API Base URL */}
           <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
             <div className="flex items-center gap-2">
@@ -135,6 +182,39 @@ export default function SettingsScreen({ onBack }: { onBack: () => void }) {
               >
                 {saving === "api_base" ? "Saving..." : saved === "api_base" ? "Saved" : "Save"}
               </button>
+            </div>
+          </div>
+
+          {/* Workout Mode */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              <div>
+                <div className="font-semibold text-sm">Workout Mode</div>
+                <div className="text-xs text-slate-500">Manual = you control template updates. AI Trainer = algorithm adjusts future routines.</div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              {(["manual", "ai_trainer"] as const).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => {
+                    setSettings((s) => ({ ...s, workout_mode: mode }));
+                    save("workout_mode").then(() => onModeChange?.(mode));
+                  }}
+                  className={`flex-1 rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${
+                    (settings["workout_mode"] ?? "manual") === mode
+                      ? mode === "ai_trainer"
+                        ? "border-emerald-500 bg-emerald-950/50 text-emerald-300"
+                        : "border-indigo-500 bg-indigo-950/50 text-indigo-300"
+                      : "border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300"
+                  }`}
+                >
+                  {mode === "manual" ? "Manual" : "AI Trainer"}
+                </button>
+              ))}
             </div>
           </div>
 
