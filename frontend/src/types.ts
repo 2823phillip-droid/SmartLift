@@ -63,6 +63,8 @@ export interface WorkoutSession {
   pre_workout_mood?: string;
   pre_workout_tags: string[];
   status: string;
+  template_name?: string;
+  context_name?: string;
 }
 
 export interface SetLog {

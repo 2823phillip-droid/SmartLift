@@ -223,6 +223,23 @@ class SetLogOut(BaseModel):
     class Config:
         from_attributes = True
 
+class SessionHistoryOut(BaseModel):
+    id: int
+    template_id: Optional[int]
+    started_at: datetime
+    ended_at: Optional[datetime]
+    pre_workout_mood: Optional[str]
+    pre_workout_tags: List[str]
+    status: str
+    template_name: Optional[str] = None
+    context_name: Optional[str] = None
+
+class SetLogUpdate(BaseModel):
+    actual_weight: Optional[float] = None
+    actual_reps: Optional[int] = None
+    effort: Optional[int] = None
+    notes: Optional[str] = None
+
 class ExerciseProgressPoint(BaseModel):
     date: str
     weight: float
@@ -735,21 +752,31 @@ def create_session(payload: SessionCreate, db: Session = Depends(get_db), curren
         status=session.status.value,
     )
 
-@app.get("/api/sessions", response_model=List[SessionOut])
+@app.get("/api/sessions", response_model=List[SessionHistoryOut])
 def list_sessions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     sessions = db.query(WorkoutSession).filter(WorkoutSession.user_id == current_user.id).order_by(WorkoutSession.started_at.desc()).limit(50).all()
-    return [
-        SessionOut(
-            id=s.id,
-            template_id=s.template_id,
-            started_at=s.started_at,
-            ended_at=s.ended_at,
-            pre_workout_mood=s.pre_workout_mood,
-            pre_workout_tags=json.loads(s.pre_workout_tags or "[]"),
-            status=s.status.value,
+    out = []
+    for s in sessions:
+        template_name = None
+        context_name = None
+        if s.template:
+            template_name = s.template.name
+            if s.template.context:
+                context_name = s.template.context.name
+        out.append(
+            SessionHistoryOut(
+                id=s.id,
+                template_id=s.template_id,
+                started_at=s.started_at,
+                ended_at=s.ended_at,
+                pre_workout_mood=s.pre_workout_mood,
+                pre_workout_tags=json.loads(s.pre_workout_tags or "[]"),
+                status=s.status.value,
+                template_name=template_name,
+                context_name=context_name,
+            )
         )
-        for s in sessions
-    ]
+    return out
 
 @app.get("/api/sessions/{session_id}", response_model=SessionOut)
 def get_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
@@ -793,6 +820,47 @@ def end_session(session_id: int, db: Session = Depends(get_db), current_user: Us
     )
 
 # --- Set Logs ---
+
+@app.delete("/api/sessions/{session_id}")
+def delete_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    s = db.query(WorkoutSession).filter(WorkoutSession.id == session_id, WorkoutSession.user_id == current_user.id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
+    db.delete(s)
+    db.commit()
+    logger.info(json.dumps({"type": "session", "event": "deleted", "session_id": session_id}))
+    return {"ok": True}
+
+
+@app.delete("/api/sessions/{session_id}/set-logs/{log_id}")
+def delete_set_log(session_id: int, log_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    log = db.query(SetLog).filter(SetLog.id == log_id, SetLog.session_id == session_id, SetLog.user_id == current_user.id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Set log not found")
+    db.delete(log)
+    db.commit()
+    logger.info(json.dumps({"type": "set_log", "event": "deleted", "log_id": log_id, "session_id": session_id}))
+    return {"ok": True}
+
+
+@app.put("/api/sessions/{session_id}/set-logs/{log_id}", response_model=SetLogOut)
+def update_set_log(session_id: int, log_id: int, payload: SetLogUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    log = db.query(SetLog).filter(SetLog.id == log_id, SetLog.session_id == session_id, SetLog.user_id == current_user.id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Set log not found")
+    if payload.actual_weight is not None:
+        log.actual_weight = payload.actual_weight
+    if payload.actual_reps is not None:
+        log.actual_reps = payload.actual_reps
+    if payload.effort is not None:
+        log.effort = payload.effort
+    if payload.notes is not None:
+        log.notes = payload.notes
+    db.commit()
+    db.refresh(log)
+    logger.info(json.dumps({"type": "set_log", "event": "updated", "log_id": log_id, "session_id": session_id}))
+    return log
+
 
 @app.post("/api/set-logs", response_model=SetLogOut)
 def create_set_log(payload: SetLogCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):

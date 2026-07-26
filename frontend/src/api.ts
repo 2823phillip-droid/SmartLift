@@ -193,11 +193,21 @@ export interface Session {
   ended_at?: string | null;
 }
 
+export interface SessionHistory extends Session {
+  template_id?: number;
+  pre_workout_mood?: string;
+  pre_workout_tags: string[];
+  status: string;
+  template_name?: string;
+  context_name?: string;
+}
+
 export interface SetLog {
   id: number;
   session_id: number;
   exercise_entry_id: number;
   set_number: number;
+  set_index: number;
   suggested_weight?: number | null;
   suggested_reps?: number | null;
   actual_weight?: number | null;
@@ -205,6 +215,14 @@ export interface SetLog {
   effort?: number | null;
   completed?: boolean;
   logged_at?: string | null;
+  notes?: string | null;
+}
+
+export interface SetLogUpdate {
+  actual_weight?: number | null;
+  actual_reps?: number | null;
+  effort?: number | null;
+  notes?: string | null;
 }
 
 export const api = {
@@ -263,6 +281,15 @@ export const api = {
   getContext: (id: number) => request(`/contexts/${id}`),
   endSession: (id: number) =>
     request(`/sessions/${id}/end`, { method: "POST" }),
+  deleteSession: (id: number) =>
+    request(`/sessions/${id}`, { method: "DELETE" }),
+  deleteSetLog: (sessionId: number, logId: number) =>
+    request(`/sessions/${sessionId}/set-logs/${logId}`, { method: "DELETE" }),
+  updateSetLog: (sessionId: number, logId: number, data: SetLogUpdate) =>
+    request(`/sessions/${sessionId}/set-logs/${logId}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
 
   createSetLog: (data: {
     session_id: number;
