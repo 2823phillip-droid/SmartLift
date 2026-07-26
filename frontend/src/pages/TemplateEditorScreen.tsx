@@ -636,6 +636,12 @@ export default function TemplateEditorScreen({
           </div>
 
           <button
+            onClick={onBack}
+            className="w-full rounded-2xl border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold py-3 text-sm transition-colors"
+          >
+            Cancel
+          </button>
+          <button
             onClick={save}
             disabled={saving}
             className="w-full rounded-2xl bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-3 text-sm transition-colors disabled:opacity-70"
