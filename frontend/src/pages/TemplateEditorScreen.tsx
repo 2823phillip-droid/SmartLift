@@ -22,6 +22,8 @@ const toTitle = (v: string) =>
     .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : ""))
     .join(" ");
 
+const DRAFT_KEY = "new-routine-draft-v1";
+
 export default function TemplateEditorScreen({
   contextId,
   templateId,
@@ -65,15 +67,9 @@ export default function TemplateEditorScreen({
     }
   };
 
-  const clearDraft = () => {
-    try {
-      localStorage.removeItem(`workout-draft-${contextId}`);
-    } catch {}
-  };
-
   const loadDraft = (): { name: string; type: string; exercises: DraftExercise[] } | null => {
     try {
-      const raw = localStorage.getItem(`workout-draft-${contextId}`);
+      const raw = localStorage.getItem(DRAFT_KEY);
       if (!raw) return null;
       return JSON.parse(raw);
     } catch {
@@ -83,7 +79,13 @@ export default function TemplateEditorScreen({
 
   const saveDraft = (data: { name: string; type: string; exercises: DraftExercise[] }) => {
     try {
-      localStorage.setItem(`workout-draft-${contextId}`, JSON.stringify(data));
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+    } catch {}
+  };
+
+  const clearDraft = () => {
+    try {
+      localStorage.removeItem(DRAFT_KEY);
     } catch {}
   };
 
@@ -112,39 +114,34 @@ export default function TemplateEditorScreen({
         })
         .catch((e) => log.error("template_load_failed", { template_id: templateId, error: e }))
         .finally(() => setLoading(false));
-    } else {
-      const draft = loadDraft();
-      if (draft) {
-        setName(draft.name);
-        setType(draft.type);
-        if (draft.exercises?.length) {
-          setExercises(draft.exercises);
-        }
-      }
+      return;
     }
-  }, [templateId, contextId]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const setting = await api.getSetting("global_rest_seconds");
-        if (!cancelled && setting?.value) {
+    setLoading(true);
+    api
+      .getSetting("global_rest_seconds")
+      .then((setting) => {
+        if (setting?.value) {
           setGlobalRest(Number(setting.value));
         }
-      } catch {
-        // keep default 90
+      })
+      .catch(() => {});
+
+    const draft = loadDraft();
+    if (draft) {
+      setName(draft.name);
+      setType(draft.type);
+      if (draft.exercises?.length) {
+        setExercises(draft.exercises);
       }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+    }
+    setLoading(false);
+  }, [templateId]);
 
   useEffect(() => {
     if (templateId) return;
     saveDraft({ name, type, exercises });
-  }, [name, type, exercises, templateId, contextId]);
+  }, [name, type, exercises, templateId]);
 
   const updateSet = (exIdx: number, setIdx: number, patch: Partial<SetRow>) => {
     setExercises((list) => {
@@ -425,6 +422,7 @@ export default function TemplateEditorScreen({
                         }`}
                       />
                       <button
+                        type="button"
                         onClick={() => toggleExerciseRestEdit(ex, !exerciseRestEditing[ex.localId])}
                         className={`flex h-5 w-9 items-center rounded-full border px-0.5 transition-colors ${
                           exerciseRestEditing[ex.localId]
@@ -618,9 +616,7 @@ export default function TemplateEditorScreen({
                     <div className="text-xs text-slate-400 space-x-2">
                       {ex.muscle_group ? <span>{toTitle(ex.muscle_group)}</span> : null}
                       {ex.equipment ? <span>· {toTitle(ex.equipment)}</span> : null}
-                      <span>· {ex.sets_target}x{ex.reps_target}</span>
-                      {ex.start_weight > 0 ? <span>· {ex.start_weight} lbs</span> : null}
-                      <span>· {ex.rest_seconds}s rest</span>
+                      <span>· {ex.default_rest_seconds}s rest</span>
                     </div>
                   </div>
                   <button
