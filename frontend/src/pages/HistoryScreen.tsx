@@ -622,14 +622,12 @@ export default function HistoryScreen({
         </div>
 
         {renderSubfilters()}
-        {timeframe !== "all" && (
-          <button
-            onClick={() => setConfirmDeleteTimeframe(true)}
-            className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-red-900/40 border border-red-900 text-red-200 hover:bg-red-800/40"
-          >
-            Delete {confirmLabel(timeframe)}
-          </button>
-        )}
+        <button
+          onClick={() => setConfirmDeleteTimeframe(true)}
+          className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-red-900/40 border border-red-900 text-red-200 hover:bg-red-800/40"
+        >
+          Delete {timeframe === "all" ? "All" : confirmLabel(timeframe)}
+        </button>
 
         <div className="space-y-2">
           {viewMode === "by_date" && groupedByDate
@@ -709,10 +707,10 @@ export default function HistoryScreen({
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
             <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-4">
               <div className="text-sm font-semibold">
-                Delete sessions in {confirmLabel(timeframe)}?
+                {timeframe === "all" ? "Delete all sessions?" : `Delete sessions in ${confirmLabel(timeframe)}?`}
               </div>
               <div className="text-xs text-slate-400">
-                This will remove {filteredSessions.length} session(s) from this timeframe.
+                This will remove {filteredSessions.length} session(s).
               </div>
               <div className="flex gap-2">
                 <button
