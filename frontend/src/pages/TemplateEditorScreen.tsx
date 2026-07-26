@@ -117,11 +117,12 @@ export default function TemplateEditorScreen({
       return;
     }
 
+    let cancelled = false;
     setLoading(true);
     api
       .getSetting("global_rest_seconds")
       .then((setting) => {
-        if (setting?.value) {
+        if (!cancelled && setting?.value) {
           setGlobalRest(Number(setting.value));
         }
       })
@@ -135,7 +136,12 @@ export default function TemplateEditorScreen({
         setExercises(draft.exercises);
       }
     }
-    setLoading(false);
+    if (!cancelled) setLoading(false);
+
+    return () => {
+      cancelled = true;
+      saveDraft({ name, type, exercises });
+    };
   }, [templateId]);
 
   useEffect(() => {
