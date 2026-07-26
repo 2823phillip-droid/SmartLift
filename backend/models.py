@@ -84,6 +84,9 @@ class ExerciseLibrary(Base):
     muscle_group = Column(String)
     equipment = Column(String)
     default_rest_seconds = Column(Integer, default=90)
+    video_url = Column(String, nullable=True)
+    image_url = Column(String, nullable=True)
+    gif_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
 
 class ExerciseEntry(Base):

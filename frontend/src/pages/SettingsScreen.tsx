@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, getApiBase, initApiBaseFromSettings } from "../api";
 import BodyWeightQuickLog from "../components/BodyWeightQuickLog";
 
@@ -12,33 +12,44 @@ export default function SettingsScreen({ onBack, onModeChange }: { onBack: () =>
   const [apiBaseState, setApiBaseState] = useState("");
   const [settingsError, setSettingsError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let cancelled = false;
+  const runLoad = async () => {
+    const id = ++loadIdRef.current;
     setLoading(true);
     setSettingsError(null);
-
-    const load = async () => {
+    try {
       try {
         await initApiBaseFromSettings();
       } catch {
         // non-fatal: request() still falls back to LAN/env if apiBase is missing
       }
-      if (cancelled) return;
+      if (id !== loadIdRef.current) return;
       setApiBaseState(getApiBase());
+      let items: SettingItem[];
       try {
-        const items = await api.listSettings();
-        const map: Record<string, string> = {};
-        items.forEach((s: SettingItem) => { if (s.value != null) map[s.key] = s.value; });
-        if (!cancelled) setSettings(map);
+        items = (await api.listSettings()) as SettingItem[];
       } catch (err) {
-        if (!cancelled) setSettingsError((err as Error)?.message || "Failed to load settings");
-      } finally {
-        if (!cancelled) setLoading(false);
+        const errAny = err as any;
+        const msg = errAny?.status && errAny?.url ? `${errAny.message} at ${errAny.url}` : (err as Error)?.message || "Failed to load settings";
+        const raw = (err as Error)?.stack || errAny?.message || "unknown";
+        console.error("[SettingsScreen] raw", JSON.stringify({name: errAny?.name, message: errAny?.message, url: errAny?.url, status: errAny?.status, stack: raw}));
+        if (id === loadIdRef.current) {
+          setSettingsError(msg);
+        }
+        return;
       }
-    };
+      if (id !== loadIdRef.current) return;
+      const map: Record<string, string> = {};
+      items.forEach((s) => { if (s.value != null) map[s.key] = s.value; });
+      setSettings(map);
+    } finally {
+      if (id === loadIdRef.current) setLoading(false);
+    }
+  };
 
-    load();
-    return () => { cancelled = true; };
+  const loadIdRef = useRef(0);
+
+  useEffect(() => {
+    runLoad();
   }, []);
 
   const save = async (key: string) => {
@@ -99,15 +110,7 @@ export default function SettingsScreen({ onBack, onModeChange }: { onBack: () =>
           <p className="text-red-400 text-sm font-mono break-words">{settingsError}</p>
           <p className="text-slate-500 text-xs">API: {apiBaseState || "(none)"}</p>
           <button
-            onClick={() => {
-              setSettingsError(null);
-              initApiBaseFromSettings().then(() => setApiBaseState(getApiBase()));
-              api.listSettings().then((items: SettingItem[]) => {
-                const map: Record<string, string> = {};
-                items.forEach((s) => { if (s.value != null) map[s.key] = s.value; });
-                setSettings(map);
-              }).catch((err) => setSettingsError((err as Error)?.message || "Failed again"));
-            }}
+            onClick={runLoad}
             className="rounded-xl bg-slate-800 px-4 py-2 text-sm hover:bg-slate-700"
           >
             Retry
@@ -131,8 +134,7 @@ export default function SettingsScreen({ onBack, onModeChange }: { onBack: () =>
                 type="number"
                 value={settings["global_rest_seconds"] ?? "90"}
                 onChange={(e) => setSettings((s) => ({ ...s, global_rest_seconds: e.target.value }))}
-                className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-center text-lg font-semibold tabular-nums
-                           focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
+                className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-center text-lg font-semibold tabular-nums focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
               />
               <button
                 onClick={() => save("global_rest_seconds")}
@@ -147,11 +149,7 @@ export default function SettingsScreen({ onBack, onModeChange }: { onBack: () =>
                 <button
                   key={s}
                   onClick={() => setSettings((prev) => ({ ...prev, global_rest_seconds: String(s) }))}
-                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors font-medium ${
-                    Number(settings["global_rest_seconds"] ?? 90) === s
-                      ? "border-indigo-500 bg-indigo-950/50 text-indigo-300"
-                      : "border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300"
-                  }`}
+                  className={`text-xs px-3 py-1.5 rounded-lg border transition-colors font-medium ${Number(settings["global_rest_seconds"] ?? 90) === s ? "border-indigo-500 bg-indigo-950/50 text-indigo-300" : "border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300"}`}
                 >
                   {s}s
                 </button>
@@ -223,13 +221,7 @@ export default function SettingsScreen({ onBack, onModeChange }: { onBack: () =>
                     await save("workout_mode");
                     onModeChange?.(mode);
                   }}
-                  className={`flex-1 rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${
-                    (settings["workout_mode"] ?? "manual") === mode
-                      ? mode === "ai_trainer"
-                        ? "border-emerald-500 bg-emerald-950/50 text-emerald-300"
-                        : "border-indigo-500 bg-indigo-950/50 text-indigo-300"
-                      : "border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300"
-                  }`}
+                  className={`flex-1 rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${(settings["workout_mode"] ?? "manual") === mode ? mode === "ai_trainer" ? "border-emerald-500 bg-emerald-950/50 text-emerald-300" : "border-indigo-500 bg-indigo-950/50 text-indigo-300" : "border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300"}`}
                 >
                   {mode === "manual" ? "Manual" : "AI Trainer"}
                 </button>

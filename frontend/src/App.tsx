@@ -341,6 +341,7 @@ export default function App() {
                 <ActiveWorkoutScreen
                   sessionId={sessionId}
                   templateId={selectedTemplateId}
+                  workoutMode={workoutMode}
                   onEnd={(summary) => {
                     setWorkoutEndSummary(summary || null);
                     navigate("post_workout");

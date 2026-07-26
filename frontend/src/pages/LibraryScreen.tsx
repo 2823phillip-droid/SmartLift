@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { Browser } from "@capacitor/browser";
 import { api } from "../api";
 import type { WorkoutLibrary } from "../types";
 
@@ -14,6 +16,20 @@ export default function LibraryScreen({ onBack, onImported }: { onBack: () => vo
   const [detail, setDetail] = useState<WorkoutLibrary | null>(null);
   const [importing, setImporting] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+
+  const openPreview = async (url: string) => {
+    if (!url) return;
+    try {
+      if (Capacitor.getPlatform() === "ios") {
+        await Browser.open({ url, presentationStyle: "fullscreen" });
+      } else {
+        window.open(url, "_blank", "noopener,noreferrer");
+      }
+    } catch (e) {
+      console.error("preview_failed", e);
+      window.open(url, "_blank", "noopener,noreferrer");
+    }
+  };
 
   useEffect(() => {
     api.getWorkoutLibrary()
@@ -91,18 +107,47 @@ export default function LibraryScreen({ onBack, onImported }: { onBack: () => vo
             <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Exercises</div>
             <div className="space-y-2">
               {detail.exercises.map((ex, idx) => (
-                <div key={idx} className="rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-3 space-y-1">
-                  <div className="flex items-center justify-between">
-                    <div className="text-sm font-semibold">{ex.name}</div>
-                    <span className="text-[10px] font-semibold text-slate-500">{ex.order + 1}</span>
+                <div key={idx} className="rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-3 flex items-center gap-3">
+                  <div
+                    onClick={() => {
+                      const url = ex.gif_url || ex.image_url;
+                      if (url) openPreview(url);
+                    }}
+                    className="shrink-0"
+                  >
+                    {ex.gif_url ? (
+                      <img src={ex.gif_url} alt={ex.name} className="h-12 w-12 rounded-xl object-cover border border-slate-800 bg-slate-900 shrink-0" loading="lazy" />
+                    ) : ex.image_url ? (
+                      <img src={ex.image_url} alt={ex.name} className="h-12 w-12 rounded-xl object-cover border border-slate-800 bg-slate-900 shrink-0" loading="lazy" />
+                    ) : (
+                      <div className="h-12 w-12 rounded-xl border border-slate-800 bg-slate-900 shrink-0 flex items-center justify-center text-xs font-semibold text-slate-300">
+                        {ex.name.trim()[0] ? ex.name.trim()[0].toUpperCase() : "?"}
+                      </div>
+                    )}
                   </div>
-                  <div className="text-xs text-slate-400 space-x-2">
-                    {ex.muscle_group ? <span>{ex.muscle_group}</span> : null}
-                    {ex.equipment ? <span>· {ex.equipment}</span> : null}
-                    <span>· {ex.sets_target}x{ex.reps_target}</span>
-                    {ex.start_weight > 0 ? <span>· {ex.start_weight} lbs</span> : null}
-                    <span>· {ex.rest_seconds}s rest</span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm font-semibold truncate">{ex.name}</div>
+                      <span className="text-[10px] font-semibold text-slate-500">{ex.order + 1}</span>
+                    </div>
+                    <div className="text-xs text-slate-400 space-x-2">
+                      {ex.muscle_group ? <span>{ex.muscle_group}</span> : null}
+                      {ex.equipment ? <span>· {ex.equipment}</span> : null}
+                      <span>· {ex.sets_target}x{ex.reps_target}</span>
+                      {ex.start_weight > 0 ? <span>· {ex.start_weight} lbs</span> : null}
+                      <span>· {ex.rest_seconds}s rest</span>
+                    </div>
                   </div>
+                  {ex.video_url && (
+                    <button
+                      onClick={() => openPreview(ex.video_url!)}
+                      className="shrink-0 w-10 h-10 rounded-xl border border-slate-800 bg-slate-900/60 hover:border-indigo-500/40 flex items-center justify-center text-indigo-300"
+                    >
+                      <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </button>
+                  )}
                 </div>
               ))}
             </div>

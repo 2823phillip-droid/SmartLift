@@ -23,10 +23,12 @@ import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../t
 export default function ActiveWorkoutScreen({
   sessionId,
   templateId,
+  workoutMode,
   onEnd,
 }: {
   sessionId: number;
   templateId: number;
+  workoutMode?: "manual" | "ai_trainer";
   onEnd?: (summary?: {
     exerciseOrder: number[];
     setsTargetChanges: Record<number, number>;
@@ -56,6 +58,7 @@ export default function ActiveWorkoutScreen({
   const [addSetExerciseId, setAddSetExerciseId] = useState<number | null>(null);
   const [displaySetsTarget, setDisplaySetsTarget] = useState<Record<number, number>>({});
   const [lastSetByExercise, setLastSetByExercise] = useState<Record<number, {weight: number; reps: number} | null>>({});
+  const [lastSessionByExercise, setLastSessionByExercise] = useState<Record<number, {set_index: number; actual_weight: number; actual_reps: number}[]>>({});
   const [originalExercises, setOriginalExercises] = useState<ExerciseEntry[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
 
@@ -113,6 +116,27 @@ export default function ActiveWorkoutScreen({
         }
       }
       setLastSetByExercise(resolved);
+      if ((workoutMode || "manual") === "manual") {
+        const lastSessionResults = await Promise.allSettled(
+          uniqueNames.map((name: string) => api.getExerciseNameLastSession(name))
+        );
+        const sessionResolved: Record<number, {set_index: number; actual_weight: number; actual_reps: number}[]> = {};
+        for (const exercise of exercisesData) {
+          const idx = uniqueNames.indexOf(exercise.name);
+          const result = idx >= 0 ? lastSessionResults[idx] : undefined;
+          if (result && result.status === "fulfilled") {
+            const data = result.value as any;
+            const logs = Array.isArray(data?.logs) ? data.logs : [];
+            if (logs.length > 0) sessionResolved[exercise.id] = logs.map((l: any) => ({ set_index: Number(l.set_index), actual_weight: Number(l.actual_weight || 0), actual_reps: Number(l.actual_reps || 0) }));
+            else sessionResolved[exercise.id] = [];
+          } else {
+            sessionResolved[exercise.id] = [];
+          }
+        }
+        setLastSessionByExercise(sessionResolved);
+      } else {
+        setLastSessionByExercise({});
+      }
     });
   }, [sessionId, templateId]);
 
@@ -213,10 +237,13 @@ export default function ActiveWorkoutScreen({
 
   const resolveRest = (): number => {
     const currentExercise = getCurrentExercise();
-    if (currentExercise && exerciseRestOverrides[currentExercise.id]) {
+    if (currentExercise && exerciseRestOverrides[currentExercise.id] !== undefined) {
       return exerciseRestOverrides[currentExercise.id];
     }
-    return globalRest;
+    if (currentExercise && currentExercise.rest_seconds) {
+      return currentExercise.rest_seconds;
+    }
+    return globalRest || 90;
   };
 
   const currentRest = resolveRest();
@@ -245,6 +272,19 @@ export default function ActiveWorkoutScreen({
   const expandExercise = (exercise: ExerciseEntry) => {
     setExpandedExerciseId(exercise.id);
     setAddSetExerciseId(null);
+    const completedCount = exerciseCompletedCount[exercise.id] || 0;
+    if ((workoutMode || "manual") === "manual") {
+      const sessionLogs = lastSessionByExercise[exercise.id] || [];
+      const match = sessionLogs.find((l) => l.set_index === completedCount + 1);
+      if (match) {
+        setDraftWeight(String(match.actual_weight));
+        setDraftReps(String(match.actual_reps));
+        setDraftEffort(3);
+        setNotes("");
+        setShowNotes(false);
+        return;
+      }
+    }
     const history = lastSetByExercise[exercise.id];
     setDraftWeight(history ? String(history.weight) : "0");
     setDraftReps(history ? String(history.reps) : "0");
@@ -258,7 +298,7 @@ export default function ActiveWorkoutScreen({
       setExerciseRestEditing((prev) => ({ ...prev, [exercise.id]: true }));
       setExerciseRestDraft((prev) => ({
         ...prev,
-        [exercise.id]: String(exerciseRestOverrides[exercise.id] ?? globalRest),
+        [exercise.id]: String(exerciseRestOverrides[exercise.id] ?? exercise.rest_seconds),
       }));
     } else {
       setExerciseRestEditing((prev) => {
@@ -558,7 +598,7 @@ export default function ActiveWorkoutScreen({
                   }}
                   onCancelAddSet={() => setAddSetExerciseId(null)}
                   onToggleRestEdit={() => toggleExerciseRestEdit(exercise, !editingRest)}
-                  editingRestValue={exerciseRestDraft[exercise.id] ?? String(globalRest)}
+                  editingRestValue={exerciseRestDraft[exercise.id] ?? String(exercise.rest_seconds)}
                   onRestChange={(val) => {
                     setExerciseRestDraft((prev) => ({ ...prev, [exercise.id]: val }));
                     commitExerciseRest(exercise, val);
@@ -673,7 +713,7 @@ function SortableExerciseCard({
       </div>
       <div className="pl-8">
         {isDragActive ? (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
             <div className="flex items-center justify-between">
               <div className="text-sm font-semibold text-slate-200 truncate">{exercise.name}</div>
               {isComplete && (
@@ -694,17 +734,17 @@ function SortableExerciseCard({
             <button
               onClick={onExpand}
               disabled={isResting}
-              className="w-full flex items-center justify-between p-4 text-left disabled:opacity-60"
+              className="w-full flex items-center justify-between px-3 py-2 text-left disabled:opacity-60"
             >
               <div className="flex-1 min-w-0">
-                <div className="text-sm font-semibold text-slate-200 truncate">{exercise.name}</div>
-                <div className="text-xs text-slate-500 mt-0.5">
+                <div className="text-xs font-semibold text-slate-200 truncate">{exercise.name}</div>
+                <div className="text-[11px] text-slate-500 mt-0.5">
                   {completed}/{displayTarget} sets · {exercise.start_weight} lbs × {exercise.reps_target} reps target
                 </div>
               </div>
-              <div className="flex items-center gap-2 ml-3">
+              <div className="flex items-center gap-1.5 ml-2">
                 {isComplete && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-full px-2 py-0.5">
+                  <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-full px-1.5 py-0.5">
                     Done
                   </span>
                 )}
@@ -714,7 +754,7 @@ function SortableExerciseCard({
                       e.stopPropagation();
                       onAddSet();
                     }}
-                    className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-300 hover:border-slate-600"
+                    className="rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-300 hover:border-slate-600"
                   >
                     Add Set
                   </button>
@@ -725,7 +765,7 @@ function SortableExerciseCard({
                     value={editingRestValue}
                     disabled={!editingRest}
                     onChange={(e) => onRestChange(e.target.value)}
-                    className={`w-14 rounded-lg border px-2 py-1 text-center text-xs tabular-nums transition-colors ${
+                    className={`w-12 rounded-md border px-1.5 py-0.5 text-center text-xs tabular-nums transition-colors ${
                       editingRest
                         ? "border-indigo-500 bg-slate-950 text-slate-200 focus:outline-none focus:border-indigo-400"
                         : "border-slate-700 bg-slate-900 text-slate-500 cursor-not-allowed"
@@ -736,16 +776,16 @@ function SortableExerciseCard({
                       e.stopPropagation();
                       onToggleRestEdit();
                     }}
-                    className={`flex h-6 w-10 items-center rounded-full border px-0.5 transition-colors ${
+                    className={`flex h-5 w-9 items-center rounded-full border px-0.5 transition-colors ${
                       editingRest ? "border-indigo-500 bg-indigo-600 justify-end" : "border-slate-700 bg-slate-800 justify-start"
                     }`}
                     title={editingRest ? "Disable rest override" : "Enable rest override"}
                   >
-                    <div className="h-4 w-4 rounded-full bg-white shadow-sm" />
+                    <div className="h-3 w-3 rounded-full bg-white shadow-sm" />
                   </button>
                 </div>
                 <svg
-                  className={`w-5 h-5 text-slate-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                  className={`w-4 h-4 text-slate-500 transition-transform ${isExpanded ? "rotate-180" : ""}`}
                   fill="none"
                   stroke="currentColor"
                   viewBox="0 0 24 24"
@@ -756,12 +796,12 @@ function SortableExerciseCard({
             </button>
 
             {isExpanded && (
-              <div className="px-4 pb-4 space-y-3">
+              <div className="px-3 pb-3 space-y-2">
                 {exerciseLogs.length > 0 && (
-                  <div className="space-y-2">
+                  <div className="space-y-1.5">
                     <div className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Completed Sets</div>
                     {exerciseLogs.map((log) => (
-                      <div key={log.id} className="flex items-center justify-between rounded-xl bg-slate-950/50 border border-slate-800 px-3 py-2">
+                      <div key={log.id} className="flex items-center justify-between rounded-xl bg-slate-950/50 border border-slate-800 px-2.5 py-1.5">
                         <span className="text-xs text-slate-500 font-semibold">Set {log.set_index}</span>
                         <span className="text-xs text-slate-300 font-semibold">{log.actual_weight} lbs × {log.actual_reps} reps</span>
                       </div>
@@ -779,14 +819,14 @@ function SortableExerciseCard({
                         ← Cancel
                       </button>
                     )}
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
                         <input
                           type="number"
                           value={draftWeight}
                           onChange={(e) => onDraftWeightChange(e.target.value)}
                           placeholder={`${exercise.start_weight}`}
-                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-4 text-center text-2xl font-bold tabular-nums focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-center text-xl font-bold tabular-nums focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
                         />
                         <div className="text-[10px] text-slate-500 text-center mt-1 uppercase tracking-wider">Weight</div>
                       </div>
@@ -796,20 +836,20 @@ function SortableExerciseCard({
                           value={draftReps}
                           onChange={(e) => onDraftRepsChange(e.target.value)}
                           placeholder={`${exercise.reps_target}`}
-                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-4 text-center text-2xl font-bold tabular-nums focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-3 text-center text-xl font-bold tabular-nums focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
                         />
                         <div className="text-[10px] text-slate-500 text-center mt-1 uppercase tracking-wider">Reps</div>
                       </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <label className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Effort {draftEffort}/5</label>
-                      <div className="grid grid-cols-5 gap-2">
+                      <div className="grid grid-cols-5 gap-1.5">
                         {[1, 2, 3, 4, 5].map((n) => (
                           <button
                             key={n}
                             onClick={() => onDraftEffortChange(n)}
-                            className={`py-3 text-base font-bold rounded-xl border transition-all ${
+                            className={`py-2.5 text-sm font-bold rounded-xl border transition-all ${
                               draftEffort === n
                                 ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-900/20 scale-[1.02]"
                                 : "border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300"
@@ -821,7 +861,7 @@ function SortableExerciseCard({
                       </div>
                     </div>
 
-                    <div className="space-y-2">
+                    <div className="space-y-1.5">
                       <button
                         onClick={onToggleNotes}
                         className="text-sm text-slate-400 hover:text-slate-300 transition-colors flex items-center gap-1.5 px-2 py-1.5 rounded-lg hover:bg-slate-800/50 w-fit"
@@ -836,7 +876,7 @@ function SortableExerciseCard({
                           value={notes}
                           onChange={(e) => onNotesChange(e.target.value)}
                           placeholder="Any thoughts on this set?"
-                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm resize-none focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
+                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm resize-none focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
                           rows={2}
                         />
                       )}
@@ -847,7 +887,7 @@ function SortableExerciseCard({
                         await onLogSet();
                       }}
                       disabled={!canLog}
-                      className="w-full rounded-2xl bg-emerald-600 px-5 py-4 text-base font-semibold hover:bg-emerald-500 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/30 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
+                      className="w-full rounded-2xl bg-emerald-600 px-4 py-3.5 text-base font-semibold hover:bg-emerald-500 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/30 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
                     >
                       Complete Set
                     </button>

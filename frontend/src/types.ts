@@ -13,6 +13,9 @@ export interface ExerciseLibraryItem {
   muscle_group?: string;
   equipment?: string;
   default_rest_seconds: number;
+  video_url?: string | null;
+  image_url?: string | null;
+  gif_url?: string | null;
 }
 
 export interface SetSuggestion {
@@ -120,6 +123,9 @@ export interface WorkoutLibraryExercise {
   rest_seconds: number;
   order: number;
   notes?: string;
+  gif_url?: string | null;
+  image_url?: string | null;
+  video_url?: string | null;
 }
 
 export interface WorkoutLibrary {

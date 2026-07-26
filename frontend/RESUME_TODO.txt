@@ -1,0 +1,53 @@
+SmartLift login/settings debugging — resumption note
+=====================================================
+
+What failed last night
+----------------------
+Login was aborting with `Fetch is aborted`, and Settings still wasn’t loading.
+
+Key finding that changed the plan
+----------------------------------
+`phillipwalters.local` and `aiserver.local` do not reliably resolve on this network:
+- `aiserver.local` returned NXDOMAIN
+- `phillipwalters.local` resolves to the MacBook itself, not the Linux backend
+
+So the yacht-realistic path is the raw LAN IP with iOS local-network permission.
+
+What I changed in the frontend source (already on Linux, ready to rsync)
+------------------------------------------------------------------------
+- `src/api.ts`: request default/base/fallback = `http://192.168.1.111:8000/api`
+- `src/api.ts`: raised critical request timeouts from 4s/3.5s to 10s/12s
+- `src/pages/SettingsScreen.tsx`: placeholder/error text keeps the IP consistent
+
+What I changed on the MacBook iOS project (needs verification)
+---------------------------------------------------------------
+- `frontend/ios/App/App/Info.plist`: added `NSLocalNetworkUsageDescription`
+- `.env` should be set to `VITE_API_BASE=http://192.168.1.111:8000/api`
+
+What to do tomorrow on the MacBook
+----------------------------------
+1. Verify `frontend/.env` contains:
+   VITE_API_BASE=http://192.168.1.111:8000/api
+
+2. Rebuild/sync from the MacBook:
+   ```
+   cd ~/workout-logger/frontend
+   nvm use 22
+   npm run build
+   npx cap sync ios
+   ```
+
+3. On the iPhone:
+   - Delete SmartLift
+   - Xcode: Product -> Clean Build Folder
+   - Run
+   - When iOS asks for Local Network permission, tap **Allow**
+
+If login still aborts after that, next investigations:
+- Capture exact failing URL/status from the enhanced error UI
+- Check whether the device is actually on the same WiFi
+- Verify backend is up: `curl -I http://192.168.1.111:8000/api/settings`
+- Try toggling Wi-Fi Assist / Private Wi-Fi Address off in Settings -> Wi-Fi -> info icon
+
+If local-hostname support is desired long-term:
+- Install/configure `avahi-daemon` on the Linux backend so it actually advertises a `.local` name via mDNS/Bonjour

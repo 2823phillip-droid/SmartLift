@@ -2,6 +2,7 @@ from fastapi import FastAPI, Depends, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.orm import Session
+from sqlalchemy import func
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional, List
@@ -119,6 +120,9 @@ class ExerciseLibraryOut(BaseModel):
     muscle_group: Optional[str]
     equipment: Optional[str]
     default_rest_seconds: int
+    video_url: Optional[str] = None
+    image_url: Optional[str] = None
+    gif_url: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -627,6 +631,80 @@ def search_exercise_library(q: str = "", db: Session = Depends(get_db), current_
         query = query.filter(ExerciseLibrary.name.ilike(f"%{q}%"))
     return query.all()
 
+MUSCLEWIKI_BASE = "https://api.musclewiki.com"
+
+@app.post("/api/exercise-library/sync")
+def sync_exercise_library(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    path = os.path.join(os.path.dirname(__file__), "dist", "exercises-hasan.json")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=400, detail="Local exercise dataset not found")
+
+    with open(path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+
+    def _normalize_muscle_group(value: str) -> str:
+        if not value:
+            return value
+        v = value.strip().lower()
+        mapping = {
+            "chest": "Chest",
+            "shoulders": "Shoulders",
+            "back": "Back",
+            "biceps": "Biceps",
+            "triceps": "Triceps",
+            "upper arms": "Upper Arms",
+            "lower arms": "Lower Arms",
+            "legs": "Legs",
+            "upper legs": "Upper Legs",
+            "lower legs": "Lower Legs",
+            "calves": "Calves",
+            "waist": "Core",
+            "cardio": "Cardio",
+            "neck": "Neck",
+        }
+        return mapping.get(v, value.strip().title())
+
+    synced = 0
+    for item in data:
+        name = item.get("name")
+        if not name:
+            continue
+        existing = db.query(ExerciseLibrary).filter(ExerciseLibrary.name == name).first()
+        muscle_group = _normalize_muscle_group(item.get("body_part") or item.get("muscle_group") or "")
+        equipment = item.get("equipment")
+        image = item.get("image") or ""
+        gif = item.get("gif_url") or ""
+        image_url = f"https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/{image}" if image else None
+        gif_url = f"https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/{gif}" if gif else None
+        if existing:
+            changed = False
+            if muscle_group and existing.muscle_group != muscle_group:
+                existing.muscle_group = muscle_group
+                changed = True
+            if equipment is not None and existing.equipment != equipment:
+                existing.equipment = equipment
+                changed = True
+            if image_url and existing.image_url != image_url:
+                existing.image_url = image_url
+                changed = True
+            if gif_url and existing.gif_url != gif_url:
+                existing.gif_url = gif_url
+                changed = True
+            if changed:
+                synced += 1
+            continue
+        db.add(ExerciseLibrary(
+            name=name,
+            muscle_group=muscle_group,
+            equipment=equipment,
+            default_rest_seconds=90,
+            image_url=image_url,
+            gif_url=gif_url,
+        ))
+        synced += 1
+    db.commit()
+    return {"synced": synced}
+
 # --- Sessions ---
 
 @app.post("/api/sessions", response_model=SessionOut)
@@ -799,6 +877,78 @@ def get_exercise_name_progress(name: str, limit: int = 5000, db: Session = Depen
     ]
     seeded = len(logs) > 0 and all(bool(log.is_seeded) for log in logs)
     return ExerciseNameProgressResponse(name=name, points=points, seeded=seeded)
+
+
+@app.get("/api/exercise-names/{name}/last-session")
+def get_exercise_name_last_session(name: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    entries = db.query(ExerciseEntry).filter(ExerciseEntry.name == name).all()
+    entry_ids = [e.id for e in entries]
+    if not entry_ids:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+    sessions = (
+        db.query(WorkoutSession)
+        .filter(WorkoutSession.user_id == current_user.id, WorkoutSession.ended_at.is_not(None))
+        .order_by(WorkoutSession.started_at.desc())
+        .all()
+    )
+    for session in sessions:
+        logs = (
+            db.query(SetLog)
+            .filter(SetLog.session_id == session.id, SetLog.exercise_entry_id.in_(entry_ids))
+            .order_by(SetLog.set_index.asc())
+            .all()
+        )
+        if logs:
+            return {
+                "session_id": session.id,
+                "started_at": session.started_at.isoformat(),
+                "logs": [
+                    {
+                        "set_index": log.set_index,
+                        "actual_weight": float(log.actual_weight or 0),
+                        "actual_reps": int(log.actual_reps or 0),
+                    }
+                    for log in logs
+                ],
+            }
+    return {"session_id": None, "logs": []}
+
+
+@app.get("/api/stats/total-volume")
+def get_total_volume(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    total = (
+        db.query(func.sum(SetLog.actual_weight * SetLog.actual_reps))
+        .filter(SetLog.user_id == current_user.id, SetLog.actual_weight.is_not(None), SetLog.actual_reps.is_not(None))
+        .scalar()
+    )
+    return {"total_volume": float(total or 0)}
+
+
+@app.get("/api/stats/streak")
+def get_streak(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    sessions = (
+        db.query(WorkoutSession.started_at)
+        .filter(WorkoutSession.user_id == current_user.id, WorkoutSession.ended_at.is_not(None))
+        .order_by(WorkoutSession.started_at.desc())
+        .all()
+    )
+    if not sessions:
+        return {"streak": 0}
+    from datetime import datetime, timedelta
+    dates = sorted(
+        {datetime.strptime(str(s.started_at)[:10], "%Y-%m-%d").date() for s in sessions},
+        reverse=True,
+    )
+    today = datetime.utcnow().date()
+    if dates[0] < today - timedelta(days=1):
+        return {"streak": 0}
+    streak = 1
+    for i in range(1, len(dates)):
+        if dates[i - 1] - dates[i] == timedelta(days=1):
+            streak += 1
+        else:
+            break
+    return {"streak": streak}
 
 
 # --- Coach Messages ---

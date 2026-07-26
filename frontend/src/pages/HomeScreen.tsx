@@ -81,6 +81,8 @@ export default function HomeScreen() {
   const [addingName, setAddingName] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
   const [timeframe, setTimeframe] = useState<Timeframe>("all");
+  const [streak, setStreak] = useState<number | null>(null);
+  const [totalVolume, setTotalVolume] = useState<number | null>(null);
 
   const filteredWidgets = useMemo(
     () => widgets.map((w) => ({ ...w, points: filterPoints(w.points, timeframe) })),
@@ -90,6 +92,28 @@ export default function HomeScreen() {
   useEffect(() => {
     saveWidgets(widgets);
   }, [widgets]);
+
+  useEffect(() => {
+    Promise.all([api.getTotalVolume(), api.getStreak()]).then(([vol, s]) => {
+      setTotalVolume((vol as any)?.total_volume ?? null);
+      setStreak((s as any)?.streak ?? null);
+      setLastError(null);
+    }).catch((err) => {
+      setTotalVolume(null);
+      setStreak(null);
+      const serialized =
+        typeof err === "object" && err !== null
+          ? JSON.stringify({
+              name: err.name,
+              message: err.message,
+              stack: String(err.stack).slice(0, 200),
+              url: (err as any).url || undefined,
+              status: (err as any).status || undefined,
+            }).slice(0, 300)
+          : String(err).slice(0, 300);
+      setLastError(serialized);
+    });
+  }, []);
 
   const addedNames = useMemo(() => new Set(widgets.map((w) => w.name)), [widgets]);
 
@@ -171,13 +195,19 @@ export default function HomeScreen() {
       <div className="grid grid-cols-2 gap-3">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
           <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1">Streak</div>
-          <div className="text-xl font-bold">--</div>
+          <div className="text-xl font-bold">{streak !== null ? `${streak} day${streak === 1 ? '' : 's'}` : '--'}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
           <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1">Total volume</div>
-          <div className="text-xl font-bold">--</div>
+          <div className="text-xl font-bold">{totalVolume !== null ? `${Math.round(totalVolume).toLocaleString()} lbs` : '--'}</div>
         </div>
       </div>
+
+      {lastError && (
+        <div className="rounded-xl border border-rose-800 bg-rose-950/40 p-3 text-xs text-rose-300">
+          STATS_DIAG: {lastError}
+        </div>
+      )}
 
       <BodyWeightWidget timeframe={timeframe} />
 
