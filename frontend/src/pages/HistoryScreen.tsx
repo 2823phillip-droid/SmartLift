@@ -48,12 +48,6 @@ function formatDateOnly(iso?: string) {
   });
 }
 
-function inTimeFrame(iso?: string, timeframe: Timeframe = "all") {
-  if (!iso || timeframe === "all") return true;
-  const cutoff = Date.now() - TIMEFRAME_MS[timeframe];
-  return new Date(iso).getTime() >= cutoff;
-}
-
 export default function HistoryScreen({
   onBack,
   viewMode: initialViewMode = "by_workout",
@@ -74,7 +68,7 @@ export default function HistoryScreen({
   const [selectedExercise, setSelectedExercise] = useState<string>("all");
 
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; label: string } | null>(null);
-  const [bulkTimeframe, setBulkTimeframe] = useState<Timeframe | null>(null);
+  const [confirmDeleteTimeframe, setConfirmDeleteTimeframe] = useState(false);
   const [editingLog, setEditingLog] = useState<{ sessionId: number; log: SetLog } | null>(null);
 
   useEffect(() => {
@@ -168,21 +162,20 @@ export default function HistoryScreen({
   };
 
   const handleBulkDelete = async () => {
-    if (!bulkTimeframe) return;
-    for (const id of sessions.filter((s) => inTimeFrame(s.started_at, bulkTimeframe)).map((s) => s.id)) {
+    for (const id of filteredSessions.map((s) => s.id)) {
       await api.deleteSession(id);
     }
-    setSessions((prev) => prev.filter((s) => !inTimeFrame(s.started_at, bulkTimeframe)));
+    setSessions((prev) => prev.filter((s) => !filteredSessions.find((fs) => fs.id === s.id)));
     setDetails((prev) => {
       const next = { ...prev };
-      sessions
-        .filter((s) => inTimeFrame(s.started_at, bulkTimeframe))
-        .forEach((s) => delete next[s.id]);
+      filteredSessions.forEach((s) => delete next[s.id]);
       return next;
     });
     setExpandedId(null);
-    setBulkTimeframe(null);
+    setConfirmDeleteTimeframe(false);
   };
+
+  const confirmLabel = (key: Timeframe) => (key === "all" ? "all time" : `the last ${TIMEFRAMES.find((t) => t.key === key)?.label}`);
 
   const filteredSessions = useMemo(() => {
     let list = sessions;
@@ -304,51 +297,6 @@ export default function HistoryScreen({
             </option>
           ))}
         </select>
-      )}
-    </div>
-  );
-
-  const renderBulkDelete = () => (
-    <div className="rounded-2xl border border-red-900/40 bg-red-950/20 p-4 space-y-3">
-      <div className="text-xs font-semibold text-red-300 uppercase tracking-wider">
-        Bulk delete history
-      </div>
-      <div className="text-xs text-slate-400">Delete all sessions older than a cutoff.</div>
-      <div className="flex flex-wrap gap-2">
-        {TIMEFRAMES.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setBulkTimeframe(t.key)}
-            className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
-              bulkTimeframe === t.key
-                ? "bg-red-600 text-white"
-                : "border border-red-900/60 bg-red-950/40 text-red-200 hover:bg-red-900/40"
-            }`}
-          >
-            Older than {t.label}
-          </button>
-        ))}
-      </div>
-      {bulkTimeframe && (
-        <div className="flex items-center justify-between gap-2">
-          <div className="text-xs text-red-200">
-            Delete all sessions older than <span className="font-semibold">{bulkTimeframe}</span>?
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setBulkTimeframe(null)}
-              className="px-3 py-1.5 rounded-lg text-[11px] bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleBulkDelete}
-              className="px-3 py-1.5 rounded-lg text-[11px] bg-red-600 text-white hover:bg-red-500 active:scale-95 transition-all"
-            >
-              Delete
-            </button>
-          </div>
-        </div>
       )}
     </div>
   );
@@ -603,125 +551,161 @@ export default function HistoryScreen({
   };
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold tracking-tight">Workout History</h2>
-        <button
-          onClick={onBack}
-          className="text-sm text-slate-400 hover:text-slate-200 transition-colors px-2 py-1 rounded-lg hover:bg-slate-800/50"
-        >
-          Back
-        </button>
-      </div>
-
-      <div className="flex rounded-xl border border-slate-800 overflow-hidden">
-        {(["by_workout", "by_date", "by_exercise"] as const).map((mode) => (
+    <>
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold tracking-tight">Workout History</h2>
           <button
-            key={mode}
-            onClick={() => setViewMode(mode)}
-            className={`flex-1 text-xs font-semibold py-2.5 transition-colors ${
-              viewMode === mode ? "bg-indigo-600 text-white" : "bg-slate-900/40 text-slate-400 hover:text-slate-200"
-            }`}
+            onClick={onBack}
+            className="text-sm text-slate-400 hover:text-slate-200 transition-colors px-2 py-1 rounded-lg hover:bg-slate-800/50"
           >
-            {mode === "by_workout" && "By workout"}
-            {mode === "by_date" && "By date"}
-            {mode === "by_exercise" && "By exercise"}
+            Back
           </button>
-        ))}
-      </div>
+        </div>
 
-      <div className="flex flex-wrap gap-2">
-        {TIMEFRAMES.map((t) => (
+        <div className="flex rounded-xl border border-slate-800 overflow-hidden">
+          {(["by_workout", "by_date", "by_exercise"] as const).map((mode) => (
+            <button
+              key={mode}
+              onClick={() => setViewMode(mode)}
+              className={`flex-1 text-xs font-semibold py-2.5 transition-colors ${
+                viewMode === mode ? "bg-indigo-600 text-white" : "bg-slate-900/40 text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {mode === "by_workout" && "By workout"}
+              {mode === "by_date" && "By date"}
+              {mode === "by_exercise" && "By exercise"}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex flex-wrap gap-2">
+          {TIMEFRAMES.map((t) => (
+            <button
+              key={t.key}
+              onClick={() => setTimeframe(t.key)}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
+                timeframe === t.key
+                  ? "bg-indigo-600 text-white"
+                  : "border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+
+        {renderSubfilters()}
+        {timeframe !== "all" && (
           <button
-            key={t.key}
-            onClick={() => setTimeframe(t.key)}
-            className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
-              timeframe === t.key
-                ? "bg-indigo-600 text-white"
-                : "border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-slate-200"
-            }`}
+            onClick={() => setConfirmDeleteTimeframe(true)}
+            className="px-3 py-1.5 rounded-lg text-[11px] font-semibold bg-red-900/40 border border-red-900 text-red-200 hover:bg-red-800/40"
           >
-            {t.label}
+            Delete {confirmLabel(timeframe)}
           </button>
-        ))}
-      </div>
+        )}
 
-      {renderSubfilters()}
-      {renderBulkDelete()}
-
-      <div className="space-y-2">
-        {viewMode === "by_date" && groupedByDate
-          ? groupedByDate.map(({ date, group }) => (
-              <div key={date} className="space-y-2">
-                <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">{date}</div>
-                {group.map((s) => renderSessionCard(s))}
-              </div>
-            ))
-          : viewMode === "by_workout" && groupedByWorkout
-            ? groupedByWorkout.map(({ name, group }) => (
-                <div key={name} className="space-y-2">
-                  <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">{name}</div>
+        <div className="space-y-2">
+          {viewMode === "by_date" && groupedByDate
+            ? groupedByDate.map(({ date, group }) => (
+                <div key={date} className="space-y-2">
+                  <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">{date}</div>
                   {group.map((s) => renderSessionCard(s))}
                 </div>
               ))
-            : viewMode === "by_exercise" && groupedByExercise
-              ? groupedByExercise.map(({ name, entries }) => (
+            : viewMode === "by_workout" && groupedByWorkout
+              ? groupedByWorkout.map(({ name, group }) => (
                   <div key={name} className="space-y-2">
                     <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">{name}</div>
-                    {entries.map(({ session, date, weight, reps }) => (
-                      <button
-                        key={session.id}
-                        onClick={() => loadDetail(session.id)}
-                        className="w-full rounded-2xl border border-slate-800 bg-slate-900/50 px-4 py-3 text-left flex items-center justify-between"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs text-slate-400">{date}</div>
-                          <div className="text-sm font-semibold">
-                            {weight} lbs × {reps}
-                          </div>
-                        </div>
-                        <svg
-                          className={`w-4 h-4 text-slate-600 ml-2 transition-transform ${expandedId === session.id ? "rotate-180" : ""}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                      </button>
-                    ))}
+                    {group.map((s) => renderSessionCard(s))}
                   </div>
                 ))
-              : sessions.map((s) => renderSessionCard(s))}
-        {filteredSessions.length === 0 && (
-          <div className="text-center py-12 rounded-2xl border border-dashed border-slate-800">
-            <p className="text-sm text-slate-600">No workouts match this filter.</p>
+              : viewMode === "by_exercise" && groupedByExercise
+                ? groupedByExercise.map(({ name, entries }) => (
+                    <div key={name} className="space-y-2">
+                      <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">{name}</div>
+                      {entries.map(({ session, date, weight, reps }) => (
+                        <button
+                          key={session.id}
+                          onClick={() => loadDetail(session.id)}
+                          className="w-full rounded-2xl border border-slate-800 bg-slate-900/50 px-4 py-3 text-left flex items-center justify-between"
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="text-xs text-slate-400">{date}</div>
+                            <div className="text-sm font-semibold">
+                              {weight} lbs × {reps}
+                            </div>
+                          </div>
+                          <svg
+                            className={`w-4 h-4 text-slate-600 ml-2 transition-transform ${expandedId === session.id ? "rotate-180" : ""}`}
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                          </svg>
+                        </button>
+                      ))}
+                    </div>
+                  ))
+                : sessions.map((s) => renderSessionCard(s))}
+          {filteredSessions.length === 0 && (
+            <div className="text-center py-12 rounded-2xl border border-dashed border-slate-800">
+              <p className="text-sm text-slate-600">No workouts match this filter.</p>
+            </div>
+          )}
+        </div>
+
+        {deleteTarget && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+              <div className="text-sm font-semibold">Delete {deleteTarget.label}?</div>
+              <div className="text-xs text-slate-400">This will also remove all sets and coach notes in this session.</div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setDeleteTarget(null)}
+                  className="flex-1 px-3 py-2 rounded-xl text-xs bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={() => handleDeleteSession(deleteTarget.id)}
+                  className="flex-1 px-3 py-2 rounded-xl text-xs bg-red-600 text-white hover:bg-red-500 active:scale-95 transition-all"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {confirmDeleteTimeframe && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
+            <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-4">
+              <div className="text-sm font-semibold">
+                Delete sessions in {confirmLabel(timeframe)}?
+              </div>
+              <div className="text-xs text-slate-400">
+                This will remove {filteredSessions.length} session(s) from this timeframe.
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setConfirmDeleteTimeframe(false)}
+                  className="flex-1 px-3 py-2 rounded-xl text-xs bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleBulkDelete}
+                  className="flex-1 px-3 py-2 rounded-xl text-xs bg-red-600 text-white hover:bg-red-500 active:scale-95 transition-all"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>
-
-      {deleteTarget && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
-          <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-950 p-5 space-y-4">
-            <div className="text-sm font-semibold">Delete {deleteTarget.label}?</div>
-            <div className="text-xs text-slate-400">This will also remove all sets and coach notes in this session.</div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setDeleteTarget(null)}
-                className="flex-1 px-3 py-2 rounded-xl text-xs bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => handleDeleteSession(deleteTarget.id)}
-                className="flex-1 px-3 py-2 rounded-xl text-xs bg-red-600 text-white hover:bg-red-500 active:scale-95 transition-all"
-              >
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+    </>
   );
 }
