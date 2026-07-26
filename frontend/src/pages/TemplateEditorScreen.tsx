@@ -453,6 +453,7 @@ export default function TemplateEditorScreen({
           <div className="space-y-3 pt-2">
             <h3 className="font-semibold text-sm text-slate-400">Exercise Library</h3>
             <div className="space-y-2">
+              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Choose Body Part</div>
               <div className="flex gap-2 overflow-x-auto pb-1">
                 <button
                   onClick={() => setSelectedMuscle(null)}
@@ -478,6 +479,7 @@ export default function TemplateEditorScreen({
                   </button>
                 ))}
               </div>
+              <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-widest">Equipment</div>
               <div className="flex gap-2 overflow-x-auto pb-1">
                 <button
                   onClick={() => setSelectedEquipment(null)}
@@ -487,7 +489,7 @@ export default function TemplateEditorScreen({
                       : "border-slate-700 bg-slate-900 text-slate-500 hover:text-slate-300"
                   }`}
                 >
-                  All Equipment
+                  All
                 </button>
                 {equipmentFilters.map(({ name, count }) => (
                   <button
