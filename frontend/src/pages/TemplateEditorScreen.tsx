@@ -140,7 +140,6 @@ export default function TemplateEditorScreen({
 
     return () => {
       cancelled = true;
-      saveDraft({ name, type, exercises });
     };
   }, [templateId]);
 
