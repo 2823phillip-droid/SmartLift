@@ -95,18 +95,22 @@ export default function TemplateEditorScreen({
   useEffect(() => {
     if (templateId) {
       setLoading(true);
-      api
-        .getTemplate(templateId)
-        .then((tpl: WorkoutTemplate) => {
+      Promise.all([
+        api.getTemplate(templateId),
+        api.getSetting("global_rest_seconds"),
+      ])
+        .then(([tpl, setting]) => {
+          const globalRestVal = Number(setting?.value ?? 90);
+          setGlobalRest(globalRestVal);
           setName(tpl.name);
           setType(tpl.type);
           setExercises(
-            (tpl.exercises || []).map((ex) => ({
+            (tpl.exercises || []).map((ex: any) => ({
               localId: `server-${ex.id}`,
               id: ex.id,
               libraryExerciseId: ex.exercise_library_id,
-              name: ex.name,
-              rest_seconds: ex.rest_seconds,
+              name: ex.name ?? "",
+              rest_seconds: globalRestVal,
               sets: ex.per_set_data
                 ? JSON.parse(ex.per_set_data).map((s: SetRow) => ({
                     weight: s.weight ?? 0,
