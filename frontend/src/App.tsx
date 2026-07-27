@@ -170,13 +170,33 @@ export default function App() {
     setView(next);
   };
 
+  const DRAFT_KEY = "new-routine-draft-v1";
+
+  const hasDraft = () => {
+    try {
+      const raw = typeof window !== "undefined" ? localStorage.getItem(DRAFT_KEY) : null;
+      return !!raw && JSON.parse(raw).exercises?.length > 0;
+    } catch {
+      return false;
+    }
+  };
+
   const switchTab = (next: Tab) => {
     if (!user) {
       setView("login");
       return;
     }
     setTab(next);
-    navigate(tabRootToView[next]);
+    const target = tabRootToView[next];
+    if (
+      target === "workouts" &&
+      selectedContextId !== null &&
+      hasDraft()
+    ) {
+      navigate("template_editor");
+      return;
+    }
+    navigate(target);
   };
 
   const goBack = () => {
