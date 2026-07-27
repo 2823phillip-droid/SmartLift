@@ -10,6 +10,7 @@ type SetRow = { weight: number; reps: number };
 type DraftExercise = {
   localId: string;
   id?: number;
+  libraryExerciseId?: number;
   name: string;
   sets: SetRow[];
   rest_seconds: number;
@@ -103,6 +104,7 @@ export default function TemplateEditorScreen({
             (tpl.exercises || []).map((ex) => ({
               localId: `server-${ex.id}`,
               id: ex.id,
+              libraryExerciseId: ex.exercise_library_id,
               name: ex.name,
               rest_seconds: ex.rest_seconds,
               sets: ex.per_set_data
@@ -230,6 +232,7 @@ export default function TemplateEditorScreen({
         const base = {
           template_id: tpl.id,
           name: ex.name,
+          exercise_library_id: ex.libraryExerciseId,
           sets_target: ex.sets.length,
           reps_target: ex.sets[0]?.reps ?? 10,
           start_weight: ex.sets[0]?.weight ?? 0,
@@ -257,6 +260,8 @@ export default function TemplateEditorScreen({
   const addFromLibrary = (ex: ExerciseLibraryItem) => {
     const newEx: DraftExercise = {
       localId: `new-${Date.now()}-${Math.random()}`,
+      id: undefined,
+      libraryExerciseId: ex.id,
       name: ex.name,
       sets: [{ weight: 0, reps: 0 }],
       rest_seconds: globalRest,
@@ -406,12 +411,19 @@ export default function TemplateEditorScreen({
                 className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3 space-y-3"
               >
                 <div className="space-y-3">
-                  <div
-                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-200 truncate"
-                    title={ex.name}
-                  >
-                    {ex.name}
-                  </div>
+                  <input
+                    value={ex.name}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setExercises((list) => {
+                        const next = [...list];
+                        next[idx] = { ...next[idx], name: val };
+                        return next;
+                      });
+                    }}
+                    className="w-full rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 text-sm text-slate-200"
+                    placeholder="Exercise name"
+                  />
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1">
                       <input

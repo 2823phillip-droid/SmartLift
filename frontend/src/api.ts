@@ -245,7 +245,7 @@ export const api = {
 
   getExercises: (templateId: number) => request(`/templates/${templateId}/exercises`),
   getAllExercises: () => request("/exercises"),
-  createExercise: (data: { template_id: number; name: string; order: number }) =>
+  createExercise: (data: { template_id: number; name: string; exercise_library_id?: number; order: number }) =>
     request("/exercises", { method: "POST", body: JSON.stringify(data) }),
   updateExercise: (id: number, data: Partial<Exercise>) =>
     request(`/exercises/${id}`, {
