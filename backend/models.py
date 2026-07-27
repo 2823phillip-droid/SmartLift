@@ -57,6 +57,7 @@ class Context(Base):
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     default_rest_seconds = Column(Integer, default=90)
+    order = Column(Integer, default=0, server_default='0')
 
     user = relationship("User", back_populates="contexts")
     templates = relationship("WorkoutTemplate", back_populates="context", cascade="all, delete-orphan")

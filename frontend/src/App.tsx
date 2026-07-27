@@ -145,7 +145,7 @@ export default function App() {
     setAuthToken(null);
     setUser(null);
     if (typeof window !== "undefined") localStorage.removeItem("smartlift_token");
-    setView("login");
+    navigate("login");
   };
 
   useEffect(() => {
@@ -162,14 +162,6 @@ export default function App() {
     return () => { cancelled = true; };
   }, [user]);
 
-  const navigate = (next: View) => {
-    if (!user && next !== "login" && next !== "signup") {
-      setView("login");
-      return;
-    }
-    setView(next);
-  };
-
   const DRAFT_KEY = "new-routine-draft-v1";
 
   const hasDraft = () => {
@@ -179,6 +171,14 @@ export default function App() {
     } catch {
       return false;
     }
+  };
+
+  const navigate = (next: View) => {
+    if (!user && next !== "login" && next !== "signup") {
+      setView("login");
+      return;
+    }
+    setView(next);
   };
 
   const switchTab = (next: Tab) => {
@@ -193,19 +193,43 @@ export default function App() {
       selectedContextId !== null &&
       hasDraft()
     ) {
-      navigate("template_editor");
+      setView("template_editor");
       return;
     }
-    navigate(target);
+    setView(target);
+  };
+
+  const getBackTarget = (): View => {
+    switch (view) {
+      case "quick_start":
+      case "build_workout":
+      case "ai_trainer":
+        return "workouts";
+      case "templates":
+      case "template_editor":
+        return "build_workout";
+      case "pre_workout":
+      case "library":
+        return "build_workout";
+      case "history":
+      case "settings":
+      case "profile":
+      case "workouts":
+      case "login":
+      case "signup":
+      case "active_workout":
+      case "post_workout":
+      default:
+        return "home";
+    }
   };
 
   const goBack = () => {
-    if (view === "history") {
-      switchTab("home");
-    } else {
-      setView("home");
+    const target = getBackTarget();
+    if (target === "home" && view === "history") {
       setTab("home");
     }
+    setView(target);
   };
 
   const activeTab: Tab = viewToTab[view] ?? tab;
@@ -292,6 +316,27 @@ export default function App() {
                 onDeleteTemplate={async (tplId) => {
                   await api.deleteTemplate(tplId);
                 }}
+                onEditContext={async (ctxId) => {
+                  const name = window.prompt("Rename template:");
+                  if (!name?.trim()) return;
+                  try {
+                    await api.updateContext(ctxId, { name: name.trim() });
+                    // screen auto-refreshes via internal refreshToken on next render;
+                    // force a rerender pulse so the list updates:
+                    setView("quick_start");
+                  } catch (err: any) {
+                    alert(err?.message || "Failed to rename.");
+                  }
+                }}
+                onDeleteContext={async (ctxId) => {
+                  if (!window.confirm("Delete this template and all its workouts?")) return;
+                  try {
+                    await api.deleteContext(ctxId);
+                    setView("quick_start");
+                  } catch (err: any) {
+                    alert(err?.message || "Failed to delete.");
+                  }
+                }}
                 onBuildWorkout={() => navigate("build_workout")}
               />
             )}
@@ -329,9 +374,13 @@ export default function App() {
                   navigate("template_editor");
                 }}
                 onDeleteTemplate={async (tplId) => {
-                  await api.deleteTemplate(tplId);
-                  const screen = document.querySelector('[data-testid="template-list"]');
-                  if (screen) screen.dispatchEvent(new Event('refresh-list'));
+                  try {
+                    await api.deleteTemplate(tplId);
+                    const screen = document.querySelector('[data-testid="template-list"]');
+                    if (screen) screen.dispatchEvent(new Event('refresh-list'));
+                  } catch (err: any) {
+                    alert(err?.message || "Delete failed. See console for details.");
+                  }
                 }}
               />
             )}
@@ -339,7 +388,11 @@ export default function App() {
               <TemplateEditorScreen
                 contextId={selectedContextId}
                 templateId={selectedTemplateId ?? undefined}
-                onBack={() => navigate("templates")}
+                onBack={
+                  selectedTemplateId
+                    ? () => navigate("templates")
+                    : () => navigate("workouts")
+                }
                 onSaved={(_tplId) => {
                   setSelectedTemplateId(null);
                   navigate("templates");
@@ -402,7 +455,10 @@ export default function App() {
             )}
             {view === "workouts" && (
               <WorkoutsScreen
-                onStartWorkout={() => navigate("quick_start")}
+                onStartWorkout={(tplId) => {
+                  setSelectedTemplateId(tplId);
+                  navigate("pre_workout");
+                }}
                 onBuildWorkout={() => navigate("build_workout")}
                 onSelectPrebuilt={() => navigate("library")}
                 onBack={goBack}

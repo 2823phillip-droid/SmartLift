@@ -101,6 +101,7 @@ export default function TemplateEditorScreen({
       ])
         .then(([tpl, setting]) => {
           const globalRestVal = Number(setting?.value ?? 90);
+          console.log("[editor] global_rest_seconds setting:", setting, "=>", globalRestVal);
           setGlobalRest(globalRestVal);
           setName(tpl.name);
           setType(tpl.type);
@@ -367,6 +368,18 @@ export default function TemplateEditorScreen({
     setExercises((list) => list.filter((_, i) => i !== idx));
   };
 
+  const deleteExercise = async (ex: DraftExercise, idx: number) => {
+    if (!window.confirm(`Remove "${ex.name || "this exercise"}"?`)) return;
+    if (ex.id) {
+      try {
+        await api.deleteExercise(ex.id);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    removeExercise(idx);
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -414,8 +427,39 @@ export default function TemplateEditorScreen({
                 key={ex.localId}
                 className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3 space-y-3"
               >
+                <div className="flex items-center justify-between gap-2">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Exercise {idx + 1}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const nameInput = document.getElementById(`exercise-name-${ex.localId}`);
+                        if (nameInput) {
+                          nameInput.scrollIntoView({ behavior: "smooth", block: "center" });
+                          nameInput.focus();
+                        }
+                      }}
+                      className="flex items-center gap-1.5 rounded-xl border border-indigo-500/30 bg-indigo-950/40 px-3.5 py-2.5 text-indigo-300 hover:bg-indigo-900/60 active:scale-95 transition-all"
+                      aria-label={`Edit ${ex.name || "exercise"}`}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
+                      <span className="text-xs font-semibold">Edit</span>
+                    </button>
+                    <button
+                      onClick={() => deleteExercise(ex, idx)}
+                      className="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-950/40 px-3.5 py-2.5 text-rose-400 hover:bg-rose-900/60 active:scale-95 transition-all"
+                      aria-label={`Delete ${ex.name || "exercise"}`}
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                      <span className="text-xs font-semibold">Delete</span>
+                    </button>
+                  </div>
+                </div>
+
                 <div className="space-y-3">
                   <input
+                    id={`exercise-name-${ex.localId}`}
                     value={ex.name}
                     onChange={(e) => {
                       const val = e.target.value;
@@ -458,12 +502,6 @@ export default function TemplateEditorScreen({
                       </button>
                     </div>
                     <span className="text-xs text-slate-500">sec</span>
-                    <button
-                      onClick={() => removeExercise(idx)}
-                      className="ml-auto text-xs text-rose-500 hover:text-rose-400 transition-colors px-2 py-1.5 rounded-lg hover:bg-rose-950/30 font-medium"
-                    >
-                      Remove
-                    </button>
                     <div className="inline-flex items-center gap-1 ml-1">
                       <button
                         onClick={() => moveExercise(idx, -1)}

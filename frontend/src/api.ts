@@ -164,6 +164,7 @@ export async function ensureApiBase(): Promise<void> {
 export interface Context {
   id: number;
   name: string;
+  order: number;
 }
 
 export interface Template {
@@ -226,10 +227,16 @@ export interface SetLogUpdate {
 }
 
 export const api = {
-  getContexts: () => request("/contexts"),
-  createContext: (data: { name: string; description?: string | null; equipment_tags?: string[]; default_rest_seconds?: number }) =>
-    request("/contexts", { method: "POST", body: JSON.stringify(data) }),
+  getContext: (id: number) => request(`/contexts/${id}`),
+  updateContext: (id: number, data: { name?: string; description?: string | null; equipment_tags?: string[]; default_rest_seconds?: number; order?: number }) =>
+    request(`/contexts/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
   deleteContext: (id: number) => request(`/contexts/${id}`, { method: "DELETE" }),
+  createContext: (data: { name: string; description?: string | null; equipment_tags?: string[]; default_rest_seconds?: number; order?: number }) =>
+    request("/contexts", { method: "POST", body: JSON.stringify(data) }),
+  getContexts: () => request("/contexts"),
 
   getTemplates: (contextId: number) => request(`/contexts/${contextId}/templates`),
   getTemplatesAcrossAll: () => request("/templates"),
@@ -278,7 +285,6 @@ export const api = {
     request("/sessions", { method: "POST", body: JSON.stringify(data) }),
   getSessions: () => request("/sessions"),
   getSession: (id: number) => request(`/sessions/${id}`),
-  getContext: (id: number) => request(`/contexts/${id}`),
   endSession: (id: number) =>
     request(`/sessions/${id}/end`, { method: "POST" }),
   deleteSession: (id: number) =>

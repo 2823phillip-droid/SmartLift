@@ -22,6 +22,7 @@ export default function TemplateListScreen({
   onBuildNew?: () => void;
 }) {
   const [templates, setTemplates] = useState<WorkoutTemplate[]>([]);
+  const [toDeleteId, setToDeleteId] = useState<number | null>(null);
 
   useEffect(() => {
     if (showAllRoutines && !contextId) {
@@ -34,7 +35,7 @@ export default function TemplateListScreen({
   }, [contextId, showAllRoutines]);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 pb-6">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold tracking-tight">{showAllRoutines ? "Routines" : "Routines"}</h2>
         <button
@@ -63,8 +64,7 @@ export default function TemplateListScreen({
         {templates.map((t) => (
           <div
             key={t.id}
-            className="rounded-2xl border border-slate-800 bg-slate-900/50 hover:border-indigo-500/40
-                       transition-colors overflow-hidden group"
+            className="rounded-2xl border border-slate-800 bg-slate-900/50 hover:border-indigo-500/40 transition-colors overflow-hidden"
           >
             <button
               onClick={() => onSelectTemplate(t.id)}
@@ -78,25 +78,40 @@ export default function TemplateListScreen({
               </div>
             </button>
             {!showAllRoutines && (
-              <div className="border-t border-slate-800/80 px-4 py-2 flex justify-end gap-1">
+              <div className="border-t border-slate-800/80 px-3 py-2 flex items-center justify-end gap-2">
                 {onEditTemplate && (
                   <button
                     onClick={() => onEditTemplate(t.id)}
-                    className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors px-3 py-1.5 rounded-lg hover:bg-indigo-950/40 font-medium"
+                    className="text-indigo-400 hover:text-indigo-300 transition-colors px-3 py-2 rounded-lg hover:bg-indigo-950/40 font-medium text-sm"
                   >
                     Edit
                   </button>
                 )}
                 {onDeleteTemplate && (
-                  <button
-                    onClick={() => {
-                      if (!confirm(`Delete "${t.name}"? This cannot be undone.`)) return;
-                      onDeleteTemplate(t.id);
-                    }}
-                    className="text-xs text-rose-500/80 hover:text-rose-400 transition-colors px-3 py-1.5 rounded-lg hover:bg-rose-950/30 font-medium"
-                  >
-                    Delete
-                  </button>
+                  toDeleteId === t.id ? (
+                    <button
+                      onClick={async () => {
+                        try {
+                          await onDeleteTemplate(t.id);
+                          setTemplates((prev) => prev.filter((x) => x.id !== t.id));
+                        } catch (err: any) {
+                          alert(err?.message || "Delete failed. See console for details.");
+                        } finally {
+                          setToDeleteId(null);
+                        }
+                      }}
+                      className="text-rose-500 hover:text-rose-400 transition-colors px-3 py-2 rounded-lg hover:bg-rose-950/30 font-medium text-sm"
+                    >
+                      Confirm Delete
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setToDeleteId(t.id)}
+                      className="text-rose-500/80 hover:text-rose-400 transition-colors px-3 py-2 rounded-lg hover:bg-rose-950/30 font-medium text-sm"
+                    >
+                      Delete
+                    </button>
+                  )
                 )}
               </div>
             )}

@@ -102,6 +102,14 @@ class ContextCreate(BaseModel):
     description: Optional[str] = None
     equipment_tags: Optional[List[str]] = []
     default_rest_seconds: Optional[int] = 90
+    order: Optional[int] = 0
+
+class ContextUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    equipment_tags: Optional[List[str]] = None
+    default_rest_seconds: Optional[int] = None
+    order: Optional[int] = None
 
 class ContextOut(BaseModel):
     id: int
@@ -110,6 +118,7 @@ class ContextOut(BaseModel):
     equipment_tags: List[str]
     is_active: bool
     default_rest_seconds: int = 90
+    order: int = 0
 
     class Config:
         from_attributes = True
@@ -491,6 +500,7 @@ def create_context(payload: ContextCreate, db: Session = Depends(get_db), curren
         equipment_tags=json.dumps(payload.equipment_tags or []),
         default_rest_seconds=payload.default_rest_seconds,
         user_id=current_user.id,
+        order=payload.order or 0,
     )
     db.add(ctx)
     db.commit()
@@ -506,7 +516,7 @@ def create_context(payload: ContextCreate, db: Session = Depends(get_db), curren
 
 @app.get("/api/contexts", response_model=List[ContextOut])
 def list_contexts(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    contexts = db.query(Context).filter(Context.user_id == current_user.id).all()
+    contexts = db.query(Context).filter(Context.user_id == current_user.id).order_by(Context.order).all()
     return [
         ContextOut(
             id=c.id,
@@ -515,6 +525,7 @@ def list_contexts(db: Session = Depends(get_db), current_user: User = Depends(ge
             equipment_tags=json.loads(c.equipment_tags or "[]"),
             is_active=c.is_active,
             default_rest_seconds=c.default_rest_seconds,
+            order=getattr(c, "order", 0),
         )
         for c in contexts
     ]
@@ -541,6 +552,33 @@ def delete_context(context_id: int, db: Session = Depends(get_db), current_user:
     db.delete(c)
     db.commit()
     return {"ok": True}
+
+@app.put("/api/contexts/{context_id}", response_model=ContextOut)
+def update_context(context_id: int, payload: ContextUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    c = db.query(Context).filter(Context.id == context_id, Context.user_id == current_user.id).first()
+    if not c:
+        raise HTTPException(status_code=404, detail="Context not found")
+    if payload.name is not None:
+        c.name = payload.name
+    if payload.description is not None:
+        c.description = payload.description
+    if payload.equipment_tags is not None:
+        c.equipment_tags = json.dumps(payload.equipment_tags)
+    if payload.default_rest_seconds is not None:
+        c.default_rest_seconds = payload.default_rest_seconds
+    if payload.order is not None:
+        c.order = payload.order
+    db.commit()
+    db.refresh(c)
+    return ContextOut(
+        id=c.id,
+        name=c.name,
+        description=c.description,
+        equipment_tags=json.loads(c.equipment_tags or "[]"),
+        is_active=c.is_active,
+        default_rest_seconds=c.default_rest_seconds,
+        order=getattr(c, "order", 0),
+    )
 
 # --- Templates ---
 
