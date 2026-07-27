@@ -344,6 +344,11 @@ export default function App() {
                   setSelectedTemplateId(null);
                   navigate("templates");
                 }}
+                onCancel={
+                  selectedTemplateId
+                    ? () => navigate("templates")
+                    : () => navigate("workouts")
+                }
               />
             )}
             {view === "pre_workout" && selectedTemplateId !== null && (

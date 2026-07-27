@@ -29,11 +29,13 @@ export default function TemplateEditorScreen({
   templateId,
   onBack,
   onSaved,
+  onCancel,
 }: {
   contextId: number;
   templateId?: number;
   onBack: () => void;
   onSaved: (templateId: number) => void;
+  onCancel?: () => void;
 }) {
   const [name, setName] = useState("");
   const [type, setType] = useState("strength");
@@ -636,7 +638,14 @@ export default function TemplateEditorScreen({
           </div>
 
           <button
-            onClick={onBack}
+            onClick={() => {
+              clearDraft();
+              if (typeof onCancel === "function") {
+                onCancel();
+              } else {
+                onBack();
+              }
+            }}
             className="w-full rounded-2xl border border-slate-700 bg-slate-900 hover:bg-slate-800 text-slate-300 font-semibold py-3 text-sm transition-colors"
           >
             Cancel
