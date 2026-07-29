@@ -25,6 +25,7 @@ from models import (
     WorkoutSession, SetLog, CoachMessage, AlgorithmState, RoutineType, SessionStatus, CoachRole, AppSetting,
     WorkoutLibrary, WorkoutLibraryExercise, BodyWeightLog, AITrainerAdjustment
 )
+from rules import compute_prescription, RuleInput, SetRecord, Prescription, WorkloadStatus, ProgressionType
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 AUTH_TOKEN_PREFIX = "Bearer "
@@ -1137,6 +1138,112 @@ def list_coach_messages(session_id: int, db: Session = Depends(get_db), current_
     ]
 
 # --- AI Coach (stub for local/cloud later) ---
+
+class RuleRequestSetIn(BaseModel):
+    actual_weight: float
+    actual_reps: int
+    effort: Optional[int] = None
+    rpe: Optional[float] = None
+    rir: Optional[int] = None
+    is_seeded: bool = False
+    completed_at: Optional[datetime] = None
+
+
+class RuleRequestIn(BaseModel):
+    start_weight: float = 0.0
+    reps_target: int = 10
+    sets_target: int = 3
+    rest_seconds: int = 90
+    progression_type: ProgressionType = ProgressionType.linear
+    history: List[RuleRequestSetIn] = []
+    linear_increment: float = 2.5
+    double_increment: float = 5.0
+    double_success_threshold: int = 2
+    estimated_1rm: Optional[float] = None
+    percentage_of_1rm: float = 0.8
+    pct_increment_success: float = 2.5
+    pct_decrement_fail: float = 5.0
+    week: int = 1
+    periodization_cycle_weeks: int = 4
+    force_deload: bool = False
+    deload_volume_factor: float = 0.6
+    deload_intensity_factor: float = 0.7
+    hard_effort_threshold: int = 4
+    easy_effort_threshold: int = 2
+    ai_progression_sensitivity: Optional[float] = None
+    ai_volume_tolerance: Optional[float] = None
+    ai_recovery_multiplier: Optional[float] = None
+    ai_preferred_rir: Optional[int] = None
+    ai_stress_fatigue_adjustment: Optional[float] = None
+    ai_calibrated_1rm: Optional[float] = None
+
+
+class RuleResponseOut(BaseModel):
+    next_weight: float
+    next_reps: int
+    next_sets: int
+    rest_seconds: int
+    coaching_message: str
+    workload_status: str
+    prescription_type: str
+    is_deload: bool = False
+
+    class Config:
+        from_attributes = True
+
+
+@app.post("/api/rules/next-prescription", response_model=RuleResponseOut)
+def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_current_user_dep)):
+    history = [SetRecord(**s.model_dump()) for s in payload.history]
+    rule = RuleInput(
+        start_weight=payload.start_weight,
+        reps_target=payload.reps_target,
+        sets_target=payload.sets_target,
+        rest_seconds=payload.rest_seconds,
+        progression_type=payload.progression_type,
+        history=history,
+        linear_increment=payload.linear_increment,
+        double_increment=payload.double_increment,
+        double_success_threshold=payload.double_success_threshold,
+        estimated_1rm=payload.estimated_1rm,
+        percentage_of_1rm=payload.percentage_of_1rm,
+        pct_increment_success=payload.pct_increment_success,
+        pct_decrement_fail=payload.pct_decrement_fail,
+        week=payload.week,
+        periodization_cycle_weeks=payload.periodization_cycle_weeks,
+        force_deload=payload.force_deload,
+        deload_volume_factor=payload.deload_volume_factor,
+        deload_intensity_factor=payload.deload_intensity_factor,
+        hard_effort_threshold=payload.hard_effort_threshold,
+        easy_effort_threshold=payload.easy_effort_threshold,
+        ai_progression_sensitivity=payload.ai_progression_sensitivity,
+        ai_volume_tolerance=payload.ai_volume_tolerance,
+        ai_recovery_multiplier=payload.ai_recovery_multiplier,
+        ai_preferred_rir=payload.ai_preferred_rir,
+        ai_stress_fatigue_adjustment=payload.ai_stress_fatigue_adjustment,
+        ai_calibrated_1rm=payload.ai_calibrated_1rm,
+    )
+    result = compute_prescription(rule)
+    logger.info(json.dumps({
+        "type": "rule",
+        "event": "next_prescription",
+        "user_id": current_user.id,
+        "prescription_type": result.prescription_type,
+        "next_weight": result.next_weight,
+        "next_reps": result.next_reps,
+        "is_deload": result.is_deload,
+    }))
+    return RuleResponseOut(
+        next_weight=result.next_weight,
+        next_reps=result.next_reps,
+        next_sets=result.next_sets,
+        rest_seconds=result.rest_seconds,
+        coaching_message=result.coaching_message,
+        workload_status=result.workload_status.value,
+        prescription_type=result.prescription_type,
+        is_deload=result.is_deload,
+    )
+
 
 class AISuggestionRequest(BaseModel):
     session_id: int

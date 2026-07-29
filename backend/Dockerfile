@@ -9,7 +9,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY main.py db.py models.py ./
+COPY main.py db.py models.py rules.py ./
 
 RUN mkdir -p /app/logs
 
