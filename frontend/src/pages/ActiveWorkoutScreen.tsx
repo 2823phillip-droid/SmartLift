@@ -892,6 +892,11 @@ function SortableExerciseCard({
                   Done
                 </span>
               )}
+              {exercise.deload_override && (
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-amber-600/20 text-amber-400 border border-amber-700/50 rounded-full px-2 py-0.5">
+                  Deload override
+                </span>
+              )}
             </div>
           </div>
         ) : (

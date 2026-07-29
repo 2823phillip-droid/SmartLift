@@ -51,6 +51,16 @@ export default function TemplateEditorScreen({
 
   const [exerciseProgressionOverrides, setExerciseProgressionOverrides] = useState<Record<string, string>>({});
   const [exerciseProgressionEditing, setExerciseProgressionEditing] = useState<Record<string, boolean>>({});
+  const [exerciseDeloadOverrides, setExerciseDeloadOverrides] = useState<Record<string, boolean>>({});
+
+  const setAllProgression = (value: string) => {
+    setExercises((list) => list.map((ex) => ({ ...ex, progression_type: value })));
+    setExerciseProgressionOverrides((prev) => {
+      const next = { ...prev };
+      for (const ex of exercises) next[ex.localId] = value;
+      return next;
+    });
+  };
 
   const [library, setLibrary] = useState<ExerciseLibraryItem[]>([]);
   const [loadingLibrary, setLoadingLibrary] = useState(false);
@@ -205,6 +215,17 @@ export default function TemplateEditorScreen({
     });
   };
 
+  const batchSetProgression = (value: string) => {
+    const mapped = new Map<string, string>();
+    for (const ex of exercises) mapped.set(ex.localId, value);
+    setExerciseProgressionOverrides(mapped as Record<string, string>);
+    setExercises((list) => list.map((ex) => ({ ...ex, progression_type: value })));
+  };
+
+  const toggleExerciseDeload = (localId: string) => {
+    setExerciseDeloadOverrides((prev) => ({ ...prev, [localId]: !prev[localId] }));
+  };
+
   const save = async () => {
     if (!name.trim() || saving) return;
     setSaving(true);
@@ -250,6 +271,7 @@ export default function TemplateEditorScreen({
           order: idx,
           per_set_data: perSetData,
           progression_type: exerciseProgressionOverrides[ex.localId] ?? ex.progression_type ?? "linear",
+          deload_override: exerciseDeloadOverrides[ex.localId] ?? false,
         };
         if (ex.id) {
           await api.updateExercise(ex.id, base);
@@ -436,6 +458,14 @@ export default function TemplateEditorScreen({
                 {exercises.length} exercise{exercises.length !== 1 ? "s" : ""}
               </span>
             </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="text-[10px] text-slate-500 uppercase tracking-wider mr-1">Set all progression</div>
+              {["linear", "double", "percentage", "autoregulated"].map((p) => (
+                <button key={p} onClick={() => batchSetProgression(p)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800">
+                  {p}
+                </button>
+              ))}
+            </div>
 
             {exercises.map((ex, idx) => (
               <div
@@ -534,6 +564,25 @@ export default function TemplateEditorScreen({
                       </button>
                     </div>
                   </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider">Deload override</div>
+                  <button
+                    type="button"
+                    onClick={() => toggleExerciseDeload(ex.localId)}
+                    className={`flex h-5 w-9 items-center rounded-full border px-0.5 transition-colors ${
+                      exerciseDeloadOverrides[ex.localId]
+                        ? "border-amber-500 bg-amber-600 justify-end"
+                        : "border-slate-700 bg-slate-800 justify-start"
+                    }`}
+                    title={exerciseDeloadOverrides[ex.localId] ? "Exclude from deload" : "Force deload for this exercise"}
+                  >
+                    <div className="h-3 w-3 rounded-full bg-white shadow-sm" />
+                  </button>
+                  {exerciseDeloadOverrides[ex.localId] && (
+                    <span className="text-[10px] text-amber-300 font-semibold">Deload</span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2">

@@ -149,6 +149,13 @@ def _run_migrations():
             if "coach_rules" not in cols:
                 conn.execute(_text("ALTER TABLE workout_templates ADD COLUMN coach_rules TEXT"))
                 conn.commit()
+            ecols = [row[1] for row in conn.execute(_text("PRAGMA table_info(exercise_entries)"))]
+            if "progression_type" not in ecols:
+                conn.execute(_text("ALTER TABLE exercise_entries ADD COLUMN progression_type TEXT"))
+                conn.commit()
+            if "deload_override" not in ecols:
+                conn.execute(_text("ALTER TABLE exercise_entries ADD COLUMN deload_override INTEGER DEFAULT 0"))
+                conn.commit()
     except Exception:
         pass
 
@@ -205,6 +212,7 @@ class ExerciseEntryCreate(BaseModel):
     notes: Optional[str] = None
     per_set_data: Optional[str] = None  # JSON string
     progression_type: Optional[str] = None
+    deload_override: Optional[bool] = None
 
 class ExerciseEntryOut(BaseModel):
     id: int
@@ -219,6 +227,7 @@ class ExerciseEntryOut(BaseModel):
     notes: Optional[str]
     per_set_data: Optional[str] = None
     progression_type: Optional[str] = None
+    deload_override: Optional[bool] = None
 
     class Config:
         from_attributes = True

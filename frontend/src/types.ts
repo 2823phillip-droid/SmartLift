@@ -37,6 +37,7 @@ export interface ExerciseEntry {
   notes?: string;
   per_set_data?: string;
   progression_type?: string;
+  deload_override?: boolean;
 }
 
 export interface WorkoutTemplate {
