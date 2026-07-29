@@ -19,6 +19,7 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { GripVertical } from "lucide-react";
 import { api } from "../api";
 import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
+import { computePrescription, type Prescription, type SetRecord } from "../rules";
 
 export default function ActiveWorkoutScreen({
   sessionId,
@@ -64,6 +65,45 @@ export default function ActiveWorkoutScreen({
 
   const restTimerRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
+
+  const buildRuleHistory = (exercise: ExerciseEntry): SetRecord[] => {
+    const history: SetRecord[] = [];
+    const lastSession = lastSessionByExercise[exercise.id] || [];
+    for (const s of lastSession) {
+      history.push({
+        actual_weight: s.actual_weight,
+        actual_reps: s.actual_reps,
+        effort: 3,
+        completed_at: new Date(Date.now() - 86400000).toISOString(),
+      });
+    }
+    const currentLogs = logs.filter((l) => l.exercise_entry_id === exercise.id);
+    for (const l of currentLogs) {
+      history.push({
+        actual_weight: Number(l.actual_weight || 0),
+        actual_reps: Number(l.actual_reps || 0),
+        effort: l.effort || 3,
+        completed_at: new Date().toISOString(),
+      });
+    }
+    return history;
+  };
+
+  const suggestions = useMemo(() => {
+    const map: Record<number, Prescription> = {};
+    for (const exercise of exercises) {
+      const history = buildRuleHistory(exercise);
+      map[exercise.id] = computePrescription({
+        start_weight: exercise.start_weight,
+        reps_target: exercise.reps_target,
+        sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
+        rest_seconds: exercise.rest_seconds,
+        progression_type: "linear",
+        history,
+      });
+    }
+    return map;
+  }, [exercises, logs, lastSessionByExercise, displaySetsTarget]);
 
   useEffect(() => {
     Promise.all([
@@ -615,6 +655,7 @@ export default function ActiveWorkoutScreen({
                   onNotesChange={setNotes}
                   canLog={canLog}
                   onLogSet={() => logSet()}
+                  suggestion={suggestions[exercise.id]}
                 />
               );
             })}
@@ -664,6 +705,7 @@ function SortableExerciseCard({
   onNotesChange,
   canLog,
   onLogSet,
+  suggestion,
 }: {
   exercise: ExerciseEntry;
   exerciseLogs: SetLog[];
@@ -693,6 +735,7 @@ function SortableExerciseCard({
   onNotesChange: (val: string) => void;
   canLog: boolean;
   onLogSet: () => Promise<boolean>;
+  suggestion?: Prescription;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: exercise.id });
   const style = {
@@ -806,6 +849,16 @@ function SortableExerciseCard({
                         <span className="text-xs text-slate-300 font-semibold">{log.actual_weight} lbs × {log.actual_reps} reps</span>
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {suggestion && (
+                  <div className="rounded-xl border border-indigo-800 bg-indigo-950/30 px-3 py-2">
+                    <div className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wider">Rule Suggestion</div>
+                    <div className="text-sm font-semibold text-slate-200 mt-0.5">
+                      {suggestion.next_weight} lbs × {suggestion.next_reps} reps · {suggestion.next_sets} sets
+                    </div>
+                    <div className="text-xs text-slate-400 mt-0.5">{suggestion.coaching_message}</div>
                   </div>
                 )}
 
