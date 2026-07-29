@@ -36,6 +36,7 @@ export interface ExerciseEntry {
   order: number;
   notes?: string;
   per_set_data?: string;
+  progression_type?: string;
 }
 
 export interface WorkoutTemplate {

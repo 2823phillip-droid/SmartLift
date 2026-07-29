@@ -496,14 +496,11 @@ export interface CoachState {
   transition_in_weeks: number;
   is_deload: boolean;
   explanation: string;
+  next_deload_date?: string;
 }
 
-function recentRealSets(history: SetRecord[]): SetRecord[] {
-  return history.filter((s) => !s.is_seeded);
-}
-
-function candidateTypes(): CoachPhase[] {
-  return ["linear", "double", "percentage", "autoregulated"];
+function candidateTypes(customPhaseOrder?: CoachPhase[]): CoachPhase[] {
+  return customPhaseOrder ?? ["linear", "double", "percentage", "autoregulated"];
 }
 
 function detectStalls(history: SetRecord[]): boolean {
@@ -530,11 +527,12 @@ function progressionFromHistory(history: SetRecord[], fallback: CoachPhase): Coa
   return "linear";
 }
 
-function nextPhaseAfter(current: CoachPhase, deloadDue: boolean): CoachPhase {
+function nextPhaseAfter(current: CoachPhase, deloadDue: boolean, customPhaseOrder?: CoachPhase[]): CoachPhase {
   if (current === "deload") return "linear";
   if (deloadDue) return "deload";
-  const types = candidateTypes();
+  const types = candidateTypes(customPhaseOrder);
   const idx = types.indexOf(current);
+  if (idx < 0) return types[0];
   return types[(idx + 1) % types.length];
 }
 
@@ -556,6 +554,13 @@ function buildExplanation(state: { is_deload: boolean; week_in_block: number; bl
   return parts.filter(Boolean).join(" ");
 }
 
+function weeksUntilNextDeload(phase: CoachPhase, week: number, cycleWeeks: number): number {
+  if (cycleWeeks <= 0) return 4;
+  const remainder = week % cycleWeeks;
+  if (remainder === 0) return 0;
+  return cycleWeeks - remainder;
+}
+
 export function computeCoachState(input: {
   history: SetRecord[];
   current_phase?: CoachPhase;
@@ -563,11 +568,23 @@ export function computeCoachState(input: {
   force_deload?: boolean;
   periodization_cycle_weeks?: number;
   default_progression?: CoachPhase;
+  custom_phase_order?: CoachPhase[];
 }): CoachState {
   const phase = input.current_phase ?? progressionFromHistory(input.history, input.default_progression ?? "linear");
   const week = input.current_week_in_block ?? 1;
   const duration = blockDuration(phase);
   const deloadDue = input.force_deload || shouldForceDeload(input.history, week, input.periodization_cycle_weeks ?? 4);
+
+  const nextDeloadDate = (() => {
+    try {
+      const weeksUntil = weeksUntilNextDeload(phase, week, input.periodization_cycle_weeks ?? 4);
+      const today = new Date();
+      today.setDate(today.getDate() + weeksUntil * 7);
+      return today.toISOString().split("T")[0];
+    } catch {
+      return undefined;
+    }
+  })();
 
   let newPhase = phase;
   let reason = "continue";
@@ -579,7 +596,7 @@ export function computeCoachState(input: {
     newPhase = "linear";
     reason = "from_deload";
   } else if ((input.current_week_in_block ?? 0) >= duration && !input.force_deload) {
-    newPhase = nextPhaseAfter(phase, deloadDue);
+    newPhase = nextPhaseAfter(phase, deloadDue, input.custom_phase_order);
     reason = "best_fit";
   } else {
     newPhase = phase;
@@ -600,6 +617,7 @@ export function computeCoachState(input: {
       block_duration_weeks: blockDuration(newPhase),
       progression_type: newPhase,
     }, reason),
+    next_deload_date: nextDeloadDate,
   };
   return state;
 }

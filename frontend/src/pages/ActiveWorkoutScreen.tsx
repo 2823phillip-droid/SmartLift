@@ -650,6 +650,12 @@ export default function ActiveWorkoutScreen({
             <h2 className="text-xl font-bold truncate">{template?.name || "Workout"}</h2>
             <p className="text-xs text-slate-400 mt-0.5">
               {exercises.length} exercises · {logs.length} sets logged
+              {(workoutMode || "manual") === "ai_trainer" && coach?.is_deload && (
+                <span className="text-amber-300 font-semibold ml-1">— Deload week</span>
+              )}
+              {(workoutMode || "manual") === "ai_trainer" && !coach?.is_deload && coach?.next_deload_date && (
+                <span className="text-slate-300 ml-1">· Next deload {coach.next_deload_date}</span>
+              )}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">

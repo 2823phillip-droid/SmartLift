@@ -136,6 +136,21 @@ def get_db():
 @app.on_event("startup")
 def on_startup():
     init_db()
+    _run_migrations()
+
+import json as _json
+
+def _run_migrations():
+    try:
+        from sqlalchemy import text as _text
+        from db import engine
+        with engine.connect() as conn:
+            cols = [row[1] for row in conn.execute(_text("PRAGMA table_info(workout_templates)"))]
+            if "coach_rules" not in cols:
+                conn.execute(_text("ALTER TABLE workout_templates ADD COLUMN coach_rules TEXT"))
+                conn.commit()
+    except Exception:
+        pass
 
 # --- Schemas ---
 
@@ -189,6 +204,7 @@ class ExerciseEntryCreate(BaseModel):
     order: Optional[int] = None
     notes: Optional[str] = None
     per_set_data: Optional[str] = None  # JSON string
+    progression_type: Optional[str] = None
 
 class ExerciseEntryOut(BaseModel):
     id: int
@@ -202,6 +218,7 @@ class ExerciseEntryOut(BaseModel):
     order: int
     notes: Optional[str]
     per_set_data: Optional[str] = None
+    progression_type: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -212,6 +229,7 @@ class WorkoutTemplateCreate(BaseModel):
     type: RoutineType = RoutineType.strength
     order: int = 0
     default_rest_seconds: Optional[int] = None
+    coach_rules: Optional[str] = None  # JSON: {"muscle_group": "progression_type"}
 
 class WorkoutTemplateOut(BaseModel):
     id: int
@@ -220,6 +238,7 @@ class WorkoutTemplateOut(BaseModel):
     type: str
     order: int
     default_rest_seconds: Optional[int] = None
+    coach_rules: Optional[str] = None
     exercises: List[ExerciseEntryOut] = []
 
     class Config:
@@ -230,6 +249,7 @@ class WorkoutTemplateUpdate(BaseModel):
     type: Optional[str] = None
     order: Optional[int] = None
     default_rest_seconds: Optional[int] = None
+    coach_rules: Optional[str] = None
 
 class SessionCreate(BaseModel):
     template_id: Optional[int] = None
@@ -632,6 +652,7 @@ def create_template(payload: WorkoutTemplateCreate, db: Session = Depends(get_db
         type=payload.type,
         order=payload.order,
         default_rest_seconds=payload.default_rest_seconds,
+        coach_rules=payload.coach_rules,
         user_id=current_user.id,
     )
     db.add(tpl)
@@ -668,6 +689,8 @@ def update_template(template_id: int, payload: WorkoutTemplateUpdate, db: Sessio
         tpl.order = payload.order
     if payload.default_rest_seconds is not None:
         tpl.default_rest_seconds = payload.default_rest_seconds
+    if payload.coach_rules is not None:  # pyright: ignore [reportAttributeAccessIssue]
+        tpl.coach_rules = payload.coach_rules
     db.commit()
     db.refresh(tpl)
     return _template_out(tpl)
@@ -1181,6 +1204,7 @@ class RuleRequestIn(BaseModel):
     # Coach tracking ---
     current_phase: Optional[str] = None
     current_week_in_block: Optional[int] = None
+    custom_phase_order: Optional[List[str]] = None
 
 
 class CoachStateResponse(BaseModel):
@@ -1191,6 +1215,7 @@ class CoachStateResponse(BaseModel):
     transition_in_weeks: int
     is_deload: bool
     explanation: str
+    next_deload_date: Optional[str] = None
 
 
 class RuleResponseOut(BaseModel):
@@ -1246,6 +1271,7 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         force_deload=payload.force_deload,
         periodization_cycle_weeks=payload.periodization_cycle_weeks,
         default_progression=payload.progression_type.value,
+        custom_phase_order=payload.custom_phase_order,
     )
     result = compute_prescription(rule)
     logger.info(json.dumps({
@@ -1276,6 +1302,7 @@ class CoachOverrideRequest(BaseModel):
     week_in_block: int = 1
     force_deload: bool = False
     periodization_cycle_weeks: int = 4
+    custom_phase_order: Optional[List[str]] = None
 
 
 @app.post("/api/coach/override")
@@ -1286,6 +1313,8 @@ def coach_override(payload: CoachOverrideRequest, db: Session = Depends(get_db),
         "coach_force_deload": str(payload.force_deload).lower(),
         "coach_periodization_cycle_weeks": str(payload.periodization_cycle_weeks),
     }
+    if payload.custom_phase_order is not None:
+        keys["coach_custom_phase_order"] = json.dumps(payload.custom_phase_order)
     results = []
     for key, value in keys.items():
         s = db.query(AppSetting).filter(AppSetting.key == key, AppSetting.user_id == current_user.id).first()
@@ -1303,6 +1332,7 @@ def coach_override(payload: CoachOverrideRequest, db: Session = Depends(get_db),
         "phase": payload.phase,
         "week_in_block": payload.week_in_block,
         "force_deload": payload.force_deload,
+        "custom_phase_order": payload.custom_phase_order,
     }))
     return {"saved": results}
 
@@ -1312,11 +1342,12 @@ class CoachStateResponseOut(BaseModel):
     coach_week_in_block: Optional[int] = None
     coach_force_deload: Optional[bool] = None
     coach_periodization_cycle_weeks: Optional[int] = None
+    coach_custom_phase_order: Optional[List[str]] = None
 
 
 @app.get("/api/coach/state", response_model=CoachStateResponseOut)
 def get_coach_state(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    keys = ["coach_phase", "coach_week_in_block", "coach_force_deload", "coach_periodization_cycle_weeks"]
+    keys = ["coach_phase", "coach_week_in_block", "coach_force_deload", "coach_periodization_cycle_weeks", "coach_custom_phase_order"]
     out: dict[str, str] = {}
     for s in db.query(AppSetting).filter(AppSetting.key.in_(keys), AppSetting.user_id == current_user.id).all():
         out[s.key] = s.value
@@ -1325,6 +1356,7 @@ def get_coach_state(db: Session = Depends(get_db), current_user: User = Depends(
         coach_week_in_block=int(out["coach_week_in_block"]) if out.get("coach_week_in_block") else None,
         coach_force_deload=out.get("coach_force_deload") == "true" if out.get("coach_force_deload") else None,
         coach_periodization_cycle_weeks=int(out["coach_periodization_cycle_weeks"]) if out.get("coach_periodization_cycle_weeks") else None,
+        coach_custom_phase_order=json.loads(out["coach_custom_phase_order"]) if out.get("coach_custom_phase_order") else None,
     )
 
 
@@ -1759,6 +1791,7 @@ def _template_out(tpl: WorkoutTemplate) -> WorkoutTemplateOut:
         type=tpl.type.value,
         order=tpl.order,
         default_rest_seconds=tpl.default_rest_seconds,
+        coach_rules=tpl.coach_rules,
         exercises=[
             ExerciseEntryOut(
                 id=e.id,

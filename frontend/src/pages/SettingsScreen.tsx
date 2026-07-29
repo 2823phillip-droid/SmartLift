@@ -276,6 +276,7 @@ function CoachSettingsSection() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [customOrder, setCustomOrder] = useState<string[]>(["linear", "double", "percentage", "autoregulated"]);
 
   useEffect(() => {
     api.getCoachState().then((data) => {
@@ -283,16 +284,31 @@ function CoachSettingsSection() {
         if (data.coach_phase) setPhase(data.coach_phase);
         if (data.coach_week_in_block) setWeek(data.coach_week_in_block);
         if (data.coach_periodization_cycle_weeks) setCycle(data.coach_periodization_cycle_weeks);
+        if (data.coach_custom_phase_order) setCustomOrder([...(data.coach_custom_phase_order)]);  // pyright: ignore [reportImplicitAny]
       }
       setLoading(false);
     }).catch(() => setLoading(false));
   }, []);
 
+  const move = (idx: number, dir: -1 | 1) => {
+    setCustomOrder((prev) => {
+      const next = [...prev];
+      const target = idx + dir;
+      if (target < 0 || target >= next.length) return prev;
+      [next[idx], next[target]] = [next[target], next[idx]];
+      return next;
+    });
+  };
+
+  const toggle = (p: string) => {
+    setCustomOrder((prev) => (prev.includes(p) ? prev.filter((x) => x !== p) : [...prev, p]));
+  };
+
   const save = async () => {
     setSaving(true);
     setSaved(false);
     try {
-      await api.coachOverride({ phase, week_in_block: week, periodization_cycle_weeks: cycle });
+      await api.coachOverride({ phase, week_in_block: week, periodization_cycle_weeks: cycle, custom_phase_order: customOrder });
       setSaved(true);
     } catch {
       setSaved(false);
@@ -334,6 +350,23 @@ function CoachSettingsSection() {
             onChange={(e) => setCycle(Number(e.target.value || 0))}
             className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500/50"
           />
+        </div>
+      </div>
+      <div>
+        <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Progression order</div>
+        <div className="space-y-2">
+          {customOrder.map((p, idx) => (
+            <div key={p} className="flex items-center gap-2">
+              <button onClick={() => move(idx, -1)} disabled={idx === 0} className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs disabled:opacity-30">↑</button>
+              <span className="flex-1 rounded-xl border border-indigo-700 bg-indigo-950/30 px-3 py-2 text-xs font-semibold text-indigo-200">{p}</span>
+              <button onClick={() => move(idx, 1)} disabled={idx === customOrder.length - 1} className="rounded-lg border border-slate-700 bg-slate-900 px-2 py-1.5 text-xs disabled:opacity-30">↓</button>
+              <button onClick={() => toggle(p)} className="rounded-lg border border-rose-700 bg-rose-950/20 px-2 py-1.5 text-xs text-rose-200">✕</button>
+            </div>
+          ))}
+          {!customOrder.includes("linear") && <button onClick={() => toggle("linear")} className="text-[10px] text-indigo-400">+ Linear</button>}
+          {!customOrder.includes("double") && <button onClick={() => toggle("double")} className="text-[10px] text-indigo-400 ml-2">+ Double</button>}
+          {!customOrder.includes("percentage") && <button onClick={() => toggle("percentage")} className="text-[10px] text-indigo-400 ml-2">+ Percentage</button>}
+          {!customOrder.includes("autoregulated") && <button onClick={() => toggle("autoregulated")} className="text-[10px] text-indigo-400 ml-2">+ Autoregulated</button>}
         </div>
       </div>
       <div className="flex items-center justify-between gap-3">

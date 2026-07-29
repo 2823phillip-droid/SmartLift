@@ -558,6 +558,7 @@ class CoachState:
     transition_in_weeks: int
     is_deload: bool
     explanation: str
+    next_deload_date: Optional[str] = None
 
 
 def _candidate_types() -> List[str]:
@@ -594,14 +595,18 @@ def _progression_from_history(history: List[SetRecord], default_type: str) -> st
     return "linear"
 
 
-def _next_phase_after(current: str, deload_due: bool) -> str:
+def _candidate_types(custom_phase_order: Optional[List[str]] = None) -> List[str]:
+    return list(custom_phase_order or ["linear", "double", "percentage", "autoregulated"])
+
+
+def _next_phase_after(current: str, deload_due: bool, custom_phase_order: Optional[List[str]] = None) -> str:
     if current == "deload":
         return "linear"
     if deload_due:
         return "deload"
-    types = _candidate_types()
+    types = _candidate_types(custom_phase_order)
     idx = types.index(current) if current in types else 0
-    return types[(idx + 1) % len(types)]
+    return types[(idx + 1) % len(types)]  # cycle wraps
 
 
 def _block_duration(phase: str, default_durations=DEFAULT_BLOCK_DURATIONS) -> int:
@@ -629,6 +634,20 @@ def _build_explanation(state: CoachState, reason: str) -> str:
     return " ".join(parts)
 
 
+def _weeks_until_next_deload(
+    phase: str,
+    week: int,
+    periodization_cycle_weeks: int,
+    custom_phase_order: Optional[List[str]] = None,
+) -> int:
+    if periodization_cycle_weeks <= 0:
+        return 4
+    remainder = week % periodization_cycle_weeks
+    if remainder == 0:
+        return 0
+    return periodization_cycle_weeks - remainder
+
+
 def compute_coach_state(
     history: List[SetRecord],
     current_phase: Optional[str] = None,
@@ -636,13 +655,24 @@ def compute_coach_state(
     force_deload: bool = False,
     periodization_cycle_weeks: int = 4,
     default_progression: str = "linear",
+    custom_phase_order: Optional[List[str]] = None,
 ) -> CoachState:
     """Compute deterministic coach state from workout history and cadence rules."""
-    # Defaults when no session payload provided
     phase = current_phase or _progression_from_history(history, default_progression)
     week = current_week_in_block or 1
     duration = _block_duration(phase)
     deload_due = force_deload or _should_force_deload(history, week, periodization_cycle_weeks)
+
+    next_deload_date: Optional[str] = None
+    try:
+        from datetime import date, timedelta as _timedelta
+        days_until = _weeks_until_next_deload(phase, week, periodization_cycle_weeks, custom_phase_order)
+        if days_until == 0:
+            next_deload_date = date.today().isoformat()
+        else:
+            next_deload_date = (date.today() + _timedelta(weeks=days_until)).isoformat()
+    except Exception:
+        pass
 
     if deload_due and phase != "deload":
         new_phase = "deload"
@@ -655,7 +685,7 @@ def compute_coach_state(
         week = week + 1 if week < 1 else 1
         duration = _block_duration(new_phase)
     elif week >= duration and not force_deload:
-        new_phase = _next_phase_after(phase, deload_due)
+        new_phase = _next_phase_after(phase, deload_due, custom_phase_order)
         reason = "best_fit"
         week = 1
         duration = _block_duration(new_phase)
@@ -682,8 +712,10 @@ def compute_coach_state(
                 transition_in_weeks=max(1, duration - week),
                 is_deload=new_phase == "deload",
                 explanation="",
+                next_deload_date=next_deload_date,
             ),
             reason,
         ),
+        next_deload_date=next_deload_date,
     )
     return state

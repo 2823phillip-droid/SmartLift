@@ -72,6 +72,7 @@ class WorkoutTemplate(Base):
     order = Column(Integer, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
     default_rest_seconds = Column(Integer, nullable=True)
+    coach_rules = Column(Text, nullable=True)  # JSON: {"muscle_group": "progression_type"}
 
     user = relationship("User", back_populates="templates")
     context = relationship("Context", back_populates="templates")

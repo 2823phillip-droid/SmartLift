@@ -344,7 +344,7 @@ export const api = {
   getCoachMessages: (sessionId: number) =>
     request(`/sessions/${sessionId}/coach-messages`),
 
-  coachOverride: (data: { phase: string; week_in_block: number; force_deload?: boolean; periodization_cycle_weeks?: number }) =>
+  coachOverride: (data: { phase: string; week_in_block: number; force_deload?: boolean; periodization_cycle_weeks?: number; custom_phase_order?: string[] }) =>
     request("/coach/override", {
       method: "POST",
       body: JSON.stringify(data),

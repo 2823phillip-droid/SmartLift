@@ -14,6 +14,7 @@ type DraftExercise = {
   name: string;
   sets: SetRow[];
   rest_seconds: number;
+  progression_type?: string;
 };
 
 const toTitle = (v: string) =>
@@ -47,6 +48,9 @@ export default function TemplateEditorScreen({
   const [exerciseRestOverrides, setExerciseRestOverrides] = useState<Record<string, number>>({});
   const [exerciseRestEditing, setExerciseRestEditing] = useState<Record<string, boolean>>({});
   const [exerciseRestDraft, setExerciseRestDraft] = useState<Record<string, string>>({});
+
+  const [exerciseProgressionOverrides, setExerciseProgressionOverrides] = useState<Record<string, string>>({});
+  const [exerciseProgressionEditing, setExerciseProgressionEditing] = useState<Record<string, boolean>>({});
 
   const [library, setLibrary] = useState<ExerciseLibraryItem[]>([]);
   const [loadingLibrary, setLoadingLibrary] = useState(false);
@@ -111,6 +115,7 @@ export default function TemplateEditorScreen({
               id: ex.id,
               libraryExerciseId: ex.exercise_library_id,
               name: ex.name ?? "",
+              progression_type: ex.progression_type || "linear",
               rest_seconds: globalRestVal,
               sets: ex.per_set_data
                 ? JSON.parse(ex.per_set_data).map((s: SetRow) => ({
@@ -244,6 +249,7 @@ export default function TemplateEditorScreen({
           rest_seconds: exerciseRestOverrides[ex.localId] ?? ex.rest_seconds,
           order: idx,
           per_set_data: perSetData,
+          progression_type: exerciseProgressionOverrides[ex.localId] ?? ex.progression_type ?? "linear",
         };
         if (ex.id) {
           await api.updateExercise(ex.id, base);
@@ -362,6 +368,15 @@ export default function TemplateEditorScreen({
     if (!Number.isNaN(val) && val >= 0) {
       setExerciseRestOverrides((prev) => ({ ...prev, [ex.localId]: val }));
     }
+  };
+
+  const toggleExerciseProgressionEdit = (ex: DraftExercise, enabled: boolean) => {
+    const key = ex.localId;
+    setExerciseProgressionEditing((prev) => ({ ...prev, [key]: enabled }));
+  };
+
+  const commitExerciseProgression = (ex: DraftExercise, value: string) => {
+    setExerciseProgressionOverrides((prev) => ({ ...prev, [ex.localId]: value }));
   };
 
   const removeExercise = (idx: number) => {
@@ -519,6 +534,37 @@ export default function TemplateEditorScreen({
                       </button>
                     </div>
                   </div>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <div className="text-[10px] text-slate-500 uppercase tracking-wider">Progression</div>
+                  {exerciseProgressionEditing[ex.localId] ? (
+                    <select
+                      value={exerciseProgressionOverrides[ex.localId] ?? ex.progression_type ?? "linear"}
+                      onChange={(e) => commitExerciseProgression(ex, e.target.value)}
+                      className="rounded-xl border border-indigo-700 bg-slate-950 px-2 py-1.5 text-xs text-indigo-200 focus:outline-none focus:border-indigo-500/50"
+                    >
+                      {["linear", "double", "percentage", "autoregulated"].map((p) => (
+                        <option key={p} value={p}>{p}</option>
+                      ))}
+                    </select>
+                  ) : (
+                    <div className="rounded-xl border border-slate-700 bg-slate-950 px-2 py-1.5 text-xs text-slate-400">
+                      {ex.progression_type || "linear"}
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => toggleExerciseProgressionEdit(ex, !exerciseProgressionEditing[ex.localId])}
+                    className={`flex h-5 w-9 items-center rounded-full border px-0.5 transition-colors ${
+                      exerciseProgressionEditing[ex.localId]
+                        ? "border-indigo-500 bg-indigo-600 justify-end"
+                        : "border-slate-700 bg-slate-800 justify-start"
+                    }`}
+                    title={exerciseProgressionEditing[ex.localId] ? "Use template progression" : "Override progression"}
+                  >
+                    <div className="h-3 w-3 rounded-full bg-white shadow-sm" />
+                  </button>
                 </div>
 
                 <div className="space-y-2">
