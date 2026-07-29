@@ -64,6 +64,7 @@ export default function ActiveWorkoutScreen({
   const [isDragActive, setIsDragActive] = useState(false);
   const [coachPhase, setCoachPhase] = useState<string>("linear");
   const [coachWeek, setCoachWeek] = useState<number>(1);
+  const [coachLoaded, setCoachLoaded] = useState(false);
 
   const restTimerRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
@@ -122,39 +123,8 @@ export default function ActiveWorkoutScreen({
     return history;
   };
 
-  const buildRuleHistoryForCoach = (): SetRecord[] => {
-    const history: SetRecord[] = [];
-    const names = Array.from(new Set(exercises.map((e) => e.name)));
-
-    for (const name of names) {
-      const ex = exercises.find((e) => e.name === name)!;
-      const lastSession = lastSessionByExercise[ex.id] || [];
-      for (const s of lastSession) {
-        history.push({
-          actual_weight: s.actual_weight,
-          actual_reps: s.actual_reps,
-          effort: 3,
-          completed_at: new Date(Date.now() - 86400000).toISOString(),
-        });
-      }
-      const currentLogs = logs.filter((l) => {
-        const entry = exercises.find((e) => e.id === l.exercise_entry_id);
-        return Boolean(entry && entry.name === name);
-      });
-      for (const l of currentLogs) {
-        history.push({
-          actual_weight: Number(l.actual_weight || 0),
-          actual_reps: Number(l.actual_reps || 0),
-          effort: l.effort ?? 3,
-          completed_at: new Date().toISOString(),
-        });
-      }
-    }
-    return history;
-  };
-
   const suggestions = useMemo(() => {
-    if ((workoutMode || "manual") !== "ai_trainer") return { prescriptions: {}, coach: null as any };
+    if ((workoutMode || "manual") !== "ai_trainer") return { prescriptions: {} as Record<number, Prescription>, coach: null as any };
     const history = buildRuleHistoryForCoach();
     const coach = computeCoachState({
       history,
@@ -188,11 +158,21 @@ export default function ActiveWorkoutScreen({
       api.getSessionSetLogs(sessionId),
       api.getSession(sessionId),
       api.getSetting("global_rest_seconds"),
-    ]).then(async ([exercisesData, setLogsData, session, setting]) => {
+      ...((workoutMode || "manual") === "ai_trainer" ? [api.getSetting("coach_phase"), api.getSetting("coach_week_in_block")] : []),
+    ]).then(async ([exercisesData, setLogsData, session, setting, coachPhaseSetting, coachWeekSetting]) => {
       setExercises(exercisesData);
       setLogs(setLogsData);
       if (setting?.value) {
         setGlobalRest(Number(setting.value));
+      }
+      if ((workoutMode || "manual") === "ai_trainer") {
+        if (coachPhaseSetting?.value) {
+          setCoachPhase(coachPhaseSetting.value);
+        }
+        if (coachWeekSetting?.value) {
+          setCoachWeek(Number(coachWeekSetting.value));
+        }
+        setCoachLoaded(true);
       }
       if (session?.template_id) {
         const tpl = await api.getTemplate(session.template_id);
@@ -613,6 +593,12 @@ export default function ActiveWorkoutScreen({
       role: "post_workout",
       content: `Workout complete. ${totalSets} total sets logged. Great session.`,
     });
+    if ((workoutMode || "manual") === "ai_trainer" && coach) {
+      try {
+        await api.setSetting("coach_phase", coach.phase);
+        await api.setSetting("coach_week_in_block", String(coach.week_in_block));
+      } catch {}
+    }
     onEnd?.(buildEndSummary());
   };
 
@@ -629,6 +615,7 @@ export default function ActiveWorkoutScreen({
   };
 
   const isResting = restSeconds !== null && restSeconds > 0;
+  const isTrainer = (workoutMode || "manual") === "ai_trainer";
   const canLog = Boolean(draftWeight) && Boolean(draftReps);
 
   return (
@@ -953,9 +940,21 @@ function SortableExerciseCard({
                   </div>
                 )}
 
-                {suggestion && (
-                  <div className="rounded-xl border border-indigo-800 bg-indigo-950/30 px-3 py-2">
-                    <div className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wider">Rule Suggestion</div>
+                {isTrainer && suggestion && (
+                  <div className={`rounded-xl border px-3 py-2 ${
+                    suggestion.workload_status === "deload" ? "border-amber-800 bg-amber-950/30" :
+                    suggestion.workload_status === "easy" ? "border-emerald-800 bg-emerald-950/30" :
+                    suggestion.workload_status === "hard" ? "border-rose-800 bg-rose-950/30" :
+                    "border-indigo-800 bg-indigo-950/30"
+                  }`}>
+                    <div className={`text-[10px] font-semibold uppercase tracking-wider ${
+                      suggestion.workload_status === "deload" ? "text-amber-400" :
+                      suggestion.workload_status === "easy" ? "text-emerald-400" :
+                      suggestion.workload_status === "hard" ? "text-rose-400" :
+                      "text-indigo-400"
+                    }`}>
+                      {suggestion.is_deload ? "Deload Suggestion" : "Rule Suggestion"}
+                    </div>
                     <div className="text-sm font-semibold text-slate-200 mt-0.5">
                       {suggestion.next_weight} lbs × {suggestion.next_reps} reps · {suggestion.next_sets} sets
                     </div>
