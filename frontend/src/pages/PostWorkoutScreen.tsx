@@ -1,7 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { api } from "../api";
 import type { SetLog, WorkoutSession, ExerciseEntry } from "../types";
-import { computeCoachState, type SetRecord } from "../rules";
 
 export default function PostWorkoutScreen({
   sessionId,
@@ -43,12 +42,11 @@ export default function PostWorkoutScreen({
       });
     }
     if (workoutMode === "ai_trainer") {
-      Promise.all([
-        api.getSetting("coach_phase"),
-        api.getSetting("coach_week_in_block"),
-      ]).then(([phase, week]) => {
-        if (phase?.value) setCoachPhase(phase.value);
-        if (week?.value) setCoachWeek(Number(week.value));
+      api.getCoachState().then((coachState) => {
+        if (coachState) {
+          if (coachState.coach_phase) setCoachPhase(coachState.coach_phase);
+          if (coachState.coach_week_in_block) setCoachWeek(coachState.coach_week_in_block);
+        }
       });
     }
   }, [sessionId, templateId, workoutMode]);

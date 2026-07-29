@@ -158,20 +158,16 @@ export default function ActiveWorkoutScreen({
       api.getSessionSetLogs(sessionId),
       api.getSession(sessionId),
       api.getSetting("global_rest_seconds"),
-      ...((workoutMode || "manual") === "ai_trainer" ? [api.getSetting("coach_phase"), api.getSetting("coach_week_in_block")] : []),
-    ]).then(async ([exercisesData, setLogsData, session, setting, coachPhaseSetting, coachWeekSetting]) => {
+      ...((workoutMode || "manual") === "ai_trainer" ? [api.getCoachState()] : []),
+    ]).then(async ([exercisesData, setLogsData, session, setting, coachState]) => {
       setExercises(exercisesData);
       setLogs(setLogsData);
       if (setting?.value) {
         setGlobalRest(Number(setting.value));
       }
-      if ((workoutMode || "manual") === "ai_trainer") {
-        if (coachPhaseSetting?.value) {
-          setCoachPhase(coachPhaseSetting.value);
-        }
-        if (coachWeekSetting?.value) {
-          setCoachWeek(Number(coachWeekSetting.value));
-        }
+      if ((workoutMode || "manual") === "ai_trainer" && coachState) {
+        if (coachState.coach_phase) setCoachPhase(coachState.coach_phase);
+        if (coachState.coach_week_in_block) setCoachWeek(coachState.coach_week_in_block);
         setCoachLoaded(true);
       }
       if (session?.template_id) {
@@ -595,8 +591,12 @@ export default function ActiveWorkoutScreen({
     });
     if ((workoutMode || "manual") === "ai_trainer" && coach) {
       try {
-        await api.setSetting("coach_phase", coach.phase);
-        await api.setSetting("coach_week_in_block", String(coach.week_in_block));
+        await api.coachOverride({
+          phase: coach.phase,
+          week_in_block: coach.week_in_block,
+          force_deload: coach.is_deload,
+          periodization_cycle_weeks: coach.block_duration_weeks,
+        });
       } catch {}
     }
     onEnd?.(buildEndSummary());
@@ -618,21 +618,27 @@ export default function ActiveWorkoutScreen({
   const isTrainer = (workoutMode || "manual") === "ai_trainer";
   const canLog = Boolean(draftWeight) && Boolean(draftReps);
 
+  const persistCoach = async (phase: string, week_in_block: number, force_deload = false) => {
+    setCoachPhase(phase);
+    setCoachWeek(week_in_block);
+    try {
+      await api.coachOverride({ phase, week_in_block, force_deload, periodization_cycle_weeks: 4 });
+    } catch {}
+  };
+
   const forceDeload = () => {
-    setCoachPhase("deload");
-    setCoachWeek(1);
+    void persistCoach("deload", 1, true);
   };
   const skipBlock = () => {
     setCoachPhase((prev) => {
       const types = ["linear", "double", "percentage", "autoregulated"];
       const idx = types.indexOf(prev as any);
+      void persistCoach(types[(idx + 1) % types.length], 1, false);
       return types[(idx + 1) % types.length];
     });
-    setCoachWeek(1);
   };
   const resetCoach = () => {
-    setCoachPhase("linear");
-    setCoachWeek(1);
+    void persistCoach("linear", 1, false);
   };
 
   return (

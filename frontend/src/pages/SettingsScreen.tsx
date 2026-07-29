@@ -260,8 +260,100 @@ export default function SettingsScreen({ onBack, onModeChange }: { onBack: () =>
 
           {/* Placeholder for future settings */}
           <p className="text-xs text-slate-600 text-center pt-2">More settings coming soon.</p>
+
+          {/* Coach Configuration */}
+          <CoachSettingsSection />
         </div>
       )}
+    </div>
+  );
+}
+
+function CoachSettingsSection() {
+  const [phase, setPhase] = useState("linear");
+  const [week, setWeek] = useState(1);
+  const [cycle, setCycle] = useState(4);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  useEffect(() => {
+    api.getCoachState().then((data) => {
+      if (data) {
+        if (data.coach_phase) setPhase(data.coach_phase);
+        if (data.coach_week_in_block) setWeek(data.coach_week_in_block);
+        if (data.coach_periodization_cycle_weeks) setCycle(data.coach_periodization_cycle_weeks);
+      }
+      setLoading(false);
+    }).catch(() => setLoading(false));
+  }, []);
+
+  const save = async () => {
+    setSaving(true);
+    setSaved(false);
+    try {
+      await api.coachOverride({ phase, week_in_block: week, periodization_cycle_weeks: cycle });
+      setSaved(true);
+    } catch {
+      setSaved(false);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+        </svg>
+        <div>
+          <div className="font-semibold text-sm">Coach Configuration</div>
+          <div className="text-xs text-slate-500">Defaults for progression blocks and deload cadence</div>
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Starting phase</div>
+          <select
+            value={phase}
+            onChange={(e) => setPhase(e.target.value)}
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500/50"
+          >
+            <option value="linear">Linear</option>
+            <option value="double">Double</option>
+            <option value="percentage">Percentage</option>
+            <option value="autoregulated">Autoregulated</option>
+          </select>
+        </div>
+        <div>
+          <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-1">Block length (weeks)</div>
+          <input
+            type="number"
+            value={cycle}
+            onChange={(e) => setCycle(Number(e.target.value || 0))}
+            className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500/50"
+          />
+        </div>
+      </div>
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <div className="text-xs text-slate-400">Week {week} in current block</div>
+          <div className="text-[10px] text-slate-500">You can advance or reset week counter here too</div>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => setWeek(Math.max(1, week - 1))} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800">-</button>
+          <div className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-bold text-slate-200 min-w-[48px] text-center">{week}</div>
+          <button onClick={() => setWeek(week + 1)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800">+</button>
+        </div>
+      </div>
+      <button
+        onClick={save}
+        disabled={saving}
+        className="w-full rounded-2xl bg-indigo-600 px-5 py-4 text-base font-semibold hover:bg-indigo-500 active:scale-[0.98] transition-all shadow-lg shadow-indigo-900/30 disabled:opacity-40"
+      >
+        {saving ? "Saving..." : saved ? "Saved" : "Save Coach Settings"}
+      </button>
     </div>
   );
 }

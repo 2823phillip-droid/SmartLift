@@ -344,6 +344,13 @@ export const api = {
   getCoachMessages: (sessionId: number) =>
     request(`/sessions/${sessionId}/coach-messages`),
 
+  coachOverride: (data: { phase: string; week_in_block: number; force_deload?: boolean; periodization_cycle_weeks?: number }) =>
+    request("/coach/override", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+  getCoachState: () => request("/coach/state"),
+
   aiNextSuggestion: (data: {
     session_id: number;
     context: string;

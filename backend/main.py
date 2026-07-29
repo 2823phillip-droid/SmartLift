@@ -1271,6 +1271,63 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
     )
 
 
+class CoachOverrideRequest(BaseModel):
+    phase: str = "linear"
+    week_in_block: int = 1
+    force_deload: bool = False
+    periodization_cycle_weeks: int = 4
+
+
+@app.post("/api/coach/override")
+def coach_override(payload: CoachOverrideRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    keys = {
+        "coach_phase": payload.phase,
+        "coach_week_in_block": str(payload.week_in_block),
+        "coach_force_deload": str(payload.force_deload).lower(),
+        "coach_periodization_cycle_weeks": str(payload.periodization_cycle_weeks),
+    }
+    results = []
+    for key, value in keys.items():
+        s = db.query(AppSetting).filter(AppSetting.key == key, AppSetting.user_id == current_user.id).first()
+        if s:
+            s.value = value
+        else:
+            s = AppSetting(key=key, value=value, user_id=current_user.id)
+            db.add(s)
+        results.append(SettingOut(key=s.key, value=s.value))
+    db.commit()
+    logger.info(json.dumps({
+        "type": "coach",
+        "event": "override",
+        "user_id": current_user.id,
+        "phase": payload.phase,
+        "week_in_block": payload.week_in_block,
+        "force_deload": payload.force_deload,
+    }))
+    return {"saved": results}
+
+
+class CoachStateResponseOut(BaseModel):
+    coach_phase: Optional[str] = None
+    coach_week_in_block: Optional[int] = None
+    coach_force_deload: Optional[bool] = None
+    coach_periodization_cycle_weeks: Optional[int] = None
+
+
+@app.get("/api/coach/state", response_model=CoachStateResponseOut)
+def get_coach_state(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    keys = ["coach_phase", "coach_week_in_block", "coach_force_deload", "coach_periodization_cycle_weeks"]
+    out: dict[str, str] = {}
+    for s in db.query(AppSetting).filter(AppSetting.key.in_(keys), AppSetting.user_id == current_user.id).all():
+        out[s.key] = s.value
+    return CoachStateResponseOut(
+        coach_phase=out.get("coach_phase"),
+        coach_week_in_block=int(out["coach_week_in_block"]) if out.get("coach_week_in_block") else None,
+        coach_force_deload=out.get("coach_force_deload") == "true" if out.get("coach_force_deload") else None,
+        coach_periodization_cycle_weeks=int(out["coach_periodization_cycle_weeks"]) if out.get("coach_periodization_cycle_weeks") else None,
+    )
+
+
 class AISuggestionRequest(BaseModel):
     session_id: int
     context: str
