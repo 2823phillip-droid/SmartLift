@@ -17,7 +17,7 @@ import {
 } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { GripVertical } from "lucide-react";
-import { api } from "../api";
+import { api, withRetry } from "../api";
 import type { ExerciseNameProgressResponse } from "../types";
 import ProgressWidget from "../components/ProgressWidget";
 import BodyWeightWidget from "../components/BodyWeightWidget";
@@ -94,7 +94,10 @@ export default function HomeScreen() {
   }, [widgets]);
 
   useEffect(() => {
-    Promise.all([api.getTotalVolume(), api.getStreak()]).then(([vol, s]) => {
+    Promise.all([
+      withRetry(() => api.getTotalVolume(), { retries: 3, baseDelayMs: 500 }),
+      withRetry(() => api.getStreak(), { retries: 3, baseDelayMs: 500 }),
+    ]).then(([vol, s]) => {
       setTotalVolume((vol as any)?.total_volume ?? null);
       setStreak((s as any)?.streak ?? null);
       setLastError(null);
