@@ -16,6 +16,7 @@ import secrets
 import hashlib
 import httpx
 import asyncio
+import dataclasses
 from logging.handlers import RotatingFileHandler
 from passlib.context import CryptContext
 
@@ -25,7 +26,7 @@ from models import (
     WorkoutSession, SetLog, CoachMessage, AlgorithmState, RoutineType, SessionStatus, CoachRole, AppSetting,
     WorkoutLibrary, WorkoutLibraryExercise, BodyWeightLog, AITrainerAdjustment
 )
-from rules import compute_prescription, RuleInput, SetRecord, Prescription, WorkloadStatus, ProgressionType
+from rules import compute_prescription, RuleInput, SetRecord, Prescription, WorkloadStatus, ProgressionType, compute_coach_state, CoachState
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 AUTH_TOKEN_PREFIX = "Bearer "
@@ -1177,6 +1178,20 @@ class RuleRequestIn(BaseModel):
     ai_stress_fatigue_adjustment: Optional[float] = None
     ai_calibrated_1rm: Optional[float] = None
 
+    # Coach tracking ---
+    current_phase: Optional[str] = None
+    current_week_in_block: Optional[int] = None
+
+
+class CoachStateResponse(BaseModel):
+    phase: str
+    progression_type: str
+    week_in_block: int
+    block_duration_weeks: int
+    transition_in_weeks: int
+    is_deload: bool
+    explanation: str
+
 
 class RuleResponseOut(BaseModel):
     next_weight: float
@@ -1187,6 +1202,7 @@ class RuleResponseOut(BaseModel):
     workload_status: str
     prescription_type: str
     is_deload: bool = False
+    coach: CoachStateResponse
 
     class Config:
         from_attributes = True
@@ -1223,6 +1239,14 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         ai_stress_fatigue_adjustment=payload.ai_stress_fatigue_adjustment,
         ai_calibrated_1rm=payload.ai_calibrated_1rm,
     )
+    coach_state = compute_coach_state(
+        history=history,
+        current_phase=payload.current_phase,
+        current_week_in_block=payload.current_week_in_block,
+        force_deload=payload.force_deload,
+        periodization_cycle_weeks=payload.periodization_cycle_weeks,
+        default_progression=payload.progression_type.value,
+    )
     result = compute_prescription(rule)
     logger.info(json.dumps({
         "type": "rule",
@@ -1232,6 +1256,7 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         "next_weight": result.next_weight,
         "next_reps": result.next_reps,
         "is_deload": result.is_deload,
+        "coach_phase": coach_state.phase,
     }))
     return RuleResponseOut(
         next_weight=result.next_weight,
@@ -1242,6 +1267,7 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         workload_status=result.workload_status.value,
         prescription_type=result.prescription_type,
         is_deload=result.is_deload,
+        coach=CoachStateResponse(**dataclasses.asdict(coach_state)),
     )
 
 

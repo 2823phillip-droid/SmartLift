@@ -488,3 +488,202 @@ def apply_ai_profile(rule: RuleInput) -> RuleInput:
         ai_calibrated_1rm=rule.ai_calibrated_1rm,
     )
     return r
+
+
+# ---------------------------------------------------------------------------
+# Coach: deterministic block-level orchestration
+# ---------------------------------------------------------------------------
+
+COACH_PHASE_LABELS = {
+    "linear": "Linear Progression",
+    "double": "Double Progression",
+    "percentage": "Percentage-based",
+    "autoregulated": "Autoregulated / RPE",
+    "deload": "Deload",
+}
+
+COACH_PHASE_DESCRIPTIONS = {
+    "linear": (
+        "We're adding a small amount of weight each successful session to build strength steadily. "
+        "This works well when you're fresh and your technique is solid."
+    ),
+    "double": (
+        "The goal here is volume first: we'll keep the weight until you hit your full rep target for multiple sets. "
+        "Once that's consistent, we'll bump the weight. This is a great plateau buster."
+    ),
+    "percentage": (
+        "We're training from an estimated 1RM. This gives your body a precise strength stimulus with clear targets. "
+        "It's useful when you want to peak or test strength."
+    ),
+    "autoregulated": (
+        "You'll report how hard each set felt. We use RPE and RIR to adjust load daily so you don't grind through fatigue. "
+        "This teaches your body to self-regulate intensity and protects recovery."
+    ),
+    "deload": (
+        "We're intentionally backing off—less weight, fewer sets, easier effort. This isn't 'slacking.' "
+        "Recovery is when fitness actually improves. We'll resume normal loading next block."
+    ),
+}
+
+COACH_TRANSITION_REASONS = {
+    "to_deload": (
+        "I'm scheduling a deload because you've accumulated several solid weeks. Recovery will make your next block stronger."
+    ),
+    "to_autoregulated": (
+        "You've been grinding hard. Switching to autoregulation for a block lets us match load to your daily readiness "
+        "while keeping frequency high."
+    ),
+    "from_deload": (
+        "Deload is complete. We're returning to structured progression so you can build on the recovery."
+    ),
+    "best_fit": "Switching progression type because it matches your current progress pattern.",
+}
+
+DEFAULT_BLOCK_DURATIONS = {
+    "linear": 4,
+    "double": 4,
+    "percentage": 4,
+    "autoregulated": 3,
+    "deload": 1,
+}
+DEFAULT_BLOCK_DURATIONS["deload"] = 1
+
+
+@dataclass
+class CoachState:
+    phase: str
+    progression_type: str
+    week_in_block: int
+    block_duration_weeks: int
+    transition_in_weeks: int
+    is_deload: bool
+    explanation: str
+
+
+def _candidate_types() -> List[str]:
+    return ["linear", "double", "percentage", "autoregulated"]
+
+
+def _detect_stalls(history: List[SetRecord], hard_effort_threshold: int) -> bool:
+    real = _recent_real_sets(history, limit=12)
+    if not real:
+        return False
+    hard_sets = [s for s in real if (s.effort or 0) >= hard_effort_threshold and (s.rir is None or s.rir <= 0)]
+    return len(hard_sets) >= 3
+
+
+def _should_force_deload(history: List[SetRecord], week: int, periodization_cycle_weeks: int) -> bool:
+    if periodization_cycle_weeks > 0 and week > 0:
+        return (week % periodization_cycle_weeks) == 0
+    return _detect_stalls(history, hard_effort_threshold=4)
+
+
+def _progression_from_history(history: List[SetRecord], default_type: str) -> str:
+    real = _recent_real_sets(history, limit=20)
+    if not real:
+        return default_type or "linear"
+    # if user repeatedly hits target reps above middle effort, prefer double
+    successes = [s for s in real if s.rir is not None and s.rir >= 1 and (s.effort is None or s.effort <= 3)]
+    if len(successes) >= 5:
+        return "double"
+    # if history shows grind (rpe high / rir low / missed reps), autoregulate
+    grinds = [s for s in real if s.rir is not None and s.rir <= 0]
+    if len(grinds) >= 3:
+        return "autoregulated"
+    # default path
+    return "linear"
+
+
+def _next_phase_after(current: str, deload_due: bool) -> str:
+    if current == "deload":
+        return "linear"
+    if deload_due:
+        return "deload"
+    types = _candidate_types()
+    idx = types.index(current) if current in types else 0
+    return types[(idx + 1) % len(types)]
+
+
+def _block_duration(phase: str, default_durations=DEFAULT_BLOCK_DURATIONS) -> int:
+    return int(default_durations.get(phase, 4))
+
+
+def _build_explanation(state: CoachState, reason: str) -> str:
+    phase_desc = COACH_PHASE_DESCRIPTIONS.get(state.progression_type, "")
+    transition_reason = COACH_TRANSITION_REASONS.get(reason, "")
+    parts = [
+        (
+            f"This week covers Week {state.week_in_block} of a {state.block_duration_weeks}-week "
+            f"{COACH_PHASE_LABELS.get(state.progression_type, state.progression_type)} block."
+        )
+        if state.is_deload is False
+        else (
+            f"This is Week {state.week_in_block} of deload. We'll reduce load so you can recover "
+            f"without losing frequency."
+        )
+    ]
+    if phase_desc:
+        parts.append(phase_desc)
+    if transition_reason:
+        parts.append(transition_reason)
+    return " ".join(parts)
+
+
+def compute_coach_state(
+    history: List[SetRecord],
+    current_phase: Optional[str] = None,
+    current_week_in_block: Optional[int] = None,
+    force_deload: bool = False,
+    periodization_cycle_weeks: int = 4,
+    default_progression: str = "linear",
+) -> CoachState:
+    """Compute deterministic coach state from workout history and cadence rules."""
+    # Defaults when no session payload provided
+    phase = current_phase or _progression_from_history(history, default_progression)
+    week = current_week_in_block or 1
+    duration = _block_duration(phase)
+    deload_due = force_deload or _should_force_deload(history, week, periodization_cycle_weeks)
+
+    if deload_due and phase != "deload":
+        new_phase = "deload"
+        reason = "to_deload"
+        week = 1
+        duration = _block_duration(new_phase)
+    elif phase == "deload":
+        new_phase = "linear" if current_phase == "deload" else phase
+        reason = "from_deload"
+        week = week + 1 if week < 1 else 1
+        duration = _block_duration(new_phase)
+    elif week >= duration and not force_deload:
+        new_phase = _next_phase_after(phase, deload_due)
+        reason = "best_fit"
+        week = 1
+        duration = _block_duration(new_phase)
+    else:
+        new_phase = phase
+        reason = "continue"
+        week = min(week + 1, duration) if current_week_in_block is not None else 1
+        if current_week_in_block is None:
+            week = 1
+
+    state = CoachState(
+        phase=new_phase,
+        progression_type=new_phase,
+        week_in_block=week,
+        block_duration_weeks=duration,
+        transition_in_weeks=max(1, duration - week),
+        is_deload=new_phase == "deload",
+        explanation=_build_explanation(
+            CoachState(
+                phase=new_phase,
+                progression_type=new_phase,
+                week_in_block=week,
+                block_duration_weeks=duration,
+                transition_in_weeks=max(1, duration - week),
+                is_deload=new_phase == "deload",
+                explanation="",
+            ),
+            reason,
+        ),
+    )
+    return state

@@ -94,6 +94,7 @@
 - [ ] Deload/manual override path available locally if autoregulation suggests aggressive load
 
 ### Frontend UX for rule engine
+- [x] Coach: block-level orchestration (`compute_coach_state`) in backend + TypeScript port
 - [ ] Settings/defaults: user selects preferred rule script per exercise group or per workout
 - [ ] Exercise detail shows current rule-derived prescription: weight, reps, sets, rest, progression step, estimated 1RM
 - [ ] During active workout: show next prescribed set (adaptive to completed sets if autoregulated)

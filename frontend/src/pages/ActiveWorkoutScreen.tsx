@@ -19,7 +19,7 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { GripVertical } from "lucide-react";
 import { api } from "../api";
 import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
-import { computePrescription, type Prescription, type SetRecord } from "../rules";
+import { computePrescription, type Prescription, type SetRecord, type CoachState, computeCoachState } from "../rules";
 
 export default function ActiveWorkoutScreen({
   sessionId,
@@ -62,9 +62,42 @@ export default function ActiveWorkoutScreen({
   const [lastSessionByExercise, setLastSessionByExercise] = useState<Record<number, {set_index: number; actual_weight: number; actual_reps: number}[]>>({});
   const [originalExercises, setOriginalExercises] = useState<ExerciseEntry[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
+  const [coachPhase, setCoachPhase] = useState<string>("linear");
+  const [coachWeek, setCoachWeek] = useState<number>(1);
 
   const restTimerRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
+
+  const buildRuleHistoryForCoach = (): SetRecord[] => {
+    const history: SetRecord[] = [];
+    const names = Array.from(new Set(exercises.map((e) => e.name)));
+
+    for (const name of names) {
+      const ex = exercises.find((e) => e.name === name)!;
+      const lastSession = lastSessionByExercise[ex.id] || [];
+      for (const s of lastSession) {
+        history.push({
+          actual_weight: s.actual_weight,
+          actual_reps: s.actual_reps,
+          effort: 3,
+          completed_at: new Date(Date.now() - 86400000).toISOString(),
+        });
+      }
+      const currentLogs = logs.filter((l) => {
+        const entry = exercises.find((e) => e.id === l.exercise_entry_id);
+        return Boolean(entry && entry.name === name);
+      });
+      for (const l of currentLogs) {
+        history.push({
+          actual_weight: Number(l.actual_weight || 0),
+          actual_reps: Number(l.actual_reps || 0),
+          effort: l.effort ?? 3,
+          completed_at: new Date().toISOString(),
+        });
+      }
+    }
+    return history;
+  };
 
   const buildRuleHistory = (exercise: ExerciseEntry): SetRecord[] => {
     const history: SetRecord[] = [];
@@ -82,28 +115,71 @@ export default function ActiveWorkoutScreen({
       history.push({
         actual_weight: Number(l.actual_weight || 0),
         actual_reps: Number(l.actual_reps || 0),
-        effort: l.effort || 3,
+        effort: l.effort ?? 3,
         completed_at: new Date().toISOString(),
       });
     }
     return history;
   };
 
+  const buildRuleHistoryForCoach = (): SetRecord[] => {
+    const history: SetRecord[] = [];
+    const names = Array.from(new Set(exercises.map((e) => e.name)));
+
+    for (const name of names) {
+      const ex = exercises.find((e) => e.name === name)!;
+      const lastSession = lastSessionByExercise[ex.id] || [];
+      for (const s of lastSession) {
+        history.push({
+          actual_weight: s.actual_weight,
+          actual_reps: s.actual_reps,
+          effort: 3,
+          completed_at: new Date(Date.now() - 86400000).toISOString(),
+        });
+      }
+      const currentLogs = logs.filter((l) => {
+        const entry = exercises.find((e) => e.id === l.exercise_entry_id);
+        return Boolean(entry && entry.name === name);
+      });
+      for (const l of currentLogs) {
+        history.push({
+          actual_weight: Number(l.actual_weight || 0),
+          actual_reps: Number(l.actual_reps || 0),
+          effort: l.effort ?? 3,
+          completed_at: new Date().toISOString(),
+        });
+      }
+    }
+    return history;
+  };
+
   const suggestions = useMemo(() => {
+    const history = buildRuleHistoryForCoach();
+    const coach = computeCoachState({
+      history,
+      current_phase: coachPhase as any,
+      current_week_in_block: coachWeek,
+      default_progression: "linear",
+      periodization_cycle_weeks: 4,
+    });
+
     const map: Record<number, Prescription> = {};
     for (const exercise of exercises) {
-      const history = buildRuleHistory(exercise);
+      const exHistory = buildRuleHistory(exercise);
       map[exercise.id] = computePrescription({
         start_weight: exercise.start_weight,
         reps_target: exercise.reps_target,
         sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
         rest_seconds: exercise.rest_seconds,
-        progression_type: "linear",
-        history,
+        progression_type: coach.phase,
+        history: exHistory,
       });
     }
-    return map;
-  }, [exercises, logs, lastSessionByExercise, displaySetsTarget]);
+    return { prescriptions: map, coach };
+  }, [exercises, logs, lastSessionByExercise, displaySetsTarget, coachPhase, coachWeek]);
+
+  const coach = suggestions.coach;
+  const prescriptions = suggestions.prescriptions;
 
   useEffect(() => {
     Promise.all([
@@ -574,6 +650,30 @@ export default function ActiveWorkoutScreen({
         </div>
       </div>
 
+      {/* Coach panel */}
+      {coach && (
+        <div className={`rounded-2xl border p-4 space-y-2 ${
+          coach.is_deload
+            ? "border-amber-800/80 bg-amber-950/40"
+            : "border-indigo-800/60 bg-indigo-950/30"
+        }`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-300">Coach — {coach.is_deload ? "Deload" : "Current Phase"}</div>
+              <div className="text-sm font-semibold text-slate-100 truncate mt-0.5">
+                Week {coach.week_in_block} / {coach.block_duration_weeks}
+              </div>
+            </div>
+            <div className="rounded-lg border border-white/10 px-2 py-1 text-center min-w-[80px]">
+              <div className={`text-xs font-bold ${coach.is_deload ? "text-amber-300" : "text-indigo-300"}`}>
+                {coach.transition_in_weeks <= 1 && !coach.is_deload ? "Almost done" : `${coach.transition_in_weeks} weeks left`}
+              </div>
+            </div>
+          </div>
+          <p className="text-xs text-slate-300 leading-relaxed">{coach.explanation}</p>
+        </div>
+      )}
+
       {/* Rest overlay */}
       {isResting && (
         <div className="rounded-2xl border border-amber-800 bg-amber-950/50 p-5 space-y-3">
@@ -655,7 +755,7 @@ export default function ActiveWorkoutScreen({
                   onNotesChange={setNotes}
                   canLog={canLog}
                   onLogSet={() => logSet()}
-                  suggestion={suggestions[exercise.id]}
+                  suggestion={prescriptions[exercise.id]}
                 />
               );
             })}

@@ -6,7 +6,7 @@
  * on-device autoregulation and backend prescriptions match.
  */
 
-export type ProgressionType = "linear" | "double" | "percentage" | "autoregulated";
+export type ProgressionType = "linear" | "double" | "percentage" | "autoregulated" | "deload";
 
 export type WorkloadStatus = "easy" | "moderate" | "hard" | "deload";
 
@@ -442,3 +442,165 @@ export function applyAiProfile(rule: RuleInput): RuleInput {
     ai_stress_fatigue_adjustment: rule.ai_stress_fatigue_adjustment ?? 0,
   };
 }
+
+/* ---------------------------------------------------------------------------
+   Coach: deterministic block-level orchestration
+   --------------------------------------------------------------------------- */
+
+const COACH_PHASE_LABELS: Record<string, string> = {
+  linear: "Linear Progression",
+  double: "Double Progression",
+  percentage: "Percentage-based",
+  autoregulated: "Autoregulated / RPE",
+  deload: "Deload",
+};
+
+const COACH_PHASE_DESCRIPTIONS: Record<string, string> = {
+  linear:
+    "We're adding a small amount of weight each successful session to build strength steadily. This works best when you're fresh and your technique is solid.",
+  double:
+    "The goal here is volume first: we'll keep the weight until you hit your full rep target for multiple sets. Once that's consistent, we'll bump the weight. This is a great plateau buster.",
+  percentage:
+    "We're training from an estimated 1RM. This gives your body a precise strength stimulus with clear targets. It's useful when you want to peak or test strength.",
+  autoregulated:
+    "You'll report how hard each set felt. We use RPE/RIR to adjust load daily so you don't grind through fatigue. This teaches your body to self-regulate intensity and protects recovery.",
+  deload:
+    "We're intentionally backing off—less weight, fewer sets, easier effort. This isn't 'slacking.' Recovery is when fitness actually improves. We'll resume normal loading next block.",
+};
+
+const COACH_TRANSITION_REASONS: Record<string, string> = {
+  to_deload:
+    "I'm scheduling a deload because you've accumulated several solid weeks. Recovery will make your next block stronger.",
+  to_autoregulated:
+    "You've been grinding hard. Switching to autoregulation for a block lets us match load to your daily readiness while keeping frequency high.",
+  from_deload:
+    "Deload is complete. We're returning to structured progression so you can build on the recovery.",
+  best_fit: "Switching progression type because it matches your current progress pattern.",
+};
+
+const DEFAULT_BLOCK_DURATIONS: Record<string, number> = {
+  linear: 4,
+  double: 4,
+  percentage: 4,
+  autoregulated: 3,
+  deload: 1,
+};
+
+export type CoachPhase = "linear" | "double" | "percentage" | "autoregulated" | "deload";
+
+export interface CoachState {
+  phase: CoachPhase;
+  progression_type: CoachPhase;
+  week_in_block: number;
+  block_duration_weeks: number;
+  transition_in_weeks: number;
+  is_deload: boolean;
+  explanation: string;
+}
+
+function recentRealSets(history: SetRecord[]): SetRecord[] {
+  return history.filter((s) => !s.is_seeded);
+}
+
+function candidateTypes(): CoachPhase[] {
+  return ["linear", "double", "percentage", "autoregulated"];
+}
+
+function detectStalls(history: SetRecord[]): boolean {
+  const real = recentRealSets(history).slice(0, 12);
+  if (!real.length) return false;
+  const hardSets = real.filter((s) => (s.effort ?? 0) >= 4 && (s.rir ?? 1) <= 0);
+  return hardSets.length >= 3;
+}
+
+function shouldForceDeload(history: SetRecord[], week: number, cycleWeeks: number): boolean {
+  if (cycleWeeks > 0 && week > 0) {
+    return week % cycleWeeks === 0;
+  }
+  return detectStalls(history);
+}
+
+function progressionFromHistory(history: SetRecord[], fallback: CoachPhase): CoachPhase {
+  const real = recentRealSets(history).slice(0, 20);
+  if (!real.length) return fallback;
+  const successes = real.filter((s) => (s.rir ?? 0) >= 1 && (s.effort ?? 0) <= 3);
+  if (successes.length >= 5) return "double";
+  const grinds = real.filter((s) => (s.rir ?? 1) <= 0);
+  if (grinds.length >= 3) return "autoregulated";
+  return "linear";
+}
+
+function nextPhaseAfter(current: CoachPhase, deloadDue: boolean): CoachPhase {
+  if (current === "deload") return "linear";
+  if (deloadDue) return "deload";
+  const types = candidateTypes();
+  const idx = types.indexOf(current);
+  return types[(idx + 1) % types.length];
+}
+
+function blockDuration(phase: CoachPhase): number {
+  return DEFAULT_BLOCK_DURATIONS[phase] ?? 4;
+}
+
+function buildExplanation(state: { is_deload: boolean; week_in_block: number; block_duration_weeks: number; progression_type: CoachPhase }, reason?: string): string {
+  const phaseLabel = COACH_PHASE_LABELS[state.progression_type] ?? state.progression_type;
+  const phaseDesc = COACH_PHASE_DESCRIPTIONS[state.progression_type] ?? "";
+  const line = state.is_deload
+    ? `This is week ${state.week_in_block} of deload. We'll reduce load so you can recover without losing frequency.`
+    : `This week covers week ${state.week_in_block} of a ${state.block_duration_weeks}-week ${phaseLabel} block.`;
+  const parts = [line, phaseDesc];
+  if (reason) {
+    const transitionReason = COACH_TRANSITION_REASONS[reason];
+    if (transitionReason) parts.push(transitionReason);
+  }
+  return parts.filter(Boolean).join(" ");
+}
+
+export function computeCoachState(input: {
+  history: SetRecord[];
+  current_phase?: CoachPhase;
+  current_week_in_block?: number;
+  force_deload?: boolean;
+  periodization_cycle_weeks?: number;
+  default_progression?: CoachPhase;
+}): CoachState {
+  const phase = input.current_phase ?? progressionFromHistory(input.history, input.default_progression ?? "linear");
+  const week = input.current_week_in_block ?? 1;
+  const duration = blockDuration(phase);
+  const deloadDue = input.force_deload || shouldForceDeload(input.history, week, input.periodization_cycle_weeks ?? 4);
+
+  let newPhase = phase;
+  let reason = "continue";
+
+  if (deloadDue && phase !== "deload") {
+    newPhase = "deload";
+    reason = "to_deload";
+  } else if (phase === "deload") {
+    newPhase = "linear";
+    reason = "from_deload";
+  } else if ((input.current_week_in_block ?? 0) >= duration && !input.force_deload) {
+    newPhase = nextPhaseAfter(phase, deloadDue);
+    reason = "best_fit";
+  } else {
+    newPhase = phase;
+    reason = "continue";
+  }
+
+  const weekIndex = newPhase === phase && input.current_phase !== "deload" ? Math.min(week + 1, duration) : 1;
+  const state: CoachState = {
+    phase: newPhase,
+    progression_type: newPhase,
+    week_in_block: weekIndex,
+    block_duration_weeks: blockDuration(newPhase),
+    transition_in_weeks: Math.max(1, blockDuration(newPhase) - weekIndex),
+    is_deload: newPhase === "deload",
+    explanation: buildExplanation({
+      is_deload: newPhase === "deload",
+      week_in_block: weekIndex,
+      block_duration_weeks: blockDuration(newPhase),
+      progression_type: newPhase,
+    }, reason),
+  };
+  return state;
+}
+
