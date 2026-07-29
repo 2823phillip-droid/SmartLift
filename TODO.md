@@ -106,6 +106,17 @@
 - [ ] Confirm existing `workout_end_summary` / active workout POST payload carries enough state for progression rules to compute next workout
 - [ ] Define schema for `rule_script` / `rule_assignment` in Postgres (or extend `settings` payload) so a user/workout can be assigned a deterministic script
 
+### Coaching UX extensions (recommended follow-ups)
+- [ ] Per-template default progression + muscle-group rules editor: let template authors set a default progression type and override per muscle-group rule in template editor
+- [ ] Exercise-level RPE/RIR targets override in template: allow template to specify preferred RPE/RIR targets that feed into autoregulation during active workout
+- [ ] Deload auto-skip for movements flagged with deload override=false: respect per-exercise deload preference so certain exercises skip deload when selected
+- [ ] Visual timer badge on exercises when next deload is within 7 days: show countdown badge on exercise cards so user knows deload is approaching
+- [ ] Editable Coach settings per user (block durations, deload thresholds, progression order) — implemented 2026-07-29
+- [ ] Backend `POST /api/coach/override` + `GET /api/coach/state` endpoints — implemented 2026-07-29
+- [ ] Force control buttons wired to backend overrides so changes persist across devices — implemented 2026-07-29
+- [ ] Coach settings UI in SettingsScreen (`CoachSettingsSection`) — implemented 2026-07-29
+- [ ] Persist Coach state via existing `settings` save on workout end so it survives app reinstalls — implemented 2026-07-29
+
 ### Verification
 - [ ] Unit tests for each rule type against synthetic session history
 - [ ] End-to-end test: user with known history receives correct next-session prescription
