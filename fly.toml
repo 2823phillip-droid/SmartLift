@@ -1,0 +1,29 @@
+app = "smartlift-api"
+primary_region = "iad"
+
+[build]
+  dockerfile = "backend/Dockerfile"
+
+[[services]]
+  internal_port = 8000
+  protocol = "tcp"
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [[services.checks]]
+    protocol = "http"
+    path = "/healthz"
+    interval = "10s"
+    timeout = "5s"
+    grace_period = "15s"
+
+[env]
+  # Do NOT hardcode DATABASE_URL here. Set it via `fly secrets set DATABASE_URL=...`
+  # after attaching a managed Postgres cluster.

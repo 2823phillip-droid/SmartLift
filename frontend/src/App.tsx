@@ -1,8 +1,7 @@
 import { useEffect, useState } from "react";
-import { api, initApiBaseFromSettings, setAuthToken, getAuthToken } from "./api";
+import { api, initApiBaseFromSettings, setAuthToken, getAuthToken, withRetry } from "./api";
 import HomeScreen from "./pages/HomeScreen";
 import WorkoutsScreen from "./pages/WorkoutsScreen";
-import TemplateGroupListScreen from "./pages/TemplateGroupListScreen";
 import TemplateListScreen from "./pages/TemplateListScreen";
 import TemplateEditorScreen from "./pages/TemplateEditorScreen";
 import BuildWorkoutScreen from "./pages/BuildWorkoutScreen";
@@ -20,7 +19,6 @@ import TabBar, { type Tab } from "./components/TabBar";
 
 type View =
   | "home"
-  | "quick_start"
   | "build_workout"
   | "templates"
   | "template_editor"
@@ -46,7 +44,6 @@ const tabRootToView: Record<Tab, View> = {
 
 const viewToTab: Record<View, Tab | null> = {
   home: "home",
-  quick_start: "workouts",
   build_workout: "workouts",
   templates: "workouts",
   template_editor: "workouts",
@@ -88,7 +85,7 @@ export default function App() {
     if (stored) {
       setAuthToken(stored);
     }
-    initApiBaseFromSettings().then(async () => {
+    withRetry(() => initApiBaseFromSettings(), { retries: 2, baseDelayMs: 300 }).then(async () => {
       if (cancelled) return;
       if (!stored) {
         setView("login");
@@ -96,7 +93,7 @@ export default function App() {
         return;
       }
       try {
-        const me = await api.me();
+        const me = await withRetry(() => api.me(), { retries: 2, baseDelayMs: 300 });
         setUser(me as any);
         setView("home");
       } catch {
@@ -151,7 +148,7 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     if (!user) return;
-    api.listSettings().then((items) => {
+    withRetry(() => api.listSettings(), { retries: 2, baseDelayMs: 300 }).then((items) => {
       if (cancelled) return;
       const mode = (items as any[])?.find((s) => s.key === "workout_mode")?.value;
       if (mode === "ai_trainer") setWorkoutMode("ai_trainer");
@@ -201,7 +198,6 @@ export default function App() {
 
   const getBackTarget = (): View => {
     switch (view) {
-      case "quick_start":
       case "build_workout":
       case "ai_trainer":
         return "workouts";
@@ -301,49 +297,26 @@ export default function App() {
           <div className="view-enter-active">
             <ErrorBoundary>
               {view === "home" && <HomeScreen />}
-              {view === "quick_start" && (
-                <TemplateGroupListScreen
-                onBack={goBack}
-                onStartTemplate={(tplId) => {
-                  setSelectedTemplateId(tplId);
-                  navigate("pre_workout");
-                }}
-                onEditTemplate={(tplId, ctxId) => {
-                  setSelectedContextId(ctxId);
-                  setSelectedTemplateId(tplId);
-                  navigate("template_editor");
-                }}
-                onDeleteTemplate={async (tplId) => {
-                  await api.deleteTemplate(tplId);
-                }}
-                onEditContext={async (ctxId) => {
-                  const name = window.prompt("Rename template:");
-                  if (!name?.trim()) return;
-                  try {
-                    await api.updateContext(ctxId, { name: name.trim() });
-                    // screen auto-refreshes via internal refreshToken on next render;
-                    // force a rerender pulse so the list updates:
-                    setView("quick_start");
-                  } catch (err: any) {
-                    alert(err?.message || "Failed to rename.");
-                  }
-                }}
-                onDeleteContext={async (ctxId) => {
-                  if (!window.confirm("Delete this template and all its workouts?")) return;
-                  try {
-                    await api.deleteContext(ctxId);
-                    setView("quick_start");
-                  } catch (err: any) {
-                    alert(err?.message || "Failed to delete.");
-                  }
-                }}
-                onBuildWorkout={() => navigate("build_workout")}
-              />
-            )}
+              {view === "workouts" && (
+                <WorkoutsScreen
+                  onStartWorkout={(tplId) => {
+                    setSelectedTemplateId(tplId);
+                    navigate("pre_workout");
+                  }}
+                  onBuildWorkout={() => navigate("build_workout")}
+                  onSelectPrebuilt={() => navigate("library")}
+                  onBack={goBack}
+                  onEditTemplate={(tplId, ctxId) => {
+                    setSelectedContextId(ctxId);
+                    setSelectedTemplateId(tplId);
+                    navigate("template_editor");
+                  }}
+                />
+              )}
             {view === "build_workout" && (
               <BuildWorkoutScreen
                 onBack={goBack}
-                onStartWorkout={() => navigate("quick_start")}
+                onStartWorkout={() => navigate("workouts")}
                 onCreateWorkout={(ctxId) => {
                   setSelectedContextId(ctxId);
                   setSelectedTemplateId(null);
@@ -388,20 +361,17 @@ export default function App() {
               <TemplateEditorScreen
                 contextId={selectedContextId}
                 templateId={selectedTemplateId ?? undefined}
-                onBack={
-                  selectedTemplateId
-                    ? () => navigate("templates")
-                    : () => navigate("workouts")
-                }
-                onSaved={(_tplId) => {
+                onBack={() => navigate("workouts")}
+                onSaved={() => {
                   setSelectedTemplateId(null);
-                  navigate("templates");
+                  setSelectedContextId(null);
+                  navigate("workouts");
                 }}
-                onCancel={
-                  selectedTemplateId
-                    ? () => navigate("templates")
-                    : () => navigate("workouts")
-                }
+                onCancel={() => {
+                  setSelectedTemplateId(null);
+                  setSelectedContextId(null);
+                  navigate("workouts");
+                }}
               />
             )}
             {view === "pre_workout" && selectedTemplateId !== null && (
@@ -411,7 +381,7 @@ export default function App() {
                   setSessionId(sid);
                   navigate("active_workout");
                 }}
-                onBack={() => navigate("quick_start")}
+                onBack={() => navigate("workouts")}
               />
             )}
             {(view === "active_workout" || sessionId !== null) && sessionId !== null && selectedTemplateId !== null && (
@@ -462,6 +432,11 @@ export default function App() {
                 onBuildWorkout={() => navigate("build_workout")}
                 onSelectPrebuilt={() => navigate("library")}
                 onBack={goBack}
+                onEditTemplate={(tplId, ctxId) => {
+                  setSelectedContextId(ctxId);
+                  setSelectedTemplateId(tplId);
+                  navigate("template_editor");
+                }}
               />
             )}
             {view === "profile" && (

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { api, withRetry } from "../api";
 
 type Profile = {
   username?: string;
@@ -21,7 +21,7 @@ export default function ProfileScreen({ onBack, onOpenSettings, user }: { onBack
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    api.listSettings().then((items: any[]) => {
+    withRetry(() => api.listSettings(), { retries: 2, baseDelayMs: 300 }).then((items: any[]) => {
       if (cancelled) return;
       const map: Record<string, string> = {};
       items.forEach((s: any) => { if (s.value != null) map[s.key] = s.value; });
@@ -54,7 +54,7 @@ export default function ProfileScreen({ onBack, onOpenSettings, user }: { onBack
   const saveGoals = async () => {
     setSavingGoals(true);
     try {
-      await api.setSetting("profile_fitness_goals", goalsDraft || "");
+      await withRetry(() => api.setSetting("profile_fitness_goals", goalsDraft || ""), { retries: 2, baseDelayMs: 300 });
       setProfile((p) => ({ ...p, fitness_goals: goalsDraft }));
       setEditingGoals(false);
     } finally {

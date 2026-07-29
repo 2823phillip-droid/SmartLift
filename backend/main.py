@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.orm import Session
@@ -14,6 +15,7 @@ import traceback
 import secrets
 import hashlib
 import httpx
+import asyncio
 from logging.handlers import RotatingFileHandler
 from passlib.context import CryptContext
 
@@ -77,11 +79,49 @@ async def log_requests(request, call_next):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:8080",
+        "capacitor://localhost",
+        "ionic://localhost",
+        "http://localhost",
+        "http://127.0.0.1",
+    ] + os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else [],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    logger.error(json.dumps({
+        "type": "unhandled_exception",
+        "method": request.method,
+        "path": str(request.url.path),
+        "error": str(exc),
+        "traceback": traceback.format_exc(),
+    }))
+    return JSONResponse(status_code=500, content={"detail": "internal_server_error"})
+
+@app.middleware("http")
+async def timeout_middleware(request, call_next):
+    try:
+        return await asyncio.wait_for(call_next(request), timeout=20)
+    except asyncio.TimeoutError:
+        logger.error(json.dumps({
+            "type": "timeout",
+            "method": request.method,
+            "path": str(request.url.path),
+        }))
+        return JSONResponse(status_code=504, content={"detail": "gateway_timeout"})
+
+@app.get("/healthz")
+async def healthz():
+    return {"status": "ok"}
+
+@app.get("/readyz")
+async def readyz():
+    return {"status": "ready"}
 
 # Dependency
 def get_db():
@@ -1495,13 +1535,13 @@ def import_workout_library(payload: WorkoutLibraryImportIn, db: Session = Depend
 
 @app.get("/api/settings/{key}", response_model=SettingOut)
 def get_setting(key: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    print(f"[settings] GET /api/settings/{key} user={current_user.id}")
+    logger.info("[settings] GET /api/settings/%s user=%s", key, current_user.id)
     s = db.query(AppSetting).filter(AppSetting.key == key, AppSetting.user_id == current_user.id).first()
     return SettingOut(key=key, value=s.value if s else None)
 
 @app.put("/api/settings/{key}", response_model=SettingOut)
 def put_setting(key: str, payload: SettingOut, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    print(f"[settings] PUT /api/settings/{key} user={current_user.id} value={payload.value!r}")
+    logger.info("[settings] PUT /api/settings/%s user=%s value=%r", key, current_user.id, payload.value)
     s = db.query(AppSetting).filter(AppSetting.key == key, AppSetting.user_id == current_user.id).first()
     if not s:
         s = AppSetting(key=key, value=payload.value, user_id=current_user.id)
@@ -1514,7 +1554,7 @@ def put_setting(key: str, payload: SettingOut, db: Session = Depends(get_db), cu
 
 @app.get("/api/settings", response_model=List[SettingOut])
 def list_settings(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    print(f"[settings] GET /api/settings user={current_user.id}")
+    logger.info("[settings] GET /api/settings user=%s", current_user.id)
     settings = db.query(AppSetting).filter(AppSetting.user_id == current_user.id).all()
     return [SettingOut(key=s.key, value=s.value) for s in settings]
 

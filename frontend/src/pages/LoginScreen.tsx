@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { api, initApiBaseFromSettings, setAuthToken } from "../api";
+import { api, initApiBaseFromSettings, setAuthToken, withRetry } from "../api";
 
 declare global {
   interface Window {
@@ -30,14 +30,14 @@ export default function LoginScreen({ onLogin, onSwitch }: { onLogin: (user: { i
     setError(null);
     setLoading(true);
     try {
-      await initApiBaseFromSettings();
+      await withRetry(() => initApiBaseFromSettings(), { retries: 2, baseDelayMs: 300 });
       const trimmedEmail = email.trim();
       const trimmedPassword = password.trim();
       if (!trimmedEmail || !trimmedPassword) {
         setError("Please enter both email and password.");
         return;
       }
-      const res = await api.login(trimmedEmail, trimmedPassword);
+      const res = await withRetry(() => api.login(trimmedEmail, trimmedPassword), { retries: 2, baseDelayMs: 300 });
       setAuthToken(res.token);
       onLogin(res.user);
     } catch (err) {
@@ -51,7 +51,7 @@ export default function LoginScreen({ onLogin, onSwitch }: { onLogin: (user: { i
     setError(null);
     setLoading(true);
     try {
-      await initApiBaseFromSettings();
+      await withRetry(() => initApiBaseFromSettings(), { retries: 2, baseDelayMs: 300 });
       if (!window.google?.accounts?.id) {
         throw new Error("Google Sign-In is not configured yet.");
       }

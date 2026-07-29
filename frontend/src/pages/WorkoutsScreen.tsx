@@ -36,11 +36,13 @@ export default function WorkoutsScreen({
   onBuildWorkout,
   onSelectPrebuilt,
   onBack,
+  onEditTemplate,
 }: {
   onStartWorkout: (templateId: number) => void;
   onBuildWorkout: () => void;
   onSelectPrebuilt: () => void;
   onBack: () => void;
+  onEditTemplate?: (templateId: number, contextId: number) => void;
 }) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
@@ -196,6 +198,8 @@ export default function WorkoutsScreen({
 
   const hasData = groups.some((g) => g.templates.length > 0);
 
+  void onEditTemplate;
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -288,6 +292,7 @@ export default function WorkoutsScreen({
                     onTemplateDragEnd={handleTemplateDragEnd}
                     onStartWorkout={onStartWorkout}
                     onDeleteTemplate={deleteTemplate}
+                    onEditTemplate={onEditTemplate}
                     onEditContext={renameContext}
                     onDeleteContext={deleteContext}
                   />
@@ -320,7 +325,8 @@ type SortableGroupRowProps = {
   onTemplateDragEnd: (contextId: number, event: DragEndEvent) => void;
   onStartWorkout: (templateId: number) => void;
   onDeleteTemplate: (templateId: number) => void;
-  onEditContext: (contextId: number, currentName: string) => void;
+  onEditContext: (ctxId: number, currentName: string) => void;
+  onEditTemplate?: (templateId: number, contextId: number) => void;
   onDeleteContext: (contextId: number, name: string) => void;
 };
 
@@ -334,6 +340,7 @@ function SortableGroupRow({
   onStartWorkout,
   onDeleteTemplate,
   onEditContext,
+  onEditTemplate,
   onDeleteContext,
 }: SortableGroupRowProps) {
   const { context, templates } = group;
@@ -414,7 +421,7 @@ function SortableGroupRow({
                     isDragActive={isDragActive}
                     onStartWorkout={onStartWorkout}
                     onDelete={onDeleteTemplate}
-                    onEditContext={onEditContext}
+                    onEditTemplate={onEditTemplate}
                   />
                 ))}
               </div>
@@ -431,7 +438,7 @@ type SortableTemplateRowProps = {
   isDragActive: boolean;
   onStartWorkout: (id: number) => void;
   onDelete: (id: number) => void;
-  onEditContext: (ctxId: number, name: string) => void;
+  onEditTemplate?: (templateId: number, contextId: number) => void;
 };
 
 function SortableTemplateRow({
@@ -439,7 +446,7 @@ function SortableTemplateRow({
   isDragActive,
   onStartWorkout,
   onDelete,
-  onEditContext,
+  onEditTemplate,
 }: SortableTemplateRowProps) {
   const {
     attributes,
@@ -476,7 +483,7 @@ function SortableTemplateRow({
             {(tpl.exercises || []).map((ex) => ex.name).join(" · ") || "No exercises"}
           </div>
         </button>
-        <div className="flex items-center gap-3 shrink-0 pr-3 py-3">
+        <div className="flex items-center gap-3 shrink-0 pr-3 py-3" style={{ touchAction: "manipulation" }}>
           <button
             onClick={() => onStartWorkout(tpl.id)}
             className="text-emerald-400 hover:text-emerald-300 active:scale-95 transition-all p-1"
@@ -485,7 +492,10 @@ function SortableTemplateRow({
             <Play className="w-5 h-5" />
           </button>
           <button
-            onClick={() => onEditContext(tpl.context_id, tpl.name)}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onEditTemplate) onEditTemplate(tpl.id, tpl.context_id);
+            }}
             className="text-indigo-400 hover:text-indigo-300 active:scale-95 transition-all p-1"
             aria-label="Edit"
           >

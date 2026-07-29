@@ -188,7 +188,7 @@ export default function SettingsScreen({ onBack, onModeChange }: { onBack: () =>
                 type="text"
                 value={settings["api_base"] ?? ""}
                 onChange={(e) => setSettings((s) => ({ ...s, api_base: e.target.value }))}
-                placeholder="http://192.168.1.111:8000/api"
+                placeholder="https://smartlift-api.fly.dev/api"
                 className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm"
               />
               <button

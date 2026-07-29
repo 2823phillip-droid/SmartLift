@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { api, initApiBaseFromSettings, setAuthToken } from "../api";
+import { api, initApiBaseFromSettings, setAuthToken, withRetry } from "../api";
 
 export default function SignupScreen({ onSignup, onSwitch }: { onSignup: (user: { id: number; email: string; role: string; first_name?: string; last_name?: string }) => void; onSwitch: () => void }) {
   const [email, setEmail] = useState("");
@@ -18,8 +18,8 @@ export default function SignupScreen({ onSignup, onSwitch }: { onSignup: (user: 
     }
     setLoading(true);
     try {
-      await initApiBaseFromSettings();
-      const res = await api.signup(email, password, firstName, lastName);
+      await withRetry(() => initApiBaseFromSettings(), { retries: 2, baseDelayMs: 300 });
+      const res = await withRetry(() => api.signup(email, password, firstName, lastName), { retries: 2, baseDelayMs: 300 });
       setAuthToken(res.token);
       onSignup(res.user);
     } catch (err) {

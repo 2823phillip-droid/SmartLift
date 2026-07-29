@@ -20,9 +20,9 @@ export function setAuthToken(next: string | null) {
 }
 
 async function request(path: string, options: RequestInit = {}) {
-  const base =
-    apiBase || import.meta.env.VITE_API_BASE || "http://192.168.1.111:8000/api";
-  const url = `${base}${path}`;
+  const FLY_DEFAULT = "https://smartlift-api.fly.dev/api";
+  let base = apiBase || import.meta.env.VITE_API_BASE || FLY_DEFAULT;
+  let url = `${base}${path}`;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -32,60 +32,84 @@ async function request(path: string, options: RequestInit = {}) {
     headers["Authorization"] = `Bearer ${authToken}`;
   }
 
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), 10000);
+  const makeRequest = async (attemptBase: string) => {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), options.signal ? 0 : 10000);
+    try {
+      const res = await fetch(`${attemptBase}${path}`, {
+        ...options,
+        signal: options.signal || controller.signal,
+        headers: headers as Record<string, string>,
+      });
+      clearTimeout(timer);
+      if (!res.ok) {
+        const text = await res.text();
+        const error = new Error(`API error ${res.status}: ${text}`);
+        (error as any).url = `${attemptBase}${path}`;
+        (error as any).status = res.status;
+        captureError(error, {
+          context: { path, method: options.method, status: res.status },
+        });
+        throw error;
+      }
+      if (res.status === 204) return null;
+      return res.json();
+    } finally {
+      clearTimeout(timer);
+    }
+  };
 
   try {
-    const res = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-      headers: headers as Record<string, string>,
-    });
-    clearTimeout(timer);
-    if (!res.ok) {
-      const text = await res.text();
-      const error = new Error(
-        `API error ${res.status}: ${text}`
-      );
-      (error as any).url = url;
-      (error as any).status = res.status;
-      captureError(error, {
-        context: { path, method: options.method, status: res.status },
-      });
-      throw error;
-    }
-    if (res.status === 204) return null;
-    return res.json();
+    return await makeRequest(base);
   } catch (err) {
-    if (base !== "http://192.168.1.111:8000/api") {
+    const isProductionDefault = base === FLY_DEFAULT || apiBase === null;
+    const looksNetwork = !(err as any)?.status || (err as any).status >= 400;
+    if (isProductionDefault && looksNetwork) {
       try {
-        const fallbackController = new AbortController();
-        const fallbackTimer = setTimeout(() => fallbackController.abort(), 12000);
-        const fallbackHeaders: Record<string, string> = {
-          "Content-Type": "application/json",
-          ...(options.headers as Record<string, string> | undefined),
-        };
-        if (authToken) {
-          fallbackHeaders["Authorization"] = `Bearer ${authToken}`;
-        }
-        const fallbackRes = await fetch(`http://192.168.1.111:8000/api${path}`, {
-          ...options,
-          signal: fallbackController.signal,
-          headers: fallbackHeaders as Record<string, string>,
-        });
-        clearTimeout(fallbackTimer);
-        if (fallbackRes.ok) {
-          apiBase = "http://192.168.1.111:8000/api";
-          if (fallbackRes.status === 204) return null;
-          return fallbackRes.json();
+        await initApiBaseFromSettings();
+        const newBase = apiBase || import.meta.env.VITE_API_BASE || FLY_DEFAULT;
+        if (newBase !== base) {
+          base = newBase;
+          url = `${base}${path}`;
+          return await makeRequest(base);
         }
       } catch {
-        // fall through
+        // fall through to original error
       }
     }
     (err as any).url = (err as any).url || url;
     throw err;
   }
+}
+
+function isNetworkOrTransientError(err: any, res?: any) {
+  if (!navigator?.onLine) return true;
+  if (err instanceof TypeError) return true;
+  if (res && (res.status === 408 || res.status === 429 || res.status >= 500)) return true;
+  return false;
+}
+
+export async function withRetry<T>(
+  fn: () => Promise<T>,
+  opts?: { retries?: number; baseDelayMs?: number; signal?: AbortSignal }
+): Promise<T> {
+  const retries = opts?.retries ?? 2;
+  const baseDelay = opts?.baseDelayMs ?? 400;
+  let lastErr: any;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      lastErr = err;
+      if (opts?.signal?.aborted) throw err;
+      if (attempt >= retries) break;
+      const res = (err as any)?.status ? { status: (err as any).status } : undefined;
+      if (!isNetworkOrTransientError(err, res)) break;
+      const delay = baseDelay * Math.pow(2, attempt);
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
 }
 
 async function probe(base: string): Promise<boolean> {
@@ -117,15 +141,15 @@ async function fetchWithTimeout(url: string): Promise<Response | null> {
 export async function initApiBaseFromSettings() {
   const candidates: string[] = [];
 
-  // 1) LAN default first — fastest on WiFi and avoids dead tunnel first-hop
-  candidates.push("http://192.168.1.111:8000/api");
-
-  // 2) baked env var from build
+  // 1) baked env var from build
   const envBase = import.meta.env.VITE_API_BASE;
   if (envBase) candidates.push(envBase);
 
+  // 2) production backend first
+  candidates.push("https://smartlift-api.fly.dev/api");
+
   // 3) stored backend setting
-  const storedBase = envBase || "http://192.168.1.111:8000/api";
+  const storedBase = envBase || "https://smartlift-api.fly.dev/api";
   const storedRes = await fetchWithTimeout(
     `${storedBase}/settings/${encodeURIComponent("api_base")}`
   );
@@ -153,7 +177,7 @@ export async function initApiBaseFromSettings() {
       return;
     }
   }
-  apiBase = "http://192.168.1.111:8000/api";
+  apiBase = "https://smartlift-api.fly.dev/api";
 }
 
 export async function ensureApiBase(): Promise<void> {
