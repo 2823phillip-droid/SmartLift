@@ -1,14 +1,6 @@
-# SmartLift Frontend
+SmartLift Frontend
 
 React + TypeScript + Vite mobile-first app, wrapped with Capacitor for iOS distribution.
-
-## Stack
-
-- Vite + React 19 + TypeScript
-- Tailwind CSS v4
-- Ionicons
-- Capacitor (iOS)
-- Recharts (weight-over-time graphs)
 
 ## Quick Start
 
@@ -20,30 +12,23 @@ npm run build  # dist/ -> Capacitor webDir
 
 ## API Configuration
 
-Reads backend base URL from `VITE_API_BASE`. On dev/Linux:
+Reads backend base URL from `VITE_API_BASE`. Production default:
 
 ```
-VITE_API_BASE=http://192.168.1.111:8000/api
+VITE_API_BASE=https://smartlift-api.fly.dev/api
 ```
 
-For iOS / tunnel, use the URL stored in backend settings / Cloudflare tunnel.
+For local debugging only, switch to `http://192.168.1.111:8000/api` if that host is still being used as a dev backend.
 
 ## Project Structure
 
 ```
 src/
-├── api/             # HTTP client + endpoints
 ├── components/      # Reusable UI
-├── widgets/         # Page sections (Home, History, Settings)
+├── pages/           # Screens
 ├── App.tsx          # Router + layout
 └── main.tsx         # Entry
 ```
-
-## Screens
-
-- **Home** — Start Workout from routine, recent activity
-- **History** — Tabs: By workout / By date / By exercise
-- **Settings** — Body-weight quick log, API config
 
 ## iOS Build
 
@@ -52,16 +37,12 @@ From Linux:
 1. Build: `npm run build`
 2. Push source to MacBook
 3. On Mac: `npm install && npm run build`
-4. `./node_modules/.bin/cap add ios`
-5. `./node_modules/.bin/cap sync ios`
-6. `./node_modules/.bin/cap open ios`
-7. Xcode → Play
+4. `npx cap sync ios`
+5. `npx cap open ios` — opens Xcode workspace
+6. Xcode → Play
 
-## Styling
+## Production
 
-- Mobile-first layouts; safe-area padding on full-width headers.
-- `viewport-fit=cover` + `env(safe-area-inset-*)` for notch devices.
-
-## License
-
-Private — all rights reserved.
+- App defaults to `https://smartlift-api.fly.dev/api`.
+- Use `npm run build` + `npx cap sync ios` to ship web changes.
+- Backend is deployed separately via Fly.

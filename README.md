@@ -56,11 +56,10 @@ npm run build  # production build to dist/
 The frontend reads its backend URL from `frontend/.env`:
 
 ```
-VITE_API_BASE=http://192.168.1.111:8000/api
+VITE_API_BASE=https://smartlift-api.fly.dev/api
 ```
 
-For remote/cellular access, replace with the Cloudflare tunnel URL
-(see Tunnel section below).
+Defaults to Fly in production if unset. Use Settings only to override.
 
 ---
 
@@ -163,10 +162,9 @@ Next (business build-out):
 
 ## Environment
 
-- Linux dev host: `192.168.1.111` (backend + tunnel)
-- MacBook Pro: `192.168.1.234` (iOS builds)
-- SSH: `~/.ssh/id_macbook` key auth
-- macOS mDNS: `Jordins-MacBook-Pro.local`
+- MacBook SSH: `phillipwalters@192.168.1.112`
+- Production backend: `https://smartlift-api.fly.dev/api`
+- Git remote (workout-logger): `https://github.com/phillip28237/SmartLift.git`
 
 ## License
 
