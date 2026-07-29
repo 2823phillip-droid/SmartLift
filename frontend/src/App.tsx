@@ -297,24 +297,8 @@ export default function App() {
           <div className="view-enter-active">
             <ErrorBoundary>
               {view === "home" && <HomeScreen />}
-              {view === "workouts" && (
-                <WorkoutsScreen
-                  onStartWorkout={(tplId) => {
-                    setSelectedTemplateId(tplId);
-                    navigate("pre_workout");
-                  }}
-                  onBuildWorkout={() => navigate("build_workout")}
-                  onSelectPrebuilt={() => navigate("library")}
-                  onBack={goBack}
-                  onEditTemplate={(tplId, ctxId) => {
-                    setSelectedContextId(ctxId);
-                    setSelectedTemplateId(tplId);
-                    navigate("template_editor");
-                  }}
-                />
-              )}
-            {view === "build_workout" && (
-              <BuildWorkoutScreen
+              {view === "build_workout" && (
+                <BuildWorkoutScreen
                 onBack={goBack}
                 onStartWorkout={() => navigate("workouts")}
                 onCreateWorkout={(ctxId) => {
