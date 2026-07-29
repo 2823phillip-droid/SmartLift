@@ -154,6 +154,7 @@ export default function ActiveWorkoutScreen({
   };
 
   const suggestions = useMemo(() => {
+    if ((workoutMode || "manual") !== "ai_trainer") return { prescriptions: {}, coach: null as any };
     const history = buildRuleHistoryForCoach();
     const coach = computeCoachState({
       history,
@@ -651,7 +652,7 @@ export default function ActiveWorkoutScreen({
       </div>
 
       {/* Coach panel */}
-      {coach && (
+      {(workoutMode || "manual") === "ai_trainer" && coach && (
         <div className={`rounded-2xl border p-4 space-y-2 ${
           coach.is_deload
             ? "border-amber-800/80 bg-amber-950/40"
