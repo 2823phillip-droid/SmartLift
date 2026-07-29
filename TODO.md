@@ -67,24 +67,31 @@
 
 ## Phase 2 — Rule Engine: Deterministic coaching scripts
 
-### Shared rule definitions (used by backend + local offline)
+### Canonical rules (single source of truth)
 - [ ] Define canonical rule specification in one place: inputs, outputs, progression types, safety boundaries
-- [ ] Implement canonical rule module in Python (backend)
-- [ ] Port/compile same rule module to TypeScript for frontend offline use inside `ActiveWorkoutScreen`
-- [ ] Phase 3 is not a second script; it is the Phase 2 rule surface embedded in the app
+- [ ] Define standard fitness model schema consumed by all rule implementations
+- [ ] Determinism requirement: identical inputs -> identical outputs unless user state changes
+- [ ] Additive-only gate: rules remain deterministic even as AI profile is layered on top in Phase 4
 
-### Data model prerequisites
-- [ ] Capture required session data for rule engine: exercise_order, sets_target, reps_target, weight_target, rest_seconds, datetime_completed, rpe,rir
-- [ ] Confirm existing `workout_end_summary` / active workout POST payload carries enough state for progression rules to compute next workout
-- [ ] Define schema for `rule_script` / `rule_assignment` in Postgres (or extend `settings` payload) so a user/workout can be assigned a deterministic script
-
-### Backend rule engine
+### Backend implementation
+- [ ] Implement canonical rule module in Python (FastAPI/Starlette)
 - [ ] Double progression: when all sets hit top rep band for target reps, increase weight next session; if miss, repeat
 - [ ] Linear progression: fixed increment per successful session; stall rule after N failures
 - [ ] Percentage / 1RM-based: compute working weight from stored or estimated 1RM; advance/regress based on completion quality
 - [ ] Periodization: weekly/mesocycle plan block hooks; scheduled deload week triggers reduced volume/intensity
 - [ ] Autoregulation (RPE/RIR): derive effective load and next-session prescriptions from reported RPE/RIR; allow micro-load/step back
 - [ ] Deloading: automatic deload trigger + manual deload with preserved rhythm
+- [ ] Backend computes next planned workout prescription from history + assigned rule script
+
+### Frontend / on-device implementation
+- [ ] Port canonical rules to TypeScript for use inside the app
+- [ ] Active workout autoregulation runs locally with no network dependency
+- [ ] After each set completion, run autoregulation locally and update next set UI immediately
+- [ ] Capture RPE/RIR inputs inline during workout before moving to next set
+- [ ] Offline-first behavior: queue completed workout payload when offline, resume sync on reconnect
+- [ ] Preserve completed sets and local outputs through background/suspend without dependence on in-memory only state
+- [ ] No external network calls inside autoregulation during active workout
+- [ ] Deload/manual override path available locally if autoregulation suggests aggressive load
 
 ### Frontend UX for rule engine
 - [ ] Settings/defaults: user selects preferred rule script per exercise group or per workout
@@ -93,43 +100,23 @@
 - [ ] Post-workout: capture RPE and RIR inputs before completion so backend can compute next prescription
 - [ ] Template editor exposes rule-engine placement: default/static values vs dynamic prescriptions
 
+### Data model prerequisites
+- [ ] Capture required session data for rule engine: exercise_order, sets_target, reps_target, weight_target, rest_seconds, datetime_completed, rpe, rir
+- [ ] Confirm existing `workout_end_summary` / active workout POST payload carries enough state for progression rules to compute next workout
+- [ ] Define schema for `rule_script` / `rule_assignment` in Postgres (or extend `settings` payload) so a user/workout can be assigned a deterministic script
+
 ### Verification
 - [ ] Unit tests for each rule type against synthetic session history
 - [ ] End-to-end test: user with known history receives correct next-session prescription
 - [ ] Confirm deterministic behavior: same input sequence always yields same next prescription unless RPE/RIR changes it
-
----
-
-## Phase 3 — Local-only Autoregulation Script
-
-### Core requirement
-- [ ] Deterministic autoregulation runs entirely on the phone during the active workout using the same canonical rules as Phase 2
-- [ ] Live coaching and live deviation must work without backend connectivity
-- [ ] Backend is not used for live autoregulation; it is only used for sync/history later
-
-### Behavior contract
-- [ ] Inputs available offline inside the app: planned sets_target, reps_target, weight_target, rest_seconds, completed_sets, reps_completed, weight_completed, RPE, RIR
-- [ ] Outputs used in app UI: next_set_prescription (sets/reps/weight/rest adjusted), coaching_message, workload_status
-- [ ] If connectivity returns, post completed workout/payload to backend; do not block autoregulation on network
-
-### Frontend implementation
-- [ ] Embed canonical rule implementation in app code path used during `ActiveWorkoutScreen`
-- [ ] After each set completion, run autoregulation locally and update next set UI immediately
-- [ ] Capture RPE/RIR inputs inline during workout before moving to next set
-- [ ] Offline detection: show connectivity state, queue payload when offline, resume sync on reconnect
-- [ ] Preserve completed sets and local outputs through background/suspend without dependence on in-memory only state
-
-### Safety / guardrails
-- [ ] No external network calls inside autoregulation during active workout
-- [ ] Determinism verified: identical workout state + identical input sequence produces identical live recommendation
-- [ ] Deload/manual override path available locally if autoregulation suggests aggressive load
+- [ ] Verify backend and frontend implementations produce identical outputs on identical inputs
 
 ---
 
 ## Phase 4 — AI Personalization Layer
 
 ### Core model
-- [ ] Define standard fitness model schema shared by all users; Phase 2/3 deterministic scripts consume this schema
+- [ ] Define standard fitness model schema shared by all users; Phase 2 deterministic scripts consume this schema
 - [ ] AI layer does not replace scripts; it builds a user-specific profile/key that modulates schema variables before scripts run
 - [ ] Scripts remain the constant execution layer; AI output is input normalization and profile calibration only
 
@@ -147,7 +134,7 @@
 - [ ] Profile outputs: calibrated starting 1RM estimate, progression sensitivity, volume tolerance, recovery multiplier, preferred RIR target, stress/fatigue adjustment
 
 ### Integration with existing layers
-- [ ] Planned workout -> AI profile applied to schema -> Phase 2/3 deterministic script computes prescription -> on-device autoregulation runs during workout
+- [ ] Planned workout -> AI profile applied to schema -> Phase 2 deterministic script computes prescription -> on-device autoregulation runs during workout
 - [ ] Active workout autoregulation uses both the user's AI profile and live session feedback
 - [ ] Post-workout sync updates history, which may trigger AI profile recalculation on next run
 
