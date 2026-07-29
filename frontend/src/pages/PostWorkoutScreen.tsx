@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { api } from "../api";
 import type { SetLog, WorkoutSession, ExerciseEntry } from "../types";
+import { computeCoachState, type SetRecord } from "../rules";
 
 export default function PostWorkoutScreen({
   sessionId,
@@ -30,6 +31,8 @@ export default function PostWorkoutScreen({
   const [saveTemplateMode, setSaveTemplateMode] = useState<"discard" | "values" | "valuesAndOrder" | null>(null);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [coachPhase, setCoachPhase] = useState<string | null>(null);
+  const [coachWeek, setCoachWeek] = useState<number | null>(null);
 
   useEffect(() => {
     api.getSession(sessionId).then(setSession);
@@ -39,7 +42,16 @@ export default function PostWorkoutScreen({
         setTemplate(exercises);
       });
     }
-  }, [sessionId, templateId]);
+    if (workoutMode === "ai_trainer") {
+      Promise.all([
+        api.getSetting("coach_phase"),
+        api.getSetting("coach_week_in_block"),
+      ]).then(([phase, week]) => {
+        if (phase?.value) setCoachPhase(phase.value);
+        if (week?.value) setCoachWeek(Number(week.value));
+      });
+    }
+  }, [sessionId, templateId, workoutMode]);
 
   const sendToCoach = async () => {
     if (!feedback.trim()) return;
@@ -282,6 +294,15 @@ export default function PostWorkoutScreen({
           <p className="text-xs text-slate-400">
             Your next routine will be updated based on this session’s weights, reps, effort, and progression.
           </p>
+        </div>
+      )}
+
+      {workoutMode === "ai_trainer" && coachPhase && (
+        <div className={`rounded-2xl border p-4 space-y-1 ${coachPhase === "deload" ? "border-amber-800 bg-amber-950/30" : "border-indigo-800 bg-indigo-950/30"}`}>
+          <div className={`text-[10px] font-semibold uppercase tracking-wider ${coachPhase === "deload" ? "text-amber-400" : "text-indigo-400"}`}>Coach Summary</div>
+          <div className="text-sm font-semibold text-slate-200">Phase: {coachPhase}</div>
+          {coachWeek !== null && <div className="text-xs text-slate-400">Week {coachWeek} in block</div>}
+          <p className="text-xs text-slate-400">Next workout will continue from this phase unless you override it.</p>
         </div>
       )}
 

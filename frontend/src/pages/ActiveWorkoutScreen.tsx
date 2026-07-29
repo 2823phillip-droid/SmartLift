@@ -618,6 +618,23 @@ export default function ActiveWorkoutScreen({
   const isTrainer = (workoutMode || "manual") === "ai_trainer";
   const canLog = Boolean(draftWeight) && Boolean(draftReps);
 
+  const forceDeload = () => {
+    setCoachPhase("deload");
+    setCoachWeek(1);
+  };
+  const skipBlock = () => {
+    setCoachPhase((prev) => {
+      const types = ["linear", "double", "percentage", "autoregulated"];
+      const idx = types.indexOf(prev as any);
+      return types[(idx + 1) % types.length];
+    });
+    setCoachWeek(1);
+  };
+  const resetCoach = () => {
+    setCoachPhase("linear");
+    setCoachWeek(1);
+  };
+
   return (
     <div className="space-y-4 pb-4">
       {/* Header */}
@@ -659,6 +676,17 @@ export default function ActiveWorkoutScreen({
             </div>
           </div>
           <p className="text-xs text-slate-300 leading-relaxed">{coach.explanation}</p>
+          <div className="flex items-center gap-2 pt-1">
+            <button onClick={forceDeload} className="flex-1 rounded-xl border border-amber-700/70 bg-amber-950/40 px-2 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-900/40 active:scale-[0.98] transition-all">
+              Force deload
+            </button>
+            <button onClick={skipBlock} className="flex-1 rounded-xl border border-indigo-700/70 bg-indigo-950/40 px-2 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-900/40 active:scale-[0.98] transition-all">
+              Next phase
+            </button>
+            <button onClick={resetCoach} className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-2 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 active:scale-[0.98] transition-all">
+              Reset
+            </button>
+          </div>
         </div>
       )}
 
