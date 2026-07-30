@@ -54,8 +54,10 @@ async function request(path: string, options: RequestInit = {}) {
       }
       if (res.status === 204) return null;
       return res.json();
-    } finally {
+    } catch (err: any) {
       clearTimeout(timer);
+      if (!(err as any)?.url) (err as any).url = `${attemptBase}${path}`;
+      throw err;
     }
   };
 
