@@ -4,6 +4,8 @@ import BodyWeightQuickLog from "../components/BodyWeightQuickLog";
 
 type SettingItem = { key: string; value: string | null };
 
+const STORAGE_KEY_SETTINGS = "smartlift_workout_mode";
+
 export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMode }: { onBack: () => void; onModeChange?: (mode: "manual" | "ai_trainer") => void; initialWorkoutMode?: "manual" | "ai_trainer" }) {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -11,7 +13,13 @@ export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMod
   const [saved, setSaved] = useState<string | null>(null);
   const [apiBaseState, setApiBaseState] = useState("");
   const [settingsError, setSettingsError] = useState<string | null>(null);
-  const [workoutMode, setWorkoutModeState] = useState<"manual" | "ai_trainer">(initialWorkoutMode ?? "manual");
+  const [workoutMode, setWorkoutModeState] = useState<"manual" | "ai_trainer">(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(STORAGE_KEY_SETTINGS);
+      if (stored === "ai_trainer" || stored === "manual") return stored;
+    }
+    return initialWorkoutMode ?? "manual";
+  });
 
   const runLoad = async () => {
     const id = ++loadIdRef.current;
@@ -46,6 +54,9 @@ export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMod
       if (map.workout_mode === "ai_trainer" || map.workout_mode === "manual") {
         console.debug("[SettingsScreen] load workout_mode", map.workout_mode);
         setWorkoutModeState(map.workout_mode);
+        if (typeof window !== "undefined") {
+          localStorage.setItem(STORAGE_KEY_SETTINGS, map.workout_mode);
+        }
       } else {
         console.debug("[SettingsScreen] load missing workout_mode");
       }
@@ -230,6 +241,7 @@ export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMod
                     setSettings((s) => ({ ...s, workout_mode: mode }));
                     await save("workout_mode", mode);
                     onModeChange?.(mode);
+                    if (typeof window !== "undefined") localStorage.setItem(STORAGE_KEY_SETTINGS, mode);
                     console.debug("[SettingsScreen] workout_mode saved", mode);
                   }}
                   className={`flex-1 rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${workoutMode === mode ? mode === "ai_trainer" ? "border-emerald-500 bg-emerald-950/50 text-emerald-300" : "border-indigo-500 bg-indigo-950/50 text-indigo-300" : "border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300"}`}

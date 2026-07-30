@@ -74,9 +74,20 @@ export default function App() {
     repsChanges: Record<number, number>;
     orderChanged: boolean;
   } | null>(null);
-  const [workoutMode, setWorkoutMode] = useState<"manual" | "ai_trainer">("manual");
+  const WORKOUT_MODE_STORAGE_KEY = "smartlift_workout_mode";
+  const [workoutMode, setWorkoutMode] = useState<"manual" | "ai_trainer">(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem(WORKOUT_MODE_STORAGE_KEY);
+      if (stored === "ai_trainer" || stored === "manual") return stored;
+    }
+    return "manual";
+  });
   const [user, setUser] = useState<{ id: number; email: string; role: string } | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    localStorage.setItem(WORKOUT_MODE_STORAGE_KEY, workoutMode);
+  }, [workoutMode, WORKOUT_MODE_STORAGE_KEY]);
 
   useEffect(() => {
     let cancelled = false;
