@@ -34,7 +34,7 @@ async function request(path: string, options: RequestInit = {}) {
 
   const makeRequest = async (attemptBase: string) => {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), options.signal ? 0 : 10000);
+    const timer = setTimeout(() => controller.abort(), options.signal ? 0 : 30000);
     try {
       const res = await fetch(`${attemptBase}${path}`, {
         ...options,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Play, Plus, BookOpen, Pencil, Trash2, ChevronDown, GripVertical } from "lucide-react";
-import { api } from "../api";
+import { api, withRetry } from "../api";
 import { log } from "../utils/logger";
 import {
   DndContext,
@@ -56,30 +56,41 @@ export default function WorkoutsScreen({
     setError("");
     let contexts: any[] = [];
     let templatesRaw: any[] = [];
-    api.getContexts()
-      .then((c) => {
-        contexts = c || [];
-        console.log("[WorkoutsScreen] contexts loaded", contexts.length);
-        return api.getTemplatesAcrossAll();
-      })
-      .then((t) => {
-        templatesRaw = t || [];
-        console.log("[WorkoutsScreen] templates loaded", templatesRaw.length);
-        if (cancelled) return;
-        const sorted = (contexts || []).slice().sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
-        const items: TemplateItem[] = (templatesRaw || []).map((t: any) => ({
-          id: t.id, name: t.name, type: t.type, context_id: t.context_id,
-          exercises: (t.exercises || []).map((ex: any) => ({ id: ex.id, name: ex.name })),
-          order: t.order ?? 0,
-        }));
-        const map = new Map<number, Group>();
-        for (const c of sorted) map.set(c.id, { context: { id: c.id, name: c.name, order: c.order ?? 0 }, templates: [] });
-        for (const t of items) { const g = map.get(t.context_id); if (g) g.templates.push(t); }
-        const next = Array.from(map.values()).filter((g) => g.templates.length > 0);
-        next.forEach((g) => { g.templates.sort((a, b) => a.order - b.order); });
-        setGroups(next);
-        setExpandedContexts(new Set());
-      })
+    withRetry(
+      () =>
+        api.getContexts()
+          .then((c) => {
+            contexts = c || [];
+            console.log("[WorkoutsScreen] contexts loaded", contexts.length);
+            return api.getTemplatesAcrossAll();
+          })
+          .then((t) => {
+            templatesRaw = t || [];
+            console.log("[WorkoutsScreen] templates loaded", templatesRaw.length);
+            if (cancelled) return;
+            const sorted = (contexts || []).slice().sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
+            const items: TemplateItem[] = (templatesRaw || []).map((t: any) => ({
+              id: t.id, name: t.name, type: t.type, context_id: t.context_id,
+              exercises: (t.exercises || []).map((ex: any) => ({ id: ex.id, name: ex.name })),
+              order: t.order ?? 0,
+            }));
+            const map = new Map<number, Group>();
+            for (const c of sorted) {
+              map.set(c.id, { context: { id: c.id, name: c.name, order: c.order ?? 0 }, templates: [] });
+            }
+            for (const t of items) {
+              const g = map.get(t.context_id);
+              if (g) g.templates.push(t);
+            }
+            const next = Array.from(map.values()).filter((g) => g.templates.length > 0);
+            next.forEach((g) => {
+              g.templates.sort((a, b) => a.order - b.order);
+            });
+            setGroups(next);
+            setExpandedContexts(new Set());
+          }),
+      { retries: 2, baseDelayMs: 600 }
+    )
       .catch((e) => {
         if (!cancelled) {
           console.error("[WorkoutsScreen] load failed", e, {
