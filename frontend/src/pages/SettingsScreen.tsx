@@ -11,6 +11,7 @@ export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMod
   const [saved, setSaved] = useState<string | null>(null);
   const [apiBaseState, setApiBaseState] = useState("");
   const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [workoutMode, setWorkoutModeState] = useState<"manual" | "ai_trainer">(initialWorkoutMode ?? "manual");
 
   const runLoad = async () => {
     const id = ++loadIdRef.current;
@@ -41,6 +42,9 @@ export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMod
       const map: Record<string, string> = {};
       items.forEach((s) => { if (s.value != null) map[s.key] = s.value; });
       setSettings(map);
+      if (map.workout_mode === "ai_trainer" || map.workout_mode === "manual") {
+        setWorkoutModeState(map.workout_mode);
+      }
     } finally {
       if (id === loadIdRef.current) setLoading(false);
     }
@@ -217,11 +221,12 @@ export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMod
                 <button
                   key={mode}
                   onClick={async () => {
+                    setWorkoutModeState(mode);
                     setSettings((s) => ({ ...s, workout_mode: mode }));
                     await save("workout_mode");
                     onModeChange?.(mode);
                   }}
-                  className={`flex-1 rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${(settings["workout_mode"] ?? initialWorkoutMode ?? "manual") === mode ? mode === "ai_trainer" ? "border-emerald-500 bg-emerald-950/50 text-emerald-300" : "border-indigo-500 bg-indigo-950/50 text-indigo-300" : "border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300"}`}
+                  className={`flex-1 rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${workoutMode === mode ? mode === "ai_trainer" ? "border-emerald-500 bg-emerald-950/50 text-emerald-300" : "border-indigo-500 bg-indigo-950/50 text-indigo-300" : "border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300"}`}
                 >
                   {mode === "manual" ? "Manual" : "AI Trainer"}
                 </button>
