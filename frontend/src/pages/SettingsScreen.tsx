@@ -56,8 +56,8 @@ export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMod
     runLoad();
   }, []);
 
-  const save = async (key: string) => {
-    const mode = settings[key] ?? "";
+  const save = async (key: string, value?: string) => {
+    const mode = value ?? settings[key] ?? "";
     setSaving(key);
     setSaved(null);
     try {
@@ -223,7 +223,7 @@ export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMod
                   onClick={async () => {
                     setWorkoutModeState(mode);
                     setSettings((s) => ({ ...s, workout_mode: mode }));
-                    await save("workout_mode");
+                    await save("workout_mode", mode);
                     onModeChange?.(mode);
                   }}
                   className={`flex-1 rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${workoutMode === mode ? mode === "ai_trainer" ? "border-emerald-500 bg-emerald-950/50 text-emerald-300" : "border-indigo-500 bg-indigo-950/50 text-indigo-300" : "border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300"}`}
