@@ -59,49 +59,35 @@ export default function WorkoutsScreen({
         if (cancelled) return;
         const sorted = (contexts || []).slice().sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
         const items: TemplateItem[] = (templatesRaw || []).map((t: any) => ({
-          id: t.id,
-          name: t.name,
-          type: t.type,
-          context_id: t.context_id,
+          id: t.id, name: t.name, type: t.type, context_id: t.context_id,
           exercises: (t.exercises || []).map((ex: any) => ({ id: ex.id, name: ex.name })),
           order: t.order ?? 0,
         }));
         const map = new Map<number, Group>();
-        for (const c of sorted) {
-          map.set(c.id, { context: { id: c.id, name: c.name, order: c.order ?? 0 }, templates: [] });
-        }
-        for (const t of items) {
-          const g = map.get(t.context_id);
-          if (g) g.templates.push(t);
-        }
+        for (const c of sorted) map.set(c.id, { context: { id: c.id, name: c.name, order: c.order ?? 0 }, templates: [] });
+        for (const t of items) { const g = map.get(t.context_id); if (g) g.templates.push(t); }
         const next = Array.from(map.values()).filter((g) => g.templates.length > 0);
-        next.forEach((g) => {
-          g.templates.sort((a, b) => a.order - b.order);
-        });
+        next.forEach((g) => { g.templates.sort((a, b) => a.order - b.order); });
         setGroups(next);
         setExpandedContexts(new Set());
       })
       .catch((e) => {
         if (!cancelled) {
+          console.error("[WorkoutsScreen] load failed", e, {
+            name: (e as any)?.name, message: (e as any)?.message, url: (e as any)?.url,
+            status: (e as any)?.status, cause: (e as any)?.cause,
+            stack: typeof (e as any)?.stack === 'string' ? (e as any).stack.slice(0, 400) : undefined,
+          });
           const url = (e as any)?.url;
           const msg = e instanceof Error ? e.message : String(e);
           setError(`${msg}${url ? `\nURL: ${url}` : ''}`);
         }
       })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, []);
 
   const templatesSensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
-  );
-
-  const contextSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
