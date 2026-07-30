@@ -169,12 +169,21 @@ def _run_migrations():
         from sqlalchemy import text as _text
         from db import engine
         with engine.connect() as conn:
-            wtcols = [row[1] for row in conn.execute(_text("PRAGMA table_info(workout_templates)"))]
-            if "coach_rules" not in wtcols:
+            dialect = conn.dialect.name
+            if dialect == "sqlite":
+                def cols(table):
+                    return [row[1] for row in conn.execute(_text(f"PRAGMA table_info({table})"))]
+            else:
+                def cols(table):
+                    return [row[0] for row in conn.execute(_text(
+                        "SELECT column_name FROM information_schema.columns WHERE table_name = :t"
+                    ), {"t": table})]
+
+            if "coach_rules" not in cols("workout_templates"):
                 conn.execute(_text("ALTER TABLE workout_templates ADD COLUMN coach_rules TEXT"))
                 conn.commit()
 
-            ucols = [row[1] for row in conn.execute(_text("PRAGMA table_info(users)"))]
+            ucols = cols("users")
             if "failed_login_count" not in ucols:
                 conn.execute(_text("ALTER TABLE users ADD COLUMN failed_login_count INTEGER DEFAULT 0 NOT NULL"))
                 conn.commit()
@@ -185,7 +194,7 @@ def _run_migrations():
                 conn.execute(_text("ALTER TABLE users ADD COLUMN token_expires_at DATETIME"))
                 conn.commit()
 
-            ecols = [row[1] for row in conn.execute(_text("PRAGMA table_info(exercise_entries)"))]
+            ecols = cols("exercise_entries")
             if "progression_type" not in ecols:
                 conn.execute(_text("ALTER TABLE exercise_entries ADD COLUMN progression_type TEXT"))
                 conn.commit()
