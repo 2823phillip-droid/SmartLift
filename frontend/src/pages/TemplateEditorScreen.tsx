@@ -64,7 +64,7 @@ export default function TemplateEditorScreen({
   const openPreview = async (url: string) => {
     if (!url) return;
     try {
-      if (Capacitor.getPlatform() === "ios") {
+      if (Browser && Capacitor.getPlatform() === "ios") {
         await Browser.open({ url, presentationStyle: "fullscreen" });
       } else {
         window.open(url, "_blank", "noopener,noreferrer");
@@ -744,6 +744,7 @@ export default function TemplateEditorScreen({
                         alt={ex.name}
                         className="h-12 w-12 rounded-xl object-cover border border-slate-800 bg-slate-900 shrink-0"
                         loading="lazy"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                       />
                     ) : ex.image_url ? (
                       <img
@@ -751,6 +752,7 @@ export default function TemplateEditorScreen({
                         alt={ex.name}
                         className="h-12 w-12 rounded-xl object-cover border border-slate-800 bg-slate-900 shrink-0"
                         loading="lazy"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                       />
                     ) : (
                       <div className="h-12 w-12 rounded-xl border border-slate-800 bg-slate-900 shrink-0 flex items-center justify-center text-xs font-semibold text-slate-300">

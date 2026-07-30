@@ -116,9 +116,9 @@ export default function LibraryScreen({ onBack, onImported }: { onBack: () => vo
                     className="shrink-0"
                   >
                     {ex.gif_url ? (
-                      <img src={ex.gif_url} alt={ex.name} className="h-12 w-12 rounded-xl object-cover border border-slate-800 bg-slate-900 shrink-0" loading="lazy" />
+                      <img src={ex.gif_url} alt={ex.name} className="h-12 w-12 rounded-xl object-cover border border-slate-800 bg-slate-900 shrink-0" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     ) : ex.image_url ? (
-                      <img src={ex.image_url} alt={ex.name} className="h-12 w-12 rounded-xl object-cover border border-slate-800 bg-slate-900 shrink-0" loading="lazy" />
+                      <img src={ex.image_url} alt={ex.name} className="h-12 w-12 rounded-xl object-cover border border-slate-800 bg-slate-900 shrink-0" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     ) : (
                       <div className="h-12 w-12 rounded-xl border border-slate-800 bg-slate-900 shrink-0 flex items-center justify-center text-xs font-semibold text-slate-300">
                         {ex.name.trim()[0] ? ex.name.trim()[0].toUpperCase() : "?"}

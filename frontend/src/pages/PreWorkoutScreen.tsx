@@ -20,22 +20,41 @@ export default function PreWorkoutScreen({
   const toggleTag = (tag: string) => setTags((t) => (t.includes(tag) ? t.filter((x) => x !== tag) : [...t, tag]));
 
   useEffect(() => {
+    let cancelled = false;
     api.getSessions().then(async (sessions) => {
-      const last = sessions[0];
+      if (cancelled) return;
       let msg = "";
-      if (last) {
-        const logs = await api.getSessionSetLogs(last.id);
-        const completed = logs.length;
-        const avgEffort = logs.length
-          ? (logs.reduce((a: number, b: { effort?: number }) => a + (b.effort || 0), 0) / logs.length).toFixed(1)
-          : "N/A";
-        msg = `Last session: ${completed} sets logged · avg effort ${avgEffort}. Pick up where you left off.`;
-      } else {
-        msg = "No previous sessions yet. Let's build your first one. Focus on form and show up.";
+      try {
+        if (!sessions?.length) {
+          msg = "No previous sessions yet. Let's build your first one. Focus on form and show up.";
+        } else {
+          const last = sessions[0];
+          const logs = await api.getSessionSetLogs(last.id);
+          const completed = logs.length;
+          const avgEffort = logs.length
+            ? (logs.reduce((a: number, b: { effort?: number }) => a + (b.effort || 0), 0) / logs.length).toFixed(1)
+            : "N/A";
+          msg = `Last session: ${completed} sets logged · avg effort ${avgEffort}. Pick up where you left off.`;
+        }
+      } catch (err) {
+        msg = "No previous session recap is available right now.";
+        console.error("[PreWorkoutScreen] session recap failed", err);
+      } finally {
+        if (!cancelled) {
+          setCoachMsg(msg);
+          setLoading(false);
+        }
       }
-      setCoachMsg(msg);
-      setLoading(false);
+    }).catch((err) => {
+      if (!cancelled) {
+        setCoachMsg("Could not load session history right now.");
+        setLoading(false);
+        console.error("[PreWorkoutScreen] sessions load failed", err);
+      }
     });
+    return () => {
+      cancelled = true;
+    };
   }, [templateId]);
 
   const start = async () => {

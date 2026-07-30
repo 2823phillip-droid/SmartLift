@@ -153,84 +153,98 @@ export default function ActiveWorkoutScreen({
   const prescriptions = suggestions.prescriptions;
 
   useEffect(() => {
-    Promise.all([
-      api.getExercises(templateId),
-      api.getSessionSetLogs(sessionId),
-      api.getSession(sessionId),
-      api.getSetting("global_rest_seconds"),
-      ...((workoutMode || "manual") === "ai_trainer" ? [api.getCoachState()] : []),
-    ]).then(async ([exercisesData, setLogsData, session, setting, coachState]) => {
-      setExercises(exercisesData);
-      setLogs(setLogsData);
-      if (setting?.value) {
-        setGlobalRest(Number(setting.value));
-      }
-      if ((workoutMode || "manual") === "ai_trainer" && coachState) {
-        if (coachState.coach_phase) setCoachPhase(coachState.coach_phase);
-        if (coachState.coach_week_in_block) setCoachWeek(coachState.coach_week_in_block);
-        setCoachLoaded(true);
-      }
-      if (session?.template_id) {
-        const tpl = await api.getTemplate(session.template_id);
-        setTemplate(tpl);
-      }
-      if (session?.started_at) {
-        setWorkoutStart(new Date(session.started_at));
-      }
-      setOriginalExercises(exercisesData);
+    let cancelled = false;
+    const load = async () => {
+      try {
+        const [exercisesData, setLogsData, session, setting, coachState] = await Promise.all([
+          api.getExercises(templateId),
+          api.getSessionSetLogs(sessionId),
+          api.getSession(sessionId),
+          api.getSetting("global_rest_seconds"),
+          ...((workoutMode || "manual") === "ai_trainer" ? [api.getCoachState()] : []),
+        ]);
+        if (cancelled) return;
+        setExercises(exercisesData);
+        setLogs(setLogsData);
+        if (setting?.value) {
+          setGlobalRest(Number(setting.value));
+        }
+        if ((workoutMode || "manual") === "ai_trainer" && coachState) {
+          if (coachState.coach_phase) setCoachPhase(coachState.coach_phase);
+          if (coachState.coach_week_in_block) setCoachWeek(coachState.coach_week_in_block);
+          setCoachLoaded(true);
+        }
+        if (session?.template_id) {
+          const tpl = await api.getTemplate(session.template_id);
+          setTemplate(tpl);
+        }
+        if (session?.started_at) {
+          setWorkoutStart(new Date(session.started_at));
+        }
+        setOriginalExercises(exercisesData);
 
-      // auto-expand first incomplete exercise
-      if (exercisesData.length) {
-        const incomplete = exercisesData.find((e: ExerciseEntry) =>
-          setLogsData.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
+        // auto-expand first incomplete exercise
+        if (exercisesData.length) {
+          const incomplete = exercisesData.find((e: ExerciseEntry) =>
+            setLogsData.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
+          );
+          if (incomplete) setExpandedExerciseId(incomplete.id);
+          else if (exercisesData.length) setExpandedExerciseId(exercisesData[0].id);
+        }
+
+        // fetch last logged weight/reps per exercise name across history
+        const uniqueNames = Array.from(new Set(exercisesData.map((e: ExerciseEntry) => e.name))) as string[];
+        const historyResults = await Promise.allSettled(
+          uniqueNames.map((name: string) => api.getExerciseNameProgress(name))
         );
-        if (incomplete) setExpandedExerciseId(incomplete.id);
-        else if (exercisesData.length) setExpandedExerciseId(exercisesData[0].id);
-      }
-      // fetch last logged weight/reps per exercise name across history
-      const uniqueNames = Array.from(new Set(exercisesData.map((e: ExerciseEntry) => e.name))) as string[];
-      const historyResults = await Promise.allSettled(
-        uniqueNames.map((name: string) => api.getExerciseNameProgress(name))
-      );
-      const resolved: Record<number, {weight: number; reps: number} | null> = {};
-      for (const exercise of exercisesData) {
-        const idx = uniqueNames.indexOf(exercise.name);
-        const result = idx >= 0 ? historyResults[idx] : undefined;
-        if (result && result.status === "fulfilled") {
-          const data = result.value as any;
-          if (!data.seeded && data.points && data.points.length > 0) {
-            const last = data.points[data.points.length - 1];
-            resolved[exercise.id] = { weight: last.weight, reps: last.reps };
+        const resolved: Record<number, {weight: number; reps: number} | null> = {};
+        for (const exercise of exercisesData) {
+          const idx = uniqueNames.indexOf(exercise.name);
+          const result = idx >= 0 ? historyResults[idx] : undefined;
+          if (result && result.status === "fulfilled") {
+            const data = result.value as any;
+            if (!data.seeded && data.points && data.points.length > 0) {
+              const last = data.points[data.points.length - 1];
+              resolved[exercise.id] = { weight: last.weight, reps: last.reps };
+            } else {
+              resolved[exercise.id] = null;
+            }
           } else {
             resolved[exercise.id] = null;
           }
-        } else {
-          resolved[exercise.id] = null;
         }
-      }
-      setLastSetByExercise(resolved);
-      if ((workoutMode || "manual") === "manual") {
-        const lastSessionResults = await Promise.allSettled(
-          uniqueNames.map((name: string) => api.getExerciseNameLastSession(name))
-        );
-        const sessionResolved: Record<number, {set_index: number; actual_weight: number; actual_reps: number}[]> = {};
-        for (const exercise of exercisesData) {
-          const idx = uniqueNames.indexOf(exercise.name);
-          const result = idx >= 0 ? lastSessionResults[idx] : undefined;
-          if (result && result.status === "fulfilled") {
-            const data = result.value as any;
-            const logs = Array.isArray(data?.logs) ? data.logs : [];
-            if (logs.length > 0) sessionResolved[exercise.id] = logs.map((l: any) => ({ set_index: Number(l.set_index), actual_weight: Number(l.actual_weight || 0), actual_reps: Number(l.actual_reps || 0) }));
-            else sessionResolved[exercise.id] = [];
-          } else {
-            sessionResolved[exercise.id] = [];
+        setLastSetByExercise(resolved);
+        if ((workoutMode || "manual") === "manual") {
+          const lastSessionResults = await Promise.allSettled(
+            uniqueNames.map((name: string) => api.getExerciseNameLastSession(name))
+          );
+          const sessionResolved: Record<number, {set_index: number; actual_weight: number; actual_reps: number}[]> = {};
+          for (const exercise of exercisesData) {
+            const idx = uniqueNames.indexOf(exercise.name);
+            const result = idx >= 0 ? lastSessionResults[idx] : undefined;
+            if (result && result.status === "fulfilled") {
+              const data = result.value as any;
+              const logs = Array.isArray(data?.logs) ? data.logs : [];
+              if (logs.length > 0) sessionResolved[exercise.id] = logs.map((l: any) => ({ set_index: Number(l.set_index), actual_weight: Number(l.actual_weight || 0), actual_reps: Number(l.actual_reps || 0) }));
+              else sessionResolved[exercise.id] = [];
+            } else {
+              sessionResolved[exercise.id] = [];
+            }
           }
+          setLastSessionByExercise(sessionResolved);
+        } else {
+          setLastSessionByExercise({});
         }
-        setLastSessionByExercise(sessionResolved);
-      } else {
-        setLastSessionByExercise({});
+      } catch (err) {
+        if (!cancelled) {
+          console.error("[ActiveWorkoutScreen] initial load failed", err);
+        }
       }
-    });
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
   }, [sessionId, templateId]);
 
   useEffect(() => {
