@@ -1781,13 +1781,16 @@ def put_setting(key: str, payload: SettingOut, db: Session = Depends(get_db), cu
         s.value = payload.value
     db.commit()
     db.refresh(s)
+    logger.info("[settings] PUT saved key=%s user=%s saved_value=%r", s.key, current_user.id, s.value)
     return SettingOut(key=s.key, value=s.value)
 
 @app.get("/api/settings", response_model=List[SettingOut])
 def list_settings(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     logger.info("[settings] GET /api/settings user=%s", current_user.id)
     settings = db.query(AppSetting).filter(AppSetting.user_id == current_user.id).all()
-    return [SettingOut(key=s.key, value=s.value) for s in settings]
+    out = [SettingOut(key=s.key, value=s.value) for s in settings]
+    logger.info("[settings] GET returned keys=%s", [x.key for x in out])
+    return out
 
 # --- Helpers ---
 

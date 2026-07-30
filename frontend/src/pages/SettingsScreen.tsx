@@ -36,14 +36,18 @@ export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMod
         if (id === loadIdRef.current) {
           setSettingsError(msg);
         }
-        return;
+        throw err;
       }
+      console.debug("[SettingsScreen] load", items);
       if (id !== loadIdRef.current) return;
       const map: Record<string, string> = {};
       items.forEach((s) => { if (s.value != null) map[s.key] = s.value; });
       setSettings(map);
       if (map.workout_mode === "ai_trainer" || map.workout_mode === "manual") {
+        console.debug("[SettingsScreen] load workout_mode", map.workout_mode);
         setWorkoutModeState(map.workout_mode);
+      } else {
+        console.debug("[SettingsScreen] load missing workout_mode");
       }
     } finally {
       if (id === loadIdRef.current) setLoading(false);
@@ -221,10 +225,12 @@ export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMod
                 <button
                   key={mode}
                   onClick={async () => {
+                    console.debug("[SettingsScreen] workout_mode click", mode, "current=", workoutMode);
                     setWorkoutModeState(mode);
                     setSettings((s) => ({ ...s, workout_mode: mode }));
                     await save("workout_mode", mode);
                     onModeChange?.(mode);
+                    console.debug("[SettingsScreen] workout_mode saved", mode);
                   }}
                   className={`flex-1 rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${workoutMode === mode ? mode === "ai_trainer" ? "border-emerald-500 bg-emerald-950/50 text-emerald-300" : "border-indigo-500 bg-indigo-950/50 text-indigo-300" : "border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300"}`}
                 >

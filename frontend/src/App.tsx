@@ -151,9 +151,10 @@ export default function App() {
     withRetry(() => api.listSettings(), { retries: 2, baseDelayMs: 300 }).then((items) => {
       if (cancelled) return;
       const mode = (items as any[])?.find((s) => s.key === "workout_mode")?.value;
+      console.debug("[App] startup listSettings workout_mode=", mode, "all=", (items as any[])?.map((s: any) => s.key + "=" + s.value));
       if (mode === "ai_trainer" || mode === "manual") setWorkoutMode(mode);
-    }).catch(() => {
-      // leave existing mode on transient settings load failure
+    }).catch((err) => {
+      console.debug("[App] startup listSettings failed", err);
     });
     return () => { cancelled = true; };
   }, [user]);
