@@ -4,21 +4,21 @@
 
 ### Backend / Fly
 - [ ] Confirm `smartlift-api` Fly app health endpoint returning 200 consistently: `GET /healthz`
-- [ ] Add structured request/response logging to backend for production debugging
-- [ ] Add global exception handler + request timeout config in FastAPI/Starlette
-- [ ] Verify frontend retry/backoff on transient 5xx / network drops (already has `withRetry`)
+- [x] Add structured request/response logging to backend for production debugging
+- [x] Add global exception handler + request timeout config in FastAPI/Starlette
+- [x] Verify frontend retry/backoff on transient 5xx / network drops (already has `withRetry`)
 - [ ] Confirm Postgres `smartlift-db` connection pool and Fly autoscaling behave during cold starts
 - [ ] Backend deploy verified: `fly deploy -a smartlift-api` rolls cleanly without downtime
 
 ### Auth hardening
-- [ ] Add rate limiting on login/signup endpoints in backend
-- [ ] Implement failed-login backoff / account lockout after threshold failures
-- [ ] Support token rotation / refresh flow; expired tokens trigger reauth without full login
-- [ ] Ensure logout fully invalidates token server-side and client-side
+- [x] Add rate limiting on login/signup endpoints in backend
+- [x] Implement failed-login backoff / account lockout after threshold failures
+- [x] Support token rotation / refresh flow; expired tokens trigger reauth without full login
+- [x] Ensure logout fully invalidates token server-side and client-side
 
 ### Frontend iOS build & App Store foundation
-- [ ] TypeScript build is clean in CI/Xcode path: only expected missing-cap-types remain, no app-blocking errors
-- [ ] `npx cap sync ios` completes cleanly after every future frontend change
+- [x] TypeScript build is clean in CI/Xcode path: only expected missing-cap-types remain, no app-blocking errors
+- [x] `npx cap sync ios` completes cleanly after every future frontend change
 - [ ] Core auth flow end-to-end: login → home → workouts → build → start → active → post → done
 - [ ] Workout draft persists across tab switches; Cancel exits without clearing draft
 - [ ] Template pencil opens full template editor; back from editor lands on Workouts tab
@@ -62,6 +62,7 @@
 - [x] Back from template editor returns to Workouts tab
 - [x] Fly-only API base (`https://smartlift-api.fly.dev/api`); no local LAN fallback
 - [x] MacBook static IP remains `192.168.1.112` for rsync/ssh/cap sync
+- [x] `workout_mode` persists across app restarts via localStorage fallback
 
 ---
 
