@@ -82,7 +82,11 @@ export default function WorkoutsScreen({
         setExpandedContexts(new Set());
       })
       .catch((e) => {
-        if (!cancelled) setError(String(e));
+        if (!cancelled) {
+          const url = (e as any)?.url;
+          const msg = e instanceof Error ? e.message : String(e);
+          setError(`${msg}${url ? `\nURL: ${url}` : ''}`);
+        }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);

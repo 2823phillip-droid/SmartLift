@@ -9,6 +9,8 @@ import App from './App.tsx'
 const MAX_ERRORS = 50
 const STORAGE_KEY = 'smartlift_error_log'
 
+const originalConsoleError = console.error.bind(console)
+
 function pushError(err: unknown) {
   let message = 'Unknown error'
   let stack: string | undefined
@@ -39,7 +41,7 @@ function pushError(err: unknown) {
   } catch {
     // Ignore storage failures (private browsing, full disk, etc.)
   }
-  console.error('[GlobalError]', message, stack || '')
+  originalConsoleError('[GlobalError]', message, stack || '')
 }
 
 // Catch uncaught JS errors
@@ -54,7 +56,6 @@ window.addEventListener('unhandledrejection', (event) => {
 })
 
 // Intercept console.error so our own verbose errors are captured too
-const originalConsoleError = console.error.bind(console)
 console.error = (...args: unknown[]) => {
   const first = args[0]
   const maybeError = first instanceof Error ? first : new Error(String(first))
