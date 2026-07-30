@@ -150,6 +150,7 @@ export default function App() {
   };
 
   const logout = () => {
+    api.logout().catch(() => {});
     setAuthToken(null);
     setUser(null);
     if (typeof window !== "undefined") localStorage.removeItem("smartlift_token");

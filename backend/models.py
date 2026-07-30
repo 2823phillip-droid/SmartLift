@@ -15,10 +15,13 @@ class User(Base):
     email = Column(String, nullable=False, unique=True, index=True)
     hashed_password = Column(String, nullable=False)
     token_hash = Column(String, nullable=True)
+    token_expires_at = Column(DateTime, nullable=True)
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     role = Column(Enum(UserRole), default=UserRole.user, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
+    failed_login_count = Column(Integer, nullable=False, default=0)
+    locked_until = Column(DateTime, nullable=True)
 
     # reverse relationships
     contexts = relationship("Context", back_populates="user", cascade="all, delete-orphan")

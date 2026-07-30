@@ -59,26 +59,51 @@ async function request(path: string, options: RequestInit = {}) {
     }
   };
 
+  const isAuthPath = path.startsWith("/auth/") || path === "/auth/login" || path === "/auth/signup";
+  const refreshAndRetry = async (err: any) => {
+    const status = err?.status;
+    if (!authToken || isAuthPath || typeof status !== "number" || (status !== 401 && status !== 403)) {
+      throw err;
+    }
+    try {
+      const refreshed = await api.refreshToken();
+      if (!refreshed || !refreshed.token) throw new Error("no_token");
+      setAuthToken(refreshed.token);
+      headers["Authorization"] = `Bearer ${refreshed.token}`;
+      return await makeRequest(base);
+    } catch {
+      setAuthToken(null);
+      if (typeof window !== "undefined") {
+        localStorage.removeItem("smartlift_token");
+      }
+      throw err;
+    }
+  };
+
   try {
     return await makeRequest(base);
   } catch (err) {
-    const isProductionDefault = base === FLY_DEFAULT || apiBase === null;
-    const looksNetwork = !(err as any)?.status || (err as any).status >= 400;
-    if (isProductionDefault && looksNetwork) {
-      try {
-        await initApiBaseFromSettings();
-        const newBase = apiBase || import.meta.env.VITE_API_BASE || FLY_DEFAULT;
-        if (newBase !== base) {
-          base = newBase;
-          url = `${base}${path}`;
-          return await makeRequest(base);
+    try {
+      return await refreshAndRetry(err);
+    } catch {
+      const isProductionDefault = base === FLY_DEFAULT || apiBase === null;
+      const looksNetwork = !(err as any)?.status || (err as any).status >= 400;
+      if (isProductionDefault && looksNetwork) {
+        try {
+          await initApiBaseFromSettings();
+          const newBase = apiBase || import.meta.env.VITE_API_BASE || FLY_DEFAULT;
+          if (newBase !== base) {
+            base = newBase;
+            url = `${base}${path}`;
+            return await makeRequest(base);
+          }
+        } catch {
+          // fall through to original error
         }
-      } catch {
-        // fall through to original error
       }
+      if (!(err as any)?.url) (err as any).url = url;
+      throw err;
     }
-    (err as any).url = (err as any).url || url;
-    throw err;
   }
 }
 
@@ -416,4 +441,10 @@ export const api = {
       method: "PUT",
       body: JSON.stringify({ first_name, last_name }),
     }),
+  refreshToken: (currentToken?: string) =>
+    request("/auth/refresh", {
+      method: "POST",
+      body: JSON.stringify({ token: currentToken || authToken }),
+    }),
+  logout: () => request("/auth/logout", { method: "POST" }),
 };

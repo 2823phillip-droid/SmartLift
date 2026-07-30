@@ -5,7 +5,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List
 import json
 import os
@@ -32,6 +32,30 @@ pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 AUTH_TOKEN_PREFIX = "Bearer "
 
 app = FastAPI(title="Workout Logger")
+
+class _RateLimiter:
+    def __init__(self) -> None:
+        self._hits: dict[str, list[float]] = {}
+
+    def _clean(self, key: str, window: float) -> None:
+        cutoff = time.time() - window
+        self._hits[key] = [t for t in self._hits.get(key, []) if t > cutoff]
+
+    def check(self, key: str, limit: int, window: float) -> None:
+        self._clean(key, window)
+        times = self._hits.get(key, [])
+        if len(times) >= limit:
+            raise HTTPException(status_code=429, detail="Too many requests")
+        times.append(time.time())
+        self._hits[key] = times
+
+_auth_rate_limiter = _RateLimiter()
+
+def _get_client_ip(request) -> str:
+    fwd = request.headers.get("x-forwarded-for")
+    if fwd:
+        return fwd.split(",")[0].strip()
+    return request.client.host if request.client else "unknown"
 
 # Structured logging setup
 LOG_DIR = os.path.join(os.path.dirname(__file__), "logs")
@@ -145,10 +169,22 @@ def _run_migrations():
         from sqlalchemy import text as _text
         from db import engine
         with engine.connect() as conn:
-            cols = [row[1] for row in conn.execute(_text("PRAGMA table_info(workout_templates)"))]
-            if "coach_rules" not in cols:
+            wtcols = [row[1] for row in conn.execute(_text("PRAGMA table_info(workout_templates)"))]
+            if "coach_rules" not in wtcols:
                 conn.execute(_text("ALTER TABLE workout_templates ADD COLUMN coach_rules TEXT"))
                 conn.commit()
+
+            ucols = [row[1] for row in conn.execute(_text("PRAGMA table_info(users)"))]
+            if "failed_login_count" not in ucols:
+                conn.execute(_text("ALTER TABLE users ADD COLUMN failed_login_count INTEGER DEFAULT 0 NOT NULL"))
+                conn.commit()
+            if "locked_until" not in ucols:
+                conn.execute(_text("ALTER TABLE users ADD COLUMN locked_until DATETIME"))
+                conn.commit()
+            if "token_expires_at" not in ucols:
+                conn.execute(_text("ALTER TABLE users ADD COLUMN token_expires_at DATETIME"))
+                conn.commit()
+
             ecols = [row[1] for row in conn.execute(_text("PRAGMA table_info(exercise_entries)"))]
             if "progression_type" not in ecols:
                 conn.execute(_text("ALTER TABLE exercise_entries ADD COLUMN progression_type TEXT"))
@@ -424,6 +460,7 @@ def _find_or_create_user_by_email(db: Session, email: str, preferred_role: str =
 def _issue_token_for_user(user: User) -> TokenOut:
     token = _make_token()
     user.token_hash = _token_hash(token)
+    user.token_expires_at = datetime.utcnow() + timedelta(hours=24)
     if not user.hashed_password:
         user.hashed_password = ""
     return TokenOut(
@@ -448,7 +485,9 @@ def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 @app.post("/api/auth/signup", response_model=TokenOut)
-def signup(payload: UserCreate, db: Session = Depends(get_db)):
+def signup(payload: UserCreate, request, db: Session = Depends(get_db)):
+    ip = _get_client_ip(request)
+    _auth_rate_limiter.check(f"signup:{ip}", 5, 60)
     existing = db.query(User).filter(User.email == payload.email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -459,8 +498,12 @@ def signup(payload: UserCreate, db: Session = Depends(get_db)):
         first_name=payload.first_name,
         last_name=payload.last_name,
     )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
     token = _make_token()
     user.token_hash = _token_hash(token)
+    user.token_expires_at = datetime.utcnow() + timedelta(hours=24)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -470,13 +513,29 @@ def signup(payload: UserCreate, db: Session = Depends(get_db)):
     )
 
 @app.post("/api/auth/login", response_model=TokenOut)
-def login(payload: LoginIn, db: Session = Depends(get_db)):
+def login(payload: LoginIn, request, db: Session = Depends(get_db)):
+    ip = _get_client_ip(request)
+    _auth_rate_limiter.check(f"login:{ip}", 10, 60)
     logger.info(json.dumps({"type": "login", "email": payload.email, "password_length": len(payload.password), "password_prefix": payload.password[:2]}))
     user = db.query(User).filter(User.email == payload.email).first()
+    now = datetime.utcnow()
+    if user and user.locked_until and user.locked_until > now:
+        raise HTTPException(status_code=429, detail="Account locked. Try again later.")
     if not user or not _verify_password(payload.password, user.hashed_password):
+        if user:
+            user.failed_login_count = (user.failed_login_count or 0) + 1
+            if user.failed_login_count >= 5:
+                user.locked_until = now + timedelta(minutes=5)
+            db.add(user)
+            db.commit()
+            db.refresh(user)
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = _make_token()
     user.token_hash = _token_hash(token)
+    user.token_expires_at = now + timedelta(hours=24)
+    user.failed_login_count = 0
+    user.locked_until = None
+    db.add(user)
     db.commit()
     db.refresh(user)
     return TokenOut(
@@ -500,16 +559,64 @@ async def google_login(payload: GoogleLoginIn, db: Session = Depends(get_db)):
     return _issue_token_for_user(user)
 
 @app.post("/api/auth/apple", response_model=TokenOut)
-async def apple_login(payload: AppleLoginIn, db: Session = Depends(get_db)):
+async def apple_login(payload: AppleLoginIn):
     raise HTTPException(status_code=501, detail="Apple login is not configured yet")
+
+class RefreshIn(BaseModel):
+    token: str
+
+class LogoutResponse(BaseModel):
+    ok: bool = True
+
+@app.post("/api/auth/refresh", response_model=TokenOut)
+def refresh_token(payload: RefreshIn, db: Session = Depends(get_db)):
+    user = _user_from_token(payload.token, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Token expired or invalid")
+    token = _make_token()
+    user.token_hash = _token_hash(token)
+    user.token_expires_at = datetime.utcnow() + timedelta(hours=24)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return TokenOut(
+        token=token,
+        user=UserOut(id=user.id, email=user.email, role=user.role.value, first_name=user.first_name, last_name=user.last_name),
+    )
+
+@app.post("/api/auth/logout", response_model=LogoutResponse)
+def logout(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    if authorization and authorization.startswith("Bearer "):
+        token = authorization.split(" ", 1)[1]
+        user = _user_from_token(token, db)
+        if user:
+            user.token_hash = None
+            user.token_expires_at = None
+            db.add(user)
+            db.commit()
+            db.refresh(user)
+    return {"ok": True}
+
+def _user_from_token(token: str, db: Session) -> User | None:
+    token_hash = _token_hash(token)
+    user = db.query(User).filter(User.token_hash == token_hash).first()
+    if not user:
+        return None
+    if user.token_expires_at and datetime.utcnow() > user.token_expires_at:
+        user.token_hash = None
+        user.token_expires_at = None
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return None
+    return user
 
 @app.get("/api/auth/me", response_model=UserOut)
 def get_current_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing Authorization header")
     token = authorization.split(" ", 1)[1]
-    token_hash = _token_hash(token)
-    user = db.query(User).filter(User.token_hash == token_hash).first()
+    user = _user_from_token(token, db)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid token")
     return UserOut(id=user.id, email=user.email, role=user.role.value, first_name=user.first_name, last_name=user.last_name)
@@ -518,8 +625,7 @@ def get_current_user_dep(authorization: Optional[str] = Header(None), db: Sessio
     if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(status_code=401, detail="Missing Authorization header")
     token = authorization.split(" ", 1)[1]
-    token_hash = _token_hash(token)
-    user = db.query(User).filter(User.token_hash == token_hash).first()
+    user = _user_from_token(token, db)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid token")
     return user
