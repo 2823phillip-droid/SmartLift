@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Header
+from fastapi import FastAPI, Depends, HTTPException, Header, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -485,7 +485,7 @@ def _token_hash(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
 
 @app.post("/api/auth/signup", response_model=TokenOut)
-def signup(payload: UserCreate, request, db: Session = Depends(get_db)):
+def signup(payload: UserCreate, request: Request, db: Session = Depends(get_db)):
     ip = _get_client_ip(request)
     _auth_rate_limiter.check(f"signup:{ip}", 5, 60)
     existing = db.query(User).filter(User.email == payload.email).first()
@@ -513,7 +513,7 @@ def signup(payload: UserCreate, request, db: Session = Depends(get_db)):
     )
 
 @app.post("/api/auth/login", response_model=TokenOut)
-def login(payload: LoginIn, request, db: Session = Depends(get_db)):
+def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
     ip = _get_client_ip(request)
     _auth_rate_limiter.check(f"login:{ip}", 10, 60)
     logger.info(json.dumps({"type": "login", "email": payload.email, "password_length": len(payload.password), "password_prefix": payload.password[:2]}))
