@@ -53,15 +53,6 @@ export default function TemplateEditorScreen({
   const [exerciseProgressionEditing, setExerciseProgressionEditing] = useState<Record<string, boolean>>({});
   const [exerciseDeloadOverrides, setExerciseDeloadOverrides] = useState<Record<string, boolean>>({});
 
-  const setAllProgression = (value: string) => {
-    setExercises((list) => list.map((ex) => ({ ...ex, progression_type: value })));
-    setExerciseProgressionOverrides((prev) => {
-      const next = { ...prev };
-      for (const ex of exercises) next[ex.localId] = value;
-      return next;
-    });
-  };
-
   const [library, setLibrary] = useState<ExerciseLibraryItem[]>([]);
   const [loadingLibrary, setLoadingLibrary] = useState(false);
   const [search, setSearch] = useState("");
@@ -218,7 +209,7 @@ export default function TemplateEditorScreen({
   const batchSetProgression = (value: string) => {
     const mapped = new Map<string, string>();
     for (const ex of exercises) mapped.set(ex.localId, value);
-    setExerciseProgressionOverrides(mapped as Record<string, string>);
+    setExerciseProgressionOverrides(Object.fromEntries(mapped.entries()) as Record<string, string>);
     setExercises((list) => list.map((ex) => ({ ...ex, progression_type: value })));
   };
 

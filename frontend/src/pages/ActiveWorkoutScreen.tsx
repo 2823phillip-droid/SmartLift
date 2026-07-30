@@ -19,7 +19,7 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { GripVertical } from "lucide-react";
 import { api } from "../api";
 import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
-import { computePrescription, type Prescription, type SetRecord, type CoachState, computeCoachState } from "../rules";
+import { computePrescription, type Prescription, type SetRecord, computeCoachState } from "../rules";
 
 export default function ActiveWorkoutScreen({
   sessionId,
@@ -64,7 +64,7 @@ export default function ActiveWorkoutScreen({
   const [isDragActive, setIsDragActive] = useState(false);
   const [coachPhase, setCoachPhase] = useState<string>("linear");
   const [coachWeek, setCoachWeek] = useState<number>(1);
-  const [coachLoaded, setCoachLoaded] = useState(false);
+  const [, setCoachLoaded] = useState(false);
 
   const restTimerRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
@@ -784,6 +784,7 @@ export default function ActiveWorkoutScreen({
                   canLog={canLog}
                   onLogSet={() => logSet()}
                   suggestion={prescriptions[exercise.id]}
+                  isTrainer={isTrainer}
                 />
               );
             })}
@@ -834,6 +835,7 @@ function SortableExerciseCard({
   canLog,
   onLogSet,
   suggestion,
+  isTrainer,
 }: {
   exercise: ExerciseEntry;
   exerciseLogs: SetLog[];
@@ -864,6 +866,7 @@ function SortableExerciseCard({
   canLog: boolean;
   onLogSet: () => Promise<boolean>;
   suggestion?: Prescription;
+  isTrainer: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: exercise.id });
   const style = {

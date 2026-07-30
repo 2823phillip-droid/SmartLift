@@ -554,7 +554,7 @@ function buildExplanation(state: { is_deload: boolean; week_in_block: number; bl
   return parts.filter(Boolean).join(" ");
 }
 
-function weeksUntilNextDeload(phase: CoachPhase, week: number, cycleWeeks: number): number {
+function weeksUntilNextDeload(_phase: CoachPhase, week: number, cycleWeeks: number): number {
   if (cycleWeeks <= 0) return 4;
   const remainder = week % cycleWeeks;
   if (remainder === 0) return 0;

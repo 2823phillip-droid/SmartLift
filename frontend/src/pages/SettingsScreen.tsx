@@ -273,7 +273,7 @@ function CoachSettingsSection() {
   const [phase, setPhase] = useState("linear");
   const [week, setWeek] = useState(1);
   const [cycle, setCycle] = useState(4);
-  const [loading, setLoading] = useState(true);
+  const [, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [customOrder, setCustomOrder] = useState<string[]>(["linear", "double", "percentage", "autoregulated"]);
