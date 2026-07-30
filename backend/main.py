@@ -105,17 +105,12 @@ async def log_requests(request, call_next):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:8080",
-        "capacitor://localhost",
-        "ionic://localhost",
-        "http://localhost",
-        "http://127.0.0.1",
-    ] + os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else [],
+    allow_origin_regex=r"https?://(localhost|127\.0\.0\.1)(:\d+)?|capacitor://.*|ionic://.*",
     allow_credentials=True,
     allow_methods=["*"],
-    allow_headers=["*"],
+    allow_headers=["Authorization", "Content-Type", "*"],
+    expose_headers=["*"],
+    max_age=600,
 )
 
 @app.exception_handler(Exception)
