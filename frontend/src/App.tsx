@@ -151,10 +151,9 @@ export default function App() {
     withRetry(() => api.listSettings(), { retries: 2, baseDelayMs: 300 }).then((items) => {
       if (cancelled) return;
       const mode = (items as any[])?.find((s) => s.key === "workout_mode")?.value;
-      if (mode === "ai_trainer") setWorkoutMode("ai_trainer");
-      else setWorkoutMode("manual");
+      if (mode === "ai_trainer" || mode === "manual") setWorkoutMode(mode);
     }).catch(() => {
-      setWorkoutMode("manual");
+      // leave existing mode on transient settings load failure
     });
     return () => { cancelled = true; };
   }, [user]);
@@ -399,7 +398,7 @@ export default function App() {
               <HistoryScreen onBack={goBack} />
             )}
             {view === "settings" && (
-              <SettingsScreen onBack={goBack} onModeChange={setWorkoutMode} />
+              <SettingsScreen onBack={goBack} onModeChange={setWorkoutMode} initialWorkoutMode={workoutMode} />
             )}
             {view === "library" && (
               <LibraryScreen onBack={goBack} onImported={() => {}} />

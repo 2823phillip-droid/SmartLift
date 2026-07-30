@@ -4,7 +4,7 @@ import BodyWeightQuickLog from "../components/BodyWeightQuickLog";
 
 type SettingItem = { key: string; value: string | null };
 
-export default function SettingsScreen({ onBack, onModeChange }: { onBack: () => void; onModeChange?: (mode: "manual" | "ai_trainer") => void }) {
+export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMode }: { onBack: () => void; onModeChange?: (mode: "manual" | "ai_trainer") => void; initialWorkoutMode?: "manual" | "ai_trainer" }) {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
@@ -221,7 +221,7 @@ export default function SettingsScreen({ onBack, onModeChange }: { onBack: () =>
                     await save("workout_mode");
                     onModeChange?.(mode);
                   }}
-                  className={`flex-1 rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${(settings["workout_mode"] ?? "manual") === mode ? mode === "ai_trainer" ? "border-emerald-500 bg-emerald-950/50 text-emerald-300" : "border-indigo-500 bg-indigo-950/50 text-indigo-300" : "border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300"}`}
+                  className={`flex-1 rounded-xl border px-4 py-3 text-sm font-semibold transition-all ${(settings["workout_mode"] ?? initialWorkoutMode ?? "manual") === mode ? mode === "ai_trainer" ? "border-emerald-500 bg-emerald-950/50 text-emerald-300" : "border-indigo-500 bg-indigo-950/50 text-indigo-300" : "border-slate-700 text-slate-500 hover:border-slate-600 hover:text-slate-300"}`}
                 >
                   {mode === "manual" ? "Manual" : "AI Trainer"}
                 </button>
