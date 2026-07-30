@@ -54,8 +54,17 @@ export default function WorkoutsScreen({
     let cancelled = false;
     setLoading(true);
     setError("");
-    Promise.all([api.getContexts(), api.getTemplatesAcrossAll()])
-      .then(([contexts, templatesRaw]: any[]) => {
+    let contexts: any[] = [];
+    let templatesRaw: any[] = [];
+    api.getContexts()
+      .then((c) => {
+        contexts = c || [];
+        console.log("[WorkoutsScreen] contexts loaded", contexts.length);
+        return api.getTemplatesAcrossAll();
+      })
+      .then((t) => {
+        templatesRaw = t || [];
+        console.log("[WorkoutsScreen] templates loaded", templatesRaw.length);
         if (cancelled) return;
         const sorted = (contexts || []).slice().sort((a: any, b: any) => (a.order ?? 0) - (b.order ?? 0));
         const items: TemplateItem[] = (templatesRaw || []).map((t: any) => ({
