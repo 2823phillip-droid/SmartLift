@@ -6,7 +6,7 @@ type SettingItem = { key: string; value: string | null };
 
 const STORAGE_KEY_SETTINGS = "smartlift_workout_mode";
 
-export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMode }: { onBack: () => void; onModeChange?: (mode: "manual" | "ai_trainer") => void; initialWorkoutMode?: "manual" | "ai_trainer" }) {
+export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMode, onOpenDebug }: { onBack: () => void; onModeChange?: (mode: "manual" | "ai_trainer") => void; initialWorkoutMode?: "manual" | "ai_trainer"; onOpenDebug?: () => void }) {
   const [settings, setSettings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState<string | null>(null);
@@ -114,12 +114,22 @@ export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMod
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold tracking-tight">Settings</h2>
-        <button
-          onClick={onBack}
-          className="text-sm text-slate-400 hover:text-slate-200 transition-colors px-2 py-1 rounded-lg hover:bg-slate-800/50"
-        >
-          Back
-        </button>
+        <div className="flex items-center gap-2">
+          {onOpenDebug && (
+            <button
+              onClick={onOpenDebug}
+              className="text-xs text-slate-300 hover:text-white px-2 py-1 rounded-lg bg-slate-800"
+            >
+              Debug Log
+            </button>
+          )}
+          <button
+            onClick={onBack}
+            className="text-sm text-slate-400 hover:text-slate-200 transition-colors px-2 py-1 rounded-lg hover:bg-slate-800/50"
+          >
+            Back
+          </button>
+        </div>
       </div>
       <div className="text-xs text-slate-500">API base: {apiBaseState || "(none)"}</div>
       {loading ? (

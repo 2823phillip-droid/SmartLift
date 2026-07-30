@@ -16,6 +16,7 @@ import LoginScreen from "./pages/LoginScreen";
 import SignupScreen from "./pages/SignupScreen";
 import ErrorBoundary from "./components/ErrorBoundary";
 import TabBar, { type Tab } from "./components/TabBar";
+import DebugLogScreen from "./pages/DebugLogScreen";
 
 type View =
   | "home"
@@ -32,7 +33,8 @@ type View =
   | "workouts"
   | "profile"
   | "login"
-  | "signup";
+  | "signup"
+  | "debug_log";
 
 const tabRootToView: Record<Tab, View> = {
   home: "home",
@@ -58,6 +60,7 @@ const viewToTab: Record<View, Tab | null> = {
   profile: null,
   login: null,
   signup: null,
+  debug_log: "settings",
 };
 
 export default function App() {
@@ -411,7 +414,15 @@ export default function App() {
               <HistoryScreen onBack={goBack} />
             )}
             {view === "settings" && (
-              <SettingsScreen onBack={goBack} onModeChange={setWorkoutMode} initialWorkoutMode={workoutMode} />
+              <SettingsScreen
+                onBack={goBack}
+                onModeChange={setWorkoutMode}
+                initialWorkoutMode={workoutMode}
+                onOpenDebug={() => setView("debug_log")}
+              />
+            )}
+            {view === "debug_log" && (
+              <DebugLogScreen onBack={() => setView("settings")} />
             )}
             {view === "library" && (
               <LibraryScreen onBack={goBack} onImported={() => {}} />
