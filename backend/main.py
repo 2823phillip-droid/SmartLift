@@ -173,54 +173,38 @@ def _run_migrations():
             if dialect == "sqlite":
                 def cols(table):
                     return [row[1] for row in conn.execute(_text(f"PRAGMA table_info({table})"))]
+                date_type = "DATETIME"
             else:
                 def cols(table):
                     return [row[0] for row in conn.execute(_text(
                         "SELECT column_name FROM information_schema.columns WHERE table_name = :t"
                     ), {"t": table})]
+                date_type = "TIMESTAMP"
 
-            results = {}
-            try:
-                coach = "coach_rules" in cols("workout_templates")
-                results["coach_rules"] = coach
-                if not coach:
-                    conn.execute(_text("ALTER TABLE workout_templates ADD COLUMN coach_rules TEXT"))
-                    conn.commit()
+            if "coach_rules" not in cols("workout_templates"):
+                conn.execute(_text("ALTER TABLE workout_templates ADD COLUMN coach_rules TEXT"))
+                conn.commit()
 
-                ucols = cols("users")
-                results["users_cols"] = ucols
-                if "failed_login_count" not in ucols:
-                    conn.execute(_text("ALTER TABLE users ADD COLUMN failed_login_count INTEGER DEFAULT 0 NOT NULL"))
-                    conn.commit()
-                if "locked_until" not in ucols:
-                    conn.execute(_text("ALTER TABLE users ADD COLUMN locked_until DATETIME"))
-                    conn.commit()
-                if "token_expires_at" not in ucols:
-                    conn.execute(_text("ALTER TABLE users ADD COLUMN token_expires_at DATETIME"))
-                    conn.commit()
+            ucols = cols("users")
+            if "failed_login_count" not in ucols:
+                conn.execute(_text("ALTER TABLE users ADD COLUMN failed_login_count INTEGER DEFAULT 0 NOT NULL"))
+                conn.commit()
+            if "locked_until" not in ucols:
+                conn.execute(_text(f"ALTER TABLE users ADD COLUMN locked_until {date_type}"))
+                conn.commit()
+            if "token_expires_at" not in ucols:
+                conn.execute(_text(f"ALTER TABLE users ADD COLUMN token_expires_at {date_type}"))
+                conn.commit()
 
-                ecols = cols("exercise_entries")
-                results["exercise_entries_cols"] = ecols
-                if "progression_type" not in ecols:
-                    conn.execute(_text("ALTER TABLE exercise_entries ADD COLUMN progression_type TEXT"))
-                    conn.commit()
-                if "deload_override" not in ecols:
-                    conn.execute(_text("ALTER TABLE exercise_entries ADD COLUMN deload_override INTEGER DEFAULT 0"))
-                    conn.commit()
-            except Exception as migration_exc:
-                logger.error(json.dumps({
-                    "type": "migration_failure",
-                    "dialect": dialect,
-                    "error": str(migration_exc),
-                    "traceback": traceback.format_exc(),
-                    "partial_results": results,
-                }))
-    except Exception as exc:
-        logger.error(json.dumps({
-            "type": "migration_init_failure",
-            "error": str(exc),
-            "traceback": traceback.format_exc(),
-        }))
+            ecols = cols("exercise_entries")
+            if "progression_type" not in ecols:
+                conn.execute(_text("ALTER TABLE exercise_entries ADD COLUMN progression_type TEXT"))
+                conn.commit()
+            if "deload_override" not in ecols:
+                conn.execute(_text("ALTER TABLE exercise_entries ADD COLUMN deload_override INTEGER DEFAULT 0"))
+                conn.commit()
+    except Exception:
+        pass
 
 # --- Schemas ---
 
