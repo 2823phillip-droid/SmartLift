@@ -3,18 +3,21 @@
 Updated when work in progress changes.
 
 ## Current Task
-- None pending. Last shipped: template editor back/cancel/saved go to Workouts tab.
+Design and implement the trainer-generated workout questionnaire flow: backend endpoint + frontend screen, shown on first login and repeatable from AI Trainer tab. Step-through UI with single-select tabs and multi-select chips. Three sections: body metrics (weight/height/sex/activity), training profile, nutrition opt-in. Returns workout draft + optional meal plan draft.
 
 ## Completed
-- Template pencil on template rows opens the full workout editor.
-- Removed duplicate “ghost page” list (`quick_start` / `TemplateGroupListScreen`).
-- Wired `onEditTemplate` through `WorkoutsScreen` → `SortableGroupRow` → `SortableTemplateRow`.
-- Template editor back/cancel/saved navigate to Workouts.
-- Removed all `192.168.1.111:8000` hardcoded fallbacks in app code; default is `https://smartlift-api.fly.dev/api`.
-- Created `project-context` skill that loads `PROJECT.md`, `PERSONA.md`, `CONTEXT.md`, `TODO.md` at startup.
-- Synced to MacBook `192.168.1.112`, built, `npx cap sync ios` completed.
-- Committed and pushed to `origin/master`.
+- Fixed Workouts tab 500 root cause: production DB missing `contexts.order` column.
+- Added missing `order` columns to production Postgres: `contexts`, `workout_templates`, `exercise_entries`.
+- Backend CORS now allows both `capacitor://localhost` and `ionic://localhost`.
+- Knowledge hierarchy established: `MEMORY-INDEX.md` + `memory/` directory with frontmatter/ADR standards.
+- Removed dead `MUSCLEWIKI_BASE` code from backend; unified exercise source as ExerciseDB (Kaggle).
 
 ## Next Actions
-- Verify on device: template pencil, back nav, API base = Fly.
-- Keep MacBook static IP at `192.168.1.112`.
+- Backend: define `POST /api/trainer/generate` request/response schema and deterministic ExerciseDB selection rules.
+- Frontend: build questionnaire screen and integrate into AI Trainer tab and first-login flow.
+- Define draft lifecycle: generated workout stores as draft; user can accept, tweak in builder, or discard.
+
+## Notes
+- Knowledge hierarchy is documented in `MEMORY-INDEX.md`; always read it before starting work.
+- All domain-specific lessons are in `memory/<topic>.md`.
+- When a fix involves a non-obvious pattern, add it to the relevant `memory/` file.

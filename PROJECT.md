@@ -11,8 +11,9 @@
 - Production backend: https://smartlift-api.fly.dev/api
 
 ## Deploy
-- Frontend build + sync: rsync -avz --progress frontend/src/ phillipwalters@192.168.1.112:~/workout-logger/frontend/src/ && ssh phillipwalters@192.168.1.112 'source ~/.nvm/nvm.sh && nvm use 22 && npm run build && npx cap sync ios'
-- Backend deploy: fly deploy -a smartlift-api
+- Frontend build + sync: build `frontend/dist/` on Linux, rsync to MacBook `~/workout-logger/frontend/ios/App/App/public/`, then `npx cap sync ios`
+- Backend deploy: `fly deploy -a smartlift-api --no-cache`
+- Frontend sync validation: see `memory/deploy.md`
 - Remote git: https://github.com/2823phillip-droid/SmartLift.git
 - Workout-logger git remote: https://github.com/phillip28237/SmartLift.git
 

@@ -3,12 +3,12 @@
 ## Phase 1 — Foundation: Frontend shipped, Backend stable, L&F solid
 
 ### Backend / Fly
-- [ ] Confirm `smartlift-api` Fly app health endpoint returning 200 consistently: `GET /healthz`
+- [x] Confirm `smartlift-api` Fly app health endpoint returning 200 consistently: `GET /healthz`
 - [x] Add structured request/response logging to backend for production debugging
 - [x] Add global exception handler + request timeout config in FastAPI/Starlette
 - [x] Verify frontend retry/backoff on transient 5xx / network drops (already has `withRetry`)
-- [ ] Confirm Postgres `smartlift-db` connection pool and Fly autoscaling behave during cold starts
-- [ ] Backend deploy verified: `fly deploy -a smartlift-api` rolls cleanly without downtime
+- [x] Confirm Postgres schema matches SQLAlchemy models (`contexts.order`, `workout_templates.order`, `exercise_entries.order`)
+- [x] Backend deploy verified: `fly deploy -a smartlift-api` rolls cleanly without downtime
 
 ### Auth hardening
 - [x] Add rate limiting on login/signup endpoints in backend
@@ -29,7 +29,7 @@
 
 ### Exercise library / ExerciseDB
 - [ ] Resolve ExerciseDB licensing: determine if current `hasaneyldrm/exercises-dataset` usage is permitted for app distribution; if not, purchase/arrange commercial license or replace source
-- [ ] Evaluate MuscleWiki as primary exercise media source: video URLs, licensing, import workflow (`POST /api/exercise-library/sync`)
+- [ ] Evaluate ExerciseDB (Kaggle) as primary exercise media source: video URLs, licensing, import workflow (`POST /api/exercise-library/sync`)
 - [ ] Confirm 1,318 exercises sync reliably into Postgres `exercise_library` after any tag/media schema changes
 - [ ] Verify upstream `hasaneyldrm/exercises-dataset` tag mismatches are corrected in backend via `tag_overrides`; re-run sync to ensure stability
 - [ ] Confirm frontend video/GIF playback path in app: webview for GIFs, modal player when `video_url` exists
@@ -127,6 +127,18 @@
 ---
 
 ## Phase 4 — AI Personalization Layer
+### Trainer-generated workout flow
+- [ ] Backend: `POST /api/trainer/generate` accepts questionnaire answers and returns a populated workout draft from ExerciseDB
+- [ ] Frontend: step-through questionnaire, one question per screen, progress indicator
+- [ ] Frontend: options shown as single-select tabs or multi-select chips; minimize typing
+- [ ] Section 1 — Body metrics (for TDEE/macro math): weight, height, sex, activity level, all with “prefer not to answer”
+- [ ] Section 2 — Training profile: Goal (multi-select), Equipment (single), Age range (single), Days/week (single), Minutes (single), Experience (single), Focus (single), Limitations (multi-select chips)
+- [ ] Section 3 — Nutrition opt-in: meal plans yes/no; diet type, cooking skill/time, allergies chips, meals per day
+- [ ] Frontend: preface each section with “This is why we ask” context
+- [ ] Frontend: questionnaire shown on first login and available anytime from AI Trainer tab
+- [ ] Frontend: user picks "Trainer builds it" or "I'll build it myself"
+- [ ] Frontend: accepted generated workout persists as draft; user can tweak before saving
+- [ ] Frontend: re-run questionnaire available from AI Trainer tab to generate new workout
 
 ### Core model
 - [ ] Define standard fitness model schema shared by all users; Phase 2 deterministic scripts consume this schema

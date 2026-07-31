@@ -28,25 +28,31 @@
 - `/api/workout-library` — workout templates
 - `/api/workout-library/import` — import from exercise library
 
-## Known Gotchas
-- Fly auto-stops machine between requests; start with `fly machine start 80e9614f60d108`
-- Docker build context is repo root; must `COPY backend/requirements.txt ./`
-- Pinned deps: `passlib[bcrypt]==1.7.4`, `bcrypt==4.0.1`, `httpx==0.28.1`, `psycopg2-binary==2.9.9`, `gunicorn==21.2.0`
-- Frontend `initApiBaseFromSettings()` probes `/healthz` first, no LAN fallback
-- `fetchWithTimeout` is 5s
-- 6 duplicate exercise names exist in JSON; sync uses `seen` set to avoid unique constraint errors
-- Sync JSON path must be `Path(__file__).resolve().parent / "dist" / "exercises-hasan.json"`
+## Known gotchas
+- WKWebView will cache the first `index-<hash>.js` it sees; full app uninstall required to clear after bundle hash changes
+- `ionic://localhost` is a valid Origin on modern iOS WebViews — backend must allow both `capacitor://localhost` and `ionic://localhost`
+- `contexts.order` column drift between local SQLite and production Postgres — verify production schema before declaring success on `/api/contexts` changes
+- `fetchWithTimeout` in api.ts is 30s; do NOT lower to 2500ms without device cold-start testing
+- Backend 500s from SQLAlchemy can surface in WKWebVie as CORS errors — check backend logs, not just browser console
+- 401 persists across app restarts until stored token is cleared; logout + login clears it
 
 ## Users
-- Test: `phillip+flytest@test.com`
-- Primary: `2823phillip@gmail.com` (id=2 in Fly Postgres)
+- Test: `2823phillip@gmail.com` (id=2 in Fly Postgres)
+- Admin: `phillip@smartlift.app / SmartLiftAdmin2026!`
 
 ## Backups / Recovery
 - Original exercises JSON preserved at `backend/dist/exercises-hasan.json`
-- Skill for cycling has GPS + weather; SmartLift does not share auth/session state with cycling
-- Git remote: `https://github.com/2823phillip-droid/SmartLift.git`
+- Git remotes: `origin` → `2823phillip-droid/SmartLift.git`; `workout-logger` remote → `phillip28237/SmartLift.git`
 - Local save tag exists: `fly-deploy-save-2026-07-29` (not pushed to GitHub, not required for deployment)
 
 ## Frontend Hints
 - `.env` only used at build time; rebuild after changing VITE_API_BASE
 - iOS webview may zoom GIFs too large—frontend `capacitor.config.json` plus viewer size control handles this
+- Frontend error capture: `localStorage['smartlift_error_log']`, up to 50 entries, visible in Debug Log screen
+
+## Knowledge Hierarchy
+- `MEMORY-INDEX.md` — index of all project knowledge files
+- `memory/` — durable lessons by domain (debugging, deploy, backend-db, auth, frontend-fetch, decisions)
+- `TODO.md` — roadmap/priorities
+- `CONTEXT.md` — current active task
+- `PROJECT.md` — immutable deploy/network/auth facts

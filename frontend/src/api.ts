@@ -71,6 +71,7 @@ async function request(path: string, options: RequestInit = {}) {
       const refreshed = await api.refreshToken();
       if (!refreshed || !refreshed.token) throw new Error("no_token");
       setAuthToken(refreshed.token);
+      if (typeof window !== "undefined") localStorage.setItem("smartlift_token", refreshed.token);
       headers["Authorization"] = `Bearer ${refreshed.token}`;
       return await makeRequest(base);
     } catch {
@@ -112,6 +113,7 @@ async function request(path: string, options: RequestInit = {}) {
 function isNetworkOrTransientError(err: any, res?: any) {
   if (!navigator?.onLine) return true;
   if (err instanceof TypeError) return true;
+  if (err && typeof err.name === "string" && err.name === "AbortError") return true;
   if (res && (res.status === 408 || res.status === 429 || res.status >= 500)) return true;
   return false;
 }

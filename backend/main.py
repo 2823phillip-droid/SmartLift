@@ -881,8 +881,6 @@ def search_exercise_library(q: str = "", db: Session = Depends(get_db), current_
         query = query.filter(ExerciseLibrary.name.ilike(f"%{q}%"))
     return query.all()
 
-MUSCLEWIKI_BASE = "https://api.musclewiki.com"
-
 @app.post("/api/exercise-library/sync")
 def sync_exercise_library(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     path = os.path.join(os.path.dirname(__file__), "dist", "exercises-hasan.json")
