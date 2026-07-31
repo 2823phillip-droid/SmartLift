@@ -105,7 +105,16 @@ async def log_requests(request, call_next):
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origin_regex=r".*",
+    allow_origins=[
+        "http://localhost:8100",
+        "http://localhost:5173",
+        "http://localhost:4173",
+        "capacitor://localhost",
+        "ionic://localhost",
+        "http://192.168.1.111:5173",
+        "http://192.168.1.111:4173",
+    ],
+    allow_origin_regex=r"^https?://.*$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["Authorization", "Content-Type", "*"],
