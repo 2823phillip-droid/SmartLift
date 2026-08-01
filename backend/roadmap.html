@@ -253,15 +253,20 @@
         <li>Log progression transitions server-side</li>
       </ul>
     </div>
-    <div class="col col-waiting">
-      <div class="col-header col-waiting">Agent — blocked / pending</div>
+    <div class="col">
+      <div class="col-header" style="color:var(--accent)">Agent — ready to build</div>
       <ul>
-        <li>Validate linear progression against real user data with RIR <span style="color:var(--amber);font-size:0.78rem;">(blocked: user must log 2–3 sessions)</span></li>
         <li>Surface backend prescription errors to user in UI</li>
         <li>Add transition history view in app</li>
         <li>pytest coverage for <code>/api/rules/next-prescription</code> side effects</li>
         <li>Confirm AlgorithmState + ProgressionTransition rows created on phase change</li>
         <li>End-to-end test: identical inputs → identical outputs unless RPE/RIR changes</li>
+      </ul>
+    </div>
+    <div class="col col-waiting">
+      <div class="col-header col-waiting">Agent — blocked by your data</div>
+      <ul>
+        <li>Validate linear progression defaults against real RIR <span style="color:var(--amber);font-size:0.78rem;">(needs 2–3 logged sessions)</span></li>
       </ul>
     </div>
     <div class="col col-waiting">
@@ -276,7 +281,7 @@
   </div>
   <div class="dependency">
     <span class="dep-icon">🔗</span>
-    <span><strong>Phase 1 validation is blocked by your data.</strong> The backend wiring is deployed, but linear progression defaults can't be validated until you log 2–3 real sessions with effort + RIR. Agent verification tasks are also pending that data.</span>
+    <span><strong>One agent task needs your data; the rest can be built now.</strong> Your 2–3 sessions unblock validation of linear progression defaults. UI error surfacing, transition history, tests, and verification can all be completed before that.</span>
   </div>
   <div class="note">
     <strong>What we're measuring:</strong> completion rate, RIR per set, effort per set, whether weight was increased automatically. This data tells us if the linear progression defaults are right for you.
