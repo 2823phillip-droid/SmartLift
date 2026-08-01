@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Play, Plus, BookOpen, Pencil, Trash2, ChevronDown, GripVertical } from "lucide-react";
+import { Play, Plus, BookOpen, Pencil, Trash2, ChevronDown, GripVertical, GitBranch } from "lucide-react";
 import { api, withRetry } from "../api";
 import { log } from "../utils/logger";
 import {
@@ -37,12 +37,14 @@ export default function WorkoutsScreen({
   onSelectPrebuilt,
   onBack,
   onEditTemplate,
+  onOpenTransitionHistory,
 }: {
   onStartWorkout: (templateId: number) => void;
   onBuildWorkout: () => void;
   onSelectPrebuilt: () => void;
   onBack: () => void;
   onEditTemplate?: (templateId: number, contextId: number) => void;
+  onOpenTransitionHistory?: () => void;
 }) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
@@ -280,6 +282,23 @@ export default function WorkoutsScreen({
               </div>
             </div>
           </button>
+
+          {onOpenTransitionHistory && (
+            <button
+              onClick={onOpenTransitionHistory}
+              className="rounded-2xl border border-indigo-800 bg-indigo-950/40 hover:border-indigo-500/60 p-4 text-left transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-indigo-600/20 border border-indigo-800/60 flex items-center justify-center text-indigo-300">
+                  <GitBranch className="w-5 h-5" />
+                </div>
+                <div>
+                  <div className="font-semibold text-sm text-indigo-200">Progression Transitions</div>
+                  <div className="text-xs text-slate-500 mt-0.5">View AI progression history</div>
+                </div>
+              </div>
+            </button>
+          )}
         </div>
       )}
 
@@ -323,6 +342,23 @@ export default function WorkoutsScreen({
                   Select a template or create from scratch.
                 </div>
               </button>
+
+              {onOpenTransitionHistory && (
+                <button
+                  onClick={onOpenTransitionHistory}
+                  className="w-full rounded-2xl border border-slate-800 bg-slate-900/50 hover:border-indigo-500/40 px-4 py-4 text-left transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-indigo-600/20 border border-indigo-800/60 flex items-center justify-center text-indigo-300">
+                      <GitBranch className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <div className="font-semibold text-sm text-slate-200">Progression Transitions</div>
+                      <div className="text-xs text-slate-500 mt-0.5">View AI progression history</div>
+                    </div>
+                  </div>
+                </button>
+              )}
             </div>
           </SortableContext>
         </DndContext>

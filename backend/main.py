@@ -1630,6 +1630,7 @@ class AlgorithmStateOut(BaseModel):
 
 class ProgressionTransitionOut(BaseModel):
     id: int
+    exercise_entry_id: int
     from_phase: str
     to_phase: str
     week_in_block: int
@@ -1653,6 +1654,14 @@ def get_algorithm_state(exercise_entry_id: int, db: Session = Depends(get_db), c
 
 @app.get("/api/rules/transitions", response_model=List[ProgressionTransitionOut])
 def list_progression_transitions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    transitions = db.query(ProgressionTransition).filter(
+        ProgressionTransition.user_id == current_user.id,
+    ).order_by(ProgressionTransition.created_at.desc()).limit(200).all()
+    return transitions
+
+
+@app.get("/api/progression/transitions", response_model=List[ProgressionTransitionOut])
+def progression_transitions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     transitions = db.query(ProgressionTransition).filter(
         ProgressionTransition.user_id == current_user.id,
     ).order_by(ProgressionTransition.created_at.desc()).limit(200).all()

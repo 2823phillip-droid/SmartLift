@@ -247,6 +247,16 @@ export interface Session {
   ended_at?: string | null;
 }
 
+export interface ProgressionTransition {
+  id: number;
+  exercise_entry_id: number;
+  from_phase: string;
+  to_phase: string;
+  week_in_block: number;
+  reason?: string;
+  created_at?: string;
+}
+
 export interface SessionHistory extends Session {
   template_id?: number;
   pre_workout_mood?: string;
@@ -429,7 +439,7 @@ export const api = {
   getAlgorithmState: (exerciseEntryId: number) =>
     request(`/rules/algorithm-state/${exerciseEntryId}`),
 
-  listProgressionTransitions: () => request("/rules/transitions"),
+  listProgressionTransitions: () => request("/progression/transitions"),
 
   aiNextSuggestion: (data: {
     session_id: number;

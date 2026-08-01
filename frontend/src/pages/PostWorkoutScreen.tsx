@@ -48,6 +48,8 @@ export default function PostWorkoutScreen({
           if (coachState.coach_phase) setCoachPhase(coachState.coach_phase);
           if (coachState.coach_week_in_block) setCoachWeek(coachState.coach_week_in_block);
         }
+      }).catch((err) => {
+        console.error("[PostWorkoutScreen] coach state load failed", err);
       });
     }
   }, [sessionId, templateId, workoutMode]);

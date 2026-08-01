@@ -338,6 +338,8 @@ function CoachSettingsSection() {
   const [, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [customOrder, setCustomOrder] = useState<string[]>(["linear", "double", "percentage", "autoregulated"]);
 
   useEffect(() => {
@@ -349,7 +351,10 @@ function CoachSettingsSection() {
         if (data.coach_custom_phase_order) setCustomOrder([...(data.coach_custom_phase_order)]);  // pyright: ignore [reportImplicitAny]
       }
       setLoading(false);
-    }).catch(() => setLoading(false));
+    }).catch((err: any) => {
+      setLoadError(err?.message || "Failed to load coach settings");
+      setLoading(false);
+    });
   }, []);
 
   const move = (idx: number, dir: -1 | 1) => {
@@ -369,11 +374,12 @@ function CoachSettingsSection() {
   const save = async () => {
     setSaving(true);
     setSaved(false);
+    setSaveError(null);
     try {
       await api.coachOverride({ phase, week_in_block: week, periodization_cycle_weeks: cycle, custom_phase_order: customOrder });
       setSaved(true);
-    } catch {
-      setSaved(false);
+    } catch (err: any) {
+      setSaveError(err?.message || "Failed to save coach settings");
     } finally {
       setSaving(false);
     }
@@ -381,6 +387,19 @@ function CoachSettingsSection() {
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
+      {loadError && (
+        <div className="rounded-xl border border-amber-800 bg-amber-950/30 px-4 py-3 flex items-start gap-3">
+          <svg className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+          <p className="text-xs text-amber-300 leading-relaxed flex-1">{loadError}</p>
+          <button onClick={() => setLoadError(null)} className="text-amber-400 hover:text-amber-200 shrink-0">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
       <div className="flex items-center gap-2">
         <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
@@ -449,6 +468,19 @@ function CoachSettingsSection() {
       >
         {saving ? "Saving..." : saved ? "Saved" : "Save Coach Settings"}
       </button>
+      {saveError && (
+        <div className="rounded-xl border border-rose-800 bg-rose-950/30 px-4 py-3 flex items-start gap-3">
+          <svg className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+          <p className="text-xs text-rose-300 leading-relaxed flex-1">{saveError}</p>
+          <button onClick={() => setSaveError(null)} className="text-rose-400 hover:text-rose-200 shrink-0">
+            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
     </div>
   );
 }

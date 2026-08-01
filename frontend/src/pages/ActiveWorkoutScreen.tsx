@@ -70,6 +70,7 @@ export default function ActiveWorkoutScreen({
 
   const [backendPrescriptions, setBackendPrescriptions] = useState<Record<number, any>>({});
   const [backendCoach, setBackendCoach] = useState<any>(null);
+  const [prescriptionError, setPrescriptionError] = useState<string | null>(null);
 
   const restTimerRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
@@ -160,8 +161,10 @@ export default function ActiveWorkoutScreen({
             map[exercise.id] = res;
             lastCoach = res.coach;
           }
-        } catch (err) {
+        } catch (err: any) {
+          const msg = err?.message || "Backend prescription failed";
           console.error("[ActiveWorkoutScreen] backend prescription failed", err);
+          setPrescriptionError(msg);
         }
       }
       if (!cancelled) {
@@ -211,14 +214,21 @@ export default function ActiveWorkoutScreen({
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
+      let coachState: any = null;
       try {
-        const [exercisesData, setLogsData, session, setting, coachState] = await Promise.all([
+        const [exercisesData, setLogsData, session, setting] = await Promise.all([
           api.getExercises(templateId),
           api.getSessionSetLogs(sessionId),
           api.getSession(sessionId),
           api.getSetting("global_rest_seconds"),
-          ...((workoutMode || "manual") === "ai_trainer" ? [api.getCoachState()] : []),
         ]);
+        if ((workoutMode || "manual") === "ai_trainer") {
+          try {
+            coachState = await api.getCoachState();
+          } catch (err: any) {
+            setPrescriptionError(err?.message || "Failed to load coach state");
+          }
+        }
         if (cancelled) return;
         setExercises(exercisesData);
         setLogs(setLogsData);
@@ -668,7 +678,9 @@ export default function ActiveWorkoutScreen({
           force_deload: coach.is_deload,
           periodization_cycle_weeks: coach.block_duration_weeks,
         });
-      } catch {}
+      } catch (err: any) {
+        setPrescriptionError(err?.message || "Failed to save coach state at end of workout");
+      }
     }
     onEnd?.(buildEndSummary());
   };
@@ -694,7 +706,9 @@ export default function ActiveWorkoutScreen({
     setCoachWeek(week_in_block);
     try {
       await api.coachOverride({ phase, week_in_block, force_deload, periodization_cycle_weeks: 4 });
-    } catch {}
+    } catch (err: any) {
+      setPrescriptionError(err?.message || "Failed to save coach state");
+    }
   };
 
   const forceDeload = () => {
@@ -737,6 +751,21 @@ export default function ActiveWorkoutScreen({
           </div>
         </div>
       </div>
+
+      {/* Prescription error banner */}
+      {prescriptionError && (
+        <div className="rounded-xl border border-rose-800 bg-rose-950/30 px-4 py-3 flex items-start gap-3">
+          <svg className="w-5 h-5 text-rose-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+          <p className="text-xs text-rose-300 leading-relaxed flex-1">{prescriptionError}</p>
+          <button onClick={() => setPrescriptionError(null)} className="text-rose-400 hover:text-rose-200 shrink-0">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
 
       {/* Coach panel */}
       {(workoutMode || "manual") === "ai_trainer" && coach && (

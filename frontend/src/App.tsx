@@ -11,6 +11,7 @@ import PreWorkoutScreen from "./pages/PreWorkoutScreen";
 import ActiveWorkoutScreen from "./pages/ActiveWorkoutScreen";
 import PostWorkoutScreen from "./pages/PostWorkoutScreen";
 import HistoryScreen from "./pages/HistoryScreen";
+import TransitionHistoryScreen from "./pages/TransitionHistoryScreen";
 import SettingsScreen from "./pages/SettingsScreen";
 import LibraryScreen from "./pages/LibraryScreen";
 import ProfileScreen from "./pages/ProfileScreen";
@@ -37,7 +38,8 @@ type View =
   | "login"
   | "signup"
   | "debug_log"
-  | "questionnaire";
+  | "questionnaire"
+  | "transition_history";
 
 const tabRootToView: Record<Tab, View> = {
   home: "home",
@@ -65,6 +67,7 @@ const viewToTab: Record<View, Tab | null> = {
   signup: null,
   debug_log: "settings",
   questionnaire: null,
+  transition_history: "workouts",
 };
 
 export default function App() {
@@ -243,6 +246,7 @@ export default function App() {
       case "signup":
       case "active_workout":
       case "post_workout":
+      case "transition_history":
       default:
         return "home";
     }
@@ -252,6 +256,9 @@ export default function App() {
     const target = getBackTarget();
     if (target === "home" && view === "history") {
       setTab("home");
+    }
+    if (target === "home" && view === "transition_history") {
+      setTab("workouts");
     }
     setView(target);
   };
@@ -426,6 +433,9 @@ export default function App() {
             {view === "history" && (
               <HistoryScreen onBack={goBack} />
             )}
+            {view === "transition_history" && (
+              <TransitionHistoryScreen onBack={goBack} />
+            )}
             {view === "settings" && (
               <SettingsScreen
                 onBack={goBack}
@@ -441,7 +451,7 @@ export default function App() {
               <LibraryScreen onBack={goBack} onImported={() => {}} />
             )}
             {view === "ai_trainer" && (
-              <AiTrainerScreen onBack={goBack} onLaunchQuestionnaire={() => setView("questionnaire")} />
+              <AiTrainerScreen onBack={goBack} onLaunchQuestionnaire={() => setView("questionnaire")} onOpenTransitionHistory={() => navigate("transition_history")} />
             )}
             {view === "questionnaire" && (
               <QuestionnaireScreen
@@ -522,6 +532,7 @@ export default function App() {
                   setSelectedTemplateId(tplId);
                   navigate("template_editor");
                 }}
+                onOpenTransitionHistory={() => navigate("transition_history")}
               />
             )}
             {view === "profile" && (
@@ -544,7 +555,7 @@ export default function App() {
   );
 }
 
-function AiTrainerScreen({ onBack, onLaunchQuestionnaire }: { onBack: () => void; onLaunchQuestionnaire: () => void }) {
+function AiTrainerScreen({ onBack, onLaunchQuestionnaire, onOpenTransitionHistory }: { onBack: () => void; onLaunchQuestionnaire: () => void; onOpenTransitionHistory?: () => void }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -558,6 +569,14 @@ function AiTrainerScreen({ onBack, onLaunchQuestionnaire }: { onBack: () => void
       >
         Generate New Workout Plan
       </button>
+      {onOpenTransitionHistory && (
+        <button
+          onClick={onOpenTransitionHistory}
+          className="w-full rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3 text-sm font-bold text-slate-200 hover:border-indigo-500/40 transition-colors"
+        >
+          View Progression Transitions
+        </button>
+      )}
     </div>
   )
 }
