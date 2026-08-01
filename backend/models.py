@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, Enum, Boolean, UniqueConstraint
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, Text, Enum, Boolean, UniqueConstraint, JSON
 from sqlalchemy.orm import relationship, declarative_base
 from datetime import datetime
 import enum
@@ -22,6 +22,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     failed_login_count = Column(Integer, nullable=False, default=0)
     locked_until = Column(DateTime, nullable=True)
+    fitness_profile = Column(JSON, nullable=True)
 
     # reverse relationships
     contexts = relationship("Context", back_populates="user", cascade="all, delete-orphan")
@@ -143,6 +144,7 @@ class SetLog(Base):
     actual_weight = Column(Float, nullable=True)
     actual_reps = Column(Integer, nullable=True)
     effort = Column(Integer, nullable=True)  # 1-5
+    rir = Column(Integer, nullable=True)  # Reps in Reserve: 0=failure, 1+=easy
     notes = Column(Text)
     is_seeded = Column(Boolean, default=False, nullable=False)
     completed_at = Column(DateTime, default=datetime.utcnow)
@@ -177,6 +179,22 @@ class AlgorithmState(Base):
 
     user = relationship("User", back_populates="algorithm_states")
     exercise_entry = relationship("ExerciseEntry")
+
+
+class ProgressionTransition(Base):
+    __tablename__ = "progression_transitions"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    exercise_entry_id = Column(Integer, ForeignKey("exercise_entries.id", ondelete="CASCADE"), nullable=False)
+    from_phase = Column(String, nullable=False)
+    to_phase = Column(String, nullable=False)
+    week_in_block = Column(Integer, default=1)
+    reason = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+
+    user = relationship("User")
+    exercise_entry = relationship("ExerciseEntry")
+
 
 class AppSetting(Base):
     __tablename__ = "app_settings"
