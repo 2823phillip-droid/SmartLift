@@ -90,6 +90,7 @@
   .col-user { color: var(--emerald); }
   .col-done { color: var(--green); }
   .col-blocked { color: var(--red); }
+  .col-waiting { color: var(--amber); }
 
   ul { list-style: none; }
   li {
@@ -106,10 +107,11 @@
     font-weight: 700;
     flex-shrink: 0;
   }
-  .col-done li::before { color: var(--green); }
+  .col-done li::before { content: "✓"; color: var(--green); }
   .col-agent li::before { color: var(--blue); }
   .col-user li::before { color: var(--emerald); }
   .col-blocked li::before { color: var(--red); }
+  .col-waiting li::before { content: "○"; color: var(--amber); font-weight: 400; }
 
   .dependency {
     margin-top: 0.75rem;
@@ -250,8 +252,19 @@
         <li>Log progression transitions server-side</li>
       </ul>
     </div>
-    <div class="col col-user">
-      <div class="col-header col-user">User must do</div>
+    <div class="col col-waiting">
+      <div class="col-header col-waiting">Agent — blocked / pending</div>
+      <ul>
+        <li>Validate linear progression against real user data with RIR <span style="color:var(--amber);font-size:0.78rem;">(blocked: user must log 2–3 sessions)</span></li>
+        <li>Surface backend prescription errors to user in UI</li>
+        <li>Add transition history view in app</li>
+        <li>pytest coverage for <code>/api/rules/next-prescription</code> side effects</li>
+        <li>Confirm AlgorithmState + ProgressionTransition rows created on phase change</li>
+        <li>End-to-end test: identical inputs → identical outputs unless RPE/RIR changes</li>
+      </ul>
+    </div>
+    <div class="col col-waiting">
+      <div class="col-header col-waiting">User must do</div>
       <ul>
         <li>Generate a workout and complete it</li>
         <li>Log effort + RIR for every set</li>
@@ -262,7 +275,7 @@
   </div>
   <div class="dependency">
     <span class="dep-icon">🔗</span>
-    <span><strong>Agent backend work is done; validation is blocked by your data.</strong> The prescription API, AlgorithmState persistence, and transition logging are deployed. Phase 1 only completes after you log 2–3 real sessions with RIR so we can confirm the linear progression defaults are right for you.</span>
+    <span><strong>Phase 1 validation is blocked by your data.</strong> The backend wiring is deployed, but linear progression defaults can't be validated until you log 2–3 real sessions with effort + RIR. Agent verification tasks are also pending that data.</span>
   </div>
   <div class="note">
     <strong>What we're measuring:</strong> completion rate, RIR per set, effort per set, whether weight was increased automatically. This data tells us if the linear progression defaults are right for you.
@@ -286,8 +299,8 @@
         <li>AI coach message for transition explanation</li>
       </ul>
     </div>
-    <div class="col col-user">
-      <div class="col-header col-user">User must do</div>
+    <div class="col col-waiting">
+      <div class="col-header col-waiting">User must do</div>
       <ul>
         <li>Continue logging workouts normally</li>
         <li>Algorithm auto-detects stall and switches you</li>
@@ -320,8 +333,8 @@
         <li>AI coach transitions with plain-language explanation</li>
       </ul>
     </div>
-    <div class="col col-user">
-      <div class="col-header col-user">User must do</div>
+    <div class="col col-waiting">
+      <div class="col-header col-waiting">User must do</div>
       <ul>
         <li>Keep logging workouts</li>
         <li>AI says "switching to 5/3/1, here's why"</li>
@@ -353,8 +366,8 @@
         <li>Pain/discomfort flag handling</li>
       </ul>
     </div>
-    <div class="col col-user">
-      <div class="col-header col-user">User must do</div>
+    <div class="col col-waiting">
+      <div class="col-header col-waiting">User must do</div>
       <ul>
         <li>Flag pain/discomfort when logging sets</li>
         <li>AI proactively suggests deload when needed</li>
@@ -386,8 +399,8 @@
         <li>Training age / volume threshold tracking</li>
       </ul>
     </div>
-    <div class="col col-user">
-      <div class="col-header col-user">User must do</div>
+    <div class="col col-waiting">
+      <div class="col-header col-waiting">User must do</div>
       <ul>
         <li>Continue logging sets consistently</li>
         <li>More data → better personalization</li>
@@ -416,7 +429,7 @@
     <span class="flow-step">AI explains the change</span>
   </div>
   <p style="color:var(--muted); font-size:0.85rem; margin-top:0.75rem;">
-    Frontend holds state in memory. Backend stores SetLogs. Agent is wiring the backend prescription API and AlgorithmState persistence so the system survives device switches and server restarts.
+    Frontend holds state in memory. Backend stores SetLogs. Prescription API and AlgorithmState persistence are deployed; remaining Phase 1 work is validation and verification against your real workout data.
   </p>
 </div>
 
