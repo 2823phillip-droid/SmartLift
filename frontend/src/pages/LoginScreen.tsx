@@ -52,13 +52,17 @@ export default function LoginScreen({ onLogin, onSwitch }: { onLogin: (user: { i
     setLoading(true);
     try {
       await withRetry(() => initApiBaseFromSettings(), { retries: 2, baseDelayMs: 300 });
+      const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+      if (!googleClientId) {
+        throw new Error("Google Sign-In is not configured. Missing VITE_GOOGLE_CLIENT_ID.");
+      }
       if (!window.google?.accounts?.id) {
         throw new Error("Google Sign-In is not configured yet.");
       }
       const res = await new Promise<any>((resolve, reject) => {
         const client = window.google.accounts.id;
         client.initialize({
-          client_id: "REPLACE_WITH_YOUR_GOOGLE_CLIENT_ID",
+          client_id: googleClientId,
           callback: (resp: any) => {
             if (resp.error) {
               reject(new Error(resp.error));
