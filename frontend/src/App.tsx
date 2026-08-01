@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
 import { api, initApiBaseFromSettings, setAuthToken, getAuthToken, withRetry } from "./api";
+import { setUnitsPreference } from "./utils/units";
 import HomeScreen from "./pages/HomeScreen";
 import WorkoutsScreen from "./pages/WorkoutsScreen";
 import TemplateListScreen from "./pages/TemplateListScreen";
 import TemplateEditorScreen from "./pages/TemplateEditorScreen";
 import BuildWorkoutScreen from "./pages/BuildWorkoutScreen";
+import QuestionnaireScreen from "./pages/QuestionnaireScreen";
 import PreWorkoutScreen from "./pages/PreWorkoutScreen";
 import ActiveWorkoutScreen from "./pages/ActiveWorkoutScreen";
 import PostWorkoutScreen from "./pages/PostWorkoutScreen";
@@ -34,7 +36,8 @@ type View =
   | "profile"
   | "login"
   | "signup"
-  | "debug_log";
+  | "debug_log"
+  | "questionnaire";
 
 const tabRootToView: Record<Tab, View> = {
   home: "home",
@@ -61,6 +64,7 @@ const viewToTab: Record<View, Tab | null> = {
   login: null,
   signup: null,
   debug_log: "settings",
+  questionnaire: null,
 };
 
 export default function App() {
@@ -109,7 +113,12 @@ export default function App() {
       try {
         const me = await withRetry(() => api.me(), { retries: 2, baseDelayMs: 300 });
         setUser(me as any);
-        setView("home");
+        const profile = await withRetry(() => api.getFitnessProfile(), { retries: 2, baseDelayMs: 300 }).catch(() => ({}));
+        if ((profile as any) && Object.keys(profile as any).length === 0 && typeof window !== "undefined" && !localStorage.getItem("smartlift_questionnaire_done")) {
+          setView("questionnaire");
+        } else {
+          setView("home");
+        }
       } catch {
         setAuthToken(null);
         if (typeof window !== "undefined") localStorage.removeItem("smartlift_token");
@@ -123,6 +132,24 @@ export default function App() {
     });
     return () => { cancelled = true; };
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!user) return;
+    withRetry(() => api.listSettings(), { retries: 2, baseDelayMs: 300 }).then((items) => {
+      if (cancelled) return;
+      const mode = (items as any[])?.find((s) => s.key === "workout_mode")?.value;
+      console.debug("[App] startup listSettings workout_mode=", mode, "all=", (items as any[])?.map((s: any) => s.key + "=" + s.value));
+      if (mode === "ai_trainer" || mode === "manual") setWorkoutMode(mode);
+      const units = (items as any[])?.find((s) => s.key === "units_preference")?.value;
+      if (units === "imperial" || units === "metric") {
+        setUnitsPreference(units);
+      }
+    }).catch((err) => {
+      console.debug("[App] startup listSettings failed", err);
+    });
+    return () => { cancelled = true; };
+  }, [user]);
 
   const handleLogin = async (userData?: { id: number; email: string; role: string; first_name?: string; last_name?: string }) => {
     const token = getAuthToken();
@@ -159,20 +186,6 @@ export default function App() {
     if (typeof window !== "undefined") localStorage.removeItem("smartlift_token");
     navigate("login");
   };
-
-  useEffect(() => {
-    let cancelled = false;
-    if (!user) return;
-    withRetry(() => api.listSettings(), { retries: 2, baseDelayMs: 300 }).then((items) => {
-      if (cancelled) return;
-      const mode = (items as any[])?.find((s) => s.key === "workout_mode")?.value;
-      console.debug("[App] startup listSettings workout_mode=", mode, "all=", (items as any[])?.map((s: any) => s.key + "=" + s.value));
-      if (mode === "ai_trainer" || mode === "manual") setWorkoutMode(mode);
-    }).catch((err) => {
-      console.debug("[App] startup listSettings failed", err);
-    });
-    return () => { cancelled = true; };
-  }, [user]);
 
   const DRAFT_KEY = "new-routine-draft-v1";
 
@@ -428,7 +441,72 @@ export default function App() {
               <LibraryScreen onBack={goBack} onImported={() => {}} />
             )}
             {view === "ai_trainer" && (
-              <AiTrainerScreen onBack={goBack} />
+              <AiTrainerScreen onBack={goBack} onLaunchQuestionnaire={() => setView("questionnaire")} />
+            )}
+            {view === "questionnaire" && (
+              <QuestionnaireScreen
+                onBack={() => {
+                  setView("home");
+                }}
+                onComplete={async (draft, answers) => {
+                  const DRAFT_KEY = "new-routine-draft-v1";
+                  const groups = draft?.workout_draft?.groups || [];
+                  const location = (answers?.workout_location as string) || "My Workouts";
+                  const focus = (answers?.focus as string) || "full_body";
+
+                  // Better top-level name for localStorage fallback
+                  const focusLabel = {
+                    full_body: "Full Body",
+                    upper_lower_split: "Upper/Lower Split",
+                    push_pull_legs: "Push/Pull/Legs",
+                    cardio: "Cardio",
+                  }[focus] || "Full Body";
+
+                  let savedTemplateIds: number[] = [];
+                  try {
+                    const contexts = await api.getContexts();
+                    let ctx = contexts?.find((c: any) => c.name.toLowerCase() === location.toLowerCase());
+                    if (!ctx) {
+                      ctx = await api.createContext({ name: location, order: 0 });
+                    }
+
+                    // Create one template per day/group
+                    const createPromises = groups.map(async (g: any, idx: number) => {
+                      const tpl = await api.createTemplate({
+                        name: g.name || `${focusLabel} Day ${idx + 1}`,
+                        type: "strength",
+                        context_id: ctx.id,
+                        order: idx,
+                      });
+                      const exercises = (g.exercises || []).map((ex: any, exIdx: number) => ({
+                        template_id: tpl.id,
+                        name: ex.name || "Exercise",
+                        order: exIdx,
+                        sets_target: ex.sets_target || 3,
+                        reps_target: ex.reps_target || 10,
+                        start_weight: ex.start_weight || 0,
+                        rest_seconds: ex.rest_seconds || 90,
+                        notes: ex.notes || null,
+                      }));
+                      await Promise.all(exercises.map((data: any) => api.createExercise(data)));
+                      return tpl.id;
+                    });
+                    savedTemplateIds = await Promise.all(createPromises);
+                  } catch (err) {
+                    console.error("[Questionnaire] backend save failed", err);
+                  }
+
+                  if (typeof window !== "undefined") {
+                    localStorage.setItem(DRAFT_KEY, JSON.stringify({ groups }));
+                    localStorage.setItem("smartlift_questionnaire_done", "1");
+                  }
+
+                  if (savedTemplateIds.length > 0) {
+                    setSelectedTemplateId(savedTemplateIds[0]);
+                  }
+                  setView("workouts");
+                }}
+              />
             )}
             {view === "workouts" && (
               <WorkoutsScreen
@@ -466,16 +544,22 @@ export default function App() {
   );
 }
 
-function AiTrainerScreen({ onBack }: { onBack: () => void }) {
+function AiTrainerScreen({ onBack, onLaunchQuestionnaire }: { onBack: () => void; onLaunchQuestionnaire: () => void }) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-bold tracking-tight">AI Trainer</h2>
         <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-200 transition-colors px-2 py-1 rounded-lg hover:bg-slate-800/50">Back</button>
       </div>
-      <p className="text-slate-400 text-sm">Your AI coaching assistant. Coming soon.</p>
+      <p className="text-slate-400 text-sm">Your AI coaching assistant is coming soon. For now, you can re-run the questionnaire to generate a new workout plan.</p>
+      <button
+        onClick={onLaunchQuestionnaire}
+        className="w-full rounded-xl border border-indigo-800 bg-indigo-950/40 px-4 py-3 text-sm font-bold text-indigo-200 hover:border-indigo-500/60 transition-colors"
+      >
+        Generate New Workout Plan
+      </button>
     </div>
-  );
+  )
 }
 
 // Admin login on first launch / reinstall:

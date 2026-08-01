@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { api, type SessionHistory, type SetLogUpdate, type SetLog } from "../api";
+import { formatWeight, getUnitsPreference } from "../utils/units";
 
 type SessionDetail = {
   session: SessionHistory;
@@ -363,7 +364,7 @@ export default function HistoryScreen({
             <div className="text-xs text-slate-500 mt-1 truncate">
               {subtitle}
               {s.ended_at && ` · ${Math.round((new Date(s.ended_at).getTime() - new Date(s.started_at).getTime()) / 60000)} min`}
-              {totalVolume !== null && ` · ${totalVolume.toFixed(0)} lbs`}
+              {totalVolume !== null && ` · ${formatWeight(totalVolume, getUnitsPreference())}`}
             </div>
           </div>
           <div className="flex items-center gap-2 ml-2">
@@ -436,7 +437,7 @@ export default function HistoryScreen({
                               <div className="text-xs font-semibold text-indigo-200">{exerciseName} · Edit set</div>
                               <div className="grid grid-cols-2 gap-2">
                                 <div>
-                                  <div className="text-[10px] text-slate-500">Weight (lbs)</div>
+                                  <div className="text-[10px] text-slate-500">Weight</div>
                                   <input
                                     type="number"
                                     defaultValue={log.actual_weight ?? ""}
@@ -536,7 +537,7 @@ export default function HistoryScreen({
                             <div className="flex-1 min-w-0">
                               <div className="text-xs text-slate-500 font-semibold">{exerciseName}</div>
                               <div className="text-xs text-slate-400">
-                                Set {log.set_index} · {log.actual_weight ?? "—"} lbs × {log.actual_reps ?? "—"} · E{log.effort ?? "—"}/5
+                                Set {log.set_index} · {formatWeight(log.actual_weight ?? 0, getUnitsPreference())} × {log.actual_reps ?? "—"} · E{log.effort ?? "—"}/5
                               </div>
                             </div>
                             <button
@@ -657,7 +658,7 @@ export default function HistoryScreen({
                           <div className="flex-1 min-w-0">
                             <div className="text-xs text-slate-400">{date}</div>
                             <div className="text-sm font-semibold">
-                              {weight} lbs × {reps}
+                              {formatWeight(weight, getUnitsPreference())} × {reps}
                             </div>
                           </div>
                           <svg

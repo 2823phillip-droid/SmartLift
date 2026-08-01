@@ -3,6 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import { Browser } from "@capacitor/browser";
 import { api } from "../api";
 import type { WorkoutLibrary } from "../types";
+import { formatWeight, getUnitsPreference } from "../utils/units";
 
 const DIFFICULTY_COLORS: Record<string, string> = {
   beginner: "text-emerald-400 bg-emerald-950/40 border-emerald-800",
@@ -134,7 +135,7 @@ export default function LibraryScreen({ onBack, onImported }: { onBack: () => vo
                       {ex.muscle_group ? <span>{ex.muscle_group}</span> : null}
                       {ex.equipment ? <span>· {ex.equipment}</span> : null}
                       <span>· {ex.sets_target}x{ex.reps_target}</span>
-                      {ex.start_weight > 0 ? <span>· {ex.start_weight} lbs</span> : null}
+                      {ex.start_weight > 0 ? <span>· {formatWeight(ex.start_weight, getUnitsPreference())}</span> : null}
                       <span>· {ex.rest_seconds}s rest</span>
                     </div>
                   </div>

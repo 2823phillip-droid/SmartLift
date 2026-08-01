@@ -56,23 +56,6 @@ export default function WorkoutsScreen({
     setError("");
     let contexts: any[] = [];
     let templatesRaw: any[] = [];
-    const onFinish = (e: any) => {
-      if (cancelled) return;
-      if (e && (e.status === 401 || e.status === 403)) {
-        if (typeof window !== "undefined") {
-          api.logout().catch(() => {});
-          localStorage.removeItem("smartlift_token");
-        }
-        setTimeout(() => { if (!cancelled && typeof window !== "undefined") {
-          window.location.reload();
-        } }, 50);
-        return;
-      }
-      console.error("[WorkoutsScreen] load failed", e);
-      const url = (e as any)?.url;
-      const msg = e instanceof Error ? e.message : String(e);
-      setError(`${msg}${url ? `\nURL: ${url}` : ""}`);
-    };
     withRetry(
       () =>
         api.getContexts()
@@ -125,6 +108,11 @@ export default function WorkoutsScreen({
   }, []);
 
   const templatesSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const contextSensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );

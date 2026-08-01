@@ -7,14 +7,15 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from "recharts";
+import { formatWeight, getUnitsPreference, type UnitsPreference } from "../utils/units";
 
 type Widget = {
   name: string;
   points: { date: string; weight: number; reps: number }[];
 };
 
-function fmtWeight(v: number) {
-  return Math.round(v) + " lbs";
+function fmtWeight(v: number, units: UnitsPreference) {
+  return formatWeight(v, units);
 }
 
 function fmtDate(iso: string) {
@@ -30,17 +31,18 @@ function fmtShortDate(iso: string) {
   return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
 }
 
-function formatTick(v: number) {
-  return Math.round(v) + " lbs";
+function formatTick(v: number, units: UnitsPreference) {
+  return formatWeight(v, units);
 }
 
-export default function ProgressWidget({ widget, onRemove }: { widget: Widget & { seeded?: boolean }; onRemove: () => void }) {
+export default function ProgressWidget({ widget, onRemove, units }: { widget: Widget & { seeded?: boolean }; onRemove: () => void; units?: UnitsPreference }) {
   const visible = widget.points;
   const latest = visible[visible.length - 1];
   const latest2 = visible[visible.length - 2];
   const prevWeight = latest2?.weight;
   const delta = prevWeight !== undefined ? latest?.weight != null ? latest.weight - prevWeight : null : null;
   const showDelta = !widget.seeded && delta !== null && delta !== 0;
+  const unitsPref = units ?? getUnitsPreference();
 
   const chartData = visible.map((p) => ({
     date: p.date,
@@ -63,10 +65,10 @@ export default function ProgressWidget({ widget, onRemove }: { widget: Widget & 
         <div className="text-sm font-semibold text-slate-200 mt-1">{widget.name}</div>
       </div>
       <div className="flex items-baseline gap-2 mt-2">
-        <span className="text-xl font-bold">{latest?.weight != null ? fmtWeight(latest.weight) : "--"}</span>
+        <span className="text-xl font-bold">{latest?.weight != null ? fmtWeight(latest.weight, unitsPref) : "--"}</span>
         {showDelta && (
           <span className={`text-xs font-semibold ${delta > 0 ? "text-emerald-400" : "text-rose-400"}`}>
-            {delta > 0 ? "+" : ""}{Math.round(delta)} lbs
+            {delta > 0 ? "+" : ""}{formatWeight(Math.abs(delta), unitsPref)}
           </span>
         )}
       </div>
@@ -93,14 +95,14 @@ export default function ProgressWidget({ widget, onRemove }: { widget: Widget & 
                 minTickGap={40}
               />
               <YAxis
-                tickFormatter={formatTick}
+                tickFormatter={(v: number) => formatTick(v, unitsPref)}
                 tick={{ fontSize: 10, fill: "#94a3b8" }}
                 axisLine={false}
                 tickLine={false}
                 width={55}
               />
               <Tooltip
-                formatter={(value) => [fmtWeight(Number(value ?? 0)), "Weight"]}
+                formatter={(value) => [fmtWeight(Number(value ?? 0), unitsPref), "Weight"]}
                 labelFormatter={(label) => {
                   const pt = chartData.find((d) => d.shortDate === label);
                   return pt ? pt.fullDate : label;

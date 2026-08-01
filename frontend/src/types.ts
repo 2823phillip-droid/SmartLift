@@ -79,6 +79,7 @@ export interface SetLog {
   actual_weight?: number;
   actual_reps?: number;
   effort?: number;
+  rir?: number;
   notes?: string;
 }
 

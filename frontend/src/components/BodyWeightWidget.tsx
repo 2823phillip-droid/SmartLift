@@ -2,6 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 import { api } from "../api";
 import type { BodyWeightLog } from "../types";
+import { formatWeight, getUnitsPreference, weightInputPlaceholder } from "../utils/units";
 
 type WidgetState = {
   logs: BodyWeightLog[];
@@ -44,17 +45,19 @@ export default function BodyWeightWidget({ timeframe }: { timeframe: "week" | "3
   const [logs, setLogs] = useState<BodyWeightLog[]>(() => loadState().logs);
   const [input, setInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const units = getUnitsPreference();
 
   useEffect(() => {
     saveState({ logs });
   }, [logs]);
 
   const addLog = async () => {
-    const weight = parseFloat(input);
-    if (Number.isNaN(weight) || weight <= 0) return;
+    const raw = parseFloat(input);
+    if (Number.isNaN(raw) || raw <= 0) return;
+    const lbs = units === "imperial" ? raw : raw * 2.20462;
     setSaving(true);
     try {
-      const created: BodyWeightLog = await api.createBodyWeightLog({ weight_lbs: weight });
+      const created: BodyWeightLog = await api.createBodyWeightLog({ weight_lbs: lbs });
       setLogs((prev) => [...prev, created].sort((a, b) => new Date(a.logged_at).getTime() - new Date(b.logged_at).getTime()));
       setInput("");
     } finally {
@@ -74,7 +77,7 @@ export default function BodyWeightWidget({ timeframe }: { timeframe: "week" | "3
     <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
       <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-2">Body Weight</div>
       <div className="flex items-baseline gap-2 mb-3">
-        <span className="text-xl font-bold">{latest ? `${Math.round(latest.weight_lbs)} lbs` : "--"}</span>
+        <span className="text-xl font-bold">{latest ? formatWeight(latest.weight_lbs, units) : "--"}</span>
       </div>
 
       {chartData.length > 1 ? (
@@ -96,7 +99,7 @@ export default function BodyWeightWidget({ timeframe }: { timeframe: "week" | "3
                 minTickGap={40}
               />
               <YAxis
-                tickFormatter={(v: number) => `${Math.round(v)} lbs`}
+                tickFormatter={(v: number) => formatWeight(v, units)}
                 tick={{ fontSize: 10, fill: "#94a3b8" }}
                 axisLine={false}
                 tickLine={false}
@@ -115,7 +118,7 @@ export default function BodyWeightWidget({ timeframe }: { timeframe: "week" | "3
           type="number"
           value={input}
           onChange={(e) => setInput(e.target.value)}
-          placeholder="lbs"
+          placeholder={weightInputPlaceholder(units)}
           className="flex-1 rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500"
         />
         <button

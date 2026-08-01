@@ -1,11 +1,11 @@
 from fastapi import FastAPI, Depends, HTTPException, Header, Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional, List
 import json
 import os
@@ -23,10 +23,11 @@ from passlib.context import CryptContext
 from db import SessionLocal, init_db
 from models import (
     User, UserRole, Context, WorkoutTemplate, ExerciseLibrary, ExerciseEntry,
-    WorkoutSession, SetLog, CoachMessage, AlgorithmState, RoutineType, SessionStatus, CoachRole, AppSetting,
+    WorkoutSession, SetLog, CoachMessage, AlgorithmState, ProgressionTransition, RoutineType, SessionStatus, CoachRole, AppSetting,
     WorkoutLibrary, WorkoutLibraryExercise, BodyWeightLog, AITrainerAdjustment
 )
 from rules import compute_prescription, RuleInput, SetRecord, Prescription, WorkloadStatus, ProgressionType, compute_coach_state, CoachState
+from services.generation import build_full_draft
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 AUTH_TOKEN_PREFIX = "Bearer "
@@ -153,6 +154,17 @@ async def healthz():
 async def readyz():
     return {"status": "ready"}
 
+@app.get("/roadmap")
+async def roadmap():
+    with open("roadmap.html", "r") as f:
+        html = f.read()
+    served_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    html = html.replace(
+        '<div class="legend-item" style="margin-left:auto;color:var(--muted)" id="deploy-ts"></div>',
+        f'<div class="legend-item" style="margin-left:auto;color:var(--muted)" id="deploy-ts">Deployed: {served_at}</div>',
+    )
+    return HTMLResponse(content=html, media_type="text/html")
+
 # Dependency
 def get_db():
     db = SessionLocal()
@@ -189,6 +201,10 @@ def _run_migrations():
                 conn.execute(_text("ALTER TABLE workout_templates ADD COLUMN coach_rules TEXT"))
                 conn.commit()
 
+            if "fitness_profile" not in cols("users"):
+                conn.execute(_text("ALTER TABLE users ADD COLUMN fitness_profile JSONB"))
+                conn.commit()
+
             ucols = cols("users")
             if "failed_login_count" not in ucols:
                 conn.execute(_text("ALTER TABLE users ADD COLUMN failed_login_count INTEGER DEFAULT 0 NOT NULL"))
@@ -206,6 +222,11 @@ def _run_migrations():
                 conn.commit()
             if "deload_override" not in ecols:
                 conn.execute(_text("ALTER TABLE exercise_entries ADD COLUMN deload_override INTEGER DEFAULT 0"))
+                conn.commit()
+
+            scolumns = cols("set_logs")
+            if "rir" not in scolumns:
+                conn.execute(_text("ALTER TABLE set_logs ADD COLUMN rir INTEGER"))
                 conn.commit()
     except Exception:
         pass
@@ -337,6 +358,7 @@ class SetLogCreate(BaseModel):
     actual_weight: Optional[float] = None
     actual_reps: Optional[int] = None
     effort: Optional[int] = None
+    rir: Optional[int] = None
     notes: Optional[str] = None
 
 class SetLogOut(BaseModel):
@@ -349,6 +371,7 @@ class SetLogOut(BaseModel):
     actual_weight: Optional[float]
     actual_reps: Optional[int]
     effort: Optional[int]
+    rir: Optional[int]
     notes: Optional[str]
 
     class Config:
@@ -428,6 +451,7 @@ class UserOut(BaseModel):
     role: str
     first_name: Optional[str] = None
     last_name: Optional[str] = None
+    fitness_profile: Optional[dict] = None
 
     class Config:
         from_attributes = True
@@ -634,7 +658,14 @@ def get_current_user(authorization: Optional[str] = Header(None), db: Session = 
     user = _user_from_token(token, db)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid token")
-    return UserOut(id=user.id, email=user.email, role=user.role.value, first_name=user.first_name, last_name=user.last_name)
+    return UserOut(
+        id=user.id,
+        email=user.email,
+        role=user.role.value,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        fitness_profile=user.fitness_profile,
+    )
 
 def get_current_user_dep(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)) -> User:
     if not authorization or not authorization.startswith("Bearer "):
@@ -649,6 +680,82 @@ class ProfileUpdateIn(BaseModel):
     first_name: Optional[str] = None
     last_name: Optional[str] = None
 
+class FitnessProfileIn(BaseModel):
+    weight_kg: Optional[float] = None
+    height_cm: Optional[float] = None
+    sex: Optional[str] = None
+    activity_level: Optional[str] = None
+    goal: Optional[List[str]] = []
+    equipment: Optional[str] = None
+    age_range: Optional[str] = None
+    days_per_week: Optional[int] = None
+    minutes_per_session: Optional[int] = None
+    experience: Optional[str] = None
+    focus: Optional[str] = None
+    limitations: Optional[List[str]] = []
+    meal_plan_opt_in: Optional[bool] = False
+    diet_type: Optional[str] = None
+    cooking_skill: Optional[str] = None
+    allergies: Optional[List[str]] = []
+    meals_per_day: Optional[int] = None
+
+class TrainerGenerateIn(BaseModel):
+    weight_kg: Optional[float] = None
+    height_cm: Optional[float] = None
+    sex: Optional[str] = None
+    activity_level: Optional[str] = None
+    goal: Optional[List[str]] = []
+    equipment: Optional[str] = None
+    age_range: Optional[str] = None
+    days_per_week: Optional[int] = None
+    minutes_per_session: Optional[int] = None
+    experience: Optional[str] = None
+    focus: Optional[str] = None
+    limitations: Optional[List[str]] = []
+    meal_plan_opt_in: Optional[bool] = False
+    diet_type: Optional[str] = None
+    cooking_skill: Optional[str] = None
+    allergies: Optional[List[str]] = []
+    meals_per_day: Optional[int] = None
+
+class WorkoutDraftExercise(BaseModel):
+    name: str
+    muscle_group: Optional[str] = None
+    equipment: Optional[str] = None
+    sets_target: int
+    reps_target: int
+    start_weight: float
+    rest_seconds: int
+    order: int
+    notes: Optional[str] = None
+    gif_url: Optional[str] = None
+    image_url: Optional[str] = None
+    video_url: Optional[str] = None
+
+class WorkoutDraftGroup(BaseModel):
+    name: str
+    exercises: List[WorkoutDraftExercise]
+
+class WorkoutDraft(BaseModel):
+    name: str
+    description: str
+    groups: List[WorkoutDraftGroup]
+
+class MealTargets(BaseModel):
+    calories: int
+    protein_g: int
+    carbs_g: int
+    fat_g: int
+
+class MealPlanDraft(BaseModel):
+    name: str
+    targets: MealTargets
+    days: List[dict]
+
+class TrainerGenerateOut(BaseModel):
+    workout_draft: WorkoutDraft
+    meal_plan_draft: Optional[MealPlanDraft] = None
+
 @app.put("/api/auth/profile", response_model=UserOut)
 def update_profile(payload: ProfileUpdateIn, current_user: User = Depends(get_current_user_dep), db: Session = Depends(get_db)):
     if payload.first_name is not None:
@@ -657,7 +764,38 @@ def update_profile(payload: ProfileUpdateIn, current_user: User = Depends(get_cu
         current_user.last_name = payload.last_name
     db.commit()
     db.refresh(current_user)
-    return UserOut(id=current_user.id, email=current_user.email, role=current_user.role.value, first_name=current_user.first_name, last_name=current_user.last_name)
+    return UserOut(
+        id=current_user.id,
+        email=current_user.email,
+        role=current_user.role.value,
+        first_name=current_user.first_name,
+        last_name=current_user.last_name,
+        fitness_profile=current_user.fitness_profile,
+    )
+
+@app.get("/api/profile/fitness")
+def get_fitness_profile(current_user: User = Depends(get_current_user_dep), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == current_user.id).first()
+    return user.fitness_profile or {}
+
+@app.put("/api/profile/fitness")
+def put_fitness_profile(payload: FitnessProfileIn, current_user: User = Depends(get_current_user_dep), db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.id == current_user.id).first()
+    user.fitness_profile = json.loads(json.dumps(payload.model_dump(exclude_none=True)))
+    db.commit()
+    db.refresh(user)
+    return user.fitness_profile or {}
+
+@app.post("/api/trainer/generate", response_model=TrainerGenerateOut)
+def trainer_generate(payload: Optional[TrainerGenerateIn] = None, current_user: User = Depends(get_current_user_dep), db: Session = Depends(get_db)):
+    # Merge request overrides with saved profile
+    saved = current_user.fitness_profile or {}
+    overrides = json.loads(json.dumps(payload.model_dump(exclude_none=True))) if payload else {}
+    merged = {**saved, **overrides}
+    profile = merged
+
+    workout_draft, meal_plan_draft = build_full_draft(db, merged)
+    return TrainerGenerateOut(workout_draft=workout_draft, meal_plan_draft=meal_plan_draft)
 
 # --- Body Weight ---
 
@@ -768,9 +906,23 @@ def update_context(context_id: int, payload: ContextUpdate, db: Session = Depend
         description=c.description,
         equipment_tags=json.loads(c.equipment_tags or "[]"),
         is_active=c.is_active,
-        default_rest_seconds=c.default_rest_seconds,
         order=getattr(c, "order", 0),
     )
+
+
+def _template_out(tpl: WorkoutTemplate) -> WorkoutTemplateOut:
+    exercises = sorted(tpl.exercises or [], key=lambda e: e.order)
+    return WorkoutTemplateOut(
+        id=tpl.id,
+        context_id=tpl.context_id,
+        name=tpl.name,
+        type=tpl.type,
+        order=tpl.order,
+        default_rest_seconds=tpl.default_rest_seconds,
+        coach_rules=tpl.coach_rules,
+        exercises=exercises,
+    )
+
 
 # --- Templates ---
 
@@ -838,7 +990,10 @@ def delete_template(template_id: int, db: Session = Depends(get_db), current_use
 
 @app.post("/api/exercises", response_model=ExerciseEntryOut)
 def create_exercise(payload: ExerciseEntryCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    ex = ExerciseEntry(**payload.dict(), user_id=current_user.id)
+    allowed = {k: v for k, v in payload.dict(exclude_unset=True).items() if k in {
+        "template_id","exercise_library_id","name","sets_target","reps_target","start_weight","rest_seconds","order","notes","per_set_data"
+    }}
+    ex = ExerciseEntry(**allowed, user_id=current_user.id)
     db.add(ex)
     db.commit()
     db.refresh(ex)
@@ -849,7 +1004,10 @@ def update_exercise(exercise_id: int, payload: ExerciseEntryCreate, db: Session 
     ex = db.query(ExerciseEntry).filter(ExerciseEntry.id == exercise_id, ExerciseEntry.user_id == current_user.id).first()
     if not ex:
         raise HTTPException(status_code=404, detail="Exercise not found")
-    for field, value in payload.dict(exclude_unset=True).items():
+    allowed = {k: v for k, v in payload.dict(exclude_unset=True).items() if k in {
+        "template_id","exercise_library_id","name","sets_target","reps_target","start_weight","rest_seconds","order","notes","per_set_data"
+    }}
+    for field, value in allowed.items():
         setattr(ex, field, value)
     db.commit()
     db.refresh(ex)
@@ -1333,6 +1491,7 @@ class RuleRequestIn(BaseModel):
     current_phase: Optional[str] = None
     current_week_in_block: Optional[int] = None
     custom_phase_order: Optional[List[str]] = None
+    exercise_entry_id: Optional[int] = None
 
 
 class CoachStateResponse(BaseModel):
@@ -1362,7 +1521,7 @@ class RuleResponseOut(BaseModel):
 
 
 @app.post("/api/rules/next-prescription", response_model=RuleResponseOut)
-def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_current_user_dep)):
+def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_current_user_dep), db: Session = Depends(get_db)):
     history = [SetRecord(**s.model_dump()) for s in payload.history]
     rule = RuleInput(
         start_weight=payload.start_weight,
@@ -1402,10 +1561,41 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         custom_phase_order=payload.custom_phase_order,
     )
     result = compute_prescription(rule)
+
+    if payload.exercise_entry_id is not None:
+        state = db.query(AlgorithmState).filter(
+            AlgorithmState.user_id == current_user.id,
+            AlgorithmState.exercise_entry_id == payload.exercise_entry_id,
+        ).first()
+        previous_phase = state.progression_type if state else None
+        if not state:
+            state = AlgorithmState(user_id=current_user.id, exercise_entry_id=payload.exercise_entry_id)
+            db.add(state)
+        state.current_week = coach_state.week_in_block
+        state.last_suggested_weight = result.next_weight
+        state.last_suggested_reps = result.next_reps
+        if history:
+            state.last_effort_avg = round(sum(s.effort or 3 for s in history[-10:]) / min(len(history), 10), 2)
+        state.progression_type = coach_state.phase
+        db.commit()
+
+        if previous_phase and previous_phase != coach_state.phase:
+            transition = ProgressionTransition(
+                user_id=current_user.id,
+                exercise_entry_id=payload.exercise_entry_id,
+                from_phase=previous_phase,
+                to_phase=coach_state.phase,
+                week_in_block=coach_state.week_in_block,
+                reason="best_fit",
+            )
+            db.add(transition)
+            db.commit()
+
     logger.info(json.dumps({
         "type": "rule",
         "event": "next_prescription",
         "user_id": current_user.id,
+        "exercise_entry_id": payload.exercise_entry_id,
         "prescription_type": result.prescription_type,
         "next_weight": result.next_weight,
         "next_reps": result.next_reps,
@@ -1423,6 +1613,50 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         is_deload=result.is_deload,
         coach=CoachStateResponse(**dataclasses.asdict(coach_state)),
     )
+
+
+class AlgorithmStateOut(BaseModel):
+    exercise_entry_id: int
+    current_week: int
+    last_suggested_weight: Optional[float]
+    last_suggested_reps: Optional[int]
+    last_effort_avg: Optional[float]
+    progression_type: str
+    updated_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+class ProgressionTransitionOut(BaseModel):
+    id: int
+    from_phase: str
+    to_phase: str
+    week_in_block: int
+    reason: Optional[str]
+    created_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+@app.get("/api/rules/algorithm-state/{exercise_entry_id}", response_model=AlgorithmStateOut)
+def get_algorithm_state(exercise_entry_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    state = db.query(AlgorithmState).filter(
+        AlgorithmState.user_id == current_user.id,
+        AlgorithmState.exercise_entry_id == exercise_entry_id,
+    ).first()
+    if not state:
+        raise HTTPException(status_code=404, detail="algorithm_state_not_found")
+    return state
+
+
+@app.get("/api/rules/transitions", response_model=List[ProgressionTransitionOut])
+def list_progression_transitions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    transitions = db.query(ProgressionTransition).filter(
+        ProgressionTransition.user_id == current_user.id,
+    ).order_by(ProgressionTransition.created_at.desc()).limit(200).all()
+    return transitions
 
 
 class CoachOverrideRequest(BaseModel):
@@ -1911,9 +2145,7 @@ def list_settings(db: Session = Depends(get_db), current_user: User = Depends(ge
     logger.info("[settings] GET returned keys=%s", [x.key for x in out])
     return out
 
-# --- Helpers ---
-
-def _template_out(tpl: WorkoutTemplate) -> WorkoutTemplateOut:
+# --- Body Weight ---
     exercises = sorted(tpl.exercises or [], key=lambda e: e.order)
     return WorkoutTemplateOut(
         id=tpl.id,

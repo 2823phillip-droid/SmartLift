@@ -305,7 +305,7 @@ export const api = {
 
   getExercises: (templateId: number) => request(`/templates/${templateId}/exercises`),
   getAllExercises: () => request("/exercises"),
-  createExercise: (data: { template_id: number; name: string; exercise_library_id?: number; order: number }) =>
+  createExercise: (data: { template_id: number; name: string; exercise_library_id?: number; order: number; sets_target?: number; reps_target?: number; start_weight?: number; rest_seconds?: number; notes?: string | null }) =>
     request("/exercises", { method: "POST", body: JSON.stringify(data) }),
   updateExercise: (id: number, data: Partial<Exercise>) =>
     request(`/exercises/${id}`, {
@@ -359,6 +359,7 @@ export const api = {
     actual_weight?: number | null;
     actual_reps?: number | null;
     effort?: number | null;
+    rir?: number | null;
     notes?: string | null;
   }) =>
     request("/set-logs", { method: "POST", body: JSON.stringify(data) }),
@@ -379,6 +380,56 @@ export const api = {
       body: JSON.stringify(data),
     }),
   getCoachState: () => request("/coach/state"),
+
+  nextPrescription: (data: {
+    start_weight: number;
+    reps_target: number;
+    sets_target: number;
+    rest_seconds: number;
+    progression_type: string;
+    history: Array<{
+      actual_weight: number;
+      actual_reps: number;
+      effort?: number | null;
+      rpe?: number | null;
+      rir?: number | null;
+      is_seeded?: boolean;
+      completed_at?: string | null;
+    }>;
+    linear_increment?: number;
+    double_increment?: number;
+    double_success_threshold?: number;
+    estimated_1rm?: number | null;
+    percentage_of_1rm?: number;
+    pct_increment_success?: number;
+    pct_decrement_fail?: number;
+    week?: number;
+    periodization_cycle_weeks?: number;
+    force_deload?: boolean;
+    deload_volume_factor?: number;
+    deload_intensity_factor?: number;
+    hard_effort_threshold?: number;
+    easy_effort_threshold?: number;
+    ai_progression_sensitivity?: number | null;
+    ai_volume_tolerance?: number | null;
+    ai_recovery_multiplier?: number | null;
+    ai_preferred_rir?: number | null;
+    ai_stress_fatigue_adjustment?: number | null;
+    ai_calibrated_1rm?: number | null;
+    current_phase?: string | null;
+    current_week_in_block?: number | null;
+    custom_phase_order?: string[] | null;
+    exercise_entry_id?: number | null;
+  }) =>
+    request("/rules/next-prescription", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getAlgorithmState: (exerciseEntryId: number) =>
+    request(`/rules/algorithm-state/${exerciseEntryId}`),
+
+  listProgressionTransitions: () => request("/rules/transitions"),
 
   aiNextSuggestion: (data: {
     session_id: number;
@@ -406,6 +457,18 @@ export const api = {
       body: JSON.stringify({ key, value }),
     }),
   listSettings: () => request("/settings"),
+
+  getFitnessProfile: () => request("/profile/fitness"),
+  putFitnessProfile: (data: any) =>
+    request("/profile/fitness", {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }),
+  generateTrainer: (data: any) =>
+    request("/trainer/generate", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
 
   saveAITrainerAdjustments: (data: any) =>
     request("/ai-trainer/adjustments/batch", {

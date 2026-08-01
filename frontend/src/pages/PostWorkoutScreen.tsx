@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { api } from "../api";
 import type { SetLog, WorkoutSession, ExerciseEntry } from "../types";
+import { formatWeight, getUnitsPreference, weightInputPlaceholder } from "../utils/units";
 
 export default function PostWorkoutScreen({
   sessionId,
@@ -61,7 +62,7 @@ export default function PostWorkoutScreen({
     await api.createCoachMessage({
       session_id: sessionId,
       role: "post_workout",
-      content: `Session summary: ${logs.length} sets logged. Volume: ${logs.reduce((a, b) => a + (b.actual_weight || 0) * (b.actual_reps || 0), 0).toFixed(0)} lbs. Feedback: ${feedback}`,
+      content: `Session summary: ${logs.length} sets logged. Volume: ${formatWeight(logs.reduce((a, b) => a + (b.actual_weight || 0) * (b.actual_reps || 0), 0), getUnitsPreference())}. Feedback: ${feedback}`,
     });
     setCoachSent(true);
   };
@@ -188,7 +189,7 @@ export default function PostWorkoutScreen({
           <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3 space-y-1">
             <div className="text-[10px] text-slate-500 uppercase tracking-widest">Volume</div>
             <div className="text-xl font-bold">{totalVolume.toFixed(0)}</div>
-            <div className="text-[10px] text-slate-500">lbs</div>
+            <div className="text-[10px] text-slate-500">{weightInputPlaceholder(getUnitsPreference())}</div>
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3 space-y-1">
             <div className="text-[10px] text-slate-500 uppercase tracking-widest">Effort</div>
@@ -311,7 +312,7 @@ export default function PostWorkoutScreen({
           </svg>
         </div>
         <h2 className="text-2xl font-bold tracking-tight">Workout Summary</h2>
-        <p className="text-xs text-slate-500 mt-1">{logs.length} sets · {totalVolume.toFixed(0)} lbs total</p>
+        <p className="text-xs text-slate-500 mt-1">{logs.length} sets · {formatWeight(totalVolume, getUnitsPreference())} total</p>
       </div>
 
       <div className="space-y-2">
@@ -327,7 +328,7 @@ export default function PostWorkoutScreen({
                 <span className="text-xs text-slate-500">{log.effort}/5</span>
               </div>
               <div className="text-sm font-semibold mt-0.5">
-                {log.actual_weight} lbs × {log.actual_reps} reps
+                {formatWeight(log.actual_weight ?? 0, getUnitsPreference())} × {log.actual_reps} reps
               </div>
               {log.notes && <div className="text-xs text-slate-400 mt-1 italic">"{log.notes}"</div>}
             </div>

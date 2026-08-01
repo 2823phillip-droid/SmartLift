@@ -20,6 +20,7 @@ import { GripVertical } from "lucide-react";
 import { api } from "../api";
 import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
 import { computePrescription, type Prescription, type SetRecord, computeCoachState } from "../rules";
+import { formatWeight, getUnitsPreference } from "../utils/units";
 
 export default function ActiveWorkoutScreen({
   sessionId,
@@ -54,6 +55,7 @@ export default function ActiveWorkoutScreen({
   const [draftWeight, setDraftWeight] = useState("");
   const [draftReps, setDraftReps] = useState("");
   const [draftEffort, setDraftEffort] = useState(3);
+  const [draftRir, setDraftRir] = useState<number | null>(null);
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
   const [addSetExerciseId, setAddSetExerciseId] = useState<number | null>(null);
@@ -65,6 +67,9 @@ export default function ActiveWorkoutScreen({
   const [coachPhase, setCoachPhase] = useState<string>("linear");
   const [coachWeek, setCoachWeek] = useState<number>(1);
   const [, setCoachLoaded] = useState(false);
+
+  const [backendPrescriptions, setBackendPrescriptions] = useState<Record<number, any>>({});
+  const [backendCoach, setBackendCoach] = useState<any>(null);
 
   const restTimerRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
@@ -123,12 +128,59 @@ export default function ActiveWorkoutScreen({
     return history;
   };
 
-  const suggestions = useMemo(() => {
+  useEffect(() => {
+    if ((workoutMode || "manual") !== "ai_trainer") return;
+    let cancelled = false;
+    const load = async () => {
+      const globalHistory = buildRuleHistoryForCoach();
+      const coach = computeCoachState({
+        history: globalHistory,
+        current_phase: coachPhase,
+        current_week_in_block: coachWeek,
+        default_progression: "linear",
+        periodization_cycle_weeks: 4,
+      });
+      const map: Record<number, any> = {};
+      let lastCoach: any = null;
+      for (const exercise of exercises) {
+        try {
+          const res = await api.nextPrescription({
+            start_weight: exercise.start_weight,
+            reps_target: exercise.reps_target,
+            sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
+            rest_seconds: exercise.rest_seconds,
+            progression_type: coach.phase,
+            history: buildRuleHistory(exercise),
+            week: coach.week_in_block,
+            force_deload: coach.is_deload,
+            periodization_cycle_weeks: coach.block_duration_weeks,
+            exercise_entry_id: exercise.id,
+          });
+          if (!cancelled) {
+            map[exercise.id] = res;
+            lastCoach = res.coach;
+          }
+        } catch (err) {
+          console.error("[ActiveWorkoutScreen] backend prescription failed", err);
+        }
+      }
+      if (!cancelled) {
+        setBackendPrescriptions(map);
+        setBackendCoach(lastCoach);
+      }
+    };
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [exercises, logs, lastSessionByExercise, displaySetsTarget, coachPhase, coachWeek, workoutMode]);
+
+  const localSuggestions = useMemo(() => {
     if ((workoutMode || "manual") !== "ai_trainer") return { prescriptions: {} as Record<number, Prescription>, coach: null as any };
     const history = buildRuleHistoryForCoach();
     const coach = computeCoachState({
       history,
-      current_phase: coachPhase as any,
+      current_phase: coachPhase,
       current_week_in_block: coachWeek,
       default_progression: "linear",
       periodization_cycle_weeks: 4,
@@ -149,6 +201,10 @@ export default function ActiveWorkoutScreen({
     return { prescriptions: map, coach };
   }, [exercises, logs, lastSessionByExercise, displaySetsTarget, coachPhase, coachWeek]);
 
+  const useBackend = (workoutMode || "manual") === "ai_trainer";
+  const suggestions = useBackend && Object.keys(backendPrescriptions).length > 0
+    ? { prescriptions: backendPrescriptions, coach: backendCoach }
+    : localSuggestions;
   const coach = suggestions.coach;
   const prescriptions = suggestions.prescriptions;
 
@@ -449,6 +505,7 @@ export default function ActiveWorkoutScreen({
         actual_weight: w,
         actual_reps: r,
         effort: draftEffort,
+        rir: draftRir ?? undefined,
         notes: notes || undefined,
       });
       setLogs((l) => [...l, log]);
@@ -729,7 +786,7 @@ export default function ActiveWorkoutScreen({
               <div className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wider mb-2">Up Next</div>
               <div className="text-sm font-semibold text-slate-200">{nextSetDuringRest()!.name}</div>
               <div className="text-xs text-slate-400 mt-1">
-                Set {nextSetDuringRest()!.set} — {nextSetDuringRest()!.weight} lbs × {nextSetDuringRest()!.reps} reps
+                Set {nextSetDuringRest()!.set} — {formatWeight(Number(nextSetDuringRest()!.weight), getUnitsPreference())} × {nextSetDuringRest()!.reps} reps
               </div>
             </div>
           )}
@@ -791,6 +848,8 @@ export default function ActiveWorkoutScreen({
                   onDraftWeightChange={setDraftWeight}
                   onDraftRepsChange={setDraftReps}
                   onDraftEffortChange={setDraftEffort}
+                  draftRir={draftRir}
+                  onDraftRirChange={setDraftRir}
                   showNotes={showNotes}
                   notes={notes}
                   onToggleNotes={() => setShowNotes((v) => !v)}
@@ -873,6 +932,8 @@ function SortableExerciseCard({
   onDraftWeightChange: (val: string) => void;
   onDraftRepsChange: (val: string) => void;
   onDraftEffortChange: (val: number) => void;
+  draftRir: number | null;
+  onDraftRirChange: (val: number) => void;
   showNotes: boolean;
   notes: string;
   onToggleNotes: () => void;
@@ -932,7 +993,7 @@ function SortableExerciseCard({
               <div className="flex-1 min-w-0">
                 <div className="text-xs font-semibold text-slate-200 truncate">{exercise.name}</div>
                 <div className="text-[11px] text-slate-500 mt-0.5">
-                  {completed}/{displayTarget} sets · {exercise.start_weight} lbs × {exercise.reps_target} reps target
+                  {completed}/{displayTarget} sets · {formatWeight(exercise.start_weight, getUnitsPreference())} × {exercise.reps_target} reps target
                 </div>
               </div>
               <div className="flex items-center gap-1.5 ml-2">
@@ -996,7 +1057,7 @@ function SortableExerciseCard({
                     {exerciseLogs.map((log) => (
                       <div key={log.id} className="flex items-center justify-between rounded-xl bg-slate-950/50 border border-slate-800 px-2.5 py-1.5">
                         <span className="text-xs text-slate-500 font-semibold">Set {log.set_index}</span>
-                        <span className="text-xs text-slate-300 font-semibold">{log.actual_weight} lbs × {log.actual_reps} reps</span>
+                        <span className="text-xs text-slate-300 font-semibold">{formatWeight(log.actual_weight ?? 0, getUnitsPreference())} × {log.actual_reps} reps</span>
                       </div>
                     ))}
                   </div>
@@ -1018,7 +1079,7 @@ function SortableExerciseCard({
                       {suggestion.is_deload ? "Deload Suggestion" : "Rule Suggestion"}
                     </div>
                     <div className="text-sm font-semibold text-slate-200 mt-0.5">
-                      {suggestion.next_weight} lbs × {suggestion.next_reps} reps · {suggestion.next_sets} sets
+                      {formatWeight(suggestion.next_weight, getUnitsPreference())} × {suggestion.next_reps} reps · {suggestion.next_sets} sets
                     </div>
                     <div className="text-xs text-slate-400 mt-0.5">{suggestion.coaching_message}</div>
                   </div>
@@ -1074,6 +1135,28 @@ function SortableExerciseCard({
                           </button>
                         ))}
                       </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-slate-500 uppercase tracking-widest font-semibold">
+                        RIR {draftRir !== null ? draftRir : "—"}
+                      </label>
+                      <div className="grid grid-cols-6 gap-1.5">
+                        {[0, 1, 2, 3, 4, 5].map((n) => (
+                          <button
+                            key={n}
+                            onClick={() => onDraftRirChange(n)}
+                            className={`py-2 text-xs font-bold rounded-xl border transition-all ${
+                              draftRir === n
+                                ? "bg-emerald-600 border-emerald-500 text-white shadow-md shadow-emerald-900/20"
+                                : "border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300"
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-slate-500">How many more reps could you have done?</p>
                     </div>
 
                     <div className="space-y-1.5">

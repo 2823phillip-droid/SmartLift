@@ -21,6 +21,7 @@ import { api, withRetry } from "../api";
 import type { ExerciseNameProgressResponse } from "../types";
 import ProgressWidget from "../components/ProgressWidget";
 import BodyWeightWidget from "../components/BodyWeightWidget";
+import { formatWeight, getUnitsPreference } from "../utils/units";
 
 const WIDGETS_KEY = "smartlift.widgets";
 
@@ -202,7 +203,7 @@ export default function HomeScreen() {
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
           <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1">Total volume</div>
-          <div className="text-xl font-bold">{totalVolume !== null ? `${Math.round(totalVolume).toLocaleString()} lbs` : '--'}</div>
+          <div className="text-xl font-bold">{totalVolume !== null ? formatWeight(totalVolume, getUnitsPreference()) : '--'}</div>
         </div>
       </div>
 
@@ -324,7 +325,7 @@ function SortableWidget({ id, widget, onRemove, isCompact }: { id: string; widge
             <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold px-1">{widget.name}</div>
           </div>
         ) : (
-          <ProgressWidget widget={widget} onRemove={onRemove} />
+          <ProgressWidget widget={widget} onRemove={onRemove} units={getUnitsPreference()} />
         )}
       </div>
     </div>
