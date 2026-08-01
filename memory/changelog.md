@@ -34,6 +34,7 @@ Format: DATE | FILE | TYPE | SUMMARY
 ## 2026-08-01
 | File | Type | Summary |
 |---|---|---|
+| `backend/models.py` | updated | Added missing `__tablename__ = "app_settings"` to `AppSetting` which caused 502 on startup |
 | `CONTEXT.md` | updated | Phase 1 backend complete; validation blocked on user RIR data |
 | `TODO.md` | updated | Phase 1 renamed to Linear Progression; backend/frontend tasks marked complete |
 | `SMARTLIFT.md` | updated | Added `/api/rules/next-prescription`, `/api/rules/algorithm-state/{id}`, `/api/rules/transitions` endpoints |
