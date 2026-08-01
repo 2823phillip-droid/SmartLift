@@ -1,61 +1,24 @@
 # TODO
 
-## Phase 1 — Foundation: Frontend shipped, Backend stable, L&F solid
+## Phase 1 — Linear Progression: backend complete, validation pending user data
 
-### Backend / Fly
-- [x] Confirm `smartlift-api` Fly app health endpoint returning 200 consistently: `GET /healthz`
-- [x] Add structured request/response logging to backend for production debugging
-- [x] Add global exception handler + request timeout config in FastAPI/Starlette
-- [x] Verify frontend retry/backoff on transient 5xx / network drops (already has `withRetry`)
-- [x] Confirm Postgres schema matches SQLAlchemy models (`contexts.order`, `workout_templates.order`, `exercise_entries.order`)
-- [x] Backend deploy verified: `fly deploy -a smartlift-api` rolls cleanly without downtime
+### Backend implementation
+- [x] Wire frontend → backend prescription API (`POST /api/rules/next-prescription`)
+- [x] Persist `AlgorithmState` per exercise server-side
+- [x] Log `ProgressionTransition` on phase change
+- [x] Add read endpoints: `GET /api/rules/algorithm-state/{id}`, `GET /api/rules/transitions`
+- [ ] Validate linear progression against real user data with RIR (blocked on user logging 2–3 sessions)
 
-### Auth hardening
-- [x] Add rate limiting on login/signup endpoints in backend
-- [x] Implement failed-login backoff / account lockout after threshold failures
-- [x] Support token rotation / refresh flow; expired tokens trigger reauth without full login
-- [x] Ensure logout fully invalidates token server-side and client-side
+### Frontend integration
+- [x] `api.ts` helpers for prescription, algorithm state, transitions
+- [x] `ActiveWorkoutScreen.tsx` calls backend in `ai_trainer` mode with local fallback
+- [ ] Surface backend prescription errors to user in UI
+- [ ] Add transition history view in app
 
-### Frontend iOS build & App Store foundation
-- [x] TypeScript build is clean in CI/Xcode path: only expected missing-cap-types remain, no app-blocking errors
-- [x] `npx cap sync ios` completes cleanly after every future frontend change
-- [ ] Core auth flow end-to-end: login → home → workouts → build → start → active → post → done
-- [ ] Workout draft persists across tab switches; Cancel exits without clearing draft
-- [ ] Template pencil opens full template editor; back from editor lands on Workouts tab
-- [ ] Active workout can complete and lands back in app state
-- [ ] Exercise library video/GIF playback works in app via webview or native modal
-- [ ] Profile screen wired to real backend user data; no hardcoded values
-- [ ] Landing page / home shows real stats loaded from backend
-
-### Exercise library / ExerciseDB
-- [ ] Resolve ExerciseDB licensing: determine if current `hasaneyldrm/exercises-dataset` usage is permitted for app distribution; if not, purchase/arrange commercial license or replace source
-- [ ] Evaluate ExerciseDB (Kaggle) as primary exercise media source: video URLs, licensing, import workflow (`POST /api/exercise-library/sync`)
-- [ ] Confirm 1,318 exercises sync reliably into Postgres `exercise_library` after any tag/media schema changes
-- [ ] Verify upstream `hasaneyldrm/exercises-dataset` tag mismatches are corrected in backend via `tag_overrides`; re-run sync to ensure stability
-- [ ] Confirm frontend video/GIF playback path in app: webview for GIFs, modal player when `video_url` exists
-- [ ] Decide and enforce editability model: exercise names are static/non-editable in library
-- [ ] Global rest timer placement: Settings only, not per-library/exercise
-
-### Look & Feel polish
-- [ ] Light/dark consistency review across all screens: header, tab bar, cards, buttons
-- [ ] Loading and empty states present on: History, Library, Templates, Workouts, Post Workout
-- [ ] Error states friendly: failed loads, offline mode indication, retry affordances
-- [ ] Touch targets ≥44pt on all interactive controls; verify on device
-- [ ] Font scale and spacing work on smaller screens (SE/standard) and large screens
-
-### App Store submission basics
-- [ ] Privacy policy URL live and reachable
-- [ ] App name, subtitle, keywords, copyright finalized
-- [ ] Test account credentials documented: `2823phillip@gmail.com`
-- [ ] Build archive rises through TestFlight without validation errors
-- [ ] Add at least 2 screenshots per device type required by App Store Connect
-
-### Legal
-- [ ] Add terms of service screen presented during signup; require explicit acceptance before account creation
-- [ ] Include medical disclaimer in terms/privacy policy: app does not diagnose, treat, cure, or prevent disease; users with medical conditions should consult a doctor before using
-- [ ] Have attorney review and approve terms/privacy policy before App Store submission
-- [ ] Ensure privacy policy covers data collected, storage, retention, and user deletion request flow
-- [ ] Implement backend endpoint for user data export and account deletion; expose in Profile/Settings
+### Verification
+- [ ] pytest coverage for `/api/rules/next-prescription` side effects
+- [ ] Confirm `AlgorithmState` + `ProgressionTransition` rows created on phase change
+- [ ] End-to-end test: identical inputs → identical outputs unless RPE/RIR changes
 
 ### Verified / preserved (do not break)
 - [x] Template pencil opens full workout editor

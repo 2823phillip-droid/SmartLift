@@ -27,6 +27,9 @@
 - `/api/exercise-library/sync` — import exercises JSON into DB
 - `/api/workout-library` — workout templates
 - `/api/workout-library/import` — import from exercise library
+- `/api/rules/next-prescription` — compute next session prescription + persist AlgorithmState
+- `/api/rules/algorithm-state/{exercise_entry_id}` — read AlgorithmState for an exercise
+- `/api/rules/transitions` — list ProgressionTransition rows
 
 ## Known gotchas
 - WKWebView will cache the first `index-<hash>.js` it sees; full app uninstall required to clear after bundle hash changes

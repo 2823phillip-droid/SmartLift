@@ -3,21 +3,32 @@
 Updated when work in progress changes.
 
 ## Current Task
-Design and implement the trainer-generated workout questionnaire flow: backend endpoint + frontend screen, shown on first login and repeatable from AI Trainer tab. Step-through UI with single-select tabs and multi-select chips. Three sections: body metrics (weight/height/sex/activity), training profile, nutrition opt-in. Returns workout draft + optional meal plan draft.
+Phase 1 — Linear Progression backend implementation is complete and deployed. Next blocker is user-generated workout data: need 2–3 real workout sessions with RIR logging to validate linear progression defaults and calibrate stall detection for Phase 2.
 
 ## Completed
-- Fixed Workouts tab 500 root cause: production DB missing `contexts.order` column.
-- Added missing `order` columns to production Postgres: `contexts`, `workout_templates`, `exercise_entries`.
-- Backend CORS now allows both `capacitor://localhost` and `ionic://localhost`.
-- Knowledge hierarchy established: `MEMORY-INDEX.md` + `memory/` directory with frontmatter/ADR standards.
-- Removed dead `MUSCLEWIKI_BASE` code from backend; unified exercise source as ExerciseDB (Kaggle).
+- Added `ProgressionTransition` model to `backend/models.py`.
+- Extended `RuleRequestIn` with `exercise_entry_id` so prescription API knows which exercise is targeted.
+- `POST /api/rules/next-prescription` now:
+  - accepts `exercise_entry_id`
+  - persists `AlgorithmState` per user + exercise
+  - creates `ProgressionTransition` when phase changes
+- Added read endpoints:
+  - `GET /api/rules/algorithm-state/{exercise_entry_id}`
+  - `GET /api/rules/transitions`
+- Frontend `api.ts` exposes `nextPrescription(...)`, `getAlgorithmState(...)`, `listProgressionTransitions()`.
+- `ActiveWorkoutScreen.tsx` now uses backend prescriptions in `ai_trainer` mode; falls back to local `rules.ts` on failure.
+- Roadmap updated at `/home/phillip2823/workout-logger/backend/roadmap.html` with dependency notes.
+- Backend compiled and deployed to `https://smartlift-api.fly.dev` via `fly deploy -a smartlift-api --no-cache`.
+- TypeScript compiles clean (`npx tsc --noEmit`).
 
 ## Next Actions
-- Backend: define `POST /api/trainer/generate` request/response schema and deterministic ExerciseDB selection rules.
-- Frontend: build questionnaire screen and integrate into AI Trainer tab and first-login flow.
-- Define draft lifecycle: generated workout stores as draft; user can accept, tweak in builder, or discard.
+- User: log 2–3 real workout sessions with effort + RIR per set.
+- Agent: validate linear progression behavior against real data once available.
+- Agent: add pytest coverage for `/api/rules/next-prescription` side effects.
+- Agent: update `SMARTLIFT.md` Key Endpoints section with new rules routes.
 
 ## Notes
 - Knowledge hierarchy is documented in `MEMORY-INDEX.md`; always read it before starting work.
 - All domain-specific lessons are in `memory/<topic>.md`.
 - When a fix involves a non-obvious pattern, add it to the relevant `memory/` file.
+- Never fall back to local backend (`192.168.1.111:8000`); production is `https://smartlift-api.fly.dev/api`.
