@@ -29,10 +29,11 @@ Format: DATE | FILE | TYPE | SUMMARY
 | `TODO.md` | updated | Trainer workflow split into Section 1 body metrics, Section 2 training profile, Section 3 nutrition opt-in |
 || `backend/roadmap.html` | updated | Added explicit per-phase dependency mapping |
 || `backend/roadmap.html` | updated | Marked completed Phase 1 agent tasks as done; validation remains blocked by user RIR data |
+|| `backend/roadmap.html` | updated | Fixed color coding: user/waiting tasks now amber with open bullets; added missing blocked/pending Phase 1 agent tasks |
 || `memory/deploy.md` | updated | Documented Linux interactive-shell requirement for flyctl due to ~/.bashrc token sourcing |
 || `PROJECT.md` | updated | Documented interactive-shell deploy command to prevent future token-auth failures |
 || `memory/changelog.md` | updated | Recorded deploy lesson and roadmap correction |
-|| Hermes memory | updated | Added Linux interactive-shell deploy lesson for flyctl |
+|| Hermes memory | updated | Trimmed to user preferences + bootstrap pointer; all durable state moved to repo docs |
 
 ---
 
