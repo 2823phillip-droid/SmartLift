@@ -46,13 +46,12 @@ Consequence:
 ```
 
 ## Usage rules
-1. Always read `CONTEXT.md` first when resuming a session
-2. Always read `TODO.md` first before starting new work
-3. Before deploying, read `memory/deploy.md`
-4. When fixing a bug, search `memory/debugging.md` and the relevant domain file before debugging blind
-5. When a fix involves a new non-obvious pattern, add it to the relevant `memory/` file immediately
-6. Update `memory/changelog.md` when any knowledge file changes materially
-7. When unsure whether to record something, use the decision checklist in `MEMORY-INDEX.md`
+1. Start every session by reading: `TODO.md`, then `CONTEXT.md`, then the relevant `memory/<topic>.md` files listed below.
+2. Use `PROJECT.md` for stable repo facts and `SMARTLIFT.md` for stack/endpoint reference.
+3. Record lessons in `memory/<topic>.md`, not in Hermes memory.
+4. Hermes memory should only store lightweight pointers to this knowledge system, not duplicate its content.
+5. Update `memory/changelog.md` whenever a knowledge file changes materially.
+6. When unsure whether to record something, use the decision checklist below.
 
 ## Decision checklist
 When unsure whether to record something:
