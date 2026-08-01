@@ -1,0 +1,428 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartLift — Progression System Roadmap</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-2: #334155;
+    --border: #475569;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #6366f1;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --emerald: #10b981;
+    --purple: #a855f7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.95rem; }
+
+  .phase {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .phase-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+    flex-wrap: wrap;
+  }
+  .phase-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .badge-active { background: var(--accent); color: white; }
+  .badge-waiting { background: var(--surface-2); color: var(--muted); }
+  .badge-done { background: var(--green); color: #052e16; }
+  .badge-blocked { background: var(--red); color: white; }
+
+  .phase-title { font-size: 1.15rem; font-weight: 600; }
+  .phase-desc { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+
+  .columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 700px) { .columns { grid-template-columns: 1fr; } }
+
+  .col {
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .col-header {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .col-agent { color: var(--blue); }
+  .col-user { color: var(--emerald); }
+  .col-done { color: var(--green); }
+  .col-blocked { color: var(--red); }
+
+  ul { list-style: none; }
+  li {
+    padding: 0.35rem 0;
+    font-size: 0.88rem;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  li:last-child { border-bottom: none; }
+  li::before {
+    content: "•";
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .col-done li::before { color: var(--green); }
+  .col-agent li::before { color: var(--blue); }
+  .col-user li::before { color: var(--emerald); }
+  .col-blocked li::before { color: var(--red); }
+
+  .dependency {
+    margin-top: 0.75rem;
+    background: rgba(245,158,11,0.08);
+    border: 1px solid rgba(245,158,11,0.25);
+    border-radius: 8px;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.82rem;
+    color: #fde68a;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  .dependency .dep-icon { flex-shrink: 0; font-size: 1rem; }
+  .dependency strong { color: var(--amber); }
+
+  .note {
+    margin-top: 1rem;
+    background: rgba(99,102,241,0.1);
+    border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 8px;
+    padding: 0.9rem 1rem;
+    font-size: 0.88rem;
+    color: #c7d2fe;
+  }
+  .note strong { color: var(--accent); }
+
+  .data-flow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .data-flow h2 { font-size: 1.1rem; margin-bottom: 1rem; }
+  .flow-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+  }
+  .flow-step {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .flow-arrow { color: var(--muted); font-size: 1.2rem; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .legend-item { display: flex; align-items: center; gap: 0.35rem; }
+  .legend-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+
+  .blocked-row {
+    opacity: 0.55;
+  }
+  .blocked-row .phase-title::after {
+    content: " (blocked)";
+    color: var(--red);
+    font-size: 0.85rem;
+    font-weight: 400;
+  }
+</style>
+</head>
+<body>
+
+<h1>SmartLift Progression System</h1>
+<p class="subtitle">Roadmap & Status — Last updated: 2026-08-01</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Done / Already built</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> Active — in progress</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div> Waiting on user data</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--surface-2)"></div> Not started</div>
+</div>
+
+<!-- ========== PHASE 0: FOUNDATION ========== -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-badge badge-done">Done</span>
+    <span class="phase-title">Phase 0 — Foundation</span>
+  </div>
+  <p class="phase-desc">Exercise whitelist, basic workout generation, database models, frontend set logging. All shipped.</p>
+  <div class="columns">
+    <div class="col col-done">
+      <div class="col-header col-done">Completed</div>
+      <ul>
+        <li>99-exercise canonical whitelist (Title Case, tier 1–4)</li>
+        <li>Movement pattern classification (push/pull/squat/hinge/etc.)</li>
+        <li>ExerciseLibrary integration — 595/1318 matched</li>
+        <li>Workout generator with deterministic compound-first ordering</li>
+        <li>SetLog database model (weight, reps, effort, notes)</li>
+        <li>Frontend ActiveWorkoutScreen with set logging UI</li>
+        <li>RIR capture added to frontend + backend schema</li>
+        <li>Progression type assigned per exercise in generator</li>
+        <li>Deployed to smartlift-api.fly.dev</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="col-header col-blocked">Gaps</div>
+      <ul>
+        <li>Frontend now calls backend prescription API in ai_trainer mode</li>
+        <li>AlgorithmState persisted per exercise server-side</li>
+        <li>Progression transitions logged server-side</li>
+      </ul>
+    </div>
+  </div>
+  <div class="dependency">
+    <span class="dep-icon">🔗</span>
+    <span><strong>Enables everything below.</strong> Without SetLog, AlgorithmState, and RIR capture, no progression logic can run. Phase 1 agent work depends on these models being stable — they are.</span>
+  </div>
+</div>
+
+<!-- ========== PHASE 1: LINEAR PROGRESSION ========== -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-badge badge-active">Active</span>
+    <span class="phase-title">Phase 1 — Linear Progression (Current)</span>
+  </div>
+  <p class="phase-desc">For beginners. Add weight when all sets/reps completed. Collect RPE + RIR to calibrate per-user.</p>
+  <div class="columns">
+    <div class="col col-done">
+      <div class="col-header col-done">Agent — completed</div>
+      <ul>
+        <li>Wire frontend → backend prescription API</li>
+        <li>Persist AlgorithmState per exercise server-side</li>
+        <li>Log progression transitions server-side</li>
+      </ul>
+    </div>
+    <div class="col col-user">
+      <div class="col-header col-user">User must do</div>
+      <ul>
+        <li>Generate a workout and complete it</li>
+        <li>Log effort + RIR for every set</li>
+        <li>Do this for 2–3 sessions minimum</li>
+        <li>Note if weight feels too easy / too hard</li>
+      </ul>
+    </div>
+  </div>
+  <div class="dependency">
+    <span class="dep-icon">🔗</span>
+    <span><strong>Agent backend work is done; validation is blocked by your data.</strong> The prescription API, AlgorithmState persistence, and transition logging are deployed. Phase 1 only completes after you log 2–3 real sessions with RIR so we can confirm the linear progression defaults are right for you.</span>
+  </div>
+  <div class="note">
+    <strong>What we're measuring:</strong> completion rate, RIR per set, effort per set, whether weight was increased automatically. This data tells us if the linear progression defaults are right for you.
+  </div>
+</div>
+
+<!-- ========== PHASE 2: DOUBLE PROGRESSION ========== -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-badge badge-waiting">Waiting</span>
+    <span class="phase-title">Phase 2 — Double Progression</span>
+  </div>
+  <p class="phase-desc">Novice-to-intermediate. Work in rep range 3×8–12. Hit top → add weight → drop to bottom. Trigger based on RIR at top set.</p>
+  <div class="columns">
+    <div class="col">
+      <div class="col-header col-agent">Agent will build</div>
+      <ul>
+        <li>Double progression engine in rules.py + rules.ts</li>
+        <li>Transition detector: linear → double (stall detection)</li>
+        <li>Rep-range management (8–12) with weight advance logic</li>
+        <li>AI coach message for transition explanation</li>
+      </ul>
+    </div>
+    <div class="col col-user">
+      <div class="col-header col-user">User must do</div>
+      <ul>
+        <li>Continue logging workouts normally</li>
+        <li>Algorithm auto-detects stall and switches you</li>
+        <li>AI explains the transition when it happens</li>
+        <li>No user intervention needed</li>
+      </ul>
+    </div>
+  </div>
+  <div class="dependency">
+    <span class="dep-icon">🔗</span>
+    <span><strong>Blocked by Phase 1 data.</strong> The stall-detection trigger needs your Phase 1 performance history (completion rates, RIR trends) to calibrate what "stall" means for you. <strong>Agent can't build Phase 2 until Phase 1 has enough data to define the transition threshold.</strong></span>
+  </div>
+</div>
+
+<!-- ========== PHASE 3: PERCENTAGE-BASED ========== -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-badge badge-waiting">Waiting</span>
+    <span class="phase-title">Phase 3 — Percentage-Based (5/3/1 or variant)</span>
+  </div>
+  <p class="phase-desc">Intermediate+. Auto-selects 5/3/1 standard, BBB, FSL, or DUP based on goal, equipment, and performance patterns.</p>
+  <div class="columns">
+    <div class="col">
+      <div class="col-header col-agent">Agent will build</div>
+      <ul>
+        <li>5/3/1 engine: training max, week percentages, AMRAP set</li>
+        <li>Auto-program selector based on user profile + data</li>
+        <li>Training max adjustment rules (AMRAP performance)</li>
+        <li>Deload week logic (every 4th week)</li>
+        <li>AI coach transitions with plain-language explanation</li>
+      </ul>
+    </div>
+    <div class="col col-user">
+      <div class="col-header col-user">User must do</div>
+      <ul>
+        <li>Keep logging workouts</li>
+        <li>AI says "switching to 5/3/1, here's why"</li>
+        <li>No configuration needed</li>
+        <li>Can ask AI to explain any change</li>
+      </ul>
+    </div>
+  </div>
+  <div class="dependency">
+    <span class="dep-icon">🔗</span>
+    <span><strong>Blocked by Phase 2 completion + more data.</strong> The 5/3/1 engine needs a training max, which is calculated from your recent performance. That requires Phase 2 progression data (top-set performance, rep ranges hit). <strong>Agent can't build Phase 3 until Phase 2 is proven and training max can be estimated from your history.</strong></span>
+  </div>
+</div>
+
+<!-- ========== PHASE 4: RECOVERY & DELOAD ========== -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-badge badge-waiting">Waiting</span>
+    <span class="phase-title">Phase 4 — Recovery & Deload Intelligence</span>
+  </div>
+  <p class="phase-desc">Detect overreaching, missed sessions, declining performance. Auto-trigger deload or volume reduction.</p>
+  <div class="columns">
+    <div class="col">
+      <div class="col-header col-agent">Agent will build</div>
+      <ul>
+        <li>Deload trigger rules (consecutive high RPE, missed sessions, declining performance)</li>
+        <li>Recovery score calculation from recent set data</li>
+        <li>Volume adjustment logic for deload weeks</li>
+        <li>Pain/discomfort flag handling</li>
+      </ul>
+    </div>
+    <div class="col col-user">
+      <div class="col-header col-user">User must do</div>
+      <ul>
+        <li>Flag pain/discomfort when logging sets</li>
+        <li>AI proactively suggests deload when needed</li>
+        <li>No manual deload scheduling required</li>
+      </ul>
+    </div>
+  </div>
+  <div class="dependency">
+    <span class="dep-icon">🔗</span>
+    <span><strong>Blocked by Phase 3 data.</strong> Deload triggers need weeks of percentage-based training data (AMRAP performance, RPE trends, session frequency). Can't detect overreaching until there's a baseline to compare against. <strong>Depends on Phase 3 being active long enough to collect recovery signals.</strong></span>
+  </div>
+</div>
+
+<!-- ========== PHASE 5: ADVANCED ========== -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-badge badge-waiting">Waiting</span>
+    <span class="phase-title">Phase 5 — Advanced Autoregulation</span>
+  </div>
+  <p class="phase-desc">Fine-grained per-user calibration: RIR interpretation, volume landmarks, weak-point specialization, periodization.</p>
+  <div class="columns">
+    <div class="col">
+      <div class="col-header col-agent">Agent will build</div>
+      <ul>
+        <li>Per-user RIR calibration (learns reporting bias)</li>
+        <li>Volume landmark tracking (MRV, MAV, MEV)</li>
+        <li>Weak-point detection from lagging lifts</li>
+        <li>Custom accessory selection based on weaknesses</li>
+        <li>Training age / volume threshold tracking</li>
+      </ul>
+    </div>
+    <div class="col col-user">
+      <div class="col-header col-user">User must do</div>
+      <ul>
+        <li>Continue logging sets consistently</li>
+        <li>More data → better personalization</li>
+        <li>AI occasionally explains adaptations</li>
+      </ul>
+    </div>
+  </div>
+  <div class="dependency">
+    <span class="dep-icon">🔗</span>
+    <span><strong>Blocked by all prior phases.</strong> Per-user calibration needs months of data across all progression stages. Weak-point detection requires performance comparisons across movement patterns. <strong>This is the long-term payoff for consistent logging.</strong></span>
+  </div>
+</div>
+
+<!-- ========== DATA FLOW ========== -->
+<div class="data-flow">
+  <h2>How Data Flows</h2>
+  <div class="flow-steps">
+    <span class="flow-step">You generate workout</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">You log sets + RIR</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Backend stores SetLog</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">rules.ts computes next prescription</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">AI explains the change</span>
+  </div>
+  <p style="color:var(--muted); font-size:0.85rem; margin-top:0.75rem;">
+    Frontend holds state in memory. Backend stores SetLogs. Agent is wiring the backend prescription API and AlgorithmState persistence so the system survives device switches and server restarts.
+  </p>
+</div>
+
+<div class="note" style="margin-top:0;">
+  <strong>Bottom line:</strong> Agent can build everything in parallel, but each phase needs validation from your real-world data before the next phase starts. Your logging is the critical path — it gates every transition.
+</div>
+
+</body>
+</html>

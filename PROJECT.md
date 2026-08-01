@@ -12,7 +12,7 @@
 
 ## Deploy
 - Frontend build + sync: build `frontend/dist/` on Linux, rsync to MacBook `~/workout-logger/frontend/ios/App/App/public/`, then `npx cap sync ios`
-- Backend deploy: `fly deploy -a smartlift-api --no-cache`
+- Backend deploy: use interactive shell on Linux because `FLY_API_TOKEN` is in `~/.bashrc`: `bash -ic 'cd /home/phillip2823/workout-logger && python3 -m py_compile backend/main.py && fly deploy -a smartlift-api --no-cache'`
 - Frontend sync validation: see `memory/deploy.md`
 - Remote git: https://github.com/2823phillip-droid/SmartLift.git
 - Workout-logger git remote: https://github.com/phillip28237/SmartLift.git

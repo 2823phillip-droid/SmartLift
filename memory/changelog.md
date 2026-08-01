@@ -27,22 +27,27 @@ Format: DATE | FILE | TYPE | SUMMARY
 | `memory/changelog.md` | updated | What counts as material change, ownership model |
 | `memory/trainer.md` | created | Trainer questionnaire schema, workout/meal generation rules, backend endpoint design |
 | `TODO.md` | updated | Trainer workflow split into Section 1 body metrics, Section 2 training profile, Section 3 nutrition opt-in |
-| `CONTEXT.md` | updated | Current task expanded to full trainer questionnaire + meal plan draft flow |
+|| `backend/roadmap.html` | updated | Added explicit per-phase dependency mapping |
+|| `backend/roadmap.html` | updated | Marked completed Phase 1 agent tasks as done; validation remains blocked by user RIR data |
+|| `memory/deploy.md` | updated | Documented Linux interactive-shell requirement for flyctl due to ~/.bashrc token sourcing |
+|| `PROJECT.md` | updated | Documented interactive-shell deploy command to prevent future token-auth failures |
+|| `memory/changelog.md` | updated | Recorded deploy lesson and roadmap correction |
+|| Hermes memory | updated | Added Linux interactive-shell deploy lesson for flyctl |
 
 ---
 
 ## 2026-08-01
-| File | Type | Summary |
+|| File | Type | Summary ||
 |---|---|---|
-| `backend/models.py` | updated | Added missing `__tablename__ = "app_settings"` to `AppSetting` which caused 502 on startup |
-| `CONTEXT.md` | updated | Phase 1 backend complete; validation blocked on user RIR data |
-| `TODO.md` | updated | Phase 1 renamed to Linear Progression; backend/frontend tasks marked complete |
-| `SMARTLIFT.md` | updated | Added `/api/rules/next-prescription`, `/api/rules/algorithm-state/{id}`, `/api/rules/transitions` endpoints |
-| `backend/models.py` | created | Added `ProgressionTransition` model; extended `AlgorithmState` with `exercise_entry_id` and progression fields |
-| `backend/main.py` | updated | Next prescription persists state + transitions; added 2 new GET endpoints |
-| `frontend/src/api.ts` | updated | Added `nextPrescription`, `getAlgorithmState`, `listProgressionTransitions` helpers |
-| `frontend/src/pages/ActiveWorkoutScreen.tsx` | updated | Backend prescription integration in `ai_trainer` mode with local fallback |
-| `backend/roadmap.html` | updated | Added explicit per-phase dependency mapping |
+|| `backend/models.py` | updated | Added missing `__tablename__ = "app_settings"` to `AppSetting` which caused 502 on startup |
+|| `CONTEXT.md` | updated | Phase 1 backend complete; validation blocked on user RIR data |
+|| `TODO.md` | updated | Phase 1 renamed to Linear Progression; backend/frontend tasks marked complete |
+|| `SMARTLIFT.md` | updated | Added `/api/rules/next-prescription`, `/api/rules/algorithm-state/{id}`, `/api/rules/transitions` endpoints |
+|| `backend/models.py` | created | Added `ProgressionTransition` model; extended `AlgorithmState` with `exercise_entry_id` and progression fields |
+|| `backend/main.py` | updated | Next prescription persists state + transitions; added 2 new GET endpoints |
+|| `frontend/src/api.ts` | updated | Added `nextPrescription`, `getAlgorithmState`, `listProgressionTransitions` helpers |
+|| `frontend/src/pages/ActiveWorkoutScreen.tsx` | updated | Backend prescription integration in `ai_trainer` mode with local fallback |
+|| `backend/roadmap.html` | updated | Added explicit per-phase dependency mapping |
 
 ---
 
