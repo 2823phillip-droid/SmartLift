@@ -1,4 +1,4 @@
-SmartLift Frontend
+Askeo Frontend
 
 React + TypeScript + Vite mobile-first app, wrapped with Capacitor for iOS distribution.
 
@@ -15,7 +15,7 @@ npm run build  # dist/ -> Capacitor webDir
 Reads backend base URL from `VITE_API_BASE`. Production default:
 
 ```
-VITE_API_BASE=https://smartlift-api.fly.dev/api
+VITE_API_BASE=https://askeo.fit/api
 ```
 
 For local debugging only, switch to `http://192.168.1.111:8000/api` if that host is still being used as a dev backend.
@@ -43,6 +43,6 @@ From Linux:
 
 ## Production
 
-- App defaults to `https://smartlift-api.fly.dev/api`.
+- App defaults to `https://askeo.fit/api`.
 - Use `npm run build` + `npx cap sync ios` to ship web changes.
 - Backend is deployed separately via Fly.

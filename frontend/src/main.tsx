@@ -7,7 +7,7 @@ import App from './App.tsx'
 // Stores the last N errors in localStorage so we can read them back from
 // the device / simulator console, and also prints them to console.error.
 const MAX_ERRORS = 50
-const STORAGE_KEY = 'smartlift_error_log'
+const STORAGE_KEY = 'askeo_error_log'
 
 const originalConsoleError = console.error.bind(console)
 

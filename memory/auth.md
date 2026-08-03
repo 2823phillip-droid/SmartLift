@@ -3,13 +3,13 @@
 last_updated: 2026-07-31
 created: 2026-07-31
 tags: [auth, jwt, token, refresh, 401, ios]
-related: api.ts, debugging.md, SMARTLIFT.md
+related: api.ts, debugging.md, Askeo.md
 
 ## Token storage
-- Login stores JWT in `localStorage.setItem("smartlift_token", token)`.
+- Login stores JWT in `localStorage.setItem("askeo_token", token)`.
 - `api.ts` reads it on startup from `localStorage` and sets module-level `authToken`.
-- If `smartlift_token` is stale, 401s persist across app restarts.
-- Fix: logout via `N.logout()`, remove `smartlift_token`, then login fresh.
+- If `askeo_token` is stale, 401s persist across app restarts.
+- Fix: logout via `N.logout()`, remove `askeo_token`, then login fresh.
 
 ## Backend auth endpoints
 - `POST /api/auth/login` — returns `{ token, user }`

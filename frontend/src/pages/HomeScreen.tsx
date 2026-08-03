@@ -23,7 +23,7 @@ import ProgressWidget from "../components/ProgressWidget";
 import BodyWeightWidget from "../components/BodyWeightWidget";
 import { formatWeight, getUnitsPreference } from "../utils/units";
 
-const WIDGETS_KEY = "smartlift.widgets";
+const WIDGETS_KEY = "askeo.widgets";
 
 function loadWidgets(): Widget[] {
   try {
@@ -190,7 +190,7 @@ export default function HomeScreen() {
   return (
     <div className="space-y-6">
       <div className="rounded-3xl border border-indigo-800/60 bg-gradient-to-br from-indigo-950 to-slate-950 p-6 relative overflow-hidden">
-        <div className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-2">SmartLift</div>
+        <div className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-2">Askeo</div>
         <h2 className="text-3xl font-bold tracking-tight mb-1">Your lift, upgraded.</h2>
         <p className="text-slate-400 text-sm">Track progress at a glance. Add widgets below.</p>
       </div>

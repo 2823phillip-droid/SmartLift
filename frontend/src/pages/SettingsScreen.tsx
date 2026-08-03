@@ -5,7 +5,7 @@ import { getUnitsPreference, setUnitsPreference } from "../utils/units";
 
 type SettingItem = { key: string; value: string | null };
 
-const STORAGE_KEY_SETTINGS = "smartlift_workout_mode";
+const STORAGE_KEY_SETTINGS = "askeo_workout_mode";
 
 export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMode, onOpenDebug }: { onBack: () => void; onModeChange?: (mode: "manual" | "ai_trainer") => void; initialWorkoutMode?: "manual" | "ai_trainer"; onOpenDebug?: () => void }) {
   const [settings, setSettings] = useState<Record<string, string>>({});
@@ -246,7 +246,7 @@ export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMod
                 type="text"
                 value={settings["api_base"] ?? ""}
                 onChange={(e) => setSettings((s) => ({ ...s, api_base: e.target.value }))}
-                placeholder="https://smartlift-api.fly.dev/api"
+                placeholder="https://askeo.fit/api"
                 className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm"
               />
               <button

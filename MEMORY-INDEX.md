@@ -1,4 +1,4 @@
-# SmartLift Project Knowledge System
+# Askeo Project Knowledge System
 
 This file explains where every type of project knowledge lives and when to use it.
 
@@ -6,7 +6,7 @@ This file explains where every type of project knowledge lives and when to use i
 - `PROJECT.md` — immutable-ish repo facts: paths, network addresses, deploy commands, auth credentials, non-negotiables
 - `PERSONA.md` — role definition for agents working in this repo
 - `TODO.md` — phased roadmap. Read this at the start of any session to understand current priorities
-- `SMARTLIFT.md` — stack reference, endpoint list, known gotchas, users, backups. Updated when stack changes
+- `Askeo.md` — stack reference, endpoint list, known gotchas, users, backups. Updated when stack changes
 - `CONTEXT.md` — what we’re working on right now, what shipped last, what’s next. Check this before asking the user about current state
 - `MEMORY-INDEX.md` — this file
 
@@ -23,6 +23,17 @@ File | When to read
 `memory/trainer.md` | When building or changing trainer-generated workout or meal plan features
 `memory/decisions.md` | When revisiting a past technical decision
 `memory/changelog.md` | When auditing what changed and when
+
+## Roadmap
+- `TODO.md` — phased roadmap source of truth for priorities and planning
+- `backend/roadmap.html` — live rendered roadmap at https://askeo.fit/roadmap
+- Purpose: visual status page showing completed / active / waiting / blocked work, dependency blockers, and what the user vs agent must do next
+- Safe edit workflow:
+  1. Edit `backend/roadmap.html` directly for content changes
+  2. Redeploy with `bash -ic 'cd /home/phillip2823/workout-logger && python3 -m py_compile backend/main.py && fly deploy -a smartlift-api --no-cache'`
+  3. Verify the live page before marking done
+- Warning: `backend/scripts/generate_roadmap.py` was removed because it flattened the color-coded multi-column layout. Do not regenerate `roadmap.html` automatically from `TODO.md` without explicit approval and manual verification.
+- Bullet legend on page: ✓ = completed, ○ = incomplete/waiting, 🔗 amber box = dependency/blocker
 
 ## File format standards
 All files in `memory/` use this header:
@@ -47,7 +58,7 @@ Consequence:
 
 ## Usage rules
 1. Start every session by reading: `TODO.md`, then `CONTEXT.md`, then the relevant `memory/<topic>.md` files listed below.
-2. Use `PROJECT.md` for stable repo facts and `SMARTLIFT.md` for stack/endpoint reference.
+2. Use `PROJECT.md` for stable repo facts and `Askeo.md` for stack/endpoint reference.
 3. Record lessons in `memory/<topic>.md`, not in Hermes memory.
 4. Hermes memory should only store lightweight pointers to this knowledge system, not duplicate its content.
 5. Update `memory/changelog.md` whenever a knowledge file changes materially.
@@ -58,7 +69,7 @@ When unsure whether to record something:
 1. Will the same issue reappear? -> Record it.
 2. Is it a one-time environment quirk? -> Log in `changelog.md` only.
 3. Does it change future behavior? -> Also record in `decisions.md`.
-4. Is it user-facing (UX/flow change)? -> Also update `TODO.md` and `SMARTLIFT.md`.
+4. Is it user-facing (UX/flow change)? -> Also update `TODO.md` and `Askeo.md`.
 
 ## Tagging conventions
 Use lowercase, single-word tags. Pick the dominant domain first, then add a secondary system if needed:

@@ -20,7 +20,7 @@ export function setAuthToken(next: string | null) {
 }
 
 async function request(path: string, options: RequestInit = {}) {
-  const FLY_DEFAULT = "https://smartlift-api.fly.dev/api";
+  const FLY_DEFAULT = "https://askeo.fit/api";
   let base = apiBase || import.meta.env.VITE_API_BASE || FLY_DEFAULT;
   let url = `${base}${path}`;
 
@@ -71,13 +71,13 @@ async function request(path: string, options: RequestInit = {}) {
       const refreshed = await api.refreshToken();
       if (!refreshed || !refreshed.token) throw new Error("no_token");
       setAuthToken(refreshed.token);
-      if (typeof window !== "undefined") localStorage.setItem("smartlift_token", refreshed.token);
+      if (typeof window !== "undefined") localStorage.setItem("askeo_token", refreshed.token);
       headers["Authorization"] = `Bearer ${refreshed.token}`;
       return await makeRequest(base);
     } catch {
       setAuthToken(null);
       if (typeof window !== "undefined") {
-        localStorage.removeItem("smartlift_token");
+        localStorage.removeItem("askeo_token");
       }
       throw err;
     }
@@ -175,10 +175,10 @@ export async function initApiBaseFromSettings() {
   if (envBase) candidates.push(envBase);
 
   // 2) production backend first
-  candidates.push("https://smartlift-api.fly.dev/api");
+  candidates.push("https://askeo.fit/api");
 
   // 3) stored backend setting
-  const storedBase = envBase || "https://smartlift-api.fly.dev/api";
+  const storedBase = envBase || "https://askeo.fit/api";
   const storedRes = await fetchWithTimeout(
     `${storedBase}/settings/${encodeURIComponent("api_base")}`
   );
@@ -206,7 +206,7 @@ export async function initApiBaseFromSettings() {
       return;
     }
   }
-  apiBase = "https://smartlift-api.fly.dev/api";
+  apiBase = "https://askeo.fit/api";
 }
 
 export async function ensureApiBase(): Promise<void> {

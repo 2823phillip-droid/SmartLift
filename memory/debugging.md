@@ -3,7 +3,7 @@
 last_updated: 2026-07-31
 created: 2026-07-31
 tags: [debugging, ios, wkwebview, capacitor, cors, safari-web-inspector]
-related: SMARTLIFT.md, deploy.md, auth.md, frontend-fetch.md
+related: Askeo.md, deploy.md, auth.md, frontend-fetch.md
 
 ## Origin mismatch
 - iOS WebView sends either `capacitor://localhost` or `ionic://localhost` as Origin header.

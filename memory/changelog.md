@@ -16,12 +16,12 @@ Format: DATE | FILE | TYPE | SUMMARY
 | `memory/auth.md` | created | Token persistence, refresh flow, 401 triage, CORS/auth interaction |
 | `memory/frontend-fetch.md` | created | api.ts request flow, 30s timeout rule, error handling, WKWebView gotcha |
 | `memory/decisions.md` | normalized | All entries reformatted as ADRs with status/tags/consequence |
-| `SMARTLIFT.md` | updated | Added iOS debugging/cache gotchas, CORS origins list, knowledge hierarchy section |
+| `Askeo.md` | updated | Added iOS debugging/cache gotchas, CORS origins list, knowledge hierarchy section |
 | `PROJECT.md` | updated | Replaced stale rsync command; added `--no-cache`; reference to memory/deploy.md |
 | `TODO.md` | updated | Marked health/schema/rolls as complete |
 | `CONTEXT.md` | updated | Recorded Workouts tab fix, knowledge hierarchy creation, next actions |
 | `~/.hermes/projects.md` | created | Global project registry mapping all projects to paths/entries |
-| Hermes memory | updated | Project registry path + SmartLift knowledge hierarchy reference |
+| Hermes memory | updated | Project registry path + Askeo knowledge hierarchy reference |
 | `memory/README.md` | updated | Added lesson quality checklist, merge/rename lifecycle, tagging conventions, example tags |
 | `MEMORY-INDEX.md` | updated | Added decision checklist, tagging rules, contributor flow, global registry maintenance guide |
 | `memory/changelog.md` | updated | What counts as material change, ownership model |
@@ -43,7 +43,7 @@ Format: DATE | FILE | TYPE | SUMMARY
 || `backend/models.py` | updated | Added missing `__tablename__ = "app_settings"` to `AppSetting` which caused 502 on startup |
 || `CONTEXT.md` | updated | Phase 1 backend complete; validation blocked on user RIR data |
 || `TODO.md` | updated | Phase 1 renamed to Linear Progression; backend/frontend tasks marked complete |
-|| `SMARTLIFT.md` | updated | Added `/api/rules/next-prescription`, `/api/rules/algorithm-state/{id}`, `/api/rules/transitions` endpoints |
+|| `Askeo.md` | updated | Added `/api/rules/next-prescription`, `/api/rules/algorithm-state/{id}`, `/api/rules/transitions` endpoints |
 || `backend/models.py` | created | Added `ProgressionTransition` model; extended `AlgorithmState` with `exercise_entry_id` and progression fields |
 || `backend/main.py` | updated | Next prescription persists state + transitions; added 2 new GET endpoints |
 || `frontend/src/api.ts` | updated | Added `nextPrescription`, `getAlgorithmState`, `listProgressionTransitions` helpers |

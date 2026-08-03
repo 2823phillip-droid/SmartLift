@@ -32,7 +32,7 @@ export default function SignupScreen({ onSignup, onSwitch }: { onSignup: (user: 
   return (
     <div className="max-w-sm mx-auto mt-10 space-y-5">
       <div className="text-center">
-        <h2 className="text-2xl font-bold">SmartLift</h2>
+        <h2 className="text-2xl font-bold">Askeo</h2>
         <p className="text-slate-400 text-sm">Create your account</p>
       </div>
       <form onSubmit={submit} className="space-y-4">

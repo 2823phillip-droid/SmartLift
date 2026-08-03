@@ -1,4 +1,4 @@
-SmartLift login/settings debugging — historical note
+Askeo login/settings debugging — historical note
 
 This file is now superseded.
 Current runtime behavior: app uses Fly backend by default.

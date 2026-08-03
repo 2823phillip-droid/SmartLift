@@ -3,7 +3,7 @@
 last_updated: 2026-08-01
 created: 2026-07-31
 tags: [deploy, frontend, backend, fly, cap-sync, verification]
-related: PROJECT.md, SMARTLIFT.md, debugging.md
+related: PROJECT.md, Askeo.md, debugging.md
 
 ## Linux → MacBook → iOS pipeline
 
@@ -25,7 +25,7 @@ related: PROJECT.md, SMARTLIFT.md, debugging.md
 ## Backend deploy
 - On Linux, `flyctl` must run in an interactive shell because `FLY_API_TOKEN` lives in `~/.bashrc`, which is not sourced by non-interactive shells.
 - Command: `bash -ic 'cd /home/phillip2823/workout-logger && python3 -m py_compile backend/main.py && fly deploy -a smartlift-api --no-cache'`
-- Verify with: `curl -s https://smartlift-api.fly.dev/healthz`
+- Verify with: `curl -s https://askeo.fit/healthz`
 
 ## Common failures
 - `fly: command not found` → ensure `~/.fly/bin` is on PATH

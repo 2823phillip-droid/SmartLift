@@ -8,7 +8,7 @@ type WidgetState = {
   logs: BodyWeightLog[];
 };
 
-const STORAGE_KEY = "smartlift.bodyWeight";
+const STORAGE_KEY = "askeo.bodyWeight";
 
 function loadState(): WidgetState {
   try {

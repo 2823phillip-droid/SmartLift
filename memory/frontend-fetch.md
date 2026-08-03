@@ -3,7 +3,7 @@
 last_updated: 2026-07-31
 created: 2026-07-31
 tags: [frontend, fetch, api.ts, retry, timeout, aborted, error-handling]
-related: debugging.md, deploy.md, SMARTLIFT.md
+related: debugging.md, deploy.md, Askeo.md
 
 ## request() flow
 1. `makeRequest(attemptBase)` builds fetch with headers + AbortController
@@ -18,7 +18,7 @@ related: debugging.md, deploy.md, SMARTLIFT.md
 
 ## Error handling
 - Non-ok responses throw `API error {status}: {text}` with `.url` and `.status` attached.
-- Global console interceptor in `main.tsx` captures errors to `localStorage['smartlift_error_log']`.
+- Global console interceptor in `main.tsx` captures errors to `localStorage['askeo_error_log']`.
 - Same capture layer handles `window.onerror` and `unhandledrejection`.
 
 ## WKWebView gotcha
