@@ -1,11 +1,11 @@
-SmartLift backend, frontend, iOS sync and production (Fly).
+Askeo backend, frontend, iOS sync and production (Fly).
 
 ## API
 
 Fly production URL only:
 
 ```
-curl -I https://smartlift-api.fly.dev/healthz
+curl -I https://askeo.fit/healthz
 ```
 
 Backend deploy: `fly deploy -a smartlift-api`

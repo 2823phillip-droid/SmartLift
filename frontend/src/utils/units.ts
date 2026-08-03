@@ -1,6 +1,6 @@
 export type UnitsPreference = "imperial" | "metric";
 
-export const UNITS_STORAGE_KEY = "smartlift_units_preference";
+export const UNITS_STORAGE_KEY = "askeo_units_preference";
 
 export function getUnitsPreference(): UnitsPreference {
   if (typeof window === "undefined") return "imperial";

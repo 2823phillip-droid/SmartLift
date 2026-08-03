@@ -1,8 +1,8 @@
 import urllib.request, json, sys
 
 BASE = "http://127.0.0.1:8000/api"
-EMAIL = "phillip@smartlift.app"
-PASSWORD = "SmartLiftAdmin2026!"
+EMAIL = "phillip@askeo.fit"
+PASSWORD = "AskeoAdmin2026!"
 
 def post(path, data):
     body = json.dumps(data).encode()

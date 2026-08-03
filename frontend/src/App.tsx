@@ -84,7 +84,7 @@ export default function App() {
     repsChanges: Record<number, number>;
     orderChanged: boolean;
   } | null>(null);
-  const WORKOUT_MODE_STORAGE_KEY = "smartlift_workout_mode";
+  const WORKOUT_MODE_STORAGE_KEY = "askeo_workout_mode";
   const [workoutMode, setWorkoutMode] = useState<"manual" | "ai_trainer">(() => {
     if (typeof window !== "undefined") {
       const stored = localStorage.getItem(WORKOUT_MODE_STORAGE_KEY);
@@ -102,7 +102,7 @@ export default function App() {
   useEffect(() => {
     let cancelled = false;
     setCheckingAuth(true);
-    const stored = getAuthToken() || (typeof window !== "undefined" ? (localStorage.getItem("smartlift_token") || null) : null);
+    const stored = getAuthToken() || (typeof window !== "undefined" ? (localStorage.getItem("askeo_token") || null) : null);
     if (stored) {
       setAuthToken(stored);
     }
@@ -117,14 +117,14 @@ export default function App() {
         const me = await withRetry(() => api.me(), { retries: 2, baseDelayMs: 300 });
         setUser(me as any);
         const profile = await withRetry(() => api.getFitnessProfile(), { retries: 2, baseDelayMs: 300 }).catch(() => ({}));
-        if ((profile as any) && Object.keys(profile as any).length === 0 && typeof window !== "undefined" && !localStorage.getItem("smartlift_questionnaire_done")) {
+        if ((profile as any) && Object.keys(profile as any).length === 0 && typeof window !== "undefined" && !localStorage.getItem("askeo_questionnaire_done")) {
           setView("questionnaire");
         } else {
           setView("home");
         }
       } catch {
         setAuthToken(null);
-        if (typeof window !== "undefined") localStorage.removeItem("smartlift_token");
+        if (typeof window !== "undefined") localStorage.removeItem("askeo_token");
         setView("login");
       } finally {
         if (!cancelled) setCheckingAuth(false);
@@ -156,28 +156,28 @@ export default function App() {
 
   const handleLogin = async (userData?: { id: number; email: string; role: string; first_name?: string; last_name?: string }) => {
     const token = getAuthToken();
-    if (token && typeof window !== "undefined") localStorage.setItem("smartlift_token", token);
+    if (token && typeof window !== "undefined") localStorage.setItem("askeo_token", token);
     try {
       const me = userData || (await api.me());
       setUser(me as any);
       setView("home");
     } catch {
       setAuthToken(null);
-      if (typeof window !== "undefined") localStorage.removeItem("smartlift_token");
+      if (typeof window !== "undefined") localStorage.removeItem("askeo_token");
       setView("login");
     }
   };
 
   const handleSignup = async (userData?: { id: number; email: string; role: string; first_name?: string; last_name?: string }) => {
     const token = getAuthToken();
-    if (token && typeof window !== "undefined") localStorage.setItem("smartlift_token", token);
+    if (token && typeof window !== "undefined") localStorage.setItem("askeo_token", token);
     try {
       const me = userData || (await api.me());
       setUser(me as any);
       setView("home");
     } catch {
       setAuthToken(null);
-      if (typeof window !== "undefined") localStorage.removeItem("smartlift_token");
+      if (typeof window !== "undefined") localStorage.removeItem("askeo_token");
       setView("login");
     }
   };
@@ -186,7 +186,7 @@ export default function App() {
     api.logout().catch(() => {});
     setAuthToken(null);
     setUser(null);
-    if (typeof window !== "undefined") localStorage.removeItem("smartlift_token");
+    if (typeof window !== "undefined") localStorage.removeItem("askeo_token");
     navigate("login");
   };
 
@@ -271,7 +271,7 @@ export default function App() {
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-sm font-bold">S</div>
           <div>
-            <h1 className="text-base font-bold tracking-tight leading-tight">SmartLift</h1>
+            <h1 className="text-base font-bold tracking-tight leading-tight">Askeo</h1>
             {user && (
               <p className="text-[10px] text-slate-500 leading-tight -mt-0.5">
                 {workoutMode === "ai_trainer" ? "AI Trainer" : "Manual Mode"}
@@ -508,7 +508,7 @@ export default function App() {
 
                   if (typeof window !== "undefined") {
                     localStorage.setItem(DRAFT_KEY, JSON.stringify({ groups }));
-                    localStorage.setItem("smartlift_questionnaire_done", "1");
+                    localStorage.setItem("askeo_questionnaire_done", "1");
                   }
 
                   if (savedTemplateIds.length > 0) {
@@ -582,5 +582,5 @@ function AiTrainerScreen({ onBack, onLaunchQuestionnaire, onOpenTransitionHistor
 }
 
 // Admin login on first launch / reinstall:
-// email: phillip@smartlift.app
-// password: SmartLiftAdmin2026!
+// email: phillip@askeo.fit
+// password: AskeoAdmin2026!

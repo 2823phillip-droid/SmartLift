@@ -1,4 +1,4 @@
-# SmartLift — AI Trainer
+# Askeo — AI Trainer
 
 Revenue-generating fitness SaaS built as a mobile-first web app wrapped with Capacitor.
 Personal training with an AI coach, workout history, and template management.
@@ -56,7 +56,7 @@ npm run build  # production build to dist/
 The frontend reads its backend URL from `frontend/.env`:
 
 ```
-VITE_API_BASE=https://smartlift-api.fly.dev/api
+VITE_API_BASE=https://askeo.fit/api
 ```
 
 Defaults to Fly in production if unset. Use Settings only to override.
@@ -163,8 +163,8 @@ Next (business build-out):
 ## Environment
 
 - MacBook SSH: `phillipwalters@192.168.1.112`
-- Production backend: `https://smartlift-api.fly.dev/api`
-- Git remote (workout-logger): `https://github.com/phillip28237/SmartLift.git`
+- Production backend: `https://askeo.fit/api`
+- Git remote (workout-logger): `https://github.com/phillip28237/Askeo.git`
 
 ## License
 

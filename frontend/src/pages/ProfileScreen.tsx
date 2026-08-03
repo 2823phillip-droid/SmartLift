@@ -152,7 +152,7 @@ export default function ProfileScreen({ onBack, onOpenSettings, user }: { onBack
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-2">
             <div className="text-sm font-semibold text-slate-200">Billing</div>
-            <p className="text-xs text-slate-400">SmartLift billing, if applicable, is handled through the App Store.</p>
+            <p className="text-xs text-slate-400">Askeo billing, if applicable, is handled through the App Store.</p>
           </div>
         </>
       )}

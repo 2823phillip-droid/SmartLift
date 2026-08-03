@@ -3,7 +3,7 @@
 last_updated: 2026-07-31
 created: 2026-07-31
 tags: [backend, database, fly, postgres, sqlalchemy, migrations]
-related: SMARTLIFT.md, debugging.md
+related: Askeo.md, debugging.md
 
 ## Production vs local schema drift
 - Production uses managed Postgres on Fly; local uses SQLite via `DATABASE_URL=sqlite:///./workout.db`.

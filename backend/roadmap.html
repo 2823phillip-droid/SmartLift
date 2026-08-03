@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SmartLift — Progression System Roadmap</title>
+<title>Askeo — Progression System Roadmap</title>
 <style>
   :root {
     --bg: #0f172a;
@@ -70,6 +70,13 @@
     gap: 1rem;
   }
   @media (max-width: 700px) { .columns { grid-template-columns: 1fr; } }
+  .columns-3 {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1rem;
+  }
+  @media (max-width: 700px) { .columns-3 { grid-template-columns: 1fr; } }
+  @media (min-width: 701px) and (max-width: 1000px) { .columns-3 { grid-template-columns: 1fr 1fr; } }
 
   .col {
     background: var(--surface-2);
@@ -189,25 +196,70 @@
 </head>
 <body>
 
-<h1>SmartLift Progression System</h1>
-<p class="subtitle">Roadmap & Status — Last updated: 2026-08-01</p>
+<h1>Askeo Progression System</h1>
+<p class="subtitle">Roadmap & Status — Last updated: 2026-08-02</p>
 
 <div class="legend">
-  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Done / Already built</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Done / Completed</div>
   <div class="legend-item"><div class="legend-dot" style="background:var(--accent)"></div> Active — in progress</div>
-  <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div> Waiting on user data</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div> Waiting / Blocked</div>
   <div class="legend-item"><div class="legend-dot" style="background:var(--surface-2)"></div> Not started</div>
   <div class="legend-item" style="margin-left:auto;color:var(--muted)" id="deploy-ts"></div>
 </div>
+<div class="legend">
+  <div class="legend-item" style="color:var(--muted)">Bullet key:</div>
+  <div class="legend-item"><span style="color:var(--green);font-weight:700">✓</span> Closed dot = completed item</div>
+  <div class="legend-item"><span style="color:var(--amber);font-weight:400">○</span> Open circle = incomplete / waiting item</div>
+  <div class="legend-item" style="color:var(--muted)">🔗 Amber box below phase = dependency / blocker</div>
+</div>
 
-<!-- ========== PHASE 0: FOUNDATION ========== -->
+<!-- ========== PRODUCTION READINESS CHECKLIST ========== -->
 <div class="phase">
   <div class="phase-header">
-    <span class="phase-badge badge-done">Done</span>
-    <span class="phase-title">Phase 0 — Foundation</span>
+    <span class="phase-badge badge-active">Validation Gate</span>
+    <span class="phase-title">Production Readiness Checklist</span>
+  </div>
+  <p class="phase-desc">Ship to testers and validate production readiness before App Store sale. TestFlight is the gate; this checklist is what makes it pass. <strong>This is not a development phase — it is the end-state target for the app.</strong></p>
+  <div class="columns">
+    <div class="col">
+      <div class="col-header col-agent">Agent — ready</div>
+      <ul>
+        <li>Build iOS app for TestFlight distribution</li>
+        <li>Upload build to App Store Connect</li>
+        <li>Invite internal testers via TestFlight</li>
+        <li>Collect feedback from testers</li>
+        <li>Optional: submit for external TestFlight review</li>
+      </ul>
+    </div>
+    <div class="col col-waiting">
+      <div class="col-header col-waiting">Checklist</div>
+      <ul>
+        <li>Stability: no crashes on launch, no broken flows, restarts preserve state</li>
+        <li>Backend production health: health/ready endpoints, structured logs, global exception handler, timeouts, frontend retry/backoff</li>
+        <li>Auth &amp; data: stable auth, data export/account deletion flows</li>
+        <li>Exercise library &amp; media: licensed exercise source/video, playable video modal, static exercise names</li>
+        <li>Workout builder: draft persists across tab switches, cancel exits without clearing</li>
+        <li>Coach/deterministic rules: recognizable exercise names, deterministic progression, plain-language transitions</li>
+        <li>Privacy &amp; compliance: privacy policy URL if collecting data, lawyer review before paid release</li>
+        <li>Device-specific: test on real device, Xcode GUI push workflow works, Capacitor config correct</li>
+        <li>Maintenance: discuss whether to upgrade to dedicated IPv4 ($2/mo) to eliminate shared-IP rotation risk</li>
+      </ul>
+    </div>
+  </div>
+  <div class="dependency">
+    <span class="dep-icon">🔗</span>
+    <span><strong>TestFlight does not require App Review for internal testers.</strong> External testers do require a lightweight review. None of this requires App Store approval to start testing.</span>
+  </div>
+</div>
+
+<!-- ========== PHASE 1: FOUNDATION ========== -->
+<div class="phase">
+  <div class="phase-header">
+    <span class="phase-badge badge-active">Active</span>
+    <span class="phase-title">Phase 1 — Foundation</span>
   </div>
   <p class="phase-desc">Exercise whitelist, basic workout generation, database models, frontend set logging. All shipped.</p>
-  <div class="columns">
+  <div class="columns-3">
     <div class="col col-done">
       <div class="col-header col-done">Completed</div>
       <ul>
@@ -219,7 +271,7 @@
         <li>Frontend ActiveWorkoutScreen with set logging UI</li>
         <li>RIR capture added to frontend + backend schema</li>
         <li>Progression type assigned per exercise in generator</li>
-        <li>Deployed to smartlift-api.fly.dev</li>
+        <li>Deployed to askeo.fit</li>
       </ul>
     </div>
     <div class="col">
@@ -228,6 +280,16 @@
         <li>Frontend now calls backend prescription API in ai_trainer mode</li>
         <li>AlgorithmState persisted per exercise server-side</li>
         <li>Progression transitions logged server-side</li>
+        <li>Transition history view in app</li>
+      </ul>
+    </div>
+    <div class="col col-waiting">
+      <div class="col-header col-waiting">User must do</div>
+      <ul>
+        <li>Set up Google auth in Google Cloud Console</li>
+        <li>Add <code>VITE_GOOGLE_CLIENT_ID</code> to frontend <code>.env</code></li>
+        <li>Rebuild + redeploy frontend to device</li>
+        <li>Submit app to TestFlight / dev App Store for tester access</li>
       </ul>
     </div>
   </div>
@@ -237,11 +299,11 @@
   </div>
 </div>
 
-<!-- ========== PHASE 1: LINEAR PROGRESSION ========== -->
+<!-- ========== PHASE 2: LINEAR PROGRESSION ========== -->
 <div class="phase">
   <div class="phase-header">
     <span class="phase-badge badge-active">Active</span>
-    <span class="phase-title">Phase 1 — Linear Progression (Current)</span>
+    <span class="phase-title">Phase 2 — Linear Progression (Current)</span>
   </div>
   <p class="phase-desc">For beginners. Add weight when all sets/reps completed. Collect RPE + RIR to calibrate per-user.</p>
   <div class="columns">
@@ -250,9 +312,7 @@
       <ul>
         <li>Wire frontend → backend prescription API</li>
         <li>Persist AlgorithmState per exercise server-side</li>
-        <li>Log progression transitions server-side</li>
         <li>Surface backend prescription errors to user in UI</li>
-        <li>Add transition history view in app</li>
         <li>pytest coverage for <code>/api/rules/next-prescription</code> side effects</li>
         <li>Confirm AlgorithmState + ProgressionTransition rows created on phase change</li>
         <li>End-to-end test: identical inputs → identical outputs unless RPE/RIR changes</li>
@@ -271,27 +331,23 @@
         <li>Log effort + RIR for every set</li>
         <li>Do this for 2–3 sessions minimum</li>
         <li>Note if weight feels too easy / too hard</li>
-        <li>Set up Google auth in Google Cloud Console</li>
-        <li>Add VITE_GOOGLE_CLIENT_ID to frontend .env</li>
-        <li>Rebuild + redeploy frontend to device</li>
-        <li>Submit app to TestFlight / dev App Store for tester access</li>
       </ul>
     </div>
   </div>
   <div class="dependency">
     <span class="dep-icon">🔗</span>
-    <span><strong>Only one agent task remains, and it needs your data.</strong> Your 2–3 sessions unblock validation of linear progression defaults. All other Phase 1 agent tasks are complete.</span>
+    <span><strong>Only one agent task remains, and it needs your data.</strong> Your 2–3 sessions unblock validation of linear progression defaults. All other Phase 2 agent tasks are complete.</span>
   </div>
   <div class="note">
     <strong>What we're measuring:</strong> completion rate, RIR per set, effort per set, whether weight was increased automatically. This data tells us if the linear progression defaults are right for you.
   </div>
 </div>
 
-<!-- ========== PHASE 2: DOUBLE PROGRESSION ========== -->
+<!-- ========== PHASE 3: DOUBLE PROGRESSION ========== -->
 <div class="phase">
   <div class="phase-header">
     <span class="phase-badge badge-waiting">Waiting</span>
-    <span class="phase-title">Phase 2 — Double Progression</span>
+    <span class="phase-title">Phase 3 — Double Progression</span>
   </div>
   <p class="phase-desc">Novice-to-intermediate. Work in rep range 3×8–12. Hit top → add weight → drop to bottom. Trigger based on RIR at top set.</p>
   <div class="columns">
@@ -316,15 +372,15 @@
   </div>
   <div class="dependency">
     <span class="dep-icon">🔗</span>
-    <span><strong>Blocked by Phase 1 data.</strong> The stall-detection trigger needs your Phase 1 performance history (completion rates, RIR trends) to calibrate what "stall" means for you. <strong>Agent can't build Phase 2 until Phase 1 has enough data to define the transition threshold.</strong></span>
+    <span><strong>Blocked by Phase 2 data.</strong> The stall-detection trigger needs your Phase 2 performance history (completion rates, RIR trends) to calibrate what "stall" means for you. <strong>Agent can't build Phase 3 until Phase 2 has enough data to define the transition threshold.</strong></span>
   </div>
 </div>
 
-<!-- ========== PHASE 3: PERCENTAGE-BASED ========== -->
+<!-- ========== PHASE 4: PERCENTAGE-BASED ========== -->
 <div class="phase">
   <div class="phase-header">
     <span class="phase-badge badge-waiting">Waiting</span>
-    <span class="phase-title">Phase 3 — Percentage-Based (5/3/1 or variant)</span>
+    <span class="phase-title">Phase 4 — Percentage-Based (5/3/1 or variant)</span>
   </div>
   <p class="phase-desc">Intermediate+. Auto-selects 5/3/1 standard, BBB, FSL, or DUP based on goal, equipment, and performance patterns.</p>
   <div class="columns">
@@ -350,15 +406,15 @@
   </div>
   <div class="dependency">
     <span class="dep-icon">🔗</span>
-    <span><strong>Blocked by Phase 2 completion + more data.</strong> The 5/3/1 engine needs a training max, which is calculated from your recent performance. That requires Phase 2 progression data (top-set performance, rep ranges hit). <strong>Agent can't build Phase 3 until Phase 2 is proven and training max can be estimated from your history.</strong></span>
+    <span><strong>Blocked by Phase 3 completion + more data.</strong> The 5/3/1 engine needs a training max, which is calculated from your recent performance. That requires Phase 3 progression data (top-set performance, rep ranges hit). <strong>Agent can't build Phase 4 until Phase 3 is proven and training max can be estimated from your history.</strong></span>
   </div>
 </div>
 
-<!-- ========== PHASE 4: RECOVERY & DELOAD ========== -->
+<!-- ========== PHASE 5: RECOVERY & DELOAD ========== -->
 <div class="phase">
   <div class="phase-header">
     <span class="phase-badge badge-waiting">Waiting</span>
-    <span class="phase-title">Phase 4 — Recovery & Deload Intelligence</span>
+    <span class="phase-title">Phase 5 — Recovery &amp; Deload Intelligence</span>
   </div>
   <p class="phase-desc">Detect overreaching, missed sessions, declining performance. Auto-trigger deload or volume reduction.</p>
   <div class="columns">
@@ -382,15 +438,15 @@
   </div>
   <div class="dependency">
     <span class="dep-icon">🔗</span>
-    <span><strong>Blocked by Phase 3 data.</strong> Deload triggers need weeks of percentage-based training data (AMRAP performance, RPE trends, session frequency). Can't detect overreaching until there's a baseline to compare against. <strong>Depends on Phase 3 being active long enough to collect recovery signals.</strong></span>
+    <span><strong>Blocked by Phase 4 data.</strong> Deload triggers need weeks of percentage-based training data (AMRAP performance, RPE trends, session frequency). Can't detect overreaching until there's a baseline to compare against. <strong>Depends on Phase 4 being active long enough to collect recovery signals.</strong></span>
   </div>
 </div>
 
-<!-- ========== PHASE 5: ADVANCED ========== -->
+<!-- ========== PHASE 6: ADVANCED ========== -->
 <div class="phase">
   <div class="phase-header">
     <span class="phase-badge badge-waiting">Waiting</span>
-    <span class="phase-title">Phase 5 — Advanced Autoregulation</span>
+    <span class="phase-title">Phase 6 — Advanced Autoregulation</span>
   </div>
   <p class="phase-desc">Fine-grained per-user calibration: RIR interpretation, volume landmarks, weak-point specialization, periodization.</p>
   <div class="columns">

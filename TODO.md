@@ -23,7 +23,7 @@
 ### Verified / preserved (do not break)
 - [x] Template pencil opens full workout editor
 - [x] Back from template editor returns to Workouts tab
-- [x] Fly-only API base (`https://smartlift-api.fly.dev/api`); no local LAN fallback
+- [x] Fly-only API base (`https://askeo.fit/api`); no local LAN fallback
 - [x] MacBook static IP remains `192.168.1.112` for rsync/ssh/cap sync
 - [x] `workout_mode` persists across app restarts via localStorage fallback
 

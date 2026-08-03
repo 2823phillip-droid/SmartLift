@@ -1,4 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { Capacitor } from "@capacitor/core";
+import { GoogleSignIn } from "@capawesome/capacitor-google-sign-in";
 import { api, initApiBaseFromSettings, setAuthToken, withRetry } from "../api";
 
 declare global {
@@ -13,17 +15,6 @@ export default function LoginScreen({ onLogin, onSwitch }: { onLogin: (user: { i
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    document.body.appendChild(script);
-    return () => {
-      document.body.removeChild(script);
-    };
-  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,36 +47,54 @@ export default function LoginScreen({ onLogin, onSwitch }: { onLogin: (user: { i
       if (!googleClientId) {
         throw new Error("Google Sign-In is not configured. Missing VITE_GOOGLE_CLIENT_ID.");
       }
-      if (!window.google?.accounts?.id) {
-        throw new Error("Google Sign-In is not configured yet.");
+
+      console.log("[Google] button tapped, platform:", Capacitor.isNativePlatform() ? "native" : "web");
+      let idToken: string;
+      if (Capacitor.isNativePlatform()) {
+        console.log("[Google] initializing native plugin...");
+        await GoogleSignIn.initialize({ clientId: googleClientId, scopes: ["profile", "email"] });
+        console.log("[Google] calling signIn...");
+        const result = await GoogleSignIn.signIn();
+        console.log("[Google] signIn result:", result);
+        if (!result.idToken) {
+          throw new Error("Google sign-in did not return an ID token.");
+        }
+        idToken = result.idToken;
+      } else {
+        console.log("[Google] using web fallback");
+        if (!window.google?.accounts?.id) {
+          throw new Error("Google Sign-In is not configured yet.");
+        }
+        idToken = await new Promise<string>((resolve, reject) => {
+          const client = window.google.accounts.id;
+          client.initialize({
+            client_id: googleClientId,
+            callback: (resp: any) => {
+              if (resp.error) {
+                reject(new Error(resp.error));
+                return;
+              }
+              const token = resp.credential;
+              if (!token) {
+                reject(new Error("Missing Google credential"));
+                return;
+              }
+              resolve(token);
+            },
+          });
+          client.prompt((notification: any) => {
+            if (notification.isNotDisplayed() || notification.isSkipped()) {
+              reject(new Error("Google sign-in was skipped or not displayed"));
+            }
+          });
+        });
       }
-      const res = await new Promise<any>((resolve, reject) => {
-        const client = window.google.accounts.id;
-        client.initialize({
-          client_id: googleClientId,
-          callback: (resp: any) => {
-            if (resp.error) {
-              reject(new Error(resp.error));
-              return;
-            }
-            const token = resp.credential;
-            if (!token) {
-              reject(new Error("Missing Google credential"));
-              return;
-            }
-            resolve(token);
-          },
-        });
-        client.prompt((notification: any) => {
-          if (notification.isNotDisplayed() || notification.isSkipped()) {
-            reject(new Error("Google sign-in was skipped or not displayed"));
-          }
-        });
-      });
-      const authRes = await api.google(res as string);
+
+      const authRes = await api.google(idToken);
       setAuthToken(authRes.token);
       onLogin(authRes.user);
     } catch (err) {
+      console.error("[Google] error:", err);
       setError((err as Error).message || "Google login failed");
     } finally {
       setLoading(false);
@@ -99,7 +108,7 @@ export default function LoginScreen({ onLogin, onSwitch }: { onLogin: (user: { i
   return (
     <div className="max-w-sm mx-auto mt-10 space-y-5">
       <div className="text-center">
-        <h2 className="text-2xl font-bold">SmartLift</h2>
+        <h2 className="text-2xl font-bold">Askeo</h2>
         <p className="text-slate-400 text-sm">Sign in to your account</p>
       </div>
       <form onSubmit={submit} className="space-y-4">
@@ -137,7 +146,8 @@ export default function LoginScreen({ onLogin, onSwitch }: { onLogin: (user: { i
       <div className="space-y-2">
         <button
           onClick={handleGoogle}
-          className="w-full rounded-xl border border-slate-700 bg-slate-900 py-2.5 text-sm font-medium text-slate-200 hover:border-slate-500 active:scale-95 transition-all"
+          disabled={loading}
+          className="w-full rounded-xl border border-slate-700 bg-slate-900 py-2.5 text-sm font-medium text-slate-200 hover:border-slate-500 active:scale-95 transition-all disabled:opacity-50"
         >
           Continue with Google
         </button>

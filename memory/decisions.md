@@ -76,9 +76,9 @@ Tags: [process, memory, skills]
 1. Load files at every session start
 2. Create memory/index system
 
-**Decision:** Created `project-context` skill that loads PROJECT.md, PERSONA.md, CONTEXT.md, TODO.md at startup. User later added SMARTLIFT.md.
+**Decision:** Created `project-context` skill that loads PROJECT.md, PERSONA.md, CONTEXT.md, TODO.md at startup. User later added Askeo.md.
 
-**Consequence:** Still missed new `SMARTLIFT.md` on 2026-07-31, leading to MEMORY-INDEX.md / memory/ directory design.
+**Consequence:** Still missed new `Askeo.md` on 2026-07-31, leading to MEMORY-INDEX.md / memory/ directory design.
 
 ---
 
@@ -97,7 +97,7 @@ Tags: [backend, frontend, logging]
 
 **Decision:** Use structured log slots + console capture interceptor in `main.tsx` for client-side errors.
 
-**Consequence:** Backend logs become searchable for request path/status/latency. Frontend errors persist to `localStorage['smartlift_error_log']`.
+**Consequence:** Backend logs become searchable for request path/status/latency. Frontend errors persist to `localStorage['askeo_error_log']`.
 
 ---
 

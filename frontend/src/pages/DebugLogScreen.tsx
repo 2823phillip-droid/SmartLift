@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 
-const STORAGE_KEY = "smartlift_error_log";
+const STORAGE_KEY = "askeo_error_log";
 
 function DebugLogScreen({ onBack }: { onBack: () => void }) {
   const [entries, setEntries] = useState<
