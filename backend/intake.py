@@ -9,7 +9,7 @@ The rest of the system never sees raw form answers.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 
 @dataclass(frozen=True)
@@ -33,7 +33,12 @@ class UserProfile:
     allergies: List[str] = field(default_factory=list)
     meal_plan_opt_in: bool = False
     units_preference: str = "imperial"
+    # Modality fields — primary is legacy-compatible, new fields enable mixed weeks
     modality: str = "traditional_weight_training"
+    modality_primary: str = "traditional_weight_training"
+    modality_secondary: List[str] = field(default_factory=list)
+    modality_mix: str = "single"  # single | separate_days | together | mostly_primary
+    week_schedule: Optional[Dict[str, str]] = None  # {"monday": "bodybuilding", "tuesday": "hiit", ...}
 
 
 def _to_cm(value: Optional[float], units: str) -> Optional[float]:
@@ -116,6 +121,18 @@ def normalize_questionnaire(answers: dict, defaults: dict | None = None) -> User
 
     meals = int(answers.get("meals_per_day", 3) or 3)
 
+    # Modality fields
+    modality_primary = _single("workout_modality", "traditional_weight_training")
+    modality_secondary = _list("modality_secondary")
+    modality_mix = _single("modality_mix", "single")
+
+    # Week schedule from AI coach (optional dict)
+    week_schedule_raw = answers.get("week_schedule")
+    if isinstance(week_schedule_raw, dict):
+        week_schedule = week_schedule_raw
+    else:
+        week_schedule = None
+
     return UserProfile(
         sex=_single("sex", "male"),
         goals=_list("goal") or ["general_fitness"],
@@ -135,5 +152,9 @@ def normalize_questionnaire(answers: dict, defaults: dict | None = None) -> User
         allergies=_list("allergies"),
         meal_plan_opt_in=bool(answers.get("meal_plan_opt_in", False)),
         units_preference=units,
-        modality=_single("workout_modality", "traditional_weight_training"),
+        modality=modality_primary,
+        modality_primary=modality_primary,
+        modality_secondary=modality_secondary,
+        modality_mix=modality_mix,
+        week_schedule=week_schedule,
     )

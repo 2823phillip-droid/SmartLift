@@ -2,13 +2,13 @@
 progression.py
 
 Deterministic workout-generation algorithms.
-Each function takes a structured UserProfile and returns a workout draft.
+Uses slot-based templates for weight training days, with curated exercise pools.
 No AI here — this is pure logic that the AI voice layer will wrap later.
 """
 from __future__ import annotations
 
 import random
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -246,7 +246,6 @@ _KEYWORD_DIFFICULTY: Dict[str, str] = {
     "muscle up": "advanced",
     "handstand": "advanced",
     "one arm": "advanced",
-    "weighted": "advanced",
 }
 
 # Compound-first ordering within a movement bucket
@@ -501,207 +500,257 @@ def _seed(profile: UserProfile) -> random.Random:
 
 
 # ---------------------------------------------------------------------------
-# Day builders per modality
+# Slot-based template system
 # ---------------------------------------------------------------------------
 
-def _build_traditional_weight_training(
+@dataclass
+class SlotSpec:
+    """Defines one exercise slot within a day template."""
+    slot_id: str
+    label: str
+    movements: List[str]          # e.g., ["push"]
+    tier_range: Tuple[int, int]   # (min_tier, max_tier)
+    equipment: Optional[str] = None  # preferred equipment class
+    count: int = 1                # how many exercises to pick for this slot
+    sets_range: Tuple[int, int] = (3, 4)
+    reps_range: Tuple[int, int] = (8, 12)
+    rest_seconds: int = 75
+
+
+@dataclass
+class DayTemplate:
+    """A pre-built workout day template with slots."""
+    name: str
+    description: str
+    slots: List[SlotSpec]
+
+
+# ---------------------------------------------------------------------------
+# Day templates
+# ---------------------------------------------------------------------------
+
+_CHEST_DAY = DayTemplate(
+    name="Chest Day",
+    description="2 heavy compounds + 2 accessories + 1 isolation",
+    slots=[
+        SlotSpec("compound_1", "Heavy Compound", ["push"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150),
+        SlotSpec("compound_2", "Second Compound", ["push"], (1, 2), None, 1, (3, 4), (8, 10), 120),
+        SlotSpec("accessory_1", "Accessory", ["push"], (3, 3), None, 1, (3, 4), (10, 12), 90),
+        SlotSpec("accessory_2", "Accessory / Isolation", ["push"], (3, 4), None, 1, (3, 4), (10, 12), 90),
+        SlotSpec("isolation_1", "Isolation", ["push"], (4, 4), None, 1, (3, 4), (12, 15), 60),
+    ],
+)
+
+_BACK_DAY = DayTemplate(
+    name="Back Day",
+    description="Vertical pull + horizontal pull + row + accessory + isolation",
+    slots=[
+        SlotSpec("vertical_pull", "Vertical Pull", ["pull"], (1, 2), "cable", 1, (4, 5), (6, 8), 150),
+        SlotSpec("horizontal_pull", "Horizontal Pull", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 120),
+        SlotSpec("row_variation", "Row Variation", ["pull"], (2, 3), None, 1, (3, 4), (8, 12), 90),
+        SlotSpec("accessory", "Accessory", ["pull"], (3, 3), None, 1, (3, 4), (10, 12), 90),
+        SlotSpec("isolation", "Isolation", ["pull"], (4, 4), None, 1, (3, 4), (12, 15), 60),
+    ],
+)
+
+_LEG_DAY = DayTemplate(
+    name="Leg Day",
+    description="Squat + hinge + accessory + calf + core",
+    slots=[
+        SlotSpec("primary_squat", "Primary Squat", ["squat"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150),
+        SlotSpec("hip_hinge", "Hip Hinge", ["hinge"], (1, 2), None, 1, (3, 4), (8, 10), 120),
+        SlotSpec("leg_accessory", "Leg Accessory", ["squat"], (2, 3), None, 1, (3, 4), (10, 12), 90),
+        SlotSpec("calf_work", "Calf Work", ["squat"], (4, 4), "machine", 1, (3, 4), (12, 15), 60),
+        SlotSpec("core", "Core", ["core"], (1, 2), None, 1, (3, 4), (12, 20), 60),
+    ],
+)
+
+_SHOULDER_DAY = DayTemplate(
+    name="Shoulder Day",
+    description="Overhead press + lateral + rear delt + front delt + traps",
+    slots=[
+        SlotSpec("overhead_press", "Overhead Press", ["push"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150),
+        SlotSpec("lateral_raise", "Lateral Raise", ["push"], (3, 4), "dumbbell", 1, (3, 4), (10, 12), 75),
+        SlotSpec("rear_delt", "Rear Delt", ["push"], (3, 4), "dumbbell", 1, (3, 4), (10, 12), 75),
+        SlotSpec("front_delt", "Front Delt", ["push"], (3, 4), "dumbbell", 1, (3, 4), (10, 12), 75),
+        SlotSpec("trap_accessory", "Trap / Upper Back", ["pull"], (3, 4), None, 1, (3, 4), (10, 12), 75),
+    ],
+)
+
+_ARM_DAY = DayTemplate(
+    name="Arm Day",
+    description="Triceps + biceps + forearm work",
+    slots=[
+        SlotSpec("tricep_compound", "Tricep Compound", ["push"], (1, 2), "barbell", 1, (3, 4), (8, 10), 90),
+        SlotSpec("tricep_isolation", "Tricep Isolation", ["push"], (4, 4), "cable", 1, (3, 4), (12, 15), 60),
+        SlotSpec("bicep_compound", "Bicep Compound", ["pull"], (1, 2), "barbell", 1, (3, 4), (8, 10), 90),
+        SlotSpec("bicep_isolation", "Bicep Isolation", ["pull"], (4, 4), "dumbbell", 1, (3, 4), (12, 15), 60),
+        SlotSpec("forearm", "Forearm / Grip", ["pull", "core"], (4, 4), None, 1, (3, 4), (12, 15), 60),
+    ],
+)
+
+_CHEST_TRICEPS = DayTemplate(
+    name="Chest + Triceps",
+    description="Chest compounds + tricep finisher",
+    slots=[
+        SlotSpec("chest_compound_1", "Chest Compound", ["push"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150),
+        SlotSpec("chest_compound_2", "Chest Compound", ["push"], (1, 2), None, 1, (3, 4), (8, 10), 120),
+        SlotSpec("chest_accessory", "Chest Accessory", ["push"], (3, 3), None, 1, (3, 4), (10, 12), 90),
+        SlotSpec("tricep_work", "Tricep Work", ["push"], (2, 4), None, 1, (3, 4), (10, 12), 75),
+        SlotSpec("isolation", "Isolation", ["push"], (4, 4), None, 1, (3, 4), (12, 15), 60),
+    ],
+)
+
+_BACK_BICEPS = DayTemplate(
+    name="Back + Biceps",
+    description="Back compounds + bicep finisher",
+    slots=[
+        SlotSpec("vertical_pull", "Vertical Pull", ["pull"], (1, 2), "cable", 1, (4, 5), (6, 8), 150),
+        SlotSpec("horizontal_pull", "Horizontal Pull", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 120),
+        SlotSpec("row_variation", "Row Variation", ["pull"], (2, 3), None, 1, (3, 4), (8, 12), 90),
+        SlotSpec("bicep_work", "Bicep Work", ["pull"], (2, 4), None, 1, (3, 4), (10, 12), 75),
+        SlotSpec("isolation", "Isolation", ["pull"], (4, 4), None, 1, (3, 4), (12, 15), 60),
+    ],
+)
+
+_UPPER_BODY = DayTemplate(
+    name="Upper Body",
+    description="Push + pull + shoulders + arms",
+    slots=[
+        SlotSpec("push_compound", "Push Compound", ["push"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150),
+        SlotSpec("pull_compound", "Pull Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 120),
+        SlotSpec("shoulder_work", "Shoulder Work", ["push"], (3, 4), None, 1, (3, 4), (10, 12), 75),
+        SlotSpec("back_accessory", "Back Accessory", ["pull"], (2, 3), None, 1, (3, 4), (10, 12), 90),
+        SlotSpec("arm_isolation", "Arm Isolation", ["push", "pull"], (4, 4), None, 1, (3, 4), (12, 15), 60),
+    ],
+)
+
+_LOWER_BODY = DayTemplate(
+    name="Lower Body",
+    description="Squat + hinge + leg accessory + calf + core",
+    slots=[
+        SlotSpec("primary_squat", "Primary Squat", ["squat"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150),
+        SlotSpec("hip_hinge", "Hip Hinge", ["hinge"], (1, 2), None, 1, (3, 4), (8, 10), 120),
+        SlotSpec("leg_accessory", "Leg Accessory", ["squat"], (2, 3), None, 1, (3, 4), (10, 12), 90),
+        SlotSpec("calf_work", "Calf Work", ["squat"], (4, 4), "machine", 1, (3, 4), (12, 15), 60),
+        SlotSpec("core", "Core", ["core"], (1, 2), None, 1, (3, 4), (12, 20), 60),
+    ],
+)
+
+_FULL_BODY_DAY = DayTemplate(
+    name="Full Body Day",
+    description="One of each major movement pattern",
+    slots=[
+        SlotSpec("push_compound", "Push Compound", ["push"], (1, 2), None, 1, (3, 4), (6, 10), 120),
+        SlotSpec("pull_compound", "Pull Compound", ["pull"], (1, 2), None, 1, (3, 4), (6, 10), 120),
+        SlotSpec("squat_compound", "Squat / Leg", ["squat", "hinge"], (1, 2), None, 1, (3, 4), (6, 10), 120),
+        SlotSpec("accessory", "Accessory", ["push", "pull", "squat", "hinge"], (2, 3), None, 1, (3, 4), (10, 12), 75),
+        SlotSpec("core", "Core", ["core"], (1, 2), None, 1, (3, 4), (12, 20), 60),
+    ],
+)
+
+# Template lookup: focus + modality → template
+_DAY_TEMPLATES: Dict[str, DayTemplate] = {
+    "full_body": _FULL_BODY_DAY,
+    "upper_lower_split": _UPPER_BODY,
+    "push_pull_legs": _CHEST_DAY,  # Default; will be rotated
+}
+
+# Body-part templates for push/pull/legs splits
+_PPL_TEMPLATES = {
+    "push": _CHEST_DAY,  # Chest day serves as push day
+    "pull": _BACK_DAY,
+    "legs": _LEG_DAY,
+}
+
+# Single-part templates
+_SINGLE_PART_TEMPLATES = {
+    "chest": _CHEST_DAY,
+    "back": _BACK_DAY,
+    "shoulders": _SHOULDER_DAY,
+    "legs": _LEG_DAY,
+    "arms": _ARM_DAY,
+    "chest_triceps": _CHEST_TRICEPS,
+    "back_biceps": _BACK_BICEPS,
+    "upper": _UPPER_BODY,
+    "lower": _LOWER_BODY,
+}
+
+
+# ---------------------------------------------------------------------------
+# Slot-based exercise picker
+# ---------------------------------------------------------------------------
+
+def _pick_exercise_for_slot(
     db: Session,
-    profile: UserProfile,
-    rng: random.Random,
-    base_sets: int,
-    max_sets: int,
-    base_reps: int,
-    max_reps: int,
-    rest: int,
-    target_exercises: int,
     filtered: List[Any],
-    lower: List[Any],
+    slot: SlotSpec,
+    rng: random.Random,
     progression_type: str = "linear",
-) -> List[Dict[str, Any]]:
-    """Traditional weight training: compound → accessory → isolation, balanced movement patterns."""
-    groups: List[Dict[str, Any]] = []
-    days = min(profile.days_per_week, 6)
-
-    sets_range = (base_sets, max_sets)
-    reps_range = (base_reps, max_reps)
-
-    # Cap exercises for quality
-    target_exercises = min(target_exercises, 6)
-
-    # Define day templates based on days_per_week
-    if days <= 3:
-        day_templates = ["full_body"] * days
-    elif days == 4:
-        day_templates = ["upper", "lower", "upper", "lower"]
-    elif days == 5:
-        day_templates = ["push", "pull", "legs", "upper", "lower"]
-    else:
-        day_templates = ["push", "pull", "legs", "push", "pull", "legs"]
-
-    movement_buckets: Dict[str, List[Any]] = {"push": [], "pull": [], "squat": [], "hinge": [], "core": []}
+) -> Optional[Dict[str, Any]]:
+    """Pick one exercise from filtered list that matches the slot spec."""
+    candidates = []
     for ex in filtered:
         meta = _classify_exercise(ex)
-        mv = meta["movement"]
-        if mv in movement_buckets:
-            movement_buckets[mv].append(ex)
+        # Check movement
+        if meta["movement"] not in slot.movements:
+            continue
+        # Check tier range
+        tier = meta["compound_rank"]
+        if tier < slot.tier_range[0] or tier > slot.tier_range[1]:
+            continue
+        # Check equipment preference (if specified)
+        if slot.equipment:
+            if slot.equipment not in (ex.equipment or "").lower():
+                continue
+        candidates.append(ex)
 
-    # For traditional weight training, remove non-weight-training movements
-    if profile.modality == "traditional_weight_training":
-        for mv in ["squat", "hinge", "core"]:
-            movement_buckets[mv] = [e for e in movement_buckets.get(mv, []) if _classify_exercise(e)["movement"] not in {"plyometric", "cardio", "mobility"}]
-        for mv in ["push", "pull"]:
-            movement_buckets[mv] = [e for e in movement_buckets.get(mv, []) if _classify_exercise(e)["movement"] not in {"plyometric", "cardio", "mobility"}]
+    if not candidates:
+        return None
 
-    for day_idx, template in enumerate(day_templates):
-        if template == "full_body":
-            # One compound from each major movement, then accessories
-            day_exercises: List[Any] = []
-            used_ids = set()
-            for mv in ["push", "pull", "squat", "hinge"]:
-                pool = movement_buckets.get(mv, [])
-                if pool:
-                    ranked = sorted(pool, key=lambda e: _classify_exercise(e)["compound_rank"])
-                    unused = [e for e in ranked if e.id not in used_ids]
-                    if unused:
-                        # Always take the best compound for consistency
-                        choice = unused[0]
-                        day_exercises.append(choice)
-                        used_ids.add(choice.id)
-            # Fill remaining with accessories for variety
-            remaining = target_exercises - len(day_exercises)
-            if remaining > 0:
-                accessory_candidates = []
-                for mv in ["push", "pull", "squat", "hinge", "core"]:
-                    bucket = movement_buckets.get(mv, [])
-                    for e in bucket:
-                        if e.id not in used_ids:
-                            accessory_candidates.append(e)
-                if accessory_candidates:
-                    ranked_acc = sorted(accessory_candidates, key=lambda e: _classify_exercise(e)["compound_rank"])
-                    # Pick from top 8 accessories for day-to-day variety
-                    top_acc = ranked_acc[:min(8, len(ranked_acc))]
-                    sample_size = min(remaining, len(top_acc))
-                    picks = rng.sample(top_acc, sample_size)
-                    day_exercises.extend(picks)
-            ex_out = [_exercise_to_dict(e, rng.randint(*sets_range), rng.randint(*reps_range), rest, idx, progression_type) for idx, e in enumerate(day_exercises)]
-            groups.append({"name": f"Full Body Day {day_idx + 1}", "exercises": ex_out})
+    # Sort by compound rank, pick top 3 for variety, then randomize
+    candidates.sort(key=lambda e: _classify_exercise(e)["compound_rank"])
+    top_pool = candidates[:min(5, len(candidates))]
+    pick = rng.choice(top_pool)
 
-        elif template in {"push", "pull", "legs", "upper", "lower"}:
-            if template == "push":
-                pool = [e for e in filtered if _classify_exercise(e)["movement"] == "push"]
-            elif template == "pull":
-                pool = [e for e in filtered if _classify_exercise(e)["movement"] == "pull"]
-            elif template == "legs":
-                pool = [e for e in filtered if _classify_exercise(e)["movement"] in {"squat", "hinge", "core"}]
-            elif template == "upper":
-                pool = [e for e in filtered if _classify_exercise(e).get("movement") in {"push", "pull"}]
-            else:
-                pool = [e for e in filtered if _classify_exercise(e).get("movement") in {"squat", "hinge", "core"}]
-            if not pool:
-                pool = filtered
-            # Compound-first ordering, take top exercises deterministically
-            ranked = sorted(pool, key=lambda e: _classify_exercise(e)["compound_rank"])
-            count = min(target_exercises, len(ranked))
-            chosen = ranked[:count]
-            ex_out = [_exercise_to_dict(e, rng.randint(*sets_range), rng.randint(*reps_range), rest, idx, progression_type) for idx, e in enumerate(chosen)]
-            groups.append({"name": f"{template.title()} Day {day_idx + 1}", "exercises": ex_out})
-
-    return groups
+    sets_target = rng.randint(*slot.sets_range)
+    reps_target = rng.randint(*slot.reps_range)
+    return _exercise_to_dict(pick, sets_target, reps_target, slot.rest_seconds, 0, progression_type)
 
 
-def _build_powerlifting(
+def _build_day_from_template(
     db: Session,
     profile: UserProfile,
+    template: DayTemplate,
     rng: random.Random,
-    base_sets: int,
-    max_sets: int,
-    base_reps: int,
-    max_reps: int,
-    rest: int,
-    target_exercises: int,
-    filtered: List[Any],
-    lower: List[Any],
     progression_type: str = "linear",
-) -> List[Dict[str, Any]]:
-    """Powerlifting: only squat/bench/deadlift variations, heavy sets, low reps."""
-    groups: List[Dict[str, Any]] = []
-    days = min(profile.days_per_week, 6)
+) -> Dict[str, Any]:
+    """Build one workout day by filling slots in a template."""
+    filtered, _ = _filter_exercises(db, profile.equipment, profile.limitations, profile.focus)
+    if not filtered:
+        filtered, _ = _filter_exercises(db, "bodyweight_only", [], profile.focus)
 
-    lift_keywords = ["squat", "bench press", "deadlift", "press", "row"]
-    main_lifts = [e for e in filtered if any(kw in e.name.lower() for kw in lift_keywords)]
-    if not main_lifts:
-        main_lifts = filtered[:3]
+    exercises = []
+    for slot in template.slots:
+        ex = _pick_exercise_for_slot(db, filtered, slot, rng, progression_type)
+        if ex:
+            ex["order"] = len(exercises)
+            exercises.append(ex)
 
-    # Sort by movement
-    main_lifts.sort(key=lambda e: _classify_exercise(e)["movement"])
+    # Fallback: if no exercises matched, try with relaxed constraints
+    if not exercises:
+        return {"name": template.name, "exercises": []}
 
-    for day_idx in range(days):
-        lift = main_lifts[day_idx % len(main_lifts)]
-        # 5 sets of 3-5 reps for main lift
-        ex_out = [_exercise_to_dict(lift, 5, 5, 180, 0, progression_type)]
-        # Add accessory work if we have room
-        if target_exercises > 1:
-            accessories = [e for e in filtered if e.id != lift.id][:target_exercises - 1]
-            for i, acc in enumerate(accessories):
-                ex_out.append(_exercise_to_dict(acc, 3, 8, 120, i + 1, progression_type))
-        groups.append({"name": f"{_classify_exercise(lift)['movement'].title()} Day {day_idx + 1}", "exercises": ex_out})
-
-    return groups
+    return {
+        "name": template.name,
+        "description": template.description,
+        "exercises": exercises,
+    }
 
 
-def _build_bodybuilding(
-    db: Session,
-    profile: UserProfile,
-    rng: random.Random,
-    base_sets: int,
-    max_sets: int,
-    base_reps: int,
-    max_reps: int,
-    rest: int,
-    target_exercises: int,
-    filtered: List[Any],
-    lower: List[Any],
-    progression_type: str = "linear",
-) -> List[Dict[str, Any]]:
-    """Bodybuilding: higher volume, isolation work, pump-focused."""
-    groups: List[Dict[str, Any]] = []
-    days = min(profile.days_per_week, 6)
-
-    sets_range = (base_sets, max_sets)
-    reps_range = (base_reps, max_reps)
-
-    if days <= 3:
-        day_templates = ["full_body"] * days
-    elif days == 4:
-        day_templates = ["upper", "lower", "upper", "lower"]
-    else:
-        day_templates = ["push", "pull", "legs", "push", "pull", "legs"][:days]
-
-    for day_idx, template in enumerate(day_templates):
-        if template == "full_body":
-            # Pick exercises from all movements, favor isolations
-            pool = sorted(filtered, key=lambda e: _classify_exercise(e)["compound_rank"], reverse=True)
-            chosen = rng.sample(pool, min(target_exercises, len(pool))) if len(pool) > target_exercises else pool
-            groups.append({"name": f"Full Body Day {day_idx + 1}", "exercises": [_exercise_to_dict(e, rng.randint(*sets_range), rng.randint(*reps_range), rest, idx, progression_type) for idx, e in enumerate(chosen)]})
-        elif template in {"push", "pull", "legs", "upper", "lower"}:
-            if template == "push":
-                pool = [e for e in filtered if _classify_exercise(e)["movement"] == "push"]
-            elif template == "pull":
-                pool = [e for e in filtered if _classify_exercise(e)["movement"] == "pull"]
-            elif template == "legs":
-                pool = [e for e in filtered if _classify_exercise(e)["movement"] in {"squat", "hinge"}]
-            elif template == "upper":
-                pool = [e for e in filtered if _classify_exercise(e)["movement"] in {"push", "pull"}]
-            else:
-                pool = [e for e in filtered if _classify_exercise(e)["movement"] in {"squat", "hinge"}]
-            if not pool:
-                pool = filtered
-            ranked = sorted(pool, key=lambda e: _classify_exercise(e)["compound_rank"], reverse=True)
-            chosen = rng.sample(ranked, min(target_exercises, len(ranked))) if len(ranked) > target_exercises else ranked
-            groups.append({"name": f"{template.title()} Day {day_idx + 1}", "exercises": [_exercise_to_dict(e, rng.randint(*sets_range), rng.randint(*reps_range), rest, idx, progression_type) for idx, e in enumerate(chosen)]})
-
-    return groups
-
+# ---------------------------------------------------------------------------
+# Modality-specific builders (HIIT, Cardio, Yoga, Calisthenics, CrossFit)
+# ---------------------------------------------------------------------------
 
 def _build_hiit(
     db: Session,
@@ -718,7 +767,7 @@ def _build_hiit(
     progression_type: str = "linear",
 ) -> List[Dict[str, Any]]:
     """HIIT: timed intervals, plyometrics, high intensity."""
-    groups: List[Dict[str, Any]] = []
+    groups = []
     days = min(profile.days_per_week, 6)
 
     # Prefer plyometric and cardio exercises
@@ -731,7 +780,6 @@ def _build_hiit(
         chosen = rng.sample(hiit_pool, count) if len(hiit_pool) > count else hiit_pool
         ex_out = []
         for idx, ex in enumerate(chosen):
-            # HIIT: 3-4 sets, 8-15 reps (timed), 30-45s rest
             sets = rng.randint(3, 4)
             reps = rng.randint(8, 15)
             ex_out.append(_exercise_to_dict(ex, sets, reps, 30, idx, progression_type))
@@ -755,7 +803,7 @@ def _build_calisthenics(
     progression_type: str = "linear",
 ) -> List[Dict[str, Any]]:
     """Calisthenics: bodyweight progressions, holds, skill work."""
-    groups: List[Dict[str, Any]] = []
+    groups = []
     days = min(profile.days_per_week, 6)
 
     # Filter for calisthenics-friendly exercises
@@ -771,7 +819,6 @@ def _build_calisthenics(
             meta = _classify_exercise(ex)
             sets = rng.randint(3, 4)
             reps = rng.randint(8, 12)
-            # Increase reps for beginner progressions
             if meta["difficulty"] == "beginner":
                 reps = rng.randint(10, 15)
             ex_out.append(_exercise_to_dict(ex, sets, reps, 60, idx, progression_type))
@@ -795,7 +842,7 @@ def _build_yoga(
     progression_type: str = "linear",
 ) -> List[Dict[str, Any]]:
     """Yoga / Mobility: hold-based, flow sequences."""
-    groups: List[Dict[str, Any]] = []
+    groups = []
     days = min(profile.days_per_week, 6)
 
     yoga_pool = [e for e in filtered if _classify_exercise(e)["modality_fit"] in {"yoga", "mobility"}]
@@ -807,7 +854,6 @@ def _build_yoga(
         chosen = rng.sample(yoga_pool, count) if len(yoga_pool) > count else yoga_pool
         ex_out = []
         for idx, ex in enumerate(chosen):
-            # Yoga: 2-3 sets, hold 30-60s per set
             sets = rng.randint(2, 3)
             reps = rng.randint(30, 60)
             ex_out.append(_exercise_to_dict(ex, sets, reps, 0, idx, progression_type))
@@ -831,7 +877,7 @@ def _build_cardio(
     progression_type: str = "linear",
 ) -> List[Dict[str, Any]]:
     """Cardio: zone-based, steady state or intervals."""
-    groups: List[Dict[str, Any]] = []
+    groups = []
     days = min(profile.days_per_week, 6)
 
     cardio_pool = [e for e in filtered if _classify_exercise(e)["modality_fit"] in {"cardio", "hiit"}]
@@ -866,7 +912,7 @@ def _build_crossfit(
     progression_type: str = "linear",
 ) -> List[Dict[str, Any]]:
     """CrossFit: mixed-modal WODs, compound + cardio."""
-    groups: List[Dict[str, Any]] = []
+    groups = []
     days = min(profile.days_per_week, 6)
 
     compound = [e for e in filtered if _classify_exercise(e)["compound_rank"] <= 2]
@@ -911,29 +957,42 @@ def generate_workout(db: Session, profile: UserProfile) -> dict:
     if not filtered:
         filtered, _ = _filter_exercises(db, "bodyweight_only", [], profile.focus)
 
-    # Route to modality-specific builder
-    if profile.modality == "powerlifting":
-        groups = _build_powerlifting(db, profile, rng, base_sets, max_sets, base_reps, max_reps, rest, target_exercises, filtered, lower, progression_type)
-    elif profile.modality == "bodybuilding":
-        groups = _build_bodybuilding(db, profile, rng, base_sets, max_sets, base_reps, max_reps, rest, target_exercises, filtered, lower, progression_type)
+    # Check for explicit week_schedule in profile (from AI coach)
+    week_schedule = getattr(profile, "week_schedule", None)
+    if week_schedule:
+        groups = _build_from_week_schedule(
+            db, profile, week_schedule, rng, base_sets, max_sets,
+            base_reps, max_reps, rest, target_exercises, filtered, lower, progression_type
+        )
+    # Route to template-based builder for weight training modalities
+    elif profile.modality in {"traditional_weight_training", "bodybuilding", "powerlifting"}:
+        groups = _build_weight_training_days(db, profile, rng, base_sets, max_sets,
+                                              base_reps, max_reps, rest, target_exercises,
+                                              filtered, lower, progression_type)
     elif profile.modality == "hiit":
-        groups = _build_hiit(db, profile, rng, base_sets, max_sets, base_reps, max_reps, rest, target_exercises, filtered, lower, progression_type)
+        groups = _build_hiit(db, profile, rng, base_sets, max_sets, base_reps, max_reps,
+                             rest, target_exercises, filtered, lower, progression_type)
     elif profile.modality == "calisthenics":
-        groups = _build_calisthenics(db, profile, rng, base_sets, max_sets, base_reps, max_reps, rest, target_exercises, filtered, lower, progression_type)
+        groups = _build_calisthenics(db, profile, rng, base_sets, max_sets, base_reps, max_reps,
+                                     rest, target_exercises, filtered, lower, progression_type)
     elif profile.modality == "yoga":
-        groups = _build_yoga(db, profile, rng, base_sets, max_sets, base_reps, max_reps, rest, target_exercises, filtered, lower, progression_type)
+        groups = _build_yoga(db, profile, rng, base_sets, max_sets, base_reps, max_reps,
+                             rest, target_exercises, filtered, lower, progression_type)
     elif profile.modality == "cardio":
-        groups = _build_cardio(db, profile, rng, base_sets, max_sets, base_reps, max_reps, rest, target_exercises, filtered, lower, progression_type)
+        groups = _build_cardio(db, profile, rng, base_sets, max_sets, base_reps, max_reps,
+                               rest, target_exercises, filtered, lower, progression_type)
     elif profile.modality == "crossfit":
-        groups = _build_crossfit(db, profile, rng, base_sets, max_sets, base_reps, max_reps, rest, target_exercises, filtered, lower, progression_type)
+        groups = _build_crossfit(db, profile, rng, base_sets, max_sets, base_reps, max_reps,
+                                 rest, target_exercises, filtered, lower, progression_type)
     else:
-        # Traditional weight training (default)
-        groups = _build_traditional_weight_training(db, profile, rng, base_sets, max_sets, base_reps, max_reps, rest, target_exercises, filtered, lower, progression_type)
+        # Default to traditional weight training
+        groups = _build_weight_training_days(db, profile, rng, base_sets, max_sets,
+                                              base_reps, max_reps, rest, target_exercises,
+                                              filtered, lower, progression_type)
 
     if not groups:
         groups.append({"name": "Full Body Day 1", "exercises": []})
 
-    focus_label = _focus_labels.get(profile.focus, "Full Body")
     modality_label = _modality_labels.get(profile.modality, "Traditional Weight Training")
 
     return {
@@ -941,6 +1000,137 @@ def generate_workout(db: Session, profile: UserProfile) -> dict:
         "description": f"{profile.days_per_week} days/week, {profile.minutes_per_session} min, {primary_goal}, {profile.experience}",
         "groups": groups,
     }
+
+
+def _build_weight_training_days(
+    db: Session,
+    profile: UserProfile,
+    rng: random.Random,
+    base_sets: int,
+    max_sets: int,
+    base_reps: int,
+    max_reps: int,
+    rest: int,
+    target_exercises: int,
+    filtered: List[Any],
+    lower: List[Any],
+    progression_type: str = "linear",
+) -> List[Dict[str, Any]]:
+    """Build weight training days using templates based on focus."""
+    days = min(profile.days_per_week, 6)
+    groups = []
+
+    if profile.focus == "full_body":
+        # All days are full body
+        for day_idx in range(days):
+            day = _build_day_from_template(db, profile, _FULL_BODY_DAY, rng, progression_type)
+            day["name"] = f"Full Body Day {day_idx + 1}"
+            groups.append(day)
+
+    elif profile.focus == "upper_lower_split":
+        # Alternate upper/lower
+        for day_idx in range(days):
+            if day_idx % 2 == 0:
+                day = _build_day_from_template(db, profile, _UPPER_BODY, rng, progression_type)
+                day["name"] = f"Upper Day {day_idx // 2 + 1}"
+            else:
+                day = _build_day_from_template(db, profile, _LOWER_BODY, rng, progression_type)
+                day["name"] = f"Lower Day {day_idx // 2 + 1}"
+            groups.append(day)
+
+    elif profile.focus == "push_pull_legs":
+        # Rotate push/pull/legs
+        ppl_order = ["push", "pull", "legs"]
+        for day_idx in range(days):
+            ppl_key = ppl_order[day_idx % 3]
+            template = _PPL_TEMPLATES[ppl_key]
+            day = _build_day_from_template(db, profile, template, rng, progression_type)
+            day["name"] = f"{ppl_key.title()} Day {day_idx // 3 + 1}"
+            groups.append(day)
+
+    else:
+        # Unknown focus, default to full body
+        for day_idx in range(days):
+            day = _build_day_from_template(db, profile, _FULL_BODY_DAY, rng, progression_type)
+            day["name"] = f"Full Body Day {day_idx + 1}"
+            groups.append(day)
+
+    return groups
+
+
+def _build_from_week_schedule(
+    db: Session,
+    profile: UserProfile,
+    week_schedule: Dict[str, str],
+    rng: random.Random,
+    base_sets: int,
+    max_sets: int,
+    base_reps: int,
+    max_reps: int,
+    rest: int,
+    target_exercises: int,
+    filtered: List[Any],
+    lower: List[Any],
+    progression_type: str = "linear",
+) -> List[Dict[str, Any]]:
+    """Build days from an explicit week_schedule object."""
+    groups = []
+    day_names = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+
+    # Weight training modality builders
+    weight_modalities = {"traditional_weight_training", "bodybuilding", "powerlifting"}
+    # Simple modality builders
+    simple_modality_builders = {
+        "hiit": _build_hiit,
+        "cardio": _build_cardio,
+        "yoga": _build_yoga,
+        "calisthenics": _build_calisthenics,
+        "crossfit": _build_crossfit,
+    }
+
+    # Template mapping for weight training focus types
+    focus_templates = {
+        "full_body": _FULL_BODY_DAY,
+        "upper_lower_split": _UPPER_BODY,
+        "push_pull_legs": _CHEST_DAY,  # Will rotate
+        "chest": _CHEST_DAY,
+        "back": _BACK_DAY,
+        "shoulders": _SHOULDER_DAY,
+        "legs": _LEG_DAY,
+        "arms": _ARM_DAY,
+        "chest_triceps": _CHEST_TRICEPS,
+        "back_biceps": _BACK_BICEPS,
+        "upper": _UPPER_BODY,
+        "lower": _LOWER_BODY,
+    }
+
+    for day_idx, day_name in enumerate(day_names):
+        modality = week_schedule.get(day_name, "rest")
+        if modality == "rest" or modality == "":
+            continue
+
+        if modality in weight_modalities:
+            # Use the profile's focus to pick a template
+            template = focus_templates.get(profile.focus, _FULL_BODY_DAY)
+            day = _build_day_from_template(db, profile, template, rng, progression_type)
+            day["name"] = f"{day_name.title()} — {day['name']}"
+            groups.append(day)
+
+        elif modality in simple_modality_builders:
+            # Use simple modality builder (HIIT, Cardio, etc.)
+            builder = simple_modality_builders[modality]
+            day_groups = builder(db, profile, rng, base_sets, max_sets, base_reps, max_reps,
+                                 rest, target_exercises, filtered, lower, progression_type)
+            if day_groups:
+                groups.append(day_groups[0])
+
+        else:
+            # Unknown modality, default to full body template
+            day = _build_day_from_template(db, profile, _FULL_BODY_DAY, rng, progression_type)
+            day["name"] = f"{day_name.title()} — {day['name']}"
+            groups.append(day)
+
+    return groups
 
 
 # Alias for backwards compatibility
