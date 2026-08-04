@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Askeo — System Architecture</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-2: #334155;
+    --border: #475569;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #6366f1;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --emerald: #10b981;
+    --purple: #a855f7;
+    --orange: #f97316;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.95rem; }
+
+  /* Layer blocks */
+  .layer {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .layer-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+  .layer-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .badge-layer1 { background: var(--purple); color: white; }
+  .badge-layer2 { background: var(--blue); color: white; }
+  .badge-layer3 { background: var(--green); color: #052e16; }
+  .badge-layer4 { background: var(--orange); color: white; }
+  .layer-title { font-size: 1.15rem; font-weight: 600; }
+  .layer-desc { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+
+  /* Flow diagram */
+  .flow {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 1rem;
+  }
+  .flow-box {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .flow-arrow { color: var(--muted); font-size: 1.2rem; }
+  .flow-label {
+    font-size: 0.7rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.3rem;
+  }
+
+  /* Component boxes */
+  .components {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+  .component {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .comp-title {
+    font-size: 0.8rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.5rem;
+    color: var(--accent);
+  }
+  .comp-body {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .comp-body ul {
+    list-style: none;
+    padding: 0;
+  }
+  .comp-body li {
+    padding: 0.2rem 0;
+    font-size: 0.82rem;
+    color: var(--text);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+  }
+  .comp-body li:last-child { border-bottom: none; }
+  .comp-body li::before { content: "• "; color: var(--accent); font-weight: 700; }
+
+  /* Principle tags */
+  .principles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+  }
+  .principle {
+    background: rgba(99,102,241,0.1);
+    border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.82rem;
+  }
+  .principle strong { color: var(--accent); }
+
+  /* Code blocks */
+  .code-block {
+    background: #0b1220;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 1rem;
+    margin-top: 1rem;
+    font-family: "SF Mono", Monaco, monospace;
+    font-size: 0.8rem;
+    color: #e2e8f0;
+    overflow-x: auto;
+  }
+  .code-block .key { color: var(--purple); }
+  .code-block .str { color: var(--green); }
+  .code-block .comment { color: var(--muted); }
+
+  /* Responsive */
+  @media (max-width: 700px) {
+    body { padding: 1rem; }
+    .flow { flex-direction: column; align-items: stretch; }
+    .flow-arrow { text-align: center; transform: rotate(90deg); }
+  }
+
+  /* Nav */
+  .nav {
+    margin-bottom: 2rem;
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+  .nav a {
+    color: var(--accent);
+    text-decoration: none;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  .nav a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+
+<div class="nav">
+  <a href="/roadmap">← Roadmap</a>
+</div>
+
+<h1>Askeo System Architecture</h1>
+<p class="subtitle">Static proven templates + dynamic coaching logic — Last updated: 2026-08-03</p>
+
+<!-- ========== LAYER 1: AI COACH ========== -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-badge badge-layer1">Layer 1</span>
+    <span class="layer-title">AI Coach</span>
+  </div>
+  <p class="layer-desc">Voice layer that walks users through the questionnaire, explains options, reconciles answers, and recommends program switches. Never generates workout content — only populates structured data.</p>
+
+  <div class="flow">
+    <div class="flow-label">Capabilities</div>
+    <div class="flow-box">Explain questions</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">Reconcile answers</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">Build week_schedule</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">Recommend switches</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">Explain why</div>
+  </div>
+
+  <div class="components">
+    <div class="component">
+      <div class="comp-title">Question Guide</div>
+      <div class="comp-body">
+        <ul>
+          <li>"What's HIIT?" → explains with examples</li>
+          <li>Compares options: upper/lower vs PPL</li>
+          <li>Suggests based on user's goals</li>
+        </ul>
+      </div>
+    </div>
+    <div class="component">
+      <div class="comp-title">Answer Reconciliation</div>
+      <div class="comp-body">
+        <ul>
+          <li>User says 4 days + 1 HIIT → 5 active days</li>
+          <li>Resolves conflicts between fields</li>
+          <li>Updates structured payload</li>
+        </ul>
+      </div>
+    </div>
+    <div class="component">
+      <div class="comp-title">Program Switching</div>
+      <div class="comp-body">
+        <ul>
+          <li>Tracks time on current template</li>
+          <li>Recommends switch after N weeks</li>
+          <li>Adjusts progression type</li>
+        </ul>
+      </div>
+    </div>
+    <div class="component">
+      <div class="comp-title">Week Schedule Builder</div>
+      <div class="comp-body">
+        <ul>
+          <li>Distributes modalities across days</li>
+          <li>Respects user preferences</li>
+          <li>Outputs structured JSON</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <span class="comment">// AI coach output — structured, never free-text</span><br>
+    {<br>
+    &nbsp;&nbsp;<span class="key">"profile"</span>: {<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"modality_primary"</span>: <span class="str">"bodybuilding"</span>,<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"modality_secondary"</span>: [<span class="str">"hiit"</span>],<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"modality_mix"</span>: <span class="str">"separate_days"</span>,<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"days_per_week"</span>: <span class="str">5</span><br>
+    &nbsp;&nbsp;},<br>
+    &nbsp;&nbsp;<span class="key">"week_schedule"</span>: {<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"monday"</span>: <span class="str">"bodybuilding"</span>,<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"tuesday"</span>: <span class="str">"bodybuilding"</span>,<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"wednesday"</span>: <span class="str">"hiit"</span>,<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"thursday"</span>: <span class="str">"bodybuilding"</span>,<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="key">"friday"</span>: <span class="str">"bodybuilding"</span><br>
+    &nbsp;&nbsp;}<br>
+    }
+  </div>
+</div>
+
+<!-- ========== LAYER 2: QUESTIONNAIRE ========== -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-badge badge-layer2">Layer 2</span>
+    <span class="layer-title">Questionnaire</span>
+  </div>
+  <p class="layer-desc">Clickable-button interface that collects structured data. AI coach runs alongside, explaining options and reconciling answers. Same questions regardless of AI presence — AI is the guide, not the generator.</p>
+
+  <div class="flow">
+    <div class="flow-label">Question flow</div>
+    <div class="flow-box">Goals</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">Equipment</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">Primary Style</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">Additional Activities</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">How to Organize</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">Days / Minutes</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">Experience</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">Focus / Split</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">Limitations</div>
+  </div>
+
+  <div class="components">
+    <div class="component">
+      <div class="comp-title">Question Types</div>
+      <div class="comp-body">
+        <ul>
+          <li><strong>Single-select</strong> — one answer (days, experience, focus)</li>
+          <li><strong>Multi-select</strong> — toggle chips (goals, activities, limitations)</li>
+          <li><strong>Text</strong> — free input (location)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="component">
+      <div class="comp-title">AI Integration</div>
+      <div class="comp-body">
+        <ul>
+          <li>"?" button next to jargon terms</li>
+          <li>AI explains each option on demand</li>
+          <li>AI reconciles conflicting answers</li>
+        </ul>
+      </div>
+    </div>
+    <div class="component">
+      <div class="comp-title">Output</div>
+      <div class="comp-body">
+        <ul>
+          <li>Structured answers object</li>
+          <li>AI-filled fields + week_schedule</li>
+          <li>Sent to POST /api/trainer/generate</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== LAYER 3: BACKEND ========== -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-badge badge-layer3">Layer 3</span>
+    <span class="layer-title">Backend — Deterministic Generation</span>
+  </div>
+  <p class="layer-desc">Pure logic, no AI. Takes structured input, applies proven rules, returns identical output for identical input. This is the engine — never changes without deliberate decision.</p>
+
+  <div class="flow">
+    <div class="flow-label">Data path</div>
+    <div class="flow-box">POST /api/trainer/generate</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">intake.py — normalize answers</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">UserProfile dataclass</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">progression.py — route to template</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">Slot-based exercise picker</div>
+    <div class="flow-arrow">→</div>
+    <div class="flow-box">Deterministic workout draft</div>
+  </div>
+
+  <div class="components">
+    <div class="component">
+      <div class="comp-title">intake.py</div>
+      <div class="comp-body">
+        <ul>
+          <li>Validates raw answers</li>
+          <li>Unit conversion (imperial/metric)</li>
+          <li>Builds UserProfile dataclass</li>
+          <li>Reads modality_primary/secondary/mix</li>
+          <li>Reads optional week_schedule</li>
+        </ul>
+      </div>
+    </div>
+    <div class="component">
+      <div class="comp-title">progression.py</div>
+      <div class="comp-body">
+        <ul>
+          <li>Routes to correct template builder</li>
+          <li>Handles week_schedule if present</li>
+          <li>Falls back to modality builders</li>
+          <li>Seed-based RNG for determinism</li>
+        </ul>
+      </div>
+    </div>
+    <div class="component">
+      <div class="comp-title">ExerciseLibrary DB</div>
+      <div class="comp-body">
+        <ul>
+          <li>~1318 exercises</li>
+          <li>158 canonical whitelist</li>
+          <li>Tier 1–4 ranking</li>
+          <li>Equipment + movement tags</li>
+        </ul>
+      </div>
+    </div>
+    <div class="component">
+      <div class="comp-title">exercise_whitelist.py</div>
+      <div class="comp-body">
+        <ul>
+          <li>Maps raw names → canonical</li>
+          <li>Title Case display names</li>
+          <li>Tier-ordered pools</li>
+          <li>Keyword matching</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="code-block">
+    <span class="comment"># Template slot definition</span><br>
+    <span class="key">SlotSpec</span>(<br>
+    &nbsp;&nbsp;slot_id=<span class="str">"compound_1"</span>,<br>
+    &nbsp;&nbsp;label=<span class="str">"Heavy Compound"</span>,<br>
+    &nbsp;&nbsp;movements=[<span class="str">"push"</span>],<br>
+    &nbsp;&nbsp;tier_range=(<span class="str">1, 2</span>),<br>
+    &nbsp;&nbsp;equipment=<span class="str">"barbell"</span>,<br>
+    &nbsp;&nbsp;sets_range=(<span class="str">4, 5</span>),<br>
+    &nbsp;&nbsp;reps_range=(<span class="str">6, 8</span>),<br>
+    &nbsp;&nbsp;rest_seconds=<span class="str">150</span><br>
+    )
+  </div>
+</div>
+
+<!-- ========== LAYER 4: FRONTEND ========== -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-badge badge-layer4">Layer 4</span>
+    <span class="layer-title">Frontend — Display & Interaction</span>
+  </div>
+  <p class="layer-desc">Renders workout plans, enables set logging, shows AI coach interface, and displays transition history. Pure presentation — all logic lives in the backend.</p>
+
+  <div class="components">
+    <div class="component">
+      <div class="comp-title">Week View</div>
+      <div class="comp-body">
+        <ul>
+          <li>Day cards with template names</li>
+          <li>Exercise list with sets/reps/rest</li>
+          <li>Video play buttons if available</li>
+        </ul>
+      </div>
+    </div>
+    <div class="component">
+      <div class="comp-title">Workout Logger</div>
+      <div class="comp-body">
+        <ul>
+          <li>Log sets, reps, weight</li>
+          <li>RIR / RPE capture</li>
+          <li>Notes per set</li>
+          <li>Feeds back to AI coach</li>
+        </ul>
+      </div>
+    </div>
+    <div class="component">
+      <div class="comp-title">AI Coach Chat</div>
+      <div class="comp-body">
+        <ul>
+          <li>Bubble UI alongside questionnaire</li>
+          <li>Shows coach recommendations</li>
+          <li>User approves or requests changes</li>
+        </ul>
+      </div>
+    </div>
+    <div class="component">
+      <div class="comp-title">Transition History</div>
+      <div class="comp-body">
+        <ul>
+          <li>Shows past template switches</li>
+          <li>Progression type changes</li>
+          <li>Coach notes for each phase</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ========== DESIGN PRINCIPLES ========== -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-badge" style="background:var(--accent);color:white;">Principles</span>
+    <span class="layer-title">Design Principles</span>
+  </div>
+  <p class="layer-desc">These rules govern how the system behaves. They don't change unless we explicitly decide to change them.</p>
+
+  <div class="principles">
+    <div class="principle"><strong>Static templates, dynamic coaching</strong> — exercises and structure are proven; when to switch is personalized</div>
+    <div class="principle"><strong>Structured data only in backend</strong> — no free-text conversation parsing; AI outputs JSON objects</div>
+    <div><strong>Deterministic generation</strong> — same input = same workout. Only user data changes the output</div>
+    <div class="principle"><strong>Slot guardrails</strong> — every template enforces compound-first, isolation-last ordering</div>
+    <div class="principle"><strong>No AI in the generator</strong> — AI is the voice, not the brain. Generation is pure logic</div>
+    <div class="principle"><strong>Periodization by default</strong> — users switch templates over time; system tracks and recommends</div>
+  </div>
+</div>
+
+<!-- ========== TEMPLATE CATALOG ========== -->
+<div class="layer">
+  <div class="layer-header">
+    <span class="layer-badge" style="background:var(--emerald);color:#052e16;">Catalog</span>
+    <span class="layer-title">Template Inventory</span>
+  </div>
+  <p class="layer-desc">Every workout day template in the system. Each has explicit slots with movement, tier, equipment, sets/reps/rest constraints.</p>
+
+  <div class="components">
+    <div class="component">
+      <div class="comp-title">Single Body Part</div>
+      <div class="comp-body">
+        <ul>
+          <li>Chest Day (5 slots)</li>
+          <li>Back Day (5 slots)</li>
+          <li>Shoulder Day (5 slots)</li>
+          <li>Leg Day (5 slots)</li>
+          <li>Arm Day (5 slots)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="component">
+      <div class="comp-title">Combination Days</div>
+      <div class="comp-body">
+        <ul>
+          <li>Chest + Triceps</li>
+          <li>Back + Biceps</li>
+          <li>Upper Body</li>
+          <li>Lower Body</li>
+        </ul>
+      </div>
+    </div>
+    <div class="component">
+      <div class="comp-title">Split Templates</div>
+      <div class="comp-body">
+        <ul>
+          <li>Full Body (3–6 days)</li>
+          <li>Upper/Lower (alternating)</li>
+          <li>Push/Pull/Legs (rotating)</li>
+        </ul>
+      </div>
+    </div>
+    <div class="component">
+      <div class="comp-title">Simple Modality</div>
+      <div class="comp-body">
+        <ul>
+          <li>HIIT (3–5 exercises, 30s rest)</li>
+          <li>Cardio (3–5 exercises, 45s rest)</li>
+          <li>Yoga / Mobility (2–3 holds)</li>
+          <li>Calisthenics (skill work)</li>
+          <li>CrossFit (WOD style)</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

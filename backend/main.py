@@ -165,6 +165,17 @@ async def roadmap():
     )
     return HTMLResponse(content=html, media_type="text/html")
 
+@app.get("/architecture")
+async def architecture():
+    with open("architecture.html", "r") as f:
+        html = f.read()
+    served_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    html = html.replace(
+        "Last updated: 2026-08-03",
+        f"Last updated: 2026-08-03 — Served: {served_at}",
+    )
+    return HTMLResponse(content=html, media_type="text/html")
+
 # Dependency
 def get_db():
     db = SessionLocal()
@@ -595,7 +606,11 @@ async def google_login(payload: GoogleLoginIn, db: Session = Depends(get_db)):
     given_name = data.get("given_name")
     family_name = data.get("family_name")
     user = _find_or_create_user_by_email(db, email, preferred_role="user", first_name=given_name, last_name=family_name)
-    return _issue_token_for_user(user)
+    token_out = _issue_token_for_user(user)
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return token_out
 
 @app.post("/api/auth/apple", response_model=TokenOut)
 async def apple_login(payload: AppleLoginIn):
