@@ -22,9 +22,15 @@
 
 ## Key Endpoints
 - `/healthz` — health check
+- `/architecture` — system architecture document
+- `/flowchart` — questionnaire flow mapping
+- `/roadmap` — visual project roadmap
 - `/api/auth/login`, `/api/auth/signup` — auth (JWT)
+- `/api/auth/google` — Google OAuth login (iOS + web)
 - `/api/exercise-library` — list exercises (optionally query `?q=`)
 - `/api/exercise-library/sync` — import exercises JSON into DB
+- `/api/profile/fitness` — GET/PUT user fitness profile (questionnaire answers)
+- `/api/trainer/generate` — generate workout draft from questionnaire answers
 - `/api/workout-library` — workout templates
 - `/api/workout-library/import` — import from exercise library
 - `/api/rules/next-prescription` — compute next session prescription + persist AlgorithmState
@@ -73,7 +79,9 @@
 
 ## Knowledge Hierarchy
 - `MEMORY-INDEX.md` — index of all project knowledge files
-- `memory/` — durable lessons by domain (debugging, deploy, backend-db, auth, frontend-fetch, decisions)
+- `memory/` — durable lessons by domain: deploy, debugging, backend-db, auth, frontend-fetch, decisions, trainer
+- `memory/trainer.md` — questionnaire schema, template system, generation rules, AI coach role
+- `memory/decisions.md` — ADR records for all major technical decisions
 - `TODO.md` — roadmap/priorities
 - `CONTEXT.md` — current active task
 - `PROJECT.md` — immutable deploy/network/auth facts
