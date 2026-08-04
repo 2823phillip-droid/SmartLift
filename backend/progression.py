@@ -1048,6 +1048,23 @@ def _build_weight_training_days(
             day["name"] = f"{ppl_key.title()} Day {day_idx // 3 + 1}"
             groups.append(day)
 
+    elif profile.focus == "body_part_split":
+        # Rotate body part days: chest/tris → back/bis → legs → shoulders → arms
+        bps_order = ["chest_tris", "back_bis", "legs", "shoulders", "arms"]
+        for day_idx in range(days):
+            bps_key = bps_order[day_idx % 5]
+            template_map = {
+                "chest_tris": _CHEST_TRICEPS,
+                "back_bis": _BACK_BICEPS,
+                "legs": _LEG_DAY,
+                "shoulders": _SHOULDER_DAY,
+                "arms": _ARM_DAY,
+            }
+            template = template_map[bps_key]
+            day = _build_day_from_template(db, profile, template, rng, progression_type)
+            day["name"] = f"{bps_key.replace('_', ' ').title()} {day_idx // 5 + 1}"
+            groups.append(day)
+
     else:
         # Unknown focus, default to full body
         for day_idx in range(days):
@@ -1093,6 +1110,7 @@ def _build_from_week_schedule(
         "full_body": _FULL_BODY_DAY,
         "upper_lower_split": _UPPER_BODY,
         "push_pull_legs": _CHEST_DAY,  # Will rotate
+        "body_part_split": _CHEST_TRICEPS,  # AI coach should provide explicit day types in schedule
         "chest": _CHEST_DAY,
         "back": _BACK_DAY,
         "shoulders": _SHOULDER_DAY,
