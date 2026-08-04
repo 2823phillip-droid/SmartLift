@@ -18,7 +18,6 @@ class UserProfile:
     sex: str = "male"
     goals: List[str] = field(default_factory=lambda: ["general_fitness"])
     focus: str = "full_body"
-    age_range: str = "26-40"
     equipment: str = "bodyweight_only"
     height_cm: Optional[float] = None
     weight_kg: Optional[float] = None
@@ -27,12 +26,10 @@ class UserProfile:
     days_per_week: int = 3
     minutes_per_session: int = 30
     activity_level: str = "sedentary"
-    cooking_skill: str = "moderate"
-    meals_per_day: int = 3
-    diet_type: str = "omnivore"
-    allergies: List[str] = field(default_factory=list)
-    meal_plan_opt_in: bool = False
     units_preference: str = "imperial"
+    # Training history and progression
+    training_history: str = "just_starting"
+    progression_type: str = "linear"
     # Modality fields — primary is legacy-compatible, new fields enable mixed weeks
     modality: str = "traditional_weight_training"
     modality_primary: str = "traditional_weight_training"
@@ -55,16 +52,6 @@ def _to_kg(value: Optional[float], units: str) -> Optional[float]:
     if units == "imperial":
         return value * 0.45359237
     return value
-
-
-def _age_to_int(age_range: str) -> int:
-    mapping = {
-        "under_25": 22,
-        "26-40": 33,
-        "41-55": 48,
-        "56+": 60,
-    }
-    return mapping.get(age_range, 33)
 
 
 def normalize_questionnaire(answers: dict, defaults: dict | None = None) -> UserProfile:
@@ -119,8 +106,6 @@ def normalize_questionnaire(answers: dict, defaults: dict | None = None) -> User
     except (TypeError, ValueError):
         minutes = 30
 
-    meals = int(answers.get("meals_per_day", 3) or 3)
-
     # Modality fields
     modality_primary = _single("workout_modality", "traditional_weight_training")
     modality_secondary = _list("modality_secondary")
@@ -137,7 +122,6 @@ def normalize_questionnaire(answers: dict, defaults: dict | None = None) -> User
         sex=_single("sex", "male"),
         goals=_list("goal") or ["general_fitness"],
         focus=_single("focus", "full_body"),
-        age_range=_single("age_range", "26-40"),
         equipment=_single("equipment", "bodyweight_only"),
         height_cm=height_cm,
         weight_kg=weight_kg,
@@ -146,12 +130,9 @@ def normalize_questionnaire(answers: dict, defaults: dict | None = None) -> User
         days_per_week=max(1, min(7, days)),
         minutes_per_session=max(10, min(180, minutes)),
         activity_level=_single("activity_level", "sedentary"),
-        cooking_skill=_single("cooking_skill", "moderate"),
-        meals_per_day=max(1, min(6, meals)),
-        diet_type=_single("diet_type", "omnivore"),
-        allergies=_list("allergies"),
-        meal_plan_opt_in=bool(answers.get("meal_plan_opt_in", False)),
         units_preference=units,
+        training_history=_single("training_history", "just_starting"),
+        progression_type=_single("progression_type", "linear"),
         modality=modality_primary,
         modality_primary=modality_primary,
         modality_secondary=modality_secondary,

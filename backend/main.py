@@ -176,6 +176,17 @@ async def architecture():
     )
     return HTMLResponse(content=html, media_type="text/html")
 
+@app.get("/flowchart")
+async def flowchart():
+    with open("flowchart.html", "r") as f:
+        html = f.read()
+    served_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    html = html.replace(
+        "2026-08-04",
+        f"2026-08-04 — Served: {served_at}",
+    )
+    return HTMLResponse(content=html, media_type="text/html")
+
 # Dependency
 def get_db():
     db = SessionLocal()
@@ -702,17 +713,17 @@ class FitnessProfileIn(BaseModel):
     activity_level: Optional[str] = None
     goal: Optional[List[str]] = []
     equipment: Optional[str] = None
-    age_range: Optional[str] = None
     days_per_week: Optional[int] = None
     minutes_per_session: Optional[int] = None
     experience: Optional[str] = None
     focus: Optional[str] = None
     limitations: Optional[List[str]] = []
-    meal_plan_opt_in: Optional[bool] = False
-    diet_type: Optional[str] = None
-    cooking_skill: Optional[str] = None
-    allergies: Optional[List[str]] = []
-    meals_per_day: Optional[int] = None
+    workout_modality: Optional[str] = None
+    modality_secondary: Optional[List[str]] = []
+    modality_mix: Optional[str] = None
+    training_history: Optional[str] = None
+    progression_type: Optional[str] = None
+    workout_location: Optional[str] = None
 
 class TrainerGenerateIn(BaseModel):
     weight_kg: Optional[float] = None
@@ -721,17 +732,17 @@ class TrainerGenerateIn(BaseModel):
     activity_level: Optional[str] = None
     goal: Optional[List[str]] = []
     equipment: Optional[str] = None
-    age_range: Optional[str] = None
     days_per_week: Optional[int] = None
     minutes_per_session: Optional[int] = None
     experience: Optional[str] = None
     focus: Optional[str] = None
     limitations: Optional[List[str]] = []
-    meal_plan_opt_in: Optional[bool] = False
-    diet_type: Optional[str] = None
-    cooking_skill: Optional[str] = None
-    allergies: Optional[List[str]] = []
-    meals_per_day: Optional[int] = None
+    workout_modality: Optional[str] = None
+    modality_secondary: Optional[List[str]] = []
+    modality_mix: Optional[str] = None
+    training_history: Optional[str] = None
+    progression_type: Optional[str] = None
+    workout_location: Optional[str] = None
 
 class WorkoutDraftExercise(BaseModel):
     name: str
