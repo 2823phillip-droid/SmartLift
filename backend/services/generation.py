@@ -30,11 +30,11 @@ def build_workout_draft(db: Session, answers: dict) -> dict:
 
 
 def build_meal_plan_draft(answers: dict) -> Optional[dict]:
-    """Normalize answers and generate a meal plan draft."""
-    profile = normalize_questionnaire(answers)
-    if not profile.meal_plan_opt_in:
-        return None
-    return generate_meal_plan(profile)
+    """Normalize answers and generate a meal plan draft.
+    
+    Returns None because nutrition is out of scope for current release.
+    """
+    return None
 
 
 def build_full_draft(db: Session, answers: dict) -> tuple[dict, Optional[dict]]:
@@ -45,5 +45,5 @@ def build_full_draft(db: Session, answers: dict) -> tuple[dict, Optional[dict]]:
     """
     profile = normalize_questionnaire(answers)
     workout = generate_workout(db, profile)
-    meal = generate_meal_plan(profile) if profile.meal_plan_opt_in else None
+    meal = None  # Nutrition out of scope — always None until nutrition flow is built
     return workout, meal

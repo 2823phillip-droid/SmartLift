@@ -951,7 +951,8 @@ def generate_workout(db: Session, profile: UserProfile) -> dict:
         rest = 75
 
     target_exercises = max(3, min(8, profile.minutes_per_session // 8))
-    progression_type = _EXPERIENCE_PROGRESSION.get(profile.experience, "linear")
+    # Use explicit progression_type if set, otherwise fall back to experience-based default
+    progression_type = getattr(profile, "progression_type", None) or _EXPERIENCE_PROGRESSION.get(profile.experience, "linear")
 
     filtered, lower = _filter_exercises(db, profile.equipment, profile.limitations, profile.focus)
     if not filtered:
@@ -1164,79 +1165,15 @@ def _generate_workout_draft(db: Session, profile: dict) -> dict:
 # ---------------------------------------------------------------------------
 
 def generate_meal_plan(profile: UserProfile) -> Optional[dict]:
-    """Build a deterministic meal plan from a UserProfile."""
-    if not profile.weight_kg or not profile.height_cm or not profile.sex or not profile.age_range:
-        return None
+    """Build a deterministic meal plan from a UserProfile.
+    
+    Returns None if required nutrition fields are not yet populated
+    (nutrition questionnaire is out of scope for current release).
+    """
+    # Nutrition fields not yet in questionnaire — return None until nutrition flow is built
+    return None
 
-    age_map = {
-        "under_25": 22,
-        "26-40": 33,
-        "41-55": 48,
-        "56+": 60,
-    }
-    age = age_map.get(profile.age_range, 33)
-
-    # Mifflin-St Jeor
-    if profile.sex == "male":
-        bmr = (10 * profile.weight_kg) + (6.25 * profile.height_cm) - (5 * age) + 5
-    elif profile.sex == "female":
-        bmr = (10 * profile.weight_kg) + (6.25 * profile.height_cm) - (5 * age) - 161
-    else:
-        bmr = (10 * profile.weight_kg) + (6.25 * profile.height_cm) - (5 * age) - 50
-
-    activity_mult = {
-        "sedentary": 1.2,
-        "light": 1.375,
-        "moderate": 1.55,
-        "active": 1.725,
-        "very_active": 1.9,
-    }
-    tdee = bmr * activity_mult.get(profile.activity_level, 1.2)
-
-    primary_goal = profile.goals[0] if profile.goals else "general_fitness"
-    if primary_goal in ["weight_loss"]:
-        calories = int(tdee - 400)
-    elif primary_goal in ["strength", "hypertrophy"]:
-        calories = int(tdee + 200)
-    else:
-        calories = int(tdee)
-
-    if primary_goal in ["strength", "hypertrophy"]:
-        protein = int(2.0 * profile.weight_kg)
-        carbs = int(4.0 * profile.weight_kg)
-        fat = int(0.8 * profile.weight_kg)
-    elif primary_goal in ["weight_loss", "endurance"]:
-        protein = int(2.2 * profile.weight_kg)
-        carbs = int(2.5 * profile.weight_kg)
-        fat = int(0.8 * profile.weight_kg)
-    else:
-        protein = int(1.6 * profile.weight_kg)
-        carbs = int(3.5 * profile.weight_kg)
-        fat = int(0.9 * profile.weight_kg)
-
-    meal_templates = {
-        "omnivore": ["Oatmeal + eggs", "Chicken salad", "Rice + beef + veggies", "Greek yogurt + berries", "Salmon + quinoa"],
-        "vegetarian": ["Oatmeal + milk", "Paneer salad", "Rice + lentils + veggies", "Greek yogurt + nuts", "Tofu stir-fry"],
-        "vegan": ["Oatmeal + almond milk", "Lentil salad", "Rice + chickpeas + veggies", "Smoothie bowl", "Tofu + sweet potato"],
-        "pescatarian": ["Oatmeal + eggs", "Fish salad", "Rice + shrimp + veggies", "Greek yogurt + berries", "Salmon + quinoa"],
-        "keto_friendly": ["Eggs + avocado", "Chicken + leafy greens", "Salmon + asparagus", "Nuts + cheese", "Steak + butter veggies"],
-        "paleo_friendly": ["Oatmeal + fruit", "Chicken + sweet potato", "Ground beef + veggies", "Nuts + dried fruit", "Fish + roasted veggies"],
-    }
-    pool = meal_templates.get(profile.diet_type, meal_templates["omnivore"])
-
-    meals = max(1, min(6, profile.meals_per_day))
-    days_out = []
-    for d in range(7):
-        day_meals = []
-        for m in range(meals):
-            day_meals.append(pool[(m + d) % len(pool)])
-        days_out.append({"day": d + 1, "meals": day_meals})
-
-    return {
-        "calories": calories,
-        "protein_g": protein,
-        "carbs_g": carbs,
-        "fat_g": fat,
-        "diet_type": profile.diet_type,
-        "days": days_out,
-    }
+    # Keep below code for when nutrition is re-enabled:
+    # if not profile.weight_kg or not profile.height_cm or not profile.sex or not getattr(profile, "age_range", None):
+    #     return None
+    ...
