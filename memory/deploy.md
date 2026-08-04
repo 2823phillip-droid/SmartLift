@@ -7,11 +7,11 @@ related: PROJECT.md, Askeo.md, debugging.md
 
 ## Linux → MacBook → iOS pipeline
 
-1. Build on Linux: `cd /home/phillip2823/workout-logger/frontend && npm run build`
-2. Sync dist to MacBook: `rsync -avz --progress frontend/dist/ phillipwalters@192.168.1.112:~/workout-logger/frontend/dist/`
-3. SSH to MacBook and run `npx cap sync ios` from `~/workout-logger/frontend`
-4. Verify `~/workout-logger/frontend/ios/App/App/public/index.html` points to the new bundle hash
-5. Remove any root-level `dist/` or `public/` folders on MacBook if they appear; only `ios/App/App/public/` matters to Xcode
+1. On Linux: `cd /home/phillip2823/workout-logger/frontend && npm run build`
+2. `git add -A && git commit && git push` from workout-logger root
+3. SSH to MacBook: `cd ~/workout-logger && git pull`
+4. On MacBook: `cd frontend && nvm use 22 && npm run build && npx cap sync ios`
+5. Verify `~/workout-logger/frontend/ios/App/App/public/assets/index-<newhash>.js` exists
 6. In Xcode: **Product > Clean Build Folder**, then build and run to device
 7. **Uninstall the app first** if the bundle hash changed; WKWebView caches aggressively
 

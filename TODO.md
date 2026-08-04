@@ -91,17 +91,19 @@
 
 ## Phase 4 — AI Personalization Layer
 ### Trainer-generated workout flow
-- [ ] Backend: `POST /api/trainer/generate` accepts questionnaire answers and returns a populated workout draft from ExerciseDB
-- [ ] Frontend: step-through questionnaire, one question per screen, progress indicator
-- [ ] Frontend: options shown as single-select tabs or multi-select chips; minimize typing
-- [ ] Section 1 — Body metrics (for TDEE/macro math): weight, height, sex, activity level, all with “prefer not to answer”
-- [ ] Section 2 — Training profile: Goal (multi-select), Equipment (single), Age range (single), Days/week (single), Minutes (single), Experience (single), Focus (single), Limitations (multi-select chips)
-- [ ] Section 3 — Nutrition opt-in: meal plans yes/no; diet type, cooking skill/time, allergies chips, meals per day
-- [ ] Frontend: preface each section with “This is why we ask” context
-- [ ] Frontend: questionnaire shown on first login and available anytime from AI Trainer tab
-- [ ] Frontend: user picks "Trainer builds it" or "I'll build it myself"
-- [ ] Frontend: accepted generated workout persists as draft; user can tweak before saving
-- [ ] Frontend: re-run questionnaire available from AI Trainer tab to generate new workout
+- [x] Backend: `POST /api/trainer/generate` accepts questionnaire answers and returns a populated workout draft
+- [x] Frontend: step-through questionnaire, one question per screen, progress indicator
+- [x] Frontend: options shown as single-select tabs or multi-select chips; minimize typing
+- [x] Section 1 — Training profile: Goal (multi-select), Equipment (single), Primary Style (single), Additional Activities (multi), Modality Mix (single), Location (text), Training History (single), Progression Method (single), Days/week (single), Minutes (single), Experience (single), Split Style (single), Limitations (multi-select chips)
+- [x] Frontend: preface each section with "This is why we ask" context
+- [x] Frontend: questionnaire shown on first login and available anytime from AI Trainer tab
+- [x] Frontend: user picks "Trainer builds it" or "I'll build it myself"
+- [x] Frontend: accepted generated workout persists as draft; user can tweak before saving
+- [x] Frontend: re-run questionnaire available from AI Trainer tab to generate new workout
+- [x] Backend: slot-based template system with 10 day templates
+- [x] Backend: body_part_split rotation (chest/tris → back/bis → legs → shoulders → arms)
+- [x] Backend: explicit progression_type overrides experience-based default
+- [ ] Nutrition questionnaire and meal plan generation — separate future flow
 
 ### Core model
 - [ ] Define standard fitness model schema shared by all users; Phase 2 deterministic scripts consume this schema

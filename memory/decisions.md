@@ -174,6 +174,101 @@ Tags: [backend, coach, persistence]
 
 ---
 
+## ADR-010 — AI coach is pure interface layer
+
+Status: accepted
+Date: 2026-08-04
+Tags: [ai, coach, architecture, backend]
+
+**Context:** Need to define AI coach's role in workout generation.
+
+**Options considered:**
+1. AI generates workouts directly
+2. AI is pure interface: explains, reconciles, recommends; backend generates
+
+**Decision:** AI coach is pure interface layer. It explains questions, reconciles form/voice inputs into structured data, builds `week_schedule`, and recommends split/progression switches. Backend `generate_workout()` is the only workout generator.
+
+**Consequence:** Backend stays deterministic; AI sets strategy, backend handles tactics. `week_schedule` is the only structured data the AI contributes beyond the questionnaire.
+
+---
+
+## ADR-011 — Body Part Split as focus option
+
+Status: accepted
+Date: 2026-08-04
+Tags: [trainer, templates, backend]
+
+**Context:** User wants classic bodybuilding split (chest/tris, back/bis, legs, shoulders, arms). Existing options didn't cover it.
+
+**Options considered:**
+1. Add as new template variant of push_pull_legs
+2. Add as independent `focus` value with own rotation logic
+3. Leave it to AI coach to build custom schedule
+
+**Decision:** Add `body_part_split` as independent `focus` value. Backend rotates through chest/tris→back/bis→legs→shoulders→arms templates.
+
+**Consequence:** Body part split generates correct day templates without AI intervention. AI coach can still recommend switching away from it after N months.
+
+---
+
+## ADR-012 — Progression type as explicit questionnaire field
+
+Status: accepted
+Date: 2026-08-04
+Tags: [trainer, questionnaire, progression]
+
+**Context:** User wants control over progression method, not inference from experience.
+
+**Options considered:**
+1. Infer from experience (beginner=linear, intermediate=double, advanced=percentage)
+2. Add explicit progression_type question
+3. Let AI coach set progression based on history
+
+**Decision:** Add explicit `progression_type` question (linear/double/percentage). Backend uses it if present, falls back to experience-based default otherwise.
+
+**Consequence:** User has direct control. AI coach can recommend progression switches as part of periodization later.
+
+---
+
+## ADR-013 — Nutrition removed from current scope
+
+Status: accepted
+Date: 2026-08-04
+Tags: [nutrition, scope, backend]
+
+**Context:** Nutrition questionnaire and meal plan generation were in scope but competed with core workout features.
+
+**Options considered:**
+1. Keep nutrition in current build
+2. Remove now, build separately later
+3. Stub it out with placeholders
+
+**Decision:** Remove nutrition from questionnaire. Stub `generate_meal_plan()` to return `None`. Preserve commented code for re-enable.
+
+**Consequence:** Cleaner questionnaire (13 questions). Meal plan always null in response. Nutrition is a separate future flow.
+
+---
+
+## ADR-014 — Frontend deploy via git instead of rsync
+
+Status: adopted
+Date: 2026-08-04
+Tags: [deploy, frontend, process]
+
+**Context:** rsync pipeline was fragile. Mac's `dist/` folder frequently stale.
+
+**Options considered:**
+1. Continue rsync with hash verification
+2. Switch to git-based deploy: commit on Linux, pull on Mac
+3. Build entirely on Mac from source
+
+**Decision:** Git-based deploy: `git commit + push` on Linux, `git pull + npm run build + npx cap sync ios` on Mac.
+
+**Consequence:** Single source of truth (git). Mac always has latest source. Build happens on Mac with correct Node version.
+
+---
+
 ## Change Log
 
 - 2026-07-31 — Normalized all entries to ADR format with status/tags/consequence
+- 2026-08-04 — Added ADR-010 through ADR-014

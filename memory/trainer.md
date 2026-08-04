@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-07-31
+last_updated: 2026-08-04
 created: 2026-07-31
 tags: [trainer, questionnaire, backend, deploy, decisions]
 related: backend-db.md, auth.md, decisions.md, deploy.md
@@ -11,51 +11,56 @@ This file is the source of truth for the questionnaire data model, backend endpo
 
 ## Questionnaire Structure
 
-Three sections. Sections 2 and 3 are only shown if the user opts into trainer generation.
+Single section — Training Profile. Body metrics and nutrition are out of scope for current release.
 
-### Section 1 — Body Metrics (for TDEE/macro math)
-Preface: "We use this to calculate your calorie and macro targets for meal plans."
-
-| Field | Type | Options | Notes |
-|---|---|---|---|
-| weight_kg | single | numeric input | "Prefer not to answer" = null |
-| height_cm | single | numeric input | "Prefer not to answer" = null |
-| sex | single | male, female, other | "Prefer not to answer" = null |
-| activity_level | single | sedentary, light, moderate, active, very_active | Maps to TDEE multipliers |
-
-TDEE multipliers:
-- sedentary: 1.2
-- light: 1.375
-- moderate: 1.55
-- active: 1.725
-- very_active: 1.9
-
-### Section 2 — Training Profile
-
-| Field | Type | Options |
-|---|---|---|
-| goal | multi-select | strength, hypertrophy, endurance, weight_loss, mobility, general_fitness |
-| equipment | single | bodyweight_only, dumbbells, barbell, machines, resistance_bands, full_gym |
-| age_range | single | under_25, 26-40, 41-55, 56+ |
-| days_per_week | single | 2, 3, 4, 5, 6 |
-| minutes_per_session | single | 20, 30, 45, 60 |
-| experience | single | beginner, intermediate, advanced |
-| focus | single | full_body, upper_lower_split, push_pull_legs, custom |
-| limitations | multi-select chips | none, shoulder_issues, knee_issues, back_issues, wrist_issues, limited_mobility, high_impact_aversion |
-
+### Section 1 — Training Profile
 Preface: "This shapes exercise selection, split structure, volume, and intensity."
 
-### Section 3 — Nutrition Opt-In
-
 | Field | Type | Options | Notes |
 |---|---|---|---|
-| meal_plan_opt_in | single | yes, no | Gate for meal plan generation |
-| diet_type | single | omnivore, vegetarian, vegan, pescatarian, keto_friendly, paleo_friendly | Only asked if opt-in yes |
-| cooking_skill | single | quick_simple, moderate, elaborate | Only asked if opt-in yes |
-| allergies | multi-select chips | none, nuts, dairy, gluten, soy, shellfish, eggs | Only asked if opt-in yes |
-| meals_per_day | single | 2, 3, 4, 5, 6 | Only asked if opt-in yes |
+| goal | multi-select chips | strength, hypertrophy, endurance, weight_loss, mobility, general_fitness | |
+| equipment | single tabs | bodyweight_only, dumbbells, barbell, machines, resistance_bands, full_gym | |
+| workout_modality | single tabs | traditional_weight_training, powerlifting, bodybuilding, hiit, calisthenics, yoga, cardio, crossfit | Maps to `modality_primary` |
+| modality_secondary | multi-select chips | cardio, hiit, yoga/mobility, calisthenics, none | |
+| modality_mix | single tabs | together, separate_days, mostly_primary, single | |
+| workout_location | text | free text | Optional — gym name or "Home" |
+| training_history | single tabs | just_starting, under_6_months, 6_to_12_months, 1_to_2_years, 2_plus_years, returning | Used by AI coach for split switch recommendations |
+| progression_type | single tabs | linear, double, percentage | Explicit progression method — overrides experience-based default |
+| days_per_week | single tabs | 2, 3, 4, 5, 6 | |
+| minutes_per_session | single tabs | 20, 30, 45, 60 | |
+| experience | single tabs | beginner, intermediate, advanced | Used as fallback if progression_type not set |
+| focus | single tabs | full_body, upper_lower_split, push_pull_legs, body_part_split, custom | Split style |
+| limitations | multi-select chips | none, shoulder_issues, knee_issues, back_issues, wrist_issues, limited_mobility, high_impact_aversion | |
 
-Preface: "We use this to build meal plans matched to your training targets. No calorie tracking required."
+**Removed fields (out of scope):**
+- `age_range` — not needed for workout generation; used only by meal plan which is deferred
+- `meal_plan_opt_in`, `diet_type`, `cooking_skill`, `allergies`, `meals_per_day` — nutrition removed from current scope
+
+## Modality Mix Semantics
+
+- `single` — just primary style, no secondary activities
+- `together` — primary + secondary activities in the same session (e.g., lifting + cardio in one workout)
+- `separate_days` — dedicated days for each activity (e.g., lift Mon/Wed, cardio Tue/Thu)
+- `mostly_primary` — primary most days, secondary as occasional add-on
+
+## Progression Type
+
+- `linear` — add weight every session (default for beginners)
+- `double` — add reps first, then add weight (default for intermediates)
+- `percentage` — based on a max lift (default for advanced)
+
+Explicit `progression_type` from questionnaire overrides the experience-based default in `progression.py`:
+```python
+progression_type = getattr(profile, "progression_type", None) or _EXPERIENCE_PROGRESSION.get(profile.experience, "linear")
+```
+
+## Split Styles
+
+- `full_body` — every session hits all major muscle groups
+- `upper_lower_split` — alternating upper and lower days
+- `push_pull_legs` — three day types rotating
+- `body_part_split` — chest/tris, back/bis, legs, shoulders, arms rotation
+- `custom` — AI coach builds week_schedule
 
 ## Backend Storage
 
@@ -95,73 +100,78 @@ Response:
 ```json
 {
   "workout_draft": {
-    "name": "Generated Workout - 2026-07-31",
+    "name": "Generated Workout - 2026-08-04",
     "description": "...",
     "groups": [...]
   },
-  "meal_plan_draft": {
-    "name": "Meal Plan - 2026-07-31",
-    "targets": { "calories": 2200, "protein_g": 130, "carbs_g": 200, "fat_g": 72 },
-    "days": [...]
-  } | null
+  "meal_plan_draft": null
 }
 ```
 
-Note: `meal_plan_draft` is `null` if `meal_plan_opt_in` is false or body metrics are missing.
+Note: `meal_plan_draft` is always `null` until nutrition flow is built.
 
 ## Generation Rules
 
 ### Workout Draft
-1. Filter ExerciseDB by equipment and limitations
-2. Split exercises across days based on days_per_week and focus:
-   - full_body: compound lifts + accessories each day
-   - upper_lower_split: alternating upper/lower
-   - push_pull_legs: 3-day rotation or packed variant
-3. Volume (sets/reps) determined by goal and experience:
-   - strength: 3-5 sets, 3-6 reps
-   - hypertrophy: 3-4 sets, 8-12 reps
-   - endurance: 2-3 sets, 12-20 reps
-   - weight_loss: 3-4 sets, 10-15 reps
-4. Experience multiplier: beginner lower volume, advanced higher volume
-5. Minutes/session: cap total work + rest to fit session
-6. Seeded randomness for exercise selection within filters
+1. Filter exercise library by equipment and limitations
+2. Select template based on `focus` + `modality_primary`
+3. Fill slots with exercises matching movement/tier/equipment filters
+4. Volume (sets/reps) determined by goals + experience
+5. Progression type set by explicit `progression_type` or experience fallback
+6. Minutes/session caps total work + rest
+7. Seeded randomness for exercise selection within filters
+
+### Slot-Based Templates (10 templates)
+Each day template has 5 slots: compound_1, compound_2, accessory_1, accessory_2, isolation_1
+- Chest Day: horizontal_push, vertical_push, horizontal_push_accessory, isometric_push, triceps_isolation
+- Back Day: vertical_pull, horizontal_pull, horizontal_pull_accessory, isometric_pull, biceps_isolation
+- Leg Day: squat, hinge, quad_accessory, ham_accessory, calf_isolation
+- Shoulder Day: overhead_press, lateral_raise, rear_delt, trap, biceps_isolation
+- Arm Day: triceps_compound, triceps_accessory, biceps_compound, biceps_accessory, forearm_isolation
+- Chest+Triceps: chest_day slots + triceps_isolation slot
+- Back+Biceps: back_day slots + biceps_isolation slot
+- Upper Body: push compound + pull compound + shoulder + arm isolation + core
+- Lower Body: squat + hinge + quad_accessory + ham_accessory + calf
+- Full Body: overhead_press + hinge + pull + leg_accessory + core
+
+### Body Part Split Rotation
+When `focus == "body_part_split"` and days_per_week > 5:
+- Rotates through: Chest+Triceps → Back+Biceps → Legs → Shoulders → Arms
+- Each day uses the corresponding template
+- 6 days = one full rotation + chest/tris repeat
 
 ### Meal Plan Draft
-1. Only generated if `meal_plan_opt_in` is true AND body metrics present
-2. TDEE = BMR × activity_level multiplier
-   - Mifflin-St Jeor BMR
-     - male: (10 × weight_kg) + (6.25 × height_cm) − (5 × age_midpoint) + 5
-     - female: (10 × weight_kg) + (6.25 × height_cm) − (5 × age_midpoint) − 161
-     - age_midpoint: under_25=22, 26-40=33, 41-55=48, 56+=60
-3. Goal adjustment:
-   - weight_loss: TDEE − 400
-   - maintenance: TDEE
-   - weight_gain: TDEE + 400
-   - For multi-goal, use the dominant training goal or weighted average
-4. Macros by goal:
-   - strength / hypertrophy: 2.0 g protein/kg, 4.0 g carbs/kg, 0.8 g fat/kg
-   - weight_loss / endurance: 2.2 g protein/kg, 2.5 g carbs/kg, 0.8 g fat/kg
-   - general_fitness: 1.6 g protein/kg, 3.5 g carbs/kg, 0.9 g fat/kg
-5. Missing body metrics → return goal-templated macro estimate without TDEE precision
-6. Meal structure based on diet_type, cooking_skill, allergies, meals_per_day
+**Not generated in current release.** `generate_meal_plan()` returns `None`.
+Code preserved in `progression.py` for when nutrition is re-enabled.
+
+## AI Coach Layer (future)
+
+The AI coach is NOT part of workout generation. Its responsibilities:
+- Explain questions and guide users through the questionnaire
+- Reconcile conflicting or ambiguous answers
+- Build `week_schedule` dict for mixed-modality weeks (e.g., {"monday": "bodybuilding", "tuesday": "hiit", ...})
+- Recommend split/progression switches based on `training_history`
+- Update `fitness_profile` and trigger re-generation when user accepts a switch
+
+The backend receives the final structured `week_schedule` and generates workouts deterministically.
 
 ## Frontend UX
 
 - Step-through: one question per screen with progress indicator
-- Show "This is why we ask" preface per section
 - Single-select options render as tabs
 - Multi-select options render as chips
-- Pre-select defaults where sensible (e.g., 3 days/week, 30 min, "no limitations")
-- "Prefer not to answer" available for all body metric fields
+- Text inputs for free-form answers
+- Pre-select defaults where sensible
 - Save profile on completion so next session pre-fills
 
 ## User Model Migration
 
 In `backend/main.py` `_run_migrations()`:
-- ALTER TABLE `users` ADD COLUMN `fitness_profile` JSONB
+- `fitness_profile` JSONB column already exists
+- No schema changes needed for questionnaire redesign
 
 ## Open Decisions
 
-- Should generated workout auto-save as a template, or return as unsaved draft? Current design: unsaved draft, user accepts to save.
-- Should this endpoint return random but seeded workouts, or fully deterministic? Current design: seeded randomness.
-- Meal plan templates: where do recipes/meals come from? TBD — external API, static library, or admin-managed.
+- Should generated workout auto-save as a template, or return as unsaved draft? Current: unsaved draft, user accepts to save.
+- AI coach `week_schedule` format — currently a flat dict of day→modality. May need time-of-day support for "lift in morning, cardio in evening" patterns.
+- Nutrition questionnaire — when re-enabled, body metrics section returns, plus diet/cooking/allergy questions.

@@ -27,7 +27,23 @@ Format: DATE | FILE | TYPE | SUMMARY
 | `memory/changelog.md` | updated | What counts as material change, ownership model |
 | `memory/trainer.md` | created | Trainer questionnaire schema, workout/meal generation rules, backend endpoint design |
 | `TODO.md` | updated | Trainer workflow split into Section 1 body metrics, Section 2 training profile, Section 3 nutrition opt-in |
-|| `backend/roadmap.html` | updated | Added explicit per-phase dependency mapping |
+
+## 2026-08-04
+| File | Type | Summary |
+|---|---|---|
+| `memory/trainer.md` | updated | Questionnaire redesign: removed nutrition and age_range, added training_history and progression_type, documented modality_mix semantics and body_part_split rotation |
+| `frontend/src/config/questionnaire.ts` | updated | 13 questions: removed nutrition section, added Training History + Starting Progression Method, renamed Split Style, made Workout Location optional |
+| `backend/intake.py` | updated | Removed nutrition/age fields from UserProfile; added training_history and progression_type |
+| `backend/progression.py` | updated | Uses explicit progression_type from profile; body_part_split handler rotates through chest/tris→back/bis→legs→shoulders→arms; generate_meal_plan returns None |
+| `backend/services/generation.py` | updated | Meal plan always returns None until nutrition flow is built |
+| `backend/main.py` | updated | FitnessProfileIn and TrainerGenerateIn Pydantic models updated with new fields |
+| `backend/flowchart.html` | created | Visual flowchart mapping questionnaire questions through to backend effects |
+| `backend/architecture.html` | created | Four-layer system architecture document |
+
+---
+
+## 2026-07-31
+| `memory/README.md` | created | Directory index with file catalog and usage rules |
 || `backend/roadmap.html` | updated | Marked completed Phase 1 agent tasks as done; validation remains blocked by user RIR data |
 || `backend/roadmap.html` | updated | Fixed color coding: user/waiting tasks now amber with open bullets; added missing blocked/pending Phase 1 agent tasks |
 || `memory/deploy.md` | updated | Documented Linux interactive-shell requirement for flyctl due to ~/.bashrc token sourcing |
