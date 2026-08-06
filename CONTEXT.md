@@ -16,6 +16,10 @@ Phase 4 continued — custom workout builder implemented and deployed to iOS. Ba
 - Frontend builds successfully with Vite
 - Deploy pipeline working: build on Linux → rsync `dist/` to MacBook `dist/` → `npx cap sync ios` from MacBook project root → Xcode run on device
 - SSH alias `macbook` used for all MacBook operations; raw IP references removed from docs
+- Memory migration: Hermes MEMORY.md trimmed to 1-line pointer, project knowledge consolidated into workout-logger/memory/*.md
+- Save-sync-deploy skill patched: correct frontend flow (build → rsync → cap sync → Xcode)
+- Session history added to MEMORY-INDEX.md
+- ADR-015 recorded: agent owns all deploy/sync/device operations
 
 ## Next Actions
 - User: test questionnaire on iOS device, test custom builder end-to-end
