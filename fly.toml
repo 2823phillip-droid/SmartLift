@@ -27,3 +27,7 @@ primary_region = "iad"
 [env]
   # Do NOT hardcode DATABASE_URL here. Set it via `fly secrets set DATABASE_URL=...`
   # after attaching a managed Postgres cluster.
+
+[mounts]
+  source="exercisedb_gifs"
+  destination="/app/exercisedb_gifs"

@@ -1,0 +1,2 @@
+# Don't include ExerciseDB GIFs in Docker image — use Fly volume instead
+exercisedb_gifs/

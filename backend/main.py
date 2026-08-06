@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List
+from typing import Optional, List, Union
 import json
 import os
 import logging
@@ -250,6 +250,25 @@ def _run_migrations():
             if "rir" not in scolumns:
                 conn.execute(_text("ALTER TABLE set_logs ADD COLUMN rir INTEGER"))
                 conn.commit()
+
+            # Migrate exercise_library to ExerciseDB schema
+            elib_cols = cols("exercise_library")
+            if "program_worthy" not in elib_cols:
+                # Drop old table (CASCADE removes dependent FKs from exercise_entries/cardio_logs)
+                # then recreate exercise_library + dependent tables
+                if dialect == "sqlite":
+                    conn.execute(_text("DROP TABLE IF EXISTS exercise_library"))
+                else:
+                    conn.execute(_text("DROP TABLE IF EXISTS exercise_library CASCADE"))
+                conn.commit()
+                from models import Base
+                # Recreate exercise_library first (FKs reference it)
+                Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["exercise_library"]])
+                # Then recreate dependent tables
+                for dep in ["exercise_entries", "cardio_logs"]:
+                    if dep in Base.metadata.tables:
+                        Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables[dep]])
+                logging.info("Recreated exercise_library table with ExerciseDB schema")
     except Exception:
         pass
 
@@ -712,7 +731,7 @@ class FitnessProfileIn(BaseModel):
     sex: Optional[str] = None
     activity_level: Optional[str] = None
     goal: Optional[List[str]] = []
-    equipment: Optional[str] = None
+    equipment: Optional[Union[str, List[str]]] = None
     days_per_week: Optional[int] = None
     minutes_per_session: Optional[int] = None
     experience: Optional[str] = None
@@ -724,6 +743,8 @@ class FitnessProfileIn(BaseModel):
     training_history: Optional[str] = None
     progression_type: Optional[str] = None
     workout_location: Optional[str] = None
+    gym_type: Optional[str] = None
+    cardio_preference: Optional[str] = None
 
 class TrainerGenerateIn(BaseModel):
     weight_kg: Optional[float] = None
@@ -731,7 +752,7 @@ class TrainerGenerateIn(BaseModel):
     sex: Optional[str] = None
     activity_level: Optional[str] = None
     goal: Optional[List[str]] = []
-    equipment: Optional[str] = None
+    equipment: Optional[Union[str, List[str]]] = None
     days_per_week: Optional[int] = None
     minutes_per_session: Optional[int] = None
     experience: Optional[str] = None
@@ -743,11 +764,14 @@ class TrainerGenerateIn(BaseModel):
     training_history: Optional[str] = None
     progression_type: Optional[str] = None
     workout_location: Optional[str] = None
+    gym_type: Optional[str] = None
+    cardio_preference: Optional[str] = None
 
 class WorkoutDraftExercise(BaseModel):
     name: str
     muscle_group: Optional[str] = None
     equipment: Optional[str] = None
+    target: Optional[str] = None
     sets_target: int
     reps_target: int
     start_weight: float
@@ -757,6 +781,13 @@ class WorkoutDraftExercise(BaseModel):
     gif_url: Optional[str] = None
     image_url: Optional[str] = None
     video_url: Optional[str] = None
+    movement_pattern: Optional[str] = None
+    modality_fit: Optional[str] = None
+    difficulty: Optional[str] = None
+    compound_rank: Optional[int] = None
+    progression_type: Optional[str] = None
+    slot_type: Optional[str] = None
+    exercise_library_id: Optional[int] = None
 
 class WorkoutDraftGroup(BaseModel):
     name: str
@@ -1067,34 +1098,13 @@ def search_exercise_library(q: str = "", db: Session = Depends(get_db), current_
 
 @app.post("/api/exercise-library/sync")
 def sync_exercise_library(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    path = os.path.join(os.path.dirname(__file__), "dist", "exercises-hasan.json")
+    """Re-seed exercise_library from local ExerciseDB JSON."""
+    path = os.path.join(os.path.dirname(__file__), "exercisedb_data.json")
     if not os.path.exists(path):
         raise HTTPException(status_code=400, detail="Local exercise dataset not found")
 
     with open(path, "r", encoding="utf-8") as f:
         data = json.load(f)
-
-    def _normalize_muscle_group(value: str) -> str:
-        if not value:
-            return value
-        v = value.strip().lower()
-        mapping = {
-            "chest": "Chest",
-            "shoulders": "Shoulders",
-            "back": "Back",
-            "biceps": "Biceps",
-            "triceps": "Triceps",
-            "upper arms": "Upper Arms",
-            "lower arms": "Lower Arms",
-            "legs": "Legs",
-            "upper legs": "Upper Legs",
-            "lower legs": "Lower Legs",
-            "calves": "Calves",
-            "waist": "Core",
-            "cardio": "Cardio",
-            "neck": "Neck",
-        }
-        return mapping.get(v, value.strip().title())
 
     synced = 0
     for item in data:
@@ -1102,40 +1112,71 @@ def sync_exercise_library(db: Session = Depends(get_db), current_user: User = De
         if not name:
             continue
         existing = db.query(ExerciseLibrary).filter(ExerciseLibrary.name == name).first()
-        muscle_group = _normalize_muscle_group(item.get("body_part") or item.get("muscle_group") or "")
-        equipment = item.get("equipment")
-        image = item.get("image") or ""
-        gif = item.get("gif_url") or ""
-        image_url = f"https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/{image}" if image else None
-        gif_url = f"https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/{gif}" if gif else None
+        gifs_dir = os.path.join(os.path.dirname(__file__), "exercisedb_gifs")
+        ex_id = item.get("id", "")
+        gif_180 = os.path.join(gifs_dir, "180", f"{ex_id}.gif")
+        gif_360 = os.path.join(gifs_dir, "360", f"{ex_id}.gif")
+        local_gif = gif_180 if os.path.exists(gif_180) else (gif_360 if os.path.exists(gif_360) else None)
+        if local_gif:
+            gif_url = f"/api/exercisedb/gifs/{ex_id}.gif"
+        else:
+            gif_url = None
+
         if existing:
             changed = False
-            if muscle_group and existing.muscle_group != muscle_group:
-                existing.muscle_group = muscle_group
-                changed = True
-            if equipment is not None and existing.equipment != equipment:
-                existing.equipment = equipment
-                changed = True
-            if image_url and existing.image_url != image_url:
-                existing.image_url = image_url
-                changed = True
-            if gif_url and existing.gif_url != gif_url:
-                existing.gif_url = gif_url
-                changed = True
+            for field, val in [
+                ("muscle_group", item.get("bodyPart")),
+                ("equipment", item.get("equipment")),
+                ("target", item.get("target")),
+                ("secondary_muscles", json.dumps(item.get("secondaryMuscles", [])) if item.get("secondaryMuscles") else None),
+                ("instructions", json.dumps(item.get("instructions", [])) if item.get("instructions") else None),
+                ("difficulty", item.get("difficulty")),
+                ("category", item.get("category")),
+                ("similar_exercises", json.dumps(item.get("similarExercises", [])) if item.get("similarExercises") else None),
+                ("substitutions", json.dumps(item.get("substitutions", [])) if item.get("substitutions") else None),
+                ("progressions", json.dumps(item.get("progressions", [])) if item.get("progressions") else None),
+                ("regressions", json.dumps(item.get("regressions", [])) if item.get("regressions") else None),
+                ("exercise_db_id", ex_id),
+                ("gif_url", gif_url),
+            ]:
+                if val is not None and getattr(existing, field) != val:
+                    setattr(existing, field, val)
+                    changed = True
             if changed:
                 synced += 1
             continue
         db.add(ExerciseLibrary(
             name=name,
-            muscle_group=muscle_group,
-            equipment=equipment,
-            default_rest_seconds=90,
-            image_url=image_url,
+            muscle_group=item.get("bodyPart"),
+            equipment=item.get("equipment"),
+            target=item.get("target"),
+            secondary_muscles=json.dumps(item.get("secondaryMuscles", [])),
+            instructions=json.dumps(item.get("instructions", [])),
+            difficulty=item.get("difficulty"),
+            category=item.get("category"),
+            similar_exercises=json.dumps(item.get("similarExercises", [])),
+            substitutions=json.dumps(item.get("substitutions", [])),
+            progressions=json.dumps(item.get("progressions", [])),
+            regressions=json.dumps(item.get("regressions", [])),
+            exercise_db_id=ex_id,
             gif_url=gif_url,
+            default_rest_seconds=90,
         ))
         synced += 1
     db.commit()
     return {"synced": synced}
+
+
+@app.get("/api/exercisedb/gifs/{filename}")
+def serve_exercisedb_gif(filename: str):
+    """Serve ExerciseDB GIFs from local filesystem."""
+    gifs_dir = os.path.join(os.path.dirname(__file__), "exercisedb_gifs")
+    # Try 180 first, then 360
+    for angle in ("180", "360"):
+        path = os.path.join(gifs_dir, angle, filename)
+        if os.path.exists(path):
+            return FileResponse(path, media_type="image/gif")
+    raise HTTPException(status_code=404, detail="GIF not found")
 
 # --- Sessions ---
 

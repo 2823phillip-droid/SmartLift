@@ -30,12 +30,18 @@ class UserProfile:
     # Training history and progression
     training_history: str = "just_starting"
     progression_type: str = "linear"
+    # Phase rotation (only used when goal == "full_program")
+    current_phase: str = "foundation"
+    phase_start_date: Optional[str] = None
+    phase_history: List[str] = field(default_factory=list)  # ["foundation", "strength", "hypertrophy", ...]
     # Modality fields — primary is legacy-compatible, new fields enable mixed weeks
     modality: str = "traditional_weight_training"
     modality_primary: str = "traditional_weight_training"
     modality_secondary: List[str] = field(default_factory=list)
     modality_mix: str = "single"  # single | separate_days | together | mostly_primary
     week_schedule: Optional[Dict[str, str]] = None  # {"monday": "bodybuilding", "tuesday": "hiit", ...}
+    # Cardio and gym preferences
+    cardio_preference: str = "none"  # none | warmup_run | warmup_run_15 | warmup_run_20 | finisher_run | finisher_run_15 | finisher_run_20 | hiit_finisher | separate_cardio
 
 
 def _to_cm(value: Optional[float], units: str) -> Optional[float]:
@@ -133,9 +139,13 @@ def normalize_questionnaire(answers: dict, defaults: dict | None = None) -> User
         units_preference=units,
         training_history=_single("training_history", "just_starting"),
         progression_type=_single("progression_type", "linear"),
+        current_phase=_single("current_phase", "foundation"),
+        phase_start_date=str(answers.get("phase_start_date") or ""),
+        phase_history=answers.get("phase_history", []) or [],
         modality=modality_primary,
         modality_primary=modality_primary,
         modality_secondary=modality_secondary,
         modality_mix=modality_mix,
         week_schedule=week_schedule,
+        cardio_preference=_single("cardio_preference", "none"),
     )

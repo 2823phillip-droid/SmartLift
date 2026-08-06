@@ -6,7 +6,9 @@
 - Backend: /home/phillip2823/workout-logger/backend
 
 ## Network
-- MacBook SSH: phillipwalters@192.168.1.112
+- MacBook SSH: `macbook` (configured in ~/.ssh/config)
+- MacBook IP: 192.168.1.112 (DHCP-reserved, never hardcode elsewhere)
+- Linux server: 192.168.1.111 (this machine)
 - Local backend: removed; do not use.
 - Production backend: https://askeo.fit/api
 
@@ -21,7 +23,7 @@
 - NOTE: Fly internal app name is `smartlift-api` — do NOT rename. Users only see askeo.fit.
 
 ## Deploy
-- Frontend build + sync: build `frontend/dist/` on Linux, rsync to MacBook `~/workout-logger/frontend/ios/App/App/public/`, then `npx cap sync ios`
+- Frontend build + sync: build `frontend/dist/` on Linux, rsync to `macbook:~/workout-logger/frontend/ios/App/App/public/`, then `npx cap sync ios`
 - Backend deploy: use interactive shell on Linux because `FLY_API_TOKEN` is in `~/.bashrc`: `bash -ic 'cd /home/phillip2823/workout-logger && python3 -m py_compile backend/main.py && fly deploy -a smartlift-api --no-cache'`
 - Frontend sync validation: see `memory/deploy.md`
 - Remote git: https://github.com/2823phillip-droid/Askeo.git
@@ -36,6 +38,7 @@
 - Some unrelated build noise exists; fix only when it blocks deploy.
 
 ## Rules
-- Do not fall back to local backend.
 - Agent owns full deploy/sync end-to-end.
 - Never ask user to run manual terminal commands for deploy.
+- Use `macbook` SSH alias for all MacBook operations; never use raw IP.
+- Do not fall back to local backend.

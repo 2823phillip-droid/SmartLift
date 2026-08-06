@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-04
+last_updated: 2026-08-06
 created: 2026-07-31
 tags: [trainer, questionnaire, backend, deploy, decisions]
 related: backend-db.md, auth.md, decisions.md, deploy.md
@@ -20,16 +20,18 @@ Preface: "This shapes exercise selection, split structure, volume, and intensity
 |---|---|---|---|
 | goal | multi-select chips | strength, hypertrophy, endurance, weight_loss, mobility, general_fitness | |
 | equipment | single tabs | bodyweight_only, dumbbells, barbell, machines, resistance_bands, full_gym | |
-| workout_modality | single tabs | traditional_weight_training, powerlifting, bodybuilding, hiit, calisthenics, yoga, cardio, crossfit | Maps to `modality_primary` |
-| modality_secondary | multi-select chips | cardio, hiit, yoga/mobility, calisthenics, none | |
+| workout_modality | single tabs | traditional_weight_training, powerlifting, bodybuilding, hiit, cardio | Maps to `modality_primary` |
+| modality_secondary | multi-select chips | cardio, hiit, none | |
 | modality_mix | single tabs | together, separate_days, mostly_primary, single | |
+| cardio_preference | single tabs | none, light, moderate, high | Cardio volume/intensity preference |
 | workout_location | text | free text | Optional — gym name or "Home" |
 | training_history | single tabs | just_starting, under_6_months, 6_to_12_months, 1_to_2_years, 2_plus_years, returning | Used by AI coach for split switch recommendations |
 | progression_type | single tabs | linear, double, percentage | Explicit progression method — overrides experience-based default |
+| experience | single tabs | beginner, intermediate, advanced | Used as fallback if progression_type not set |
 | days_per_week | single tabs | 2, 3, 4, 5, 6 | |
 | minutes_per_session | single tabs | 20, 30, 45, 60 | |
-| experience | single tabs | beginner, intermediate, advanced | Used as fallback if progression_type not set |
-| focus | single tabs | full_body, upper_lower_split, push_pull_legs, body_part_split, custom | Split style |
+| build_mode | single tabs | template, custom | Template = auto-generate; Custom = guided builder |
+| focus | single tabs | full_body, upper_lower_split, push_pull_legs, body_part_split | Split style (only asked in template mode) |
 | limitations | multi-select chips | none, shoulder_issues, knee_issues, back_issues, wrist_issues, limited_mobility, high_impact_aversion | |
 
 **Removed fields (out of scope):**
@@ -60,7 +62,62 @@ progression_type = getattr(profile, "progression_type", None) or _EXPERIENCE_PRO
 - `upper_lower_split` — alternating upper and lower days
 - `push_pull_legs` — three day types rotating
 - `body_part_split` — chest/tris, back/bis, legs, shoulders, arms rotation
-- `custom` — AI coach builds week_schedule
+
+## Workout Naming Rules
+
+- No day numbers for identical structures (e.g., "Upper Body" not "Day 1").
+- A/B/C suffixes only when the same muscle group repeats within the same week.
+- Upper/Lower split start order: match modality priority.
+  - Powerlifting/strongman: start Lower first (squat/bench focus).
+  - All other modalities (bodybuilding, general, etc.): start Upper first.
+- AI coach may recommend split switches after N months; user accepts before applying.
+
+## Workout Generation Rules
+
+- Fewer exercises, more sets for compounds. More exercises, fewer sets for accessories.
+- Lift budget = session minutes - cardio minutes - warmup minutes.
+- Slot 1: flat/incline/decline barbell bench only.
+- Slot 2: barbell or dumbbell bench/incline/decline.
+- CHEST_DAY = 3 chest slots.
+- CHEST_TRICEPS adds 2 tricep slots (5 total).
+- Transition: same area 30s, different area 60s.
+
+## Gym Types
+
+- `full_gym` — barbell, dumbbell, cable, machines
+- `planet_fitness` — limited barbell, primarily machines/dumbbells
+- `home_gym_basic` — dumbbells, resistance bands, limited equipment
+- `bodyweight_only` — no equipment
+
+## Reverse Exercise Rules
+
+- Not all reverse exercises are bad — surgical exclusions only.
+- Reverse lunge and reverse fly are standard exercises, not excluded by default.
+- Exclude reverse exercises only when they conflict with a specific limitation (e.g., knee issues → exclude reverse lunge).
+- Exclusion rules must be surgical, not blanket bans.
+
+## Builder Draft Persistence
+
+- Workout builder draft must persist across tab switches.
+- Cancel exits without clearing draft.
+- Accept saves the workout as a template.
+
+## ExerciseDB
+
+- ExerciseDB is the licensed exercise library source.
+- GIFs stored at `180/` and `360/` angle folders.
+- Frontend uses `program_worthy` tagging + tag-based exercise picker.
+
+## Custom Builder Flow
+
+When `build_mode == "custom"`:
+- Questionnaire skips `focus` entirely
+- On complete, routes to `CustomWorkoutBuilderScreen`
+- User picks split structure (full body / upper-lower / PPL / body part)
+- App auto-creates day tabs based on `days_per_week`
+- Per day: user selects muscle group/focus, searches exercise library, adds exercises
+- Exercises can be manually reordered within each day
+- User saves → creates templates + exercises in backend → routes to Workouts tab
 
 ## Backend Storage
 
@@ -100,7 +157,7 @@ Response:
 ```json
 {
   "workout_draft": {
-    "name": "Generated Workout - 2026-08-04",
+    "name": "Generated Workout - 2026-08-06",
     "description": "...",
     "groups": [...]
   },

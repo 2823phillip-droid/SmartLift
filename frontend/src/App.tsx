@@ -20,6 +20,7 @@ import SignupScreen from "./pages/SignupScreen";
 import ErrorBoundary from "./components/ErrorBoundary";
 import TabBar, { type Tab } from "./components/TabBar";
 import DebugLogScreen from "./pages/DebugLogScreen";
+import CustomWorkoutBuilderScreen from "./pages/CustomWorkoutBuilderScreen";
 
 type View =
   | "home"
@@ -39,7 +40,8 @@ type View =
   | "signup"
   | "debug_log"
   | "questionnaire"
-  | "transition_history";
+  | "transition_history"
+  | "custom_builder";
 
 const tabRootToView: Record<Tab, View> = {
   home: "home",
@@ -68,6 +70,7 @@ const viewToTab: Record<View, Tab | null> = {
   debug_log: "settings",
   questionnaire: null,
   transition_history: "workouts",
+  custom_builder: "workouts",
 };
 
 export default function App() {
@@ -84,6 +87,7 @@ export default function App() {
     repsChanges: Record<number, number>;
     orderChanged: boolean;
   } | null>(null);
+  const [customBuilderAnswers, setCustomBuilderAnswers] = useState<Record<string, any> | null>(null);
   const WORKOUT_MODE_STORAGE_KEY = "askeo_workout_mode";
   const [workoutMode, setWorkoutMode] = useState<"manual" | "ai_trainer">(() => {
     if (typeof window !== "undefined") {
@@ -349,6 +353,19 @@ export default function App() {
                 }}
               />
             )}
+            {view === "custom_builder" && (
+              <CustomWorkoutBuilderScreen
+                onBack={() => {
+                  setCustomBuilderAnswers(null);
+                  navigate("workouts");
+                }}
+                onSaved={() => {
+                  setCustomBuilderAnswers(null);
+                  navigate("workouts");
+                }}
+                initialAnswers={customBuilderAnswers || {}}
+              />
+            )}
             {view === "templates" && selectedContextId !== null && (
               <TemplateListScreen
                 contextId={selectedContextId}
@@ -463,6 +480,14 @@ export default function App() {
                   const groups = draft?.workout_draft?.groups || [];
                   const location = (answers?.workout_location as string) || "My Workouts";
                   const focus = (answers?.focus as string) || "full_body";
+                  const buildMode = (answers?.build_mode as string) || "template";
+
+                  // Custom mode: go straight to builder, skip template generation
+                  if (buildMode === "custom") {
+                    setCustomBuilderAnswers(answers);
+                    setView("custom_builder");
+                    return;
+                  }
 
                   // Better top-level name for localStorage fallback
                   const focusLabel = {

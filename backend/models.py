@@ -31,6 +31,7 @@ class User(Base):
     exercise_entries = relationship("ExerciseEntry", back_populates="user", cascade="all, delete-orphan")
     set_logs = relationship("SetLog", back_populates="user", cascade="all, delete-orphan")
     coach_messages = relationship("CoachMessage", back_populates="user", cascade="all, delete-orphan")
+    cardio_logs = relationship("CardioLog", back_populates="user", cascade="all, delete-orphan")
     algorithm_states = relationship("AlgorithmState", back_populates="user", cascade="all, delete-orphan")
     ai_trainer_adjustments = relationship("AITrainerAdjustment", back_populates="user", cascade="all, delete-orphan")
     body_weight_logs = relationship("BodyWeightLog", back_populates="user", cascade="all, delete-orphan")
@@ -87,13 +88,26 @@ class ExerciseLibrary(Base):
     __tablename__ = "exercise_library"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, nullable=False, unique=True)
-    muscle_group = Column(String)
+    muscle_group = Column(String)  # bodyPart
     equipment = Column(String)
     default_rest_seconds = Column(Integer, default=90)
     video_url = Column(String, nullable=True)
     image_url = Column(String, nullable=True)
     gif_url = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    # ExerciseDB fields
+    exercise_db_id = Column(String, unique=True, index=True, nullable=True)
+    target = Column(String, nullable=True)
+    secondary_muscles = Column(Text, nullable=True)  # JSON array
+    instructions = Column(Text, nullable=True)  # JSON array
+    difficulty = Column(String, nullable=True)
+    category = Column(String, nullable=True)
+    similar_exercises = Column(Text, nullable=True)  # JSON array
+    substitutions = Column(Text, nullable=True)  # JSON array
+    progressions = Column(Text, nullable=True)  # JSON array
+    regressions = Column(Text, nullable=True)  # JSON array
+    program_worthy = Column(Boolean, default=True, nullable=False)
 
 class ExerciseEntry(Base):
     __tablename__ = "exercise_entries"
@@ -131,6 +145,7 @@ class WorkoutSession(Base):
     template = relationship("WorkoutTemplate", back_populates="sessions")
     set_logs = relationship("SetLog", back_populates="session", cascade="all, delete-orphan", order_by="SetLog.set_index")
     coach_messages = relationship("CoachMessage", back_populates="session", cascade="all, delete-orphan")
+    cardio_logs = relationship("CardioLog", back_populates="session", cascade="all, delete-orphan")
 
 class SetLog(Base):
     __tablename__ = "set_logs"
@@ -164,6 +179,25 @@ class CoachMessage(Base):
 
     user = relationship("User", back_populates="coach_messages")
     session = relationship("WorkoutSession", back_populates="coach_messages")
+
+
+class CardioLog(Base):
+    __tablename__ = "cardio_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    session_id = Column(Integer, ForeignKey("workout_sessions.id", ondelete="CASCADE"), nullable=True)
+    exercise_library_id = Column(Integer, ForeignKey("exercise_library.id"), nullable=True)
+    cardio_type = Column(String, default="run")  # run, bike, walk, hiit, row, etc.
+    duration_minutes = Column(Integer, nullable=False)
+    distance_miles = Column(Float, nullable=True)
+    calories = Column(Integer, nullable=True)
+    avg_heart_rate = Column(Integer, nullable=True)
+    notes = Column(Text)
+    completed_at = Column(DateTime, default=datetime.utcnow)
+
+    user = relationship("User", back_populates="cardio_logs")
+    session = relationship("WorkoutSession", back_populates="cardio_logs")
+    exercise_library = relationship("ExerciseLibrary")
 
 class AlgorithmState(Base):
     __tablename__ = "algorithm_state"

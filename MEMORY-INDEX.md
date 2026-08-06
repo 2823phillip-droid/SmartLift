@@ -2,12 +2,21 @@
 
 This file explains where every type of project knowledge lives and when to use it.
 
+## Bootstrap order
+1. `MEMORY-INDEX.md` — this file; the knowledge map
+2. `TODO.md` — phased roadmap. Read this to understand current priorities
+3. `CONTEXT.md` — what we're working on right now, what shipped last, what's next
+4. `PERSONA.md` — role definitions and task ownership rules
+5. `Askeo.md` — stack, endpoints, users, gotchas, iOS bundle ID
+6. `PROJECT.md` — deploy commands, network facts, auth credentials
+7. `memory/<topic>.md` — domain-specific lessons (see catalog below)
+
 ## Top-level files (stable references)
-- `PROJECT.md` — immutable-ish repo facts: paths, network addresses, deploy commands, auth credentials, non-negotiables
 - `PERSONA.md` — role definition for agents working in this repo
 - `TODO.md` — phased roadmap. Read this at the start of any session to understand current priorities
 - `Askeo.md` — stack reference, endpoint list, known gotchas, users, backups. Updated when stack changes
-- `CONTEXT.md` — what we’re working on right now, what shipped last, what’s next. Check this before asking the user about current state
+- `CONTEXT.md` — what we're working on right now, what shipped last, what's next. Check this before asking the user about current state
+- `PROJECT.md` — deploy commands, network facts, auth credentials. Immutable-ish operational facts
 - `MEMORY-INDEX.md` — this file
 
 ## Durable lessons
@@ -57,12 +66,13 @@ Consequence:
 ```
 
 ## Usage rules
-1. Start every session by reading: `TODO.md`, then `CONTEXT.md`, then the relevant `memory/<topic>.md` files listed below.
-2. Use `PROJECT.md` for stable repo facts and `Askeo.md` for stack/endpoint reference.
+1. Start every session by reading: `TODO.md`, then `CONTEXT.md`, then `PERSONA.md`, then `Askeo.md`/`PROJECT.md`, then the relevant `memory/<topic>.md` files.
+2. Use `Askeo.md` for stack/endpoint reference and `PROJECT.md` for deploy/network facts.
 3. Record lessons in `memory/<topic>.md`, not in Hermes memory.
 4. Hermes memory should only store lightweight pointers to this knowledge system, not duplicate its content.
 5. Update `memory/changelog.md` whenever a knowledge file changes materially.
 6. When unsure whether to record something, use the decision checklist below.
+7. **Never ask the user to run terminal commands for deploy/sync/device operations.** The agent owns these end-to-end via SSH to `macbook`.
 
 ## Decision checklist
 When unsure whether to record something:
@@ -85,7 +95,7 @@ The `related` field should list only files directly relevant. Prefer 1-3 links. 
 - The global registry at `~/.hermes/projects.md` is maintained by the same rules: add project entries on project creation, update paths on rename
 
 ## Global registry maintenance
-Adding a new project to `~/.hermes/projects.md`:
+Hermes maintains a project registry at `~/.hermes/projects.md` that maps all projects to paths and entry points. Add a new project:
 ```markdown
 ## Project Name
 path: /absolute/path/to/repo

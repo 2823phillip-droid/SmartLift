@@ -1,4 +1,4 @@
-# Askeo Architecture / “Index”
+# Askeo Architecture / "Index"
 
 ## Stack
 - Backend: FastAPI + SQLAlchemy 2.0 + Pydantic v2
@@ -8,6 +8,9 @@
 - iOS deploy: `npm run build && npx cap sync ios`
 - Backend deploy: `fly deploy -a smartlift-api --no-cache`
 - Machine ID: 80e9614f60d108
+
+## iOS
+- Bundle ID: `com.phillipwalters.workoutlogger`
 
 ## Exercise Library (current)
 - Source: `hasaneyldrm/exercises-dataset` GitHub repo
@@ -42,7 +45,7 @@
 - `ionic://localhost` is a valid Origin on modern iOS WebViews — backend must allow both `capacitor://localhost` and `ionic://localhost`
 - `contexts.order` column drift between local SQLite and production Postgres — verify production schema before declaring success on `/api/contexts` changes
 - `fetchWithTimeout` in api.ts is 30s; do NOT lower to 2500ms without device cold-start testing
-- Backend 500s from SQLAlchemy can surface in WKWebVie as CORS errors — check backend logs, not just browser console
+- Backend 500s from SQLAlchemy can surface in WKWebView as CORS errors — check backend logs, not just browser console
 - 401 persists across app restarts until stored token is cleared; logout + login clears it
 
 ## Users
@@ -85,3 +88,4 @@
 - `TODO.md` — roadmap/priorities
 - `CONTEXT.md` — current active task
 - `PROJECT.md` — immutable deploy/network/auth facts
+- `PERSONA.md` — role definitions and task ownership

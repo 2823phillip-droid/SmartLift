@@ -162,7 +162,7 @@ Next (business build-out):
 
 ## Environment
 
-- MacBook SSH: `phillipwalters@192.168.1.112`
+- MacBook SSH: `macbook` (configured in ~/.ssh/config)
 - Production backend: `https://askeo.fit/api`
 - Git remote (workout-logger): `https://github.com/phillip28237/Askeo.git`
 
