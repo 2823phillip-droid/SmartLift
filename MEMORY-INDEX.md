@@ -44,6 +44,15 @@ File | When to read
 - Warning: `backend/scripts/generate_roadmap.py` was removed because it flattened the color-coded multi-column layout. Do not regenerate `roadmap.html` automatically from `TODO.md` without explicit approval and manual verification.
 - Bullet legend on page: ✓ = completed, ○ = incomplete/waiting, 🔗 amber box = dependency/blocker
 
+## Session History
+- SecureCRT logs on MacBook: `/Users/phillipwalters/Projects/SecureCRT/Logs/Hermes Sessions/`
+- Naming: `YYYY-MM-DD.log` for the main session, `YYYY-MM-DD_N.log` for additional sessions
+- Read via `macbook` SSH alias:
+  ```
+  ssh macbook 'tail -200 "/Users/phillipwalters/Projects/SecureCRT/Logs/Hermes Sessions/YYYY-MM-DD.log"'
+  ```
+- Use when you need session continuity — what shipped last, decisions made, open threads
+
 ## File format standards
 All files in `memory/` use this header:
 ```
