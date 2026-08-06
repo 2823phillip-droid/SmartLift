@@ -24,7 +24,7 @@
 - [x] Template pencil opens full workout editor
 - [x] Back from template editor returns to Workouts tab
 - [x] Fly-only API base (`https://askeo.fit/api`); no local LAN fallback
-- [x] MacBook static IP remains `192.168.1.112` for rsync/ssh/cap sync
+- MacBook sync target: `macbook:~/workout-logger/frontend/ios/App/App/public/` (do not use IP directly)
 - [x] `workout_mode` persists across app restarts via localStorage fallback
 
 ---

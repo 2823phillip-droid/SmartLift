@@ -1,9 +1,11 @@
-# Decision Records (ADRs)
-
-last_updated: 2026-07-31
+---
+last_updated: 2026-08-06
 created: 2026-07-31
 tags: [decisions, adr]
 related: memory/ directory
+---
+
+# Decision Records (ADRs)
 
 Format per entry: ADR-NNN, Title, Status, Date, Context, Options, Decision, Consequence.
 
@@ -15,7 +17,7 @@ Status: accepted
 Date: 2026-07-31
 Tags: [cors, ios, backend]
 
-**Context:** iOS Workouts tab failed with “Load failed”. Network inspection showed the device sends `ionic://localhost` as Origin, but backend only allowed `capacitor://localhost`.
+**Context:** iOS Workouts tab failed with "Load failed". Network inspection showed the device sends `ionic://localhost` as Origin, but backend only allowed `capacitor://localhost`.
 
 **Options considered:**
 1. Ask user to force `capacitor://localhost` in WebView
@@ -70,7 +72,7 @@ Status: adopted
 Date: 2026-07-10
 Tags: [process, memory, skills]
 
-**Context:** Session history suggested I didn’t know project context, causing repeated questions.
+**Context:** Session history suggested I didn't know project context, causing repeated questions.
 
 **Options considered:**
 1. Load files at every session start
@@ -268,7 +270,27 @@ Tags: [deploy, frontend, process]
 
 ---
 
+## ADR-015 — Agent owns all deploy/sync/device operations
+
+Status: accepted
+Date: 2026-08-06
+Tags: [process, deploy, ios, ssh]
+
+**Context:** User repeatedly had to remind the agent to execute MacBook operations instead of asking. PERSONA.md and PROJECT.md contained contradictory instructions about who runs terminal commands.
+
+**Options considered:**
+1. Ask user every time (current broken state)
+2. Agent executes via SSH, user only sets goals and validates
+3. Hybrid: agent asks for approval before each operation
+
+**Decision:** Agent owns full deploy/sync/Xcode end-to-end. Use `macbook` SSH alias for all MacBook operations. Never ask user to run manual terminal commands for deploy.
+
+**Consequence:** Eliminates repeated "that's your job" corrections. Single source of truth: `macbook` SSH alias with DHCP-reserved IP 192.168.1.112. IP changes only require updating `~/.ssh/config`.
+
+---
+
 ## Change Log
 
 - 2026-07-31 — Normalized all entries to ADR format with status/tags/consequence
 - 2026-08-04 — Added ADR-010 through ADR-014
+- 2026-08-06 — Added ADR-015 (agent deploy ownership)

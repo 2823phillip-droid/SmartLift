@@ -12,10 +12,21 @@ export interface ExerciseLibraryItem {
   name: string;
   muscle_group?: string;
   equipment?: string;
+  target?: string;
+  difficulty?: string;
+  category?: string;
+  program_worthy: boolean;
   default_rest_seconds: number;
   video_url?: string | null;
   image_url?: string | null;
   gif_url?: string | null;
+  exercise_db_id?: string;
+  instructions?: string[];
+  secondary_muscles?: string[];
+  similar_exercises?: string[];
+  substitutions?: string[];
+  progressions?: string[];
+  regressions?: string[];
 }
 
 export interface SetSuggestion {
@@ -38,6 +49,12 @@ export interface ExerciseEntry {
   per_set_data?: string;
   progression_type?: string;
   deload_override?: boolean;
+  movement_pattern?: string;
+  modality_fit?: string;
+  difficulty?: string;
+  compound_rank?: number;
+  slot_type?: string;
+  gif_url?: string | null;
 }
 
 export interface WorkoutTemplate {
@@ -122,6 +139,8 @@ export interface WorkoutLibraryExercise {
   name: string;
   muscle_group?: string;
   equipment?: string;
+  target?: string;
+  difficulty?: string;
   sets_target: number;
   reps_target: number;
   start_weight: number;
@@ -131,6 +150,10 @@ export interface WorkoutLibraryExercise {
   gif_url?: string | null;
   image_url?: string | null;
   video_url?: string | null;
+  movement_pattern?: string;
+  modality_fit?: string;
+  compound_rank?: number;
+  slot_type?: string;
 }
 
 export interface WorkoutLibrary {

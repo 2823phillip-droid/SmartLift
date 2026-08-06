@@ -14,4 +14,4 @@ Backend deploy: `fly deploy -a smartlift-api`
 
 - iOS app defaults to Fly API.
 - Local backend URL was removed from app source.
-- MacBook static IP: `192.168.1.112`.
+- MacBook SSH: `macbook` (configured in ~/.ssh/config)

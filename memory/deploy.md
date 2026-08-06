@@ -1,19 +1,18 @@
 # Deploy: Frontend + Backend
 
-last_updated: 2026-08-01
+last_updated: 2026-08-05
 created: 2026-07-31
 tags: [deploy, frontend, backend, fly, cap-sync, verification]
 related: PROJECT.md, Askeo.md, debugging.md
 
 ## Linux → MacBook → iOS pipeline
 
-1. On Linux: `cd /home/phillip2823/workout-logger/frontend && npm run build`
-2. `git add -A && git commit && git push` from workout-logger root
-3. SSH to MacBook: `cd ~/workout-logger && git pull`
-4. On MacBook: `cd frontend && nvm use 22 && npm run build && npx cap sync ios`
-5. Verify `~/workout-logger/frontend/ios/App/App/public/assets/index-<newhash>.js` exists
-6. In Xcode: **Product > Clean Build Folder**, then build and run to device
-7. **Uninstall the app first** if the bundle hash changed; WKWebView caches aggressively
+1. On Linux: `cd /home/phillip2823/workout-logger/frontend && npx vite build`
+2. Rsync `dist/` to MacBook: `rsync -avz --delete frontend/dist/ macbook:~/workout-logger/frontend/dist/`
+3. SSH to MacBook: `cd ~/workout-logger/frontend && source ~/.nvm/nvm.sh && nvm use 22 && npx cap sync ios`
+4. Verify `~/workout-logger/frontend/ios/App/App/public/assets/index-<newhash>.js` exists
+5. In Xcode: **Product > Clean Build Folder**, then build and run to device
+6. **Uninstall the app first** if the bundle hash changed; WKWebView caches aggressively
 
 ## Validation checklist
 - [ ] `frontend/ios/App/App/public/index.html` contains new bundle hash

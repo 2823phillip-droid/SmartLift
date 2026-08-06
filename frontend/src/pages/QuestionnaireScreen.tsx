@@ -15,10 +15,13 @@ function defaultValue(q: Question): string | string[] | null {
   return null;
 }
 
-function getAllQuestions(): { section: Section; question: Question }[] {
+function getAllQuestions(answers: Answers): { section: Section; question: Question }[] {
   const out: { section: Section; question: Question }[] = [];
+  const buildMode = answers["build_mode"];
   for (const section of questionnaireSections) {
     for (const question of section.questions) {
+      // Skip split style question in custom mode — user builds their own structure
+      if (question.key === "focus" && buildMode === "custom") continue;
       out.push({ section, question });
     }
   }
@@ -40,9 +43,6 @@ export default function QuestionnaireScreen({
   onBack: () => void;
   onComplete: (draft: any, answers: Record<string, any>) => void;
 }) {
-  const all = useMemo(getAllQuestions, []);
-  const total = all.length;
-  const [step, setStep] = useState(0);
   const [answers, setAnswers] = useState<Answers>(() => {
     const initial: Answers = {};
     for (const s of questionnaireSections) {
@@ -52,6 +52,9 @@ export default function QuestionnaireScreen({
     }
     return initial;
   });
+  const all = useMemo(() => getAllQuestions(answers), [answers]);
+  const total = all.length;
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -140,7 +143,12 @@ export default function QuestionnaireScreen({
                 profile[q.key] = inchesToCm(inches);
               }
             } else {
-              profile[q.key] = val;
+              // Backend expects goal as list even though frontend renders it as single-select
+              if (q.key === "goal" && typeof val === "string") {
+                profile[q.key] = [val];
+              } else {
+                profile[q.key] = val;
+              }
             }
           }
         }
@@ -270,13 +278,18 @@ export default function QuestionnaireScreen({
                   <button
                     key={opt.value}
                     onClick={() => select(opt.value)}
-                    className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                    className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all ${
                       selected
                         ? "bg-indigo-600 text-white border border-indigo-500 shadow-lg shadow-indigo-900/30"
                         : "border border-slate-700 bg-slate-900/60 text-slate-300 hover:border-slate-500"
                     }`}
                   >
-                    {opt.label}
+                    <div className="font-medium">{opt.label}</div>
+                    {opt.description && (
+                      <div className={`text-xs mt-1 ${selected ? "text-indigo-100" : "text-slate-500"}`}>
+                        {opt.description}
+                      </div>
+                    )}
                   </button>
                 );
               })}
