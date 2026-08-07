@@ -23,7 +23,9 @@ Preface: "This shapes exercise selection, split structure, volume, and intensity
 | workout_modality | single tabs | traditional_weight_training, powerlifting, bodybuilding, hiit, cardio | Maps to `modality_primary` |
 | modality_secondary | multi-select chips | cardio, hiit, none | |
 | modality_mix | single tabs | together, separate_days, mostly_primary, single | |
-| cardio_preference | single tabs | none, light, moderate, high | Cardio volume/intensity preference |
+|| cardio_timing | single tabs | none, warmup_10, warmup_15, warmup_20, finisher_15, finisher_20, hiit_finisher, separate_day | When cardio happens |
+|| cardio_type | single tabs | none, hiit, steady_state, walking, distance, mixed | What kind of cardio |
+|| cardio_days_per_week | single tabs | 0-7 | Number of dedicated cardio days (separate/mostly_primary only) |
 | workout_location | text | free text | Optional — gym name or "Home" |
 | training_history | single tabs | just_starting, under_6_months, 6_to_12_months, 1_to_2_years, 2_plus_years, returning | Used by AI coach for split switch recommendations |
 | progression_type | single tabs | linear, double, percentage | Explicit progression method — overrides experience-based default |
