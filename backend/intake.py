@@ -42,7 +42,8 @@ class UserProfile:
     week_schedule: Optional[Dict[str, str]] = None  # {"monday": "bodybuilding", "tuesday": "hiit", ...}
     # Cardio fields
     cardio_timing: str = "none"  # none | warmup_10 | warmup_15 | warmup_20 | finisher_15 | finisher_20 | hiit_finisher | separate_day
-    cardio_type: str = "none"    # none | hiit | steady_state | walking | distance | mixed
+    cardio_type: str = "none"    # none | hiit | steady_state | walking | distance | mixed — standalone cardio days
+    incorporated_cardio_type: str = "none"  # none | hiit | steady_state | walking | distance | mixed — cardio attached to lifting days
     cardio_days_per_week: int = 0  # 0-7, how many pure cardio days when separate/mostly_primary
 
 
@@ -128,23 +129,31 @@ def normalize_questionnaire(answers: dict, defaults: dict | None = None) -> User
 
     # Cardio fields — split timing from type for finer control
     cardio_raw = _single("cardio_preference", "none")
-    if cardio_raw in {"none", "warmup_run", "warmup_run_15", "warmup_run_20", "finisher_run", "finisher_run_15", "finisher_run_20", "hiit_finisher", "separate_cardio"}:
-        # Legacy single-field format — map timing only, type stays none
-        cardio_timing = cardio_raw
-        cardio_type = "none"
-    else:
-        # New format: accept either "<timing>|<type>" or just the raw value
-        cardio_timing = "none"
-        cardio_type = "none"
-        if cardio_raw and "|" in cardio_raw:
+    if cardio_raw not in {"none", ""}:
+        if cardio_raw in {"warmup_run", "warmup_run_15", "warmup_run_20", "finisher_run", "finisher_run_15", "finisher_run_20", "hiit_finisher", "separate_cardio"}:
+            # Legacy single-field format — map timing only, type stays none
+            cardio_timing = cardio_raw
+            cardio_type = "none"
+        elif "|" in cardio_raw:
+            # Legacy pipe-delimited format
             parts = [p.strip() for p in cardio_raw.split("|", 1)]
             cardio_timing = parts[0] if parts[0] else "none"
             cardio_type = parts[1] if len(parts) > 1 and parts[1] else "none"
-        elif cardio_raw and cardio_raw != "none":
+        else:
             cardio_timing = cardio_raw
+            cardio_type = "none"
+    else:
+        # New format: separate fields
+        cardio_timing = _single("cardio_timing", "none")
+        cardio_type = _single("cardio_type", "none")
 
     cardio_timing = cardio_timing.replace("separate_cardio", "separate_day").replace("finisher_run", "finisher_15").replace("warmup_run", "warmup_10")
     cardio_type = cardio_type if cardio_type in {"none", "hiit", "steady_state", "walking", "distance", "mixed"} else "none"
+    incorporated_cardio_type = _single("incorporated_cardio_type", "none")
+    incorporated_cardio_type = incorporated_cardio_type if incorporated_cardio_type in {"none", "hiit", "steady_state", "walking", "distance", "mixed"} else "none"
+    # Backward compatibility: if not set, fall back to cardio_type
+    if incorporated_cardio_type == "none" and cardio_type not in {"none", "mixed"}:
+        incorporated_cardio_type = cardio_type
 
     # Cardio days per week (for separate/mostly_primary modality_mix)
     try:
@@ -178,5 +187,6 @@ def normalize_questionnaire(answers: dict, defaults: dict | None = None) -> User
         week_schedule=week_schedule,
         cardio_timing=cardio_timing,
         cardio_type=cardio_type,
+        incorporated_cardio_type=incorporated_cardio_type,
         cardio_days_per_week=cardio_days_per_week,
     )

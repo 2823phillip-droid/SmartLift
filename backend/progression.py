@@ -1398,6 +1398,25 @@ def _build_day_from_template(
     if not exercises:
         return {"name": template.name, "exercises": []}
 
+    # Append incorporated cardio for lifting days when configured
+    cardio_timing = getattr(profile, "cardio_timing", "none") or "none"
+    modality_mix = getattr(profile, "modality_mix", "single") or "single"
+    has_cardio_slots = any(slot.slot_type in ("cardio", "hiit") for slot in template.slots)
+    if (
+        not has_cardio_slots
+        and cardio_timing not in {"none", "separate_day"}
+        and modality_mix in {"together", "mostly_primary"}
+    ):
+        cardio_ex = _build_incorporated_cardio(db, profile, rng, progression_type, filtered, cardio_budget)
+        if cardio_ex:
+            if cardio_timing in {"warmup_10", "warmup_15", "warmup_20"}:
+                exercises.insert(0, cardio_ex)
+                for i, ex in enumerate(exercises):
+                    ex["order"] = i
+            else:
+                cardio_ex["order"] = len(exercises)
+                exercises.append(cardio_ex)
+
     return {
         "name": template.name,
         "description": template.description,
@@ -1406,6 +1425,63 @@ def _build_day_from_template(
         "used_seconds": used_time,
         "cardio_budget_seconds": cardio_budget,
     }
+
+
+def _build_incorporated_cardio(
+    db: Session,
+    profile: UserProfile,
+    rng: random.Random,
+    progression_type: str,
+    filtered: List[Any],
+    cardio_budget: int,
+) -> Optional[Dict[str, Any]]:
+    """Build a single cardio exercise for warmup/finisher on lifting days."""
+    incorporated_type = getattr(profile, "incorporated_cardio_type", "none") or "none"
+    if incorporated_type == "none":
+        incorporated_type = getattr(profile, "cardio_type", "none") or "none"
+    if incorporated_type == "none":
+        return None
+
+    if incorporated_type == "hiit":
+        pool = [e for e in filtered if _is_hiit_exercise(e)]
+        if not pool:
+            pool = filtered
+        template = _HIIT_DAY
+    elif incorporated_type == "steady_state":
+        pool = [e for e in filtered if _is_steady_state_cardio(e)]
+        if not pool:
+            pool = [e for e in filtered if (getattr(e, "category", "") or "").lower() == "cardio"]
+        if not pool:
+            pool = filtered
+        template = _STEADY_STATE_DAY
+    elif incorporated_type == "walking":
+        pool = [e for e in filtered if _is_walking_cardio(e)]
+        if not pool:
+            pool = [e for e in filtered if _is_steady_state_cardio(e)]
+        if not pool:
+            pool = filtered
+        template = _WALKING_DAY
+    elif incorporated_type == "distance":
+        pool = [e for e in filtered if _is_running_cardio(e)]
+        if not pool:
+            pool = [e for e in filtered if _is_steady_state_cardio(e)]
+        if not pool:
+            pool = filtered
+        template = _DISTANCE_DAY
+    else:
+        return None
+
+    if not pool or not template.slots:
+        return None
+
+    slot = template.slots[0]
+    pick = rng.choice(pool)
+    sets_target = rng.randint(*slot.sets_range)
+    reps_target = rng.randint(*slot.reps_range)
+    ex = _exercise_to_dict(pick, sets_target, reps_target, slot.rest_seconds, 0,
+                           progression_type, slot_type=slot.slot_type, profile=profile)
+    ex["cardio_duration_minutes"] = cardio_budget // 60
+    return ex
 
 
 def _build_wildcard_day(
@@ -1840,7 +1916,11 @@ def _build_weight_training_days(
 
         if days == 5:
             # Wildcard day: cardio/HIIT or active recovery
-            groups.append(_build_wildcard_day(db, profile, rng, progression_type, filtered, lower))
+            mix = getattr(profile, "modality_mix", "single") or "single"
+            groups.append(_build_wildcard_day(
+                db, profile, rng, progression_type, filtered, lower,
+                force_cardio=(mix in {"separate_days", "mostly_primary"}),
+            ))
         return groups
 
     # days == 6, use original focus-based logic

@@ -747,6 +747,7 @@ class FitnessProfileIn(BaseModel):
     cardio_preference: Optional[str] = None
     cardio_timing: Optional[str] = None
     cardio_type: Optional[str] = None
+    incorporated_cardio_type: Optional[str] = None
     cardio_days_per_week: Optional[int] = None
 
 class TrainerGenerateIn(BaseModel):
@@ -771,6 +772,7 @@ class TrainerGenerateIn(BaseModel):
     cardio_preference: Optional[str] = None
     cardio_timing: Optional[str] = None
     cardio_type: Optional[str] = None
+    incorporated_cardio_type: Optional[str] = None
     cardio_days_per_week: Optional[int] = None
 
 class WorkoutDraftExercise(BaseModel):
