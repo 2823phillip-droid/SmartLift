@@ -1,4 +1,4 @@
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState, useCallback, useEffect } from "react";
 import { withRetry, initApiBaseFromSettings, getApiBase, getAuthToken } from "../api";
 import { questionnaireSections } from "../config/questionnaire";
 import type { Section, Question } from "../config/questionnaire";
@@ -18,11 +18,35 @@ function defaultValue(q: Question): string | string[] | null {
 function getAllQuestions(answers: Answers): { section: Section; question: Question }[] {
   const out: { section: Section; question: Question }[] = [];
   const buildMode = answers["build_mode"];
+  const modalitySecondary = answers["modality_secondary"];
+  const hasSecondaryCardio = Array.isArray(modalitySecondary)
+    ? modalitySecondary.some((v) => v !== "none")
+    : modalitySecondary !== "none";
   for (const section of questionnaireSections) {
     for (const question of section.questions) {
       // Skip split style question in custom mode — user builds their own structure
       if (question.key === "focus" && buildMode === "custom") continue;
-      out.push({ section, question });
+
+      // Skip cardio detail questions when no cardio is selected
+      if (
+        !hasSecondaryCardio &&
+        ["modality_mix", "cardio_timing", "incorporated_cardio_type", "cardio_type", "cardio_days_per_week"].includes(
+          question.key
+        )
+      ) {
+        continue;
+      }
+
+      // For modality_mix, remove "single" option when cardio or hiit is selected
+      let filteredQuestion = question;
+      if (question.key === "modality_mix" && hasSecondaryCardio) {
+        filteredQuestion = {
+          ...question,
+          options: question.options.filter((opt) => opt.value !== "single"),
+        };
+      }
+
+      out.push({ section, question: filteredQuestion });
     }
   }
   return out;
@@ -57,6 +81,13 @@ export default function QuestionnaireScreen({
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Clamp step when questions are skipped (e.g. cardio = none)
+  useEffect(() => {
+    if (step >= all.length) {
+      setStep(Math.max(0, all.length - 1));
+    }
+  }, [all.length, step]);
 
   const current = all[step];
   const { section, question } = current;
