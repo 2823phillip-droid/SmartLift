@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Union
 import json
@@ -722,14 +722,17 @@ def get_current_user_dep(authorization: Optional[str] = Header(None), db: Sessio
     return user
 
 class ProfileUpdateIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     first_name: Optional[str] = None
     last_name: Optional[str] = None
 
 class FitnessProfileIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     weight_kg: Optional[float] = None
     height_cm: Optional[float] = None
     sex: Optional[str] = None
     activity_level: Optional[str] = None
+    current_training_status: Optional[str] = None
     goal: Optional[List[str]] = []
     equipment: Optional[Union[str, List[str]]] = None
     days_per_week: Optional[int] = None
@@ -751,10 +754,12 @@ class FitnessProfileIn(BaseModel):
     cardio_days_per_week: Optional[int] = None
 
 class TrainerGenerateIn(BaseModel):
+    model_config = ConfigDict(extra="ignore")
     weight_kg: Optional[float] = None
     height_cm: Optional[float] = None
     sex: Optional[str] = None
     activity_level: Optional[str] = None
+    current_training_status: Optional[str] = None
     goal: Optional[List[str]] = []
     equipment: Optional[Union[str, List[str]]] = None
     days_per_week: Optional[int] = None
@@ -857,6 +862,9 @@ def trainer_generate(payload: Optional[TrainerGenerateIn] = None, current_user: 
     saved = current_user.fitness_profile or {}
     overrides = json.loads(json.dumps(payload.model_dump(exclude_none=True))) if payload else {}
     merged = {**saved, **overrides}
+    # Map frontend field name to backend expected field
+    if not merged.get("activity_level") and merged.get("current_training_status"):
+        merged["activity_level"] = merged.pop("current_training_status")
     profile = merged
 
     workout_draft, meal_plan_draft = build_full_draft(db, merged)

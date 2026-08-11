@@ -88,6 +88,26 @@ def normalize_questionnaire(answers: dict, defaults: dict | None = None) -> User
             return [val.strip()]
         return []
 
+    def _normalize_equipment(val) -> str:
+        """Map frontend equipment multi-select array to a single backend equipment key."""
+        if isinstance(val, str):
+            return val
+        if not isinstance(val, list) or not val:
+            return "bodyweight_only"
+        has_barbell = "barbell" in val
+        has_cable = "cable" in val
+        has_machines = "machines" in val
+        if has_barbell or has_cable or has_machines:
+            return "full_gym"
+        has_dumbbells = "dumbbells" in val
+        has_bands = "resistance_bands" in val
+        has_kettlebells = "kettlebells" in val
+        if has_dumbbells or has_bands or has_kettlebells:
+            return "home_gym_basic"
+        if "bodyweight" in val:
+            return "bodyweight_only"
+        return "bodyweight_only"
+
     # Unit conversion
     height_raw = answers.get("height")
     weight_raw = answers.get("weight")
@@ -148,8 +168,29 @@ def normalize_questionnaire(answers: dict, defaults: dict | None = None) -> User
         cardio_type = _single("cardio_type", "none")
 
     cardio_timing = cardio_timing.replace("separate_cardio", "separate_day").replace("finisher_run", "finisher_15").replace("warmup_run", "warmup_10")
+
+    # Map frontend concrete cardio type values to backend abstract categories
+    _CARDIO_TYPE_MAP = {
+        "hiit": "hiit",
+        "treadmill_run": "distance",
+        "treadmill_walk": "walking",
+        "elliptical": "steady_state",
+        "stationary_bike": "steady_state",
+        "rowing": "steady_state",
+        "stair_climber": "steady_state",
+        "swimming": "steady_state",
+    }
+    if isinstance(cardio_type, str) and "," in cardio_type:
+        options = [x.strip() for x in cardio_type.split(",") if x.strip()]
+        cardio_type = options[0] if options else "none"
+    cardio_type = _CARDIO_TYPE_MAP.get(cardio_type, cardio_type)
     cardio_type = cardio_type if cardio_type in {"none", "hiit", "steady_state", "walking", "distance", "mixed"} else "none"
+
     incorporated_cardio_type = _single("incorporated_cardio_type", "none")
+    if isinstance(incorporated_cardio_type, str) and "," in incorporated_cardio_type:
+        options = [x.strip() for x in incorporated_cardio_type.split(",") if x.strip()]
+        incorporated_cardio_type = options[0] if options else "none"
+    incorporated_cardio_type = _CARDIO_TYPE_MAP.get(incorporated_cardio_type, incorporated_cardio_type)
     incorporated_cardio_type = incorporated_cardio_type if incorporated_cardio_type in {"none", "hiit", "steady_state", "walking", "distance", "mixed"} else "none"
     # Backward compatibility: if not set, fall back to cardio_type
     if incorporated_cardio_type == "none" and cardio_type not in {"none", "mixed"}:
@@ -166,7 +207,7 @@ def normalize_questionnaire(answers: dict, defaults: dict | None = None) -> User
         sex=_single("sex", "male"),
         goals=_list("goal") or ["general_fitness"],
         focus=_single("focus", "full_body"),
-        equipment=_single("equipment", "bodyweight_only"),
+        equipment=_normalize_equipment(answers.get("equipment", "bodyweight_only")),
         height_cm=height_cm,
         weight_kg=weight_kg,
         experience=_single("experience", "beginner"),
