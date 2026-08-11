@@ -115,6 +115,7 @@ _KEYWORD_MOVEMENT: Dict[str, str] = {
     "dead bug": "core",
     "pallof press": "core",
     "farmer walk": "carry",
+    "farmers walk": "carry",
     "suitcase carry": "carry",
     # Yoga / Mobility
     "downward dog": "mobility",
@@ -210,6 +211,7 @@ _KEYWORD_MODALITY: Dict[str, float] = {
     "run": 0.9,
     "jog": 0.9,
     "sprint": 0.85,
+    "walk": 0.85,
     "cycling": 0.85,
     "spinning": 0.85,
     "rowing": 0.85,
@@ -298,7 +300,7 @@ def _classify_exercise(ex: Any, profile: Optional[UserProfile] = None) -> Dict[s
                     best_modality = "yoga"
                 elif "calisthenics" in kw or "pull-up" in kw or "chin-up" in kw or "dip" in kw or "push up" in kw or "muscle up" in kw or "handstand" in kw or "l-sit" in kw or "pistol" in kw or "planche" in kw or "lever" in kw:
                     best_modality = "calisthenics"
-                elif "cardio" in kw or "run" in kw or "jog" in kw or "cycle" in kw or "row" in kw or "elliptical" in kw or "stair" in kw or "jump rope" in kw or "sprint" in kw or "zone" in kw or "heart rate" in kw:
+                elif "cardio" in kw or "run" in kw or "jog" in kw or "cycle" in kw or "row" in kw or "elliptical" in kw or "stair" in kw or "jump rope" in kw or "sprint" in kw or "walk" in kw or "zone" in kw or "heart rate" in kw:
                     best_modality = "cardio"
                 elif "powerlift" in kw or " squat" in kw or "bench press" in kw or "deadlift" in kw or " 1rm" in kw or "max effort" in kw or " competition" in kw:
                     best_modality = "powerlifting"
@@ -510,8 +512,13 @@ _STEADY_STATE_KEYWORDS = [
 
 def _is_steady_state_cardio(ex: Any) -> bool:
     """True if this looks like steady-state endurance cardio (not HIIT)."""
-    if (getattr(ex, "category", "") or "").lower() != "cardio":
-        return False
+    cat = (getattr(ex, "category", "") or "").lower()
+    if cat == "cardio":
+        if _is_hiit_exercise(ex):
+            return False
+        name_lower = ex.name.lower()
+        return any(kw in name_lower for kw in _STEADY_STATE_KEYWORDS)
+    # Fallback: keyword-based when DB category is missing
     if _is_hiit_exercise(ex):
         return False
     name_lower = ex.name.lower()
@@ -520,8 +527,12 @@ def _is_steady_state_cardio(ex: Any) -> bool:
 
 def _is_walking_cardio(ex: Any) -> bool:
     """True if this looks like a walking-focused cardio exercise."""
-    if (getattr(ex, "category", "") or "").lower() != "cardio":
-        return False
+    cat = (getattr(ex, "category", "") or "").lower()
+    if cat == "cardio":
+        if _is_hiit_exercise(ex):
+            return False
+        return "walk" in ex.name.lower()
+    # Fallback: keyword-based when DB category is missing
     if _is_hiit_exercise(ex):
         return False
     return "walk" in ex.name.lower()
@@ -529,8 +540,13 @@ def _is_walking_cardio(ex: Any) -> bool:
 
 def _is_running_cardio(ex: Any) -> bool:
     """True if this looks like a running-focused cardio exercise."""
-    if (getattr(ex, "category", "") or "").lower() != "cardio":
-        return False
+    cat = (getattr(ex, "category", "") or "").lower()
+    if cat == "cardio":
+        if _is_hiit_exercise(ex):
+            return False
+        name_lower = ex.name.lower()
+        return "run" in name_lower or "jog" in name_lower or "sprint" in name_lower
+    # Fallback: keyword-based when DB category is missing
     if _is_hiit_exercise(ex):
         return False
     name_lower = ex.name.lower()
@@ -990,8 +1006,6 @@ def _pick_exercise_for_slot(
             if not pool:
                 # Fallback: modality-based detection
                 pool = [e for e in filtered if _classify_exercise(e, profile)["modality_fit"] in {"cardio", "hiit"}]
-            if not pool:
-                pool = filtered
         pick = rng.choice(pool) if pool else None
         if pick:
             sets_target = 1
@@ -1452,21 +1466,21 @@ def _build_incorporated_cardio(
         if not pool:
             pool = [e for e in filtered if (getattr(e, "category", "") or "").lower() == "cardio"]
         if not pool:
-            pool = filtered
+            pool = [e for e in filtered if _classify_exercise(e, profile)["modality_fit"] in {"cardio", "hiit"}]
         template = _STEADY_STATE_DAY
     elif incorporated_type == "walking":
         pool = [e for e in filtered if _is_walking_cardio(e)]
         if not pool:
             pool = [e for e in filtered if _is_steady_state_cardio(e)]
         if not pool:
-            pool = filtered
+            pool = [e for e in filtered if _classify_exercise(e, profile)["modality_fit"] in {"cardio", "hiit"}]
         template = _WALKING_DAY
     elif incorporated_type == "distance":
         pool = [e for e in filtered if _is_running_cardio(e)]
         if not pool:
             pool = [e for e in filtered if _is_steady_state_cardio(e)]
         if not pool:
-            pool = filtered
+            pool = [e for e in filtered if _classify_exercise(e, profile)["modality_fit"] in {"cardio", "hiit"}]
         template = _DISTANCE_DAY
     else:
         return None
@@ -1515,7 +1529,7 @@ def _build_wildcard_day(
         if not cardio_pool:
             cardio_pool = [e for e in filtered if (getattr(e, "category", "") or "").lower() == "cardio"]
         if not cardio_pool:
-            cardio_pool = filtered
+            cardio_pool = [e for e in filtered if _classify_exercise(e, profile)["modality_fit"] in {"cardio", "hiit"}]
         return _build_day_from_template(db, profile, _STEADY_STATE_DAY, rng, progression_type,
                                         filtered_override=cardio_pool)
     elif cardio_type == "walking":
@@ -1523,7 +1537,7 @@ def _build_wildcard_day(
         if not walking_pool:
             walking_pool = [e for e in filtered if _is_steady_state_cardio(e)]
         if not walking_pool:
-            walking_pool = filtered
+            walking_pool = [e for e in filtered if _classify_exercise(e, profile)["modality_fit"] in {"cardio", "hiit"}]
         return _build_day_from_template(db, profile, _WALKING_DAY, rng, progression_type,
                                         filtered_override=walking_pool)
     elif cardio_type == "distance":
@@ -1531,7 +1545,7 @@ def _build_wildcard_day(
         if not run_pool:
             run_pool = [e for e in filtered if _is_steady_state_cardio(e)]
         if not run_pool:
-            run_pool = filtered
+            run_pool = [e for e in filtered if _classify_exercise(e, profile)["modality_fit"] in {"cardio", "hiit"}]
         return _build_day_from_template(db, profile, _DISTANCE_DAY, rng, progression_type,
                                         filtered_override=run_pool)
     elif cardio_type == "mixed":
