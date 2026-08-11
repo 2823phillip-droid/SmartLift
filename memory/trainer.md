@@ -223,6 +223,10 @@ The backend receives the final structured `week_schedule` and generates workouts
 - Text inputs for free-form answers
 - Pre-select defaults where sensible
 - Save profile on completion so next session pre-fills
+- Conditional question flow:
+  - `focus` is skipped in `custom` build mode
+  - `modality_mix`, `cardio_timing`, `incorporated_cardio_type`, `cardio_type` are skipped when `modality_secondary == ["none"]`
+  - `modality_mix` removes "single" option when cardio/HIIT is selected
 
 ## User Model Migration
 

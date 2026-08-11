@@ -38,7 +38,7 @@ class UserProfile:
     modality: str = "traditional_weight_training"
     modality_primary: str = "traditional_weight_training"
     modality_secondary: List[str] = field(default_factory=list)
-    modality_mix: str = "single"  # single | separate_days | together | mostly_primary
+    modality_mix: str = "single"  # single | separate_days | together | mostly_primary | both
     week_schedule: Optional[Dict[str, str]] = None  # {"monday": "bodybuilding", "tuesday": "hiit", ...}
     # Cardio fields
     cardio_timing: str = "none"  # none | warmup_10 | warmup_15 | warmup_20 | finisher_15 | finisher_20 | hiit_finisher | separate_day

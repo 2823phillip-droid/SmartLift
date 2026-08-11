@@ -1405,7 +1405,7 @@ def _build_day_from_template(
     if (
         not has_cardio_slots
         and cardio_timing not in {"none", "separate_day"}
-        and modality_mix in {"together", "mostly_primary"}
+        and modality_mix in {"together", "mostly_primary", "both"}
     ):
         cardio_ex = _build_incorporated_cardio(db, profile, rng, progression_type, filtered, cardio_budget)
         if cardio_ex:
@@ -1806,6 +1806,11 @@ def generate_workout(db: Session, profile: UserProfile) -> dict:
                 cardio_day = _build_wildcard_day(db, profile, rng, progression_type, filtered, lower, force_cardio=True)
                 if cardio_day.get("exercises"):
                     groups.append(cardio_day)
+        elif mix == "both" and cardio_days > 0:
+            for _ in range(cardio_days):
+                cardio_day = _build_wildcard_day(db, profile, rng, progression_type, filtered, lower, force_cardio=True)
+                if cardio_day.get("exercises"):
+                    groups.append(cardio_day)
         elif mix == "mostly_primary" and cardio_days > 0:
             # Attach cardio to lifting days via cardio_timing (already handled in weight training builder)
             # Add a smaller number of pure cardio days
@@ -1919,7 +1924,7 @@ def _build_weight_training_days(
             mix = getattr(profile, "modality_mix", "single") or "single"
             groups.append(_build_wildcard_day(
                 db, profile, rng, progression_type, filtered, lower,
-                force_cardio=(mix in {"separate_days", "mostly_primary"}),
+                force_cardio=(mix in {"separate_days", "mostly_primary", "both"}),
             ))
         return groups
 

@@ -250,6 +250,7 @@ export const questionnaireSections: Section[] = [
           { value: "together", label: "Together with lifting — warmup or finisher" },
           { value: "separate_days", label: "On separate days — its own training sessions" },
           { value: "mostly_primary", label: "Mostly lifting, with occasional cardio days" },
+          { value: "both", label: "Both — warmup/finisher on lifting days AND separate cardio days" },
           { value: "single", label: "Just lifting — no cardio" },
         ],
         default: "single",
@@ -275,7 +276,7 @@ export const questionnaireSections: Section[] = [
         key: "incorporated_cardio_type",
         type: "single",
         label: "Lifting-Day Cardio Type",
-        preface: "What kind of cardio do you want attached to your lifting days? (Only for 'together' or 'mostly lifting' schedules)",
+        preface: "What kind of cardio do you want attached to your lifting days? (For 'together', 'mostly lifting', or 'both' schedules)",
         options: [
           { value: "none", label: "None — use my standalone cardio type" },
           { value: "hiit", label: "HIIT — intervals and bursts" },
@@ -305,7 +306,7 @@ export const questionnaireSections: Section[] = [
         key: "cardio_days_per_week",
         type: "single",
         label: "Cardio Days Per Week",
-        preface: "How many dedicated cardio days per week? (Only for separate or mostly-primary schedules)",
+        preface: "How many dedicated cardio days per week? (For 'separate days', 'mostly lifting', or 'both' schedules)",
         options: [
           { value: "0", label: "0 — no dedicated cardio days" },
           { value: "1", label: "1 day" },
