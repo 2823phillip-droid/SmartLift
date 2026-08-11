@@ -18,38 +18,65 @@ function defaultValue(q: Question): string | string[] | null {
 function getAllQuestions(answers: Answers): { section: Section; question: Question }[] {
   const out: { section: Section; question: Question }[] = [];
   const buildMode = answers["build_mode"];
+  const experience = answers["experience"];
   const modalitySecondary = answers["modality_secondary"];
+  const modalityMix = answers["modality_mix"];
+
   const hasSecondaryCardio = Array.isArray(modalitySecondary)
     ? modalitySecondary.some((v) => v !== "none")
     : modalitySecondary !== "none";
+
+  const isSeparateCardio = modalityMix === "separate";
+
   for (const section of questionnaireSections) {
     for (const question of section.questions) {
-      // Skip split style question in custom mode — user builds their own structure
+      // Skip split style in custom mode
       if (question.key === "focus" && buildMode === "custom") continue;
 
-      // Skip cardio detail questions when no cardio is selected
+      // Skip training history for beginners
+      if (question.key === "training_history" && experience === "beginner") continue;
+
+      // Skip cardio timing and type when no supplementary cardio selected
       if (
         !hasSecondaryCardio &&
-        ["modality_mix", "cardio_timing", "incorporated_cardio_type", "cardio_type", "cardio_days_per_week"].includes(
+        ["modality_mix", "cardio_timing", "cardio_type", "cardio_days_per_week", "cardio_session_minutes", "cardio_distance_goal"].includes(
           question.key
         )
       ) {
         continue;
       }
 
-      // For modality_mix, remove "single" option when cardio or hiit is selected
-      let filteredQuestion = question;
-      if (question.key === "modality_mix" && hasSecondaryCardio) {
-        filteredQuestion = {
-          ...question,
-          options: question.options.filter((opt) => opt.value !== "single"),
-        };
-      }
+      // For together path, skip separate-only questions
+      if (question.key === "cardio_days_per_week" && !isSeparateCardio) continue;
+      if (question.key === "cardio_session_minutes" && !isSeparateCardio) continue;
+      if (question.key === "cardio_distance_goal" && !isSeparateCardio) continue;
 
-      out.push({ section, question: filteredQuestion });
+      // For separate path, skip together-only questions
+      if (question.key === "cardio_timing" && isSeparateCardio) continue;
+
+      out.push({ section, question });
     }
   }
   return out;
+}
+
+type QuestionPage = { section: Section; pageKey: string | number; questions: { section: Section; question: Question }[] };
+
+function getPages(answers: Answers): QuestionPage[] {
+  const all = getAllQuestions(answers);
+  const pages: QuestionPage[] = [];
+  let currentPage: QuestionPage | null = null;
+
+  for (const item of all) {
+    const pageKey = item.question.page ?? item.question.key;
+    if (!currentPage || currentPage.section.id !== item.section.id || currentPage.pageKey !== pageKey) {
+      currentPage = { section: item.section, questions: [], pageKey };
+      pages.push(currentPage);
+    }
+    currentPage.questions.push(item);
+  }
+
+  return pages;
 }
 
 function lbsToKg(lbs: number): number {
@@ -76,80 +103,100 @@ export default function QuestionnaireScreen({
     }
     return initial;
   });
-  const all = useMemo(() => getAllQuestions(answers), [answers]);
-  const total = all.length;
+
+  const pages = useMemo(() => getPages(answers), [answers]);
+  const total = pages.length;
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Clamp step when questions are skipped (e.g. cardio = none)
-  useEffect(() => {
-    if (step >= all.length) {
-      setStep(Math.max(0, all.length - 1));
-    }
-  }, [all.length, step]);
+  const currentPage = pages[step];
 
-  const current = all[step];
-  const { section, question } = current;
+  useEffect(() => {
+    if (step >= total) {
+      setStep(Math.max(0, total - 1));
+    }
+  }, [total, step]);
+
+  const section = currentPage.section;
+  const questions = currentPage.questions;
 
   const unitsPreference = answers["units_preference"] as string | null | undefined;
 
-  const displayLabel = useMemo(() => {
-    if (question.key === "weight_kg") {
-      return unitsPreference === "imperial" ? "Weight (lbs)" : "Weight (kg)";
-    }
-    if (question.key === "height_cm") {
-      return unitsPreference === "imperial" ? "Height (inches)" : "Height (cm)";
-    }
-    return question.label;
-  }, [question.key, question.label, unitsPreference]);
+  const getQuestionLabel = useCallback(
+    (q: Question) => {
+      if (q.key === "weight_kg") {
+        return unitsPreference === "imperial" ? "Weight (lbs)" : "Weight (kg)";
+      }
+      if (q.key === "height_cm") {
+        return unitsPreference === "imperial" ? "Height (inches)" : "Height (cm)";
+      }
+      return q.label;
+    },
+    [unitsPreference]
+  );
 
-  const displayPlaceholder = useMemo(() => {
-    if (question.key === "weight_kg") {
-      return unitsPreference === "imperial" ? "Enter weight in lbs" : "Enter weight in kg";
-    }
-    if (question.key === "height_cm") {
-      return unitsPreference === "imperial" ? "Enter height in inches" : "Enter height in cm";
-    }
-    return "Enter value";
-  }, [question.key, unitsPreference]);
+  const getQuestionPlaceholder = useCallback(
+    (q: Question) => {
+      if (q.key === "weight_kg") {
+        return unitsPreference === "imperial" ? "Enter weight in lbs" : "Enter weight in kg";
+      }
+      if (q.key === "height_cm") {
+        return unitsPreference === "imperial" ? "Enter height in inches" : "Enter height in cm";
+      }
+      return "Enter value";
+    },
+    [unitsPreference]
+  );
 
   const progress = useMemo(() => {
     let done = 0;
     for (let i = 0; i < step; i++) {
-      const q = all[i].question;
-      const val = answers[q.key];
-      if (val !== null && val !== "" && !(Array.isArray(val) && val.length === 0)) {
-        done++;
+      for (const q of pages[i].questions) {
+        const val = answers[q.question.key];
+        if (val !== null && val !== "" && !(Array.isArray(val) && val.length === 0)) {
+          done++;
+        }
       }
     }
     return { current: step + 1, total, done };
-  }, [step, answers, all, total]);
+  }, [step, answers, pages, total]);
 
   const showSectionPreface = useMemo(() => {
     if (step === 0) return true;
-    return all[step - 1].section.id !== section.id;
-  }, [step, section.id, all]);
+    return pages[step - 1].section.id !== section.id;
+  }, [step, section.id, pages]);
 
   const select = useCallback(
-    (value: string | string[] | null) => {
-      setAnswers((prev) => ({ ...prev, [question.key]: value }));
+    (key: string, value: string | string[] | null) => {
+      setAnswers((prev) => ({ ...prev, [key]: value }));
       setError(null);
     },
-    [question.key]
+    []
   );
 
-  const clearAnswer = useCallback(() => {
-    select(null);
-  }, [select]);
+  const clearAnswer = useCallback(
+    (key: string) => {
+      select(key, null);
+    },
+    [select]
+  );
 
-  const currentAnswer = answers[question.key];
+  const handleNext = () => {
+    if (step < total - 1) {
+      setStep((s) => s + 1);
+    } else {
+      submit();
+    }
+  };
 
-  const canProceed = useMemo(() => {
-    if (currentAnswer === null || currentAnswer === undefined || currentAnswer === "") return true;
-    if (Array.isArray(currentAnswer)) return currentAnswer.length > 0;
-    return true;
-  }, [currentAnswer]);
+  const handleBackClick = () => {
+    if (step > 0) {
+      setStep((s) => s - 1);
+    } else {
+      onBack();
+    }
+  };
 
   const submit = async () => {
     setLoading(true);
@@ -174,29 +221,37 @@ export default function QuestionnaireScreen({
                 profile[q.key] = inchesToCm(inches);
               }
             } else {
-              // Backend expects goal as list even though frontend renders it as single-select
-              if (q.key === "goal" && typeof val === "string") {
-                profile[q.key] = [val];
-              } else {
-                profile[q.key] = val;
-              }
+              profile[q.key] = val;
             }
           }
         }
       }
 
+      // Map frontend keys to backend-expected keys
+      const backendProfile: Answers = {};
+      for (const [key, val] of Object.entries(profile)) {
+        if (key === "current_training_status") {
+          backendProfile["activity_level"] = val;
+        } else if (key === "cardio_type" && Array.isArray(val)) {
+          backendProfile["cardio_type"] = val.join(", ");
+        } else {
+          backendProfile[key] = val;
+        }
+      }
+
       // Save profile
-      await fetch(`${getApiBase()}/profile/fitness`, {
+      const profileSave = await fetch(`${getApiBase()}/profile/fitness`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${getAuthToken()}`,
         },
-        body: JSON.stringify(profile),
-      }).then((r) => {
-        if (!r.ok) throw new Error(`Profile save failed: ${r.status}`);
-        return r.json();
+        body: JSON.stringify(backendProfile),
       });
+      if (!profileSave.ok) {
+        const errText = await profileSave.text();
+        throw new Error(`Profile save failed: ${profileSave.status} - ${errText}`);
+      }
 
       // Save units preference to settings
       if (unitsPreference) {
@@ -221,33 +276,19 @@ export default function QuestionnaireScreen({
           "Content-Type": "application/json",
           Authorization: `Bearer ${getAuthToken()}`,
         },
-        body: JSON.stringify(profile),
-      }).then((r) => {
-        if (!r.ok) throw new Error(`Generate failed: ${r.status}`);
-        return r.json();
+        body: JSON.stringify(backendProfile),
       });
+      if (!genRes.ok) {
+        const errText = await genRes.text();
+        throw new Error(`Generate failed: ${genRes.status} - ${errText}`);
+      }
+      const data = await genRes.json();
 
-      onComplete(genRes, answers);
+      onComplete(data, answers);
     } catch (err: any) {
       setError(err?.message || "Something went wrong.");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleNext = () => {
-    if (step < total - 1) {
-      setStep((s) => s + 1);
-    } else {
-      submit();
-    }
-  };
-
-  const handleBackClick = () => {
-    if (step > 0) {
-      setStep((s) => s - 1);
-    } else {
-      onBack();
     }
   };
 
@@ -282,113 +323,140 @@ export default function QuestionnaireScreen({
         </div>
       )}
 
-      {/* Question */}
-      <div className="space-y-4">
-        <div>
-          <h4 className="text-base font-bold text-slate-100">{displayLabel}</h4>
-          {question.preface && question.preface !== section.preface && (
-            <p className="text-xs text-slate-400 mt-1">{question.preface}</p>
-          )}
-        </div>
+      {/* Questions stacked on one page */}
+      <div className="space-y-6">
+        {questions.map(({ question }) => {
+          const currentAnswer = answers[question.key];
 
-        {(question.type === "single" || question.type === "text") ? (
-          question.options.length === 0 ? (
-            <input
-              type="text"
-              inputMode={question.type === "text" ? "text" : "decimal"}
-              value={currentAnswer ?? ""}
-              onChange={(e) => select(e.target.value || null)}
-              placeholder={displayPlaceholder}
-              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
-            />
-          ) : (
-            <div className="flex flex-wrap gap-2">
-              {question.options.map((opt) => {
-                const selected = currentAnswer === opt.value;
+          const renderOptions = () => {
+            if (question.type === "single" || question.type === "text") {
+              if (question.options.length === 0) {
                 return (
-                  <button
-                    key={opt.value}
-                    onClick={() => select(opt.value)}
-                    className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all ${
-                      selected
-                        ? "bg-indigo-600 text-white border border-indigo-500 shadow-lg shadow-indigo-900/30"
-                        : "border border-slate-700 bg-slate-900/60 text-slate-300 hover:border-slate-500"
-                    }`}
-                  >
-                    <div className="font-medium">{opt.label}</div>
-                    {opt.description && (
-                      <div className={`text-xs mt-1 ${selected ? "text-indigo-100" : "text-slate-500"}`}>
-                        {opt.description}
-                      </div>
-                    )}
-                  </button>
+                  <input
+                    type="text"
+                    inputMode={question.type === "text" ? "text" : "decimal"}
+                    value={currentAnswer ?? ""}
+                    onChange={(e) => select(question.key, e.target.value || null)}
+                    placeholder={getQuestionPlaceholder(question)}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm text-slate-200 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
+                  />
                 );
-              })}
-              {question.preferNotToAnswer && (
-                <button
-                  onClick={clearAnswer}
-                  className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                    currentAnswer === null
-                      ? "bg-slate-700 text-slate-200 border border-slate-500"
-                      : "border border-slate-700 bg-slate-900/60 text-slate-400 hover:border-slate-500"
-                  }`}
-                >
-                  Prefer not to answer
-                </button>
-              )}
-            </div>
-          )
-        ) : (
-          <div className="flex flex-wrap gap-2">
-            {question.options.map((opt) => {
-              const selected = Array.isArray(currentAnswer) && currentAnswer.includes(opt.value);
-              const isNone = opt.value === "none";
+              }
+
               return (
-                <button
-                  key={opt.value}
-                  onClick={() => {
-                    const arr = Array.isArray(currentAnswer) ? [...currentAnswer] : [];
-                    if (selected) {
-                      if (!isNone) {
-                        const idx = arr.indexOf(opt.value);
-                        if (idx >= 0) arr.splice(idx, 1);
-                      }
-                    } else {
-                      if (isNone) {
-                        arr.length = 0;
-                        arr.push("none");
-                      } else {
-                        const noneIdx = arr.indexOf("none");
-                        if (noneIdx >= 0) arr.splice(noneIdx, 1);
-                        arr.push(opt.value);
-                      }
-                    }
-                    select(arr);
-                  }}
-                  className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                    selected
-                      ? "bg-emerald-600 text-white border border-emerald-500 shadow-lg shadow-emerald-900/30"
-                      : "border border-slate-700 bg-slate-900/60 text-slate-300 hover:border-slate-500"
-                  }`}
-                >
-                  {opt.label}
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  {question.options.map((opt) => {
+                    const selected = currentAnswer === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => select(question.key, opt.value)}
+                        className={`w-full text-left px-4 py-3 rounded-xl text-sm transition-all ${
+                          selected
+                            ? "bg-indigo-600 text-white border border-indigo-500 shadow-lg shadow-indigo-900/30"
+                            : "border border-slate-700 bg-slate-900/60 text-slate-300 hover:border-slate-500"
+                        }`}
+                      >
+                        <div className="font-medium">{opt.label}</div>
+                        {opt.description && (
+                          <div className={`text-xs mt-1 ${selected ? "text-indigo-100" : "text-slate-500"}`}>
+                            {opt.description}
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                  {question.preferNotToAnswer && (
+                    <button
+                      onClick={() => clearAnswer(question.key)}
+                      className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                        currentAnswer === null
+                          ? "bg-slate-700 text-slate-200 border border-slate-500"
+                          : "border border-slate-700 bg-slate-900/60 text-slate-400 hover:border-slate-500"
+                      }`}
+                    >
+                      Prefer not to answer
+                    </button>
+                  )}
+                </div>
               );
-            })}
-          </div>
-        )}
+            }
+
+            if (question.type === "multi") {
+              return (
+                <div className="flex flex-wrap gap-2">
+                  {question.options.map((opt) => {
+                    const selected = Array.isArray(currentAnswer) && currentAnswer.includes(opt.value);
+                    const isNone = opt.value === "none";
+                    return (
+                      <button
+                        key={opt.value}
+                        onClick={() => {
+                          const arr = Array.isArray(currentAnswer) ? [...currentAnswer] : [];
+                          if (selected) {
+                            if (!isNone) {
+                              const idx = arr.indexOf(opt.value);
+                              if (idx >= 0) arr.splice(idx, 1);
+                            }
+                          } else {
+                            if (isNone) {
+                              arr.length = 0;
+                              arr.push("none");
+                            } else {
+                              const noneIdx = arr.indexOf("none");
+                              if (noneIdx >= 0) arr.splice(noneIdx, 1);
+                              arr.push(opt.value);
+                            }
+                          }
+                          select(question.key, arr);
+                        }}
+                        className={`px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                          selected
+                            ? "bg-emerald-600 text-white border border-emerald-500 shadow-lg shadow-emerald-900/30"
+                            : "border border-slate-700 bg-slate-900/60 text-slate-300 hover:border-slate-500"
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              );
+            }
+
+            return null;
+          };
+
+          return (
+            <div key={question.key} className="space-y-3">
+              <div>
+                <h4 className="text-base font-bold text-slate-100">
+                  {getQuestionLabel(question)}
+                </h4>
+                {question.preface && question.preface !== section.preface && (
+                  <p className="text-xs text-slate-400 mt-1">{question.preface}</p>
+                )}
+              </div>
+              {renderOptions()}
+            </div>
+          );
+        })}
       </div>
 
       {/* Actions */}
       <div className="flex items-center justify-between pt-2">
         <div className="text-xs text-slate-500">
-          {question.type === "multi" && Array.isArray(currentAnswer) && currentAnswer.length > 0
-            ? `${currentAnswer.length} selected`
-            : ""}
+          {(() => {
+            const multiQ = questions.find((q) => q.question.type === "multi");
+            if (!multiQ) return "";
+            const val = answers[multiQ.question.key];
+            if (Array.isArray(val) && val.length > 0) return `${val.length} selected`;
+            return "";
+          })()}
         </div>
         <button
           onClick={handleNext}
-          disabled={loading || !canProceed}
+          disabled={loading}
           className="rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-900/30 hover:bg-indigo-500 active:scale-95 transition-all disabled:opacity-50"
         >
           {loading ? "Generating..." : step === total - 1 ? "Finish" : "Next"}

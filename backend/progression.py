@@ -139,6 +139,136 @@ _KEYWORD_MOVEMENT: Dict[str, str] = {
     "handstand": "isometric",
 }
 
+# Specific movement patterns (checked before broad patterns)
+_KEYWORD_MOVEMENT_SPECIFIC: Dict[str, str] = {
+    # Push - Flat
+    "bench press": "push_flat",
+    "chest press": "push_flat",
+    "flat bench": "push_flat",
+    # Push - Incline
+    "incline press": "push_incline",
+    "incline bench": "push_incline",
+    # Push - Vertical / Overhead
+    "overhead press": "push_vertical",
+    "military press": "push_vertical",
+    "arnold press": "push_vertical",
+    "shoulder press": "push_vertical",
+    # Push - Isolation (chest)
+    "chest fly": "push_isolation",
+    "cable fly": "push_isolation",
+    "pec deck": "push_isolation",
+    # Push - Isolation (tricep)
+    "tricep pushdown": "tricep_isolation",
+    "tricep extension": "tricep_isolation",
+    "skull crusher": "tricep_isolation",
+    "tricep": "tricep_isolation",
+    "close-grip bench press": "tricep_compound",
+    "jm bench press": "tricep_compound",
+    # Push - Isolation (shoulder)
+    "lateral raise": "shoulder_lateral",
+    "front raise": "shoulder_front",
+    "rear delt": "shoulder_rear",
+    "rear delt raise": "shoulder_rear",
+    "rear delt row": "shoulder_rear",
+    "face pull": "shoulder_rear",
+    # Push - Compound
+    "dip": "tricep_compound",
+    "push up": "push_compound",
+    # Pull - Vertical
+    "pull-up": "pull_vertical",
+    "chin-up": "pull_vertical",
+    "lat pulldown": "pull_vertical",
+    "straight arm pulldown": "pull_vertical",
+    "close-grip pulldown": "pull_vertical",
+    "underhand pulldown": "pull_vertical",
+    # Pull - Horizontal
+    "barbell row": "pull_horizontal",
+    "dumbbell row": "pull_horizontal",
+    "bent over row": "pull_horizontal",
+    "seated row": "pull_horizontal",
+    "t-bar row": "pull_horizontal",
+    "cable row": "pull_horizontal",
+    "pendlay row": "pull_horizontal",
+    "incline row": "pull_horizontal",
+    # Pull - Isolation
+    "bicep": "bicep_isolation",
+    "barbell curl": "bicep_isolation",
+    "dumbbell curl": "bicep_isolation",
+    "hammer curl": "bicep_isolation",
+    "preacher curl": "bicep_isolation",
+    "concentration curl": "bicep_isolation",
+    "shrug": "trap_upper_back",
+    "upright row": "trap_upper_back",
+    "wide-grip upright row": "trap_upper_back",
+    # Squat
+    "squat": "squat",
+    "front squat": "squat",
+    "goblet squat": "squat",
+    "bulgarian split squat": "squat",
+    "lunge": "squat",
+    "leg press": "squat",
+    "leg extension": "leg_quad",
+    "step up": "squat",
+    "split squat": "squat",
+    "hack squat": "squat",
+    # Hinge
+    "deadlift": "hinge",
+    "romanian deadlift": "hinge",
+    "rdl": "hinge",
+    "good morning": "hinge",
+    "hip thrust": "hinge",
+    "glute bridge": "hinge",
+    "kettlebell swing": "hinge",
+    "back extension": "hinge",
+    "stiff leg deadlift": "hinge",
+    "straight leg deadlift": "hinge",
+    "sumo deadlift": "hinge",
+    "single leg deadlift": "hinge",
+    "bent-over hip extension": "hinge",
+    # Leg - Calf
+    "calf raise": "leg_calf",
+    "seated calf raise": "leg_calf",
+    "standing calf raise": "leg_calf",
+    "rocking leg calf raise": "leg_calf",
+    # Leg - Hamstring
+    "leg curl": "leg_hamstring",
+    "lying leg curl": "leg_hamstring",
+    "seated leg curl": "leg_hamstring",
+    "inverse leg curl": "leg_hamstring",
+    # Core
+    "plank": "core",
+    "crunch": "core",
+    "sit-up": "core",
+    "russian twist": "core",
+    "mountain climber": "core",
+    "ab wheel": "core",
+    "hanging leg raise": "core",
+    "leg raise": "core",
+    "rollerout": "core",
+    "side bend": "core",
+    "twist": "core",
+    "jack knife": "core",
+    # Carry
+    "farmer walk": "carry",
+    "farmers walk": "carry",
+    "suitcase carry": "carry",
+    # Cardio
+    "jump rope": "cardio",
+    "running": "cardio",
+    "cycling": "cardio",
+    "rowing": "cardio",
+    "elliptical": "cardio",
+    "stairmaster": "cardio",
+    "battle rope": "cardio",
+    "ski erg": "cardio",
+    "assault bike": "cardio",
+    # Plyo
+    "burpee": "plyometric",
+    "box jump": "plyometric",
+    "jump squat": "plyometric",
+    "jump lunge": "plyometric",
+}
+
 # Keyword → modality fitness ranking
 _KEYWORD_MODALITY: Dict[str, float] = {
     # Powerlifting keywords
@@ -270,7 +400,41 @@ _COMPOUND_RANK: Dict[str, int] = {
     "calf raise": 3,
 }
 
+# Parent movement mapping for broad slot compatibility
+_PARENT_MOVEMENT: Dict[str, str] = {
+    "push_flat": "push",
+    "push_incline": "push",
+    "push_vertical": "push",
+    "push_isolation": "push",
+    "push_compound": "push",
+    "tricep_compound": "push",
+    "tricep_isolation": "push",
+    "shoulder_lateral": "push",
+    "shoulder_rear": "push",
+    "shoulder_front": "push",
+    "pull_vertical": "pull",
+    "pull_horizontal": "pull",
+    "bicep_isolation": "pull",
+    "trap_upper_back": "pull",
+    "leg_quad": "squat",
+    "leg_hamstring": "hinge",
+    "leg_calf": "hinge",
+}
 
+
+def _movement_matches(slot_movements: List[str], exercise_movement: str) -> bool:
+    """Check if exercise movement matches slot, including parent movement fallback."""
+    if exercise_movement in slot_movements:
+        return True
+    parent = _PARENT_MOVEMENT.get(exercise_movement)
+    if parent and parent in slot_movements:
+        return True
+    return False
+
+
+# ---------------------------------------------------------------------------
+# Exercise classification
+# ---------------------------------------------------------------------------
 def _classify_exercise(ex: Any, profile: Optional[UserProfile] = None) -> Dict[str, Any]:
     name_lower = (ex.name or "").lower()
     equipment_lower = (ex.equipment or "").lower()
@@ -281,11 +445,18 @@ def _classify_exercise(ex: Any, profile: Optional[UserProfile] = None) -> Dict[s
     difficulty = "intermediate"
     compound_rank = 99
 
-    # Movement pattern from keywords
-    for kw, mvm in _KEYWORD_MOVEMENT.items():
+    # Movement pattern from specific keywords first, then broad fallback
+    found_specific = False
+    for kw, mvm in _KEYWORD_MOVEMENT_SPECIFIC.items():
         if kw in name_lower:
             movement = mvm
+            found_specific = True
             break
+    if not found_specific:
+        for kw, mvm in _KEYWORD_MOVEMENT.items():
+            if kw in name_lower:
+                movement = mvm
+                break
 
     # Modality fitness
     best_score = 0.0
@@ -758,34 +929,38 @@ def _compose_day_template(
 
 _CHEST_DAY = DayTemplate(
     name="Chest Day",
-    description="2 heavy compounds + 1 accessory",
+    description="Flat press + incline + chest isolation + tricep work",
     slots=[
-        SlotSpec("compound_1", "Heavy Compound", ["push"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150, muscle_groups=["chest"]),
-        SlotSpec("compound_2", "Second Compound", ["push"], (1, 2), None, 1, (3, 4), (8, 10), 120, muscle_groups=["chest"]),
-        SlotSpec("accessory_1", "Accessory", ["push"], (3, 3), None, 1, (3, 4), (10, 12), 90, muscle_groups=["chest"]),
+        SlotSpec("chest_flat_1", "Chest Compound (flat)", ["push_flat"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150),
+        SlotSpec("chest_incline_1", "Chest Compound (incline)", ["push_incline"], (1, 2), "dumbbell", 1, (3, 4), (8, 10), 120),
+        SlotSpec("chest_isolation_1", "Chest Isolation", ["push_isolation"], (2, 3), None, 1, (3, 4), (10, 12), 90),
+        SlotSpec("tricep_compound_1", "Tricep Compound", ["tricep_compound"], (1, 2), None, 1, (3, 4), (8, 10), 90),
+        SlotSpec("tricep_isolation_1", "Tricep Isolation", ["tricep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60),
     ],
 )
 
 _BACK_DAY = DayTemplate(
     name="Back Day",
-    description="Vertical pull + horizontal pull + row + accessory",
+    description="Vertical pull + horizontal pull + row + bicep work",
     slots=[
-        SlotSpec("vertical_pull", "Vertical Pull", ["pull"], (1, 2), "cable", 1, (4, 5), (6, 8), 150, muscle_groups=["back"]),
-        SlotSpec("horizontal_pull", "Horizontal Pull", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 120, muscle_groups=["back"]),
-        SlotSpec("row_variation", "Row Variation", ["pull"], (2, 3), None, 1, (3, 4), (8, 12), 90, muscle_groups=["back"]),
-        SlotSpec("accessory", "Accessory", ["pull"], (3, 3), None, 1, (3, 4), (10, 12), 90, muscle_groups=["back"]),
+        SlotSpec("pull_vertical_1", "Vertical Pull", ["pull_vertical"], (1, 2), "cable", 1, (4, 5), (6, 8), 150),
+        SlotSpec("pull_horizontal_1", "Horizontal Pull", ["pull_horizontal"], (1, 2), None, 1, (3, 4), (8, 10), 120),
+        SlotSpec("row_variation_1", "Row Variation", ["pull_horizontal"], (2, 3), None, 1, (3, 4), (8, 12), 90),
+        SlotSpec("bicep_compound_1", "Bicep Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 90),
+        SlotSpec("bicep_isolation_1", "Bicep Isolation", ["bicep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60),
     ],
 )
 
 _LEG_DAY = DayTemplate(
     name="Leg Day",
-    description="Squat + hinge + accessory + calf + core",
+    description="Squat + hinge + quad accessory + hamstring accessory + calf + core",
     slots=[
-        SlotSpec("primary_squat", "Primary Squat", ["squat"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150, muscle_groups=["legs"]),
-        SlotSpec("hip_hinge", "Hip Hinge", ["hinge"], (1, 2), None, 1, (3, 4), (8, 10), 120, muscle_groups=["legs"]),
-        SlotSpec("leg_accessory", "Leg Accessory", ["squat"], (2, 3), None, 1, (3, 4), (10, 12), 90, muscle_groups=["legs"]),
-        SlotSpec("calf_work", "Calf Work", ["squat", "hinge"], (4, 4), "machine", 1, (3, 4), (12, 15), 60, muscle_groups=["calves"]),
-        SlotSpec("core", "Core", ["core"], (1, 3), None, 1, (3, 4), (12, 20), 60, muscle_groups=["core"]),
+        SlotSpec("primary_squat_1", "Primary Squat", ["squat"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150),
+        SlotSpec("hip_hinge_1", "Hip Hinge", ["hinge"], (1, 2), None, 1, (3, 4), (8, 10), 120),
+        SlotSpec("leg_quad_1", "Quad Accessory", ["leg_quad"], (2, 3), "machine", 1, (3, 4), (10, 12), 90),
+        SlotSpec("leg_hamstring_1", "Hamstring Accessory", ["leg_hamstring"], (2, 3), "machine", 1, (3, 4), (10, 12), 90),
+        SlotSpec("calf_work_1", "Calf Work", ["leg_calf"], (2, 3), "machine", 1, (3, 4), (12, 15), 60),
+        SlotSpec("core_1", "Core", ["core"], (1, 2), None, 1, (3, 4), (12, 20), 60),
     ],
 )
 
@@ -793,11 +968,11 @@ _SHOULDER_DAY = DayTemplate(
     name="Shoulder Day",
     description="Overhead press + lateral + rear delt + front delt + traps",
     slots=[
-        SlotSpec("overhead_press", "Overhead Press", ["push"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150, muscle_groups=["shoulders"]),
-        SlotSpec("lateral_raise", "Lateral Raise", ["push"], (2, 4), "dumbbell", 1, (3, 4), (10, 12), 75, muscle_groups=["shoulders"]),
-        SlotSpec("rear_delt", "Rear Delt", ["push"], (2, 4), "dumbbell", 1, (3, 4), (10, 12), 75, muscle_groups=["shoulders"]),
-        SlotSpec("front_delt", "Front Delt", ["push"], (2, 4), "dumbbell", 1, (3, 4), (10, 12), 75, muscle_groups=["shoulders"]),
-        SlotSpec("trap_accessory", "Trap / Upper Back", ["pull"], (2, 4), None, 1, (3, 4), (10, 12), 75, muscle_groups=["back"]),
+        SlotSpec("overhead_press_1", "Overhead Press", ["push_vertical"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150),
+        SlotSpec("lateral_raise_1", "Lateral Raise", ["shoulder_lateral"], (2, 3), "dumbbell", 1, (3, 4), (10, 12), 75),
+        SlotSpec("rear_delt_1", "Rear Delt", ["shoulder_rear"], (2, 3), "dumbbell", 1, (3, 4), (10, 12), 75),
+        SlotSpec("front_delt_1", "Front Delt", ["shoulder_front"], (2, 3), "dumbbell", 1, (3, 4), (10, 12), 75),
+        SlotSpec("trap_accessory_1", "Trap / Upper Back", ["trap_upper_back"], (2, 3), None, 1, (3, 4), (10, 12), 75),
     ],
 )
 
@@ -805,11 +980,11 @@ _ARM_DAY = DayTemplate(
     name="Arm Day",
     description="Triceps + biceps + forearm work",
     slots=[
-        SlotSpec("tricep_compound", "Tricep Compound", ["push"], (1, 2), None, 1, (3, 4), (8, 10), 90, muscle_groups=["triceps"]),
-        SlotSpec("tricep_isolation", "Tricep Isolation", ["push"], (3, 4), None, 1, (3, 4), (12, 15), 60, muscle_groups=["triceps"]),
-        SlotSpec("bicep_compound", "Bicep Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 90, muscle_groups=["biceps"]),
-        SlotSpec("bicep_isolation", "Bicep Isolation", ["pull"], (3, 4), None, 1, (3, 4), (12, 15), 60, muscle_groups=["biceps"]),
-        SlotSpec("forearm", "Forearm / Grip", ["pull", "core"], (4, 4), None, 1, (3, 4), (12, 15), 60, muscle_groups=["biceps"]),
+        SlotSpec("tricep_compound_2", "Tricep Compound", ["tricep_compound"], (1, 2), None, 1, (3, 4), (8, 10), 90),
+        SlotSpec("tricep_isolation_2", "Tricep Isolation", ["tricep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60),
+        SlotSpec("bicep_compound_2", "Bicep Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 90),
+        SlotSpec("bicep_isolation_2", "Bicep Isolation", ["bicep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60),
+        SlotSpec("forearm_1", "Forearm / Grip", ["pull", "core"], (2, 3), None, 1, (3, 4), (12, 15), 60),
     ],
 )
 
@@ -817,8 +992,8 @@ _TRICEPS_DAY = DayTemplate(
     name="Triceps",
     description="Tricep compounds + isolation",
     slots=[
-        SlotSpec("tricep_compound", "Tricep Compound", ["push"], (1, 2), None, 1, (3, 4), (8, 10), 90, muscle_groups=["triceps"]),
-        SlotSpec("tricep_isolation", "Tricep Isolation", ["push"], (3, 4), None, 1, (3, 4), (12, 15), 60, muscle_groups=["triceps"]),
+        SlotSpec("tricep_compound", "Tricep Compound", ["tricep_compound"], (1, 2), None, 1, (3, 4), (8, 10), 90),
+        SlotSpec("tricep_isolation", "Tricep Isolation", ["tricep_isolation"], (3, 4), None, 1, (3, 4), (12, 15), 60),
     ],
 )
 
@@ -826,8 +1001,8 @@ _BICEPS_DAY = DayTemplate(
     name="Biceps",
     description="Bicep compounds + isolation",
     slots=[
-        SlotSpec("bicep_compound", "Bicep Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 90, muscle_groups=["biceps"]),
-        SlotSpec("bicep_isolation", "Bicep Isolation", ["pull"], (3, 4), None, 1, (3, 4), (12, 15), 60, muscle_groups=["biceps"]),
+        SlotSpec("bicep_compound", "Bicep Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 90),
+        SlotSpec("bicep_isolation", "Bicep Isolation", ["bicep_isolation"], (3, 4), None, 1, (3, 4), (12, 15), 60),
     ],
 )
 
@@ -881,6 +1056,17 @@ _LOWER_BODY = DayTemplate(
         SlotSpec("leg_accessory", "Leg Accessory", ["squat"], (2, 3), None, 1, (3, 4), (10, 12), 90),
         SlotSpec("calf_work", "Calf Work", ["squat", "hinge"], (4, 4), "machine", 1, (3, 4), (12, 15), 60, muscle_groups=["calves"]),
         SlotSpec("core", "Core", ["core"], (1, 3), None, 1, (3, 4), (12, 20), 60),
+    ],
+)
+
+_ACTIVE_RECOVERY_DAY = DayTemplate(
+    name="Active Recovery",
+    description="Light movement and accessory work",
+    slots=[
+        SlotSpec("light_push", "Light Push", ["push"], (2, 4), "dumbbell", 1, (2, 3), (10, 15), 60, muscle_groups=["shoulders", "triceps"]),
+        SlotSpec("light_pull", "Light Pull", ["pull"], (2, 4), "dumbbell", 1, (2, 3), (10, 15), 60, muscle_groups=["biceps", "shoulders"]),
+        SlotSpec("core", "Core", ["core"], (2, 4), None, 1, (2, 3), (10, 15), 60, muscle_groups=["core"]),
+        SlotSpec("light_leg", "Light Leg", ["squat", "hinge"], (2, 4), None, 1, (2, 3), (10, 15), 60, muscle_groups=["legs", "calves"]),
     ],
 )
 
@@ -1017,7 +1203,7 @@ def _pick_exercise_for_slot(
     for ex in filtered:
         meta = _classify_exercise(ex, profile)
         # Check movement
-        if meta["movement"] not in slot.movements:
+        if not _movement_matches(slot.movements, meta["movement"]):
             continue
         # Check muscle group hint (if specified) — supports aliases
         if slot.muscle_groups:
@@ -1203,6 +1389,9 @@ def _get_session_budget(profile: UserProfile) -> tuple[int, int]:
         cardio_sec = 900
     elif cardio_timing == "separate_day":
         cardio_sec = 0  # entire session is cardio; handled by _build_wildcard_day
+    elif cardio_timing == "part_of_workout":
+        # 5 min for short sessions, 15 min for longer sessions
+        cardio_sec = 300 if profile.minutes_per_session <= 30 else 900
     else:
         cardio_sec = 0
     lift_sec = max(60, total - cardio_sec - _WARMUP_OVERHEAD_SECONDS)
@@ -1214,11 +1403,21 @@ def _default_sets_for_duration(minutes: int) -> int:
     if minutes <= 30:
         return 3
     elif minutes <= 45:
-        return 4
+        return 3
     elif minutes <= 60:
         return 4
     else:
-        return 5
+        return 4
+
+
+_SESSION_TARGET_EXERCISES = {
+    20: 2,
+    30: 3,
+    45: 5,
+    60: 7,
+    75: 8,
+    90: 9,
+}
 
 
 def _target_exercises_for_duration(minutes: int) -> int:
@@ -1452,7 +1651,15 @@ def _build_incorporated_cardio(
     """Build a single cardio exercise for warmup/finisher on lifting days."""
     incorporated_type = getattr(profile, "incorporated_cardio_type", "none") or "none"
     if incorporated_type == "none":
-        incorporated_type = getattr(profile, "cardio_type", "none") or "none"
+        raw_cardio = getattr(profile, "cardio_type", "none") or "none"
+        # Handle comma-separated string from frontend: "walking, steady_state"
+        if isinstance(raw_cardio, str) and "," in raw_cardio:
+            options = [x.strip() for x in raw_cardio.split(",") if x.strip()]
+            incorporated_type = options[0] if options else "none"
+        elif isinstance(raw_cardio, list):
+            incorporated_type = raw_cardio[0] if raw_cardio else "none"
+        else:
+            incorporated_type = raw_cardio
     if incorporated_type == "none":
         return None
 
@@ -1512,8 +1719,8 @@ def _build_wildcard_day(
     cardio_type = getattr(profile, "cardio_type", "none") or "none"
 
     if (not force_cardio and cardio_timing != "separate_day") or cardio_type == "none":
-        # Fallback: light full body as active recovery
-        day = _build_day_from_template(db, profile, _FULL_BODY_DAY, rng, progression_type,
+        # Light active recovery
+        day = _build_day_from_template(db, profile, _ACTIVE_RECOVERY_DAY, rng, progression_type,
                                        filtered_override=filtered)
         day["name"] = "Active Recovery"
         return day
@@ -1567,7 +1774,7 @@ def _build_wildcard_day(
                                        filtered_override=filtered)
 
     # Fallback
-    day = _build_day_from_template(db, profile, _FULL_BODY_DAY, rng, progression_type,
+    day = _build_day_from_template(db, profile, _ACTIVE_RECOVERY_DAY, rng, progression_type,
                                    filtered_override=filtered)
     day["name"] = "Active Recovery"
     return day
@@ -1912,34 +2119,28 @@ def _build_weight_training_days(
         return groups
 
     if days in (4, 5):
-        # Body part split: chest/tris, back/bis, shoulders, legs
-        bps_order = ["chest_tris", "back_bis", "shoulders", "legs"]
+        # Body part split: chest/tris, back/bis, shoulders, legs, arms
+        bps_order = ["chest_tris", "back_bis", "shoulders", "legs", "arms"]
         bps_labels = {
             "chest_tris": "Chest & Triceps",
             "back_bis": "Back & Biceps",
             "shoulders": "Shoulders",
             "legs": "Legs & Core",
+            "arms": "Arms",
         }
         template_map = {
             "chest_tris": _CHEST_TRICEPS,
             "back_bis": _BACK_BICEPS,
             "shoulders": _SHOULDER_DAY,
             "legs": _LEG_DAY,
+            "arms": _ARM_DAY,
         }
-        for day_idx in range(4):
+        for day_idx in range(days):
             bps_key = bps_order[day_idx % len(bps_order)]
             template = template_map[bps_key]
             day = _build_day_from_template(db, profile, template, rng, progression_type)
             day["name"] = bps_labels[bps_key]
             groups.append(day)
-
-        if days == 5:
-            # Wildcard day: cardio/HIIT or active recovery
-            mix = getattr(profile, "modality_mix", "single") or "single"
-            groups.append(_build_wildcard_day(
-                db, profile, rng, progression_type, filtered, lower,
-                force_cardio=(mix in {"separate_days", "mostly_primary", "both"}),
-            ))
         return groups
 
     # days == 6, use original focus-based logic
