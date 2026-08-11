@@ -21,13 +21,10 @@
     --blue-light: #60a5fa;
     --rose: #f43f5e;
     --rose-light: #fb7185;
+    --cyan: #06b6d4;
   }
 
-  * {
-    box-sizing: border-box;
-    margin: 0;
-    padding: 0;
-  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
     background: var(--bg);
@@ -38,405 +35,539 @@
     padding: 24px;
   }
 
-  h1 {
-    font-size: 22px;
-    font-weight: 700;
-    margin-bottom: 4px;
-  }
+  h1 { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .subtitle { color: var(--muted); font-size: 12px; margin-bottom: 20px; }
 
-  .subtitle {
-    color: var(--muted);
-    font-size: 12px;
-    margin-bottom: 20px;
+  .legend {
+    display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap;
   }
+  .legend-item {
+    display: flex; align-items: center; gap: 6px;
+    font-size: 11px; color: var(--muted);
+  }
+  .legend-dot { width: 10px; height: 10px; border-radius: 3px; }
+  .dot-question { background: var(--green); }
+  .dot-profile { background: var(--blue); }
+  .dot-template { background: var(--amber); }
+  .dot-output { background: var(--rose); }
+  .dot-decision { background: var(--cyan); }
 
   .flow {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
+    display: flex; flex-direction: column; align-items: center; gap: 0;
+    padding-bottom: 40px;
   }
 
-  .row {
-    display: flex;
-    gap: 12px;
-    align-items: stretch;
+  .section-label {
+    font-size: 10px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--muted);
+    padding: 16px 4px 6px; align-self: flex-start;
   }
 
+  /* Nodes */
   .node {
     background: var(--panel);
     border: 1px solid var(--border);
     border-radius: 10px;
     padding: 12px;
     min-width: 140px;
-    flex-shrink: 0;
+    position: relative;
+    transition: all 0.2s;
   }
+  .node:hover { border-color: var(--accent); transform: translateY(-1px); }
 
   .node-header {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    margin-bottom: 4px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase; margin-bottom: 4px;
+    display: flex; align-items: center; gap: 6px;
   }
-
-  .node-title {
-    font-size: 13px;
-    font-weight: 600;
-    color: var(--text);
-    margin-bottom: 2px;
-  }
-
-  .node-desc {
-    font-size: 11px;
-    color: var(--muted);
-  }
-
+  .node-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 2px; }
+  .node-desc { font-size: 11px; color: var(--muted); }
   .node-field {
-    font-size: 10px;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    color: var(--accent-light);
-    background: rgba(99, 102, 241, 0.1);
-    border: 1px solid rgba(99, 102, 241, 0.2);
-    border-radius: 4px;
-    padding: 2px 6px;
-    display: inline-block;
-    margin-top: 4px;
-  }
-
-  .arrow-down {
-    width: 2px;
-    height: 24px;
-    background: var(--border);
-    margin: 0 auto;
-    position: relative;
-  }
-
-  .arrow-down::after {
-    content: '';
-    position: absolute;
-    bottom: 0;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 0;
-    height: 0;
-    border-left: 5px solid transparent;
-    border-right: 5px solid transparent;
-    border-top: 6px solid var(--border);
-  }
-
-  .arrow-h {
-    width: 32px;
-    min-width: 32px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--muted);
-    font-size: 16px;
-    flex-shrink: 0;
-  }
-
-  .section-label {
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--muted);
-    padding: 8px 4px 4px;
+    font-size: 10px; font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    color: var(--accent-light); background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 4px;
+    padding: 2px 6px; display: inline-block; margin-top: 4px;
   }
 
   .color-question { color: var(--green); }
   .color-profile { color: var(--blue); }
   .color-template { color: var(--amber); }
   .color-output { color: var(--rose); }
+  .color-decision { color: var(--cyan); }
   .bg-question { border-color: rgba(16, 185, 129, 0.3); }
   .bg-profile { border-color: rgba(59, 130, 246, 0.3); }
   .bg-template { border-color: rgba(245, 158, 11, 0.3); }
   .bg-output { border-color: rgba(244, 63, 94, 0.3); }
+  .bg-decision { border-color: rgba(6, 182, 212, 0.4); background: rgba(6, 182, 212, 0.08); }
 
-  .connector {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 2px 0;
+  .skip-box { border-style: dashed; opacity: 0.85; }
+  .badge-conditional {
+    font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+    display: inline-block; margin-top: 4px;
+    color: var(--amber-light); background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.3);
   }
 
-  .line-v {
-    width: 2px;
-    height: 16px;
-    background: var(--border);
+  /* Arrows */
+  .arrow-down {
+    width: 2px; height: 28px; background: var(--border);
+    margin: 0 auto; position: relative;
+  }
+  .arrow-down::after {
+    content: ''; position: absolute; bottom: 0; left: 50%;
+    transform: translateX(-50%); width: 0; height: 0;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 6px solid var(--border);
+  }
+  .arrow-h {
+    min-width: 40px; display: flex; align-items: center; justify-content: center;
+    color: var(--muted); font-size: 16px; flex-shrink: 0;
   }
 
-  .line-h {
-    height: 2px;
-    flex: 1;
-    background: var(--border);
+  /* Decision tree layout */
+  .decision-branch {
+    display: flex; gap: 16px; width: 100%; justify-content: center;
+    position: relative; flex-wrap: wrap;
+  }
+  .decision-branch > .branch-col {
+    display: flex; flex-direction: column; align-items: center; gap: 0;
+    flex: 1; min-width: 180px; max-width: 320px;
   }
 
-  .diamond {
-    width: 8px;
-    height: 8px;
-    background: var(--border);
-    transform: rotate(45deg);
-    flex-shrink: 0;
+  .branch-label {
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.08em; margin-bottom: 6px; padding: 2px 8px;
+    border-radius: 4px;
+  }
+  .branch-yes { color: var(--green-light); background: rgba(16,185,129,0.15); }
+  .branch-no { color: var(--amber-light); background: rgba(245,158,11,0.15); }
+  .branch-cond { color: var(--cyan); background: rgba(6,182,212,0.15); }
+
+  .merge-down {
+    width: 2px; height: 28px; background: var(--border);
+    margin: 0 auto;
+  }
+  .merge-down::after {
+    content: ''; display: block; width: 0; height: 0;
+    border-left: 5px solid transparent; border-right: 5px solid transparent;
+    border-top: 6px solid var(--border); margin: 0 auto;
   }
 
-  .legend {
-    display: flex;
-    gap: 16px;
-    margin-bottom: 20px;
+  .row-center {
+    display: flex; justify-content: center; width: 100%;
+  }
+  .row-inline {
+    display: flex; gap: 12px; align-items: center; justify-content: center;
     flex-wrap: wrap;
   }
 
-  .legend-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 11px;
-    color: var(--muted);
-  }
-
-  .legend-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 3px;
-  }
-
-  .dot-question { background: var(--green); }
-  .dot-profile { background: var(--blue); }
-  .dot-template { background: var(--amber); }
-  .dot-output { background: var(--rose); }
+  /* Highlight path */
+  .highlight-yes .node { border-color: var(--green); box-shadow: 0 0 12px rgba(16,185,129,0.2); }
+  .highlight-no .node { border-color: var(--amber); box-shadow: 0 0 12px rgba(245,158,11,0.2); }
 
   @media (max-width: 900px) {
-    .row { flex-direction: column; }
-    .arrow-h { display: none; }
+    .decision-branch { flex-direction: column; align-items: center; }
+    .branch-col { max-width: 100%; }
   }
 </style>
 </head>
 <body>
 <h1>Askeo — Question Flow</h1>
-<p class="subtitle">Maps every questionnaire question to its backend effect. Same input → same output.</p>
+<p class="subtitle">Follow the decision tree. Dashed = conditional path. Click any node to highlight its branch.</p>
 
 <div class="legend">
-  <div class="legend-item"><div class="legend-dot dot-question"></div> Questionnaire</div>
-  <div class="legend-item"><div class="legend-dot dot-profile"></div> UserProfile</div>
-  <div class="legend-item"><div class="legend-dot dot-template"></div> Template / Logic</div>
+  <div class="legend-item"><div class="legend-dot dot-question"></div> Question</div>
+  <div class="legend-item"><div class="legend-dot dot-profile"></div> Backend / Profile</div>
+  <div class="legend-item"><div class="legend-dot dot-template"></div> Template</div>
   <div class="legend-item"><div class="legend-dot dot-output"></div> Output</div>
+  <div class="legend-item"><div class="legend-dot dot-decision"></div> Decision</div>
 </div>
 
 <div class="flow">
 
-  <!-- SECTION 1: QUESTIONS -->
-  <div class="section-label">// 1. Questionnaire Inputs</div>
+  <!-- SECTION 1 -->
+  <div class="section-label">// 1. About You</div>
 
-  <div class="row">
-    <div class="node bg-question">
-      <div class="node-header color-question">Q1</div>
-      <div class="node-title">Primary Goals</div>
-      <div class="node-desc">Strength, Hypertrophy, Endurance, Weight Loss, Mobility, General Fitness</div>
-      <div class="node-field">goals[]</div>
-    </div>
-    <div class="arrow-h">→</div>
-    <div class="node bg-question">
-      <div class="node-header color-question">Q2</div>
-      <div class="node-title">Available Equipment</div>
-      <div class="node-desc">Bodyweight, Dumbbells, Barbell, Machines, Bands, Full Gym</div>
-      <div class="node-field">equipment</div>
-    </div>
+  <div class="node bg-question" style="min-width: 220px;">
+    <div class="node-header color-question">Q1</div>
+    <div class="node-title">Units</div>
+    <div class="node-desc">Pounds & Inches or Kg & Cm</div>
+    <div class="node-field">units_preference</div>
   </div>
 
   <div class="arrow-down"></div>
 
-  <div class="row">
-    <div class="node bg-question">
-      <div class="node-header color-question">Q3</div>
-      <div class="node-title">Primary Training Style</div>
-      <div class="node-desc">Traditional, Powerlifting, Bodybuilding, HIIT, Calisthenics, Yoga, Cardio, CrossFit</div>
-      <div class="node-field">modality_primary</div>
-    </div>
-    <div class="arrow-h">→</div>
-    <div class="node bg-question">
+  <div class="node bg-question" style="min-width: 220px;">
+    <div class="node-header color-question">Q2</div>
+    <div class="node-title">Weight</div>
+    <div class="node-desc">Current weight in lbs or kg</div>
+    <div class="node-field">weight_kg</div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <div class="node bg-question" style="min-width: 220px;">
+    <div class="node-header color-question">Q3</div>
+    <div class="node-title">Height</div>
+    <div class="node-desc">Height in inches or cm</div>
+    <div class="node-field">height_cm</div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <div class="row-inline">
+    <div class="node bg-question" style="min-width: 180px;">
       <div class="node-header color-question">Q4</div>
-      <div class="node-title">Additional Activities</div>
-      <div class="node-desc">Cardio, HIIT, Yoga, Calisthenics, or None</div>
-      <div class="node-field">modality_secondary[]</div>
+      <div class="node-title">Sex</div>
+      <div class="node-desc">Male, Female, Other, or Prefer not to answer</div>
+      <div class="node-field">sex</div>
     </div>
-    <div class="arrow-h">→</div>
-    <div class="node bg-question">
+    <div class="node bg-question" style="min-width: 180px;">
       <div class="node-header color-question">Q5</div>
-      <div class="node-title">How to Organize</div>
-      <div class="node-desc">Together, Separate days, Mostly primary, Just primary</div>
-      <div class="node-field">modality_mix</div>
+      <div class="node-title">Activity Level</div>
+      <div class="node-desc">Sedentary to Very Active</div>
+      <div class="node-field">activity_level</div>
     </div>
   </div>
 
   <div class="arrow-down"></div>
 
-  <div class="row">
-    <div class="node bg-question">
-      <div class="node-header color-question">Q6</div>
-      <div class="node-title">Workout Location</div>
-      <div class="node-desc">Free text — gym name or "Home" (optional)</div>
-      <div class="node-field">workout_location</div>
-    </div>
-    <div class="arrow-h">→</div>
-    <div class="node bg-question">
+  <!-- SECTION 2 -->
+  <div class="section-label">// 2. Your Goals</div>
+
+  <div class="node bg-question" style="min-width: 300px;">
+    <div class="node-header color-question">Q6</div>
+    <div class="node-title">How do you want to train?</div>
+    <div class="node-desc">Full Program, Strength, Hypertrophy, Endurance, Weight Loss, Mobility, General Fitness</div>
+    <div class="node-field">goal[]</div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <div class="row-inline">
+    <div class="node bg-question" style="min-width: 180px;">
       <div class="node-header color-question">Q7</div>
+      <div class="node-title">Experience Level</div>
+      <div class="node-desc">Beginner, Intermediate, Advanced</div>
+      <div class="node-field">experience</div>
+    </div>
+    <div class="node bg-question" style="min-width: 180px;">
+      <div class="node-header color-question">Q8</div>
       <div class="node-title">Training History</div>
       <div class="node-desc">Just starting, <6 months, 6–12 months, 1–2 years, 2+ years, Returning</div>
       <div class="node-field">training_history</div>
     </div>
-    <div class="arrow-h">→</div>
-    <div class="node bg-question">
-      <div class="node-header color-question">Q8</div>
-      <div class="node-title">Starting Progression</div>
-      <div class="node-desc">Linear, Double, or Percentage</div>
-      <div class="node-field">progression_type</div>
-    </div>
   </div>
 
   <div class="arrow-down"></div>
 
-  <div class="row">
-    <div class="node bg-question">
+  <!-- SECTION 3 -->
+  <div class="section-label">// 3. Your Schedule</div>
+
+  <div class="row-inline">
+    <div class="node bg-question" style="min-width: 160px;">
       <div class="node-header color-question">Q9</div>
       <div class="node-title">Days Per Week</div>
       <div class="node-desc">2–6 active days</div>
       <div class="node-field">days_per_week</div>
     </div>
-    <div class="arrow-h">→</div>
-    <div class="node bg-question">
+    <div class="node bg-question" style="min-width: 160px;">
       <div class="node-header color-question">Q10</div>
       <div class="node-title">Minutes Per Session</div>
       <div class="node-desc">20, 30, 45, 60 min</div>
       <div class="node-field">minutes_per_session</div>
     </div>
-    <div class="arrow-h">→</div>
-    <div class="node bg-question">
+    <div class="node bg-question" style="min-width: 160px;">
       <div class="node-header color-question">Q11</div>
-      <div class="node-title">Experience Level</div>
-      <div class="node-desc">Beginner, Intermediate, Advanced</div>
-      <div class="node-field">experience</div>
+      <div class="node-title">Workout Location</div>
+      <div class="node-desc">Free text — gym name or "Home" (optional)</div>
+      <div class="node-field">workout_location</div>
     </div>
   </div>
 
   <div class="arrow-down"></div>
 
-  <div class="row">
-    <div class="node bg-question" style="min-width: 300px;">
+  <!-- SECTION 4 -->
+  <div class="section-label">// 4. Your Setup</div>
+
+  <div class="row-inline">
+    <div class="node bg-question" style="min-width: 180px;">
       <div class="node-header color-question">Q12</div>
-      <div class="node-title">Split Style</div>
-      <div class="node-desc">Full Body, Upper/Lower, Push/Pull/Legs, Body Part Split, Custom</div>
-      <div class="node-field">focus</div>
+      <div class="node-title">Gym Type</div>
+      <div class="node-desc">Full Gym, Planet Fitness, Home Gym, Bodyweight Only</div>
+      <div class="node-field">gym_type</div>
     </div>
-  </div>
-
-  <div class="arrow-down"></div>
-
-  <div class="row">
-    <div class="node bg-question" style="min-width: 300px;">
+    <div class="node bg-question" style="min-width: 180px;">
       <div class="node-header color-question">Q13</div>
-      <div class="node-title">Limitations / Injuries</div>
-      <div class="node-desc">None, Shoulder, Knee, Back, Wrist, Limited Mobility, High-Impact Aversion</div>
-      <div class="node-field">limitations[]</div>
-    </div>
-  </div>
-
-  <div class="arrow-down"></div>
-  <div class="arrow-down"></div>
-
-  <!-- SECTION 2: NORMALIZATION -->
-  <div class="section-label">// 2. Backend: Normalize → UserProfile</div>
-
-  <div class="row">
-    <div class="node bg-profile" style="min-width: 320px;">
-      <div class="node-header color-profile">intake.py</div>
-      <div class="node-title">normalize_questionnaire()</div>
-      <div class="node-desc">Converts raw answers → typed UserProfile dataclass</div>
-      <div class="node-field">UserProfile</div>
+      <div class="node-title">Available Equipment</div>
+      <div class="node-desc">Barbell, Dumbbells, Cable, Machines, Bands, Kettlebells, Bodyweight</div>
+      <div class="node-field">equipment[]</div>
     </div>
   </div>
 
   <div class="arrow-down"></div>
 
-  <!-- SECTION 3: PROFILE FIELDS -->
-  <div class="section-label">// 3. UserProfile Fields & Effects</div>
+  <!-- SECTION 5: STYLE -->
+  <div class="section-label">// 5. Your Style</div>
 
-  <div class="row">
-    <div class="node bg-profile">
+  <div class="row-inline">
+    <div class="node bg-question" style="min-width: 180px;">
+      <div class="node-header color-question">Q14</div>
+      <div class="node-title">Primary Training Style</div>
+      <div class="node-desc">Traditional Weight Training, Powerlifting, Bodybuilding, HIIT, Cardio</div>
+      <div class="node-field">workout_modality</div>
+    </div>
+    <div class="node bg-question" style="min-width: 200px;">
+      <div class="node-header color-question">Q15</div>
+      <div class="node-title">Additional Activities</div>
+      <div class="node-desc">Cardio, HIIT, or None — just my primary style</div>
+      <div class="node-field">modality_secondary[]</div>
+    </div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <!-- DECISION: Any secondary cardio/HIIT? -->
+  <div class="node bg-decision" style="min-width: 260px;" onclick="toggleBranch('cardio')">
+    <div class="node-header color-decision">Decision</div>
+    <div class="node-title">Q15 = None?</div>
+    <div class="node-desc">If no secondary activities selected, skip cardio detail block</div>
+    <div class="node-field" style="margin-top:6px;">modality_secondary == ["none"]</div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <!-- BRANCH: Cardio detail or skip -->
+  <div class="decision-branch" id="branch-cardio">
+    <!-- YES: Has cardio -->
+    <div class="branch-col">
+      <div class="branch-label branch-yes">Yes — has cardio/HIIT</div>
+
+      <div class="node bg-question skip-box" style="min-width: 240px;">
+        <div class="node-header color-question">Q16</div>
+        <div class="node-title">How to Organize Cardio</div>
+        <div class="node-desc">Together, Separate days, Mostly primary</div>
+        <div class="node-field">modality_mix</div>
+        <div class="badge-conditional" style="margin-top:4px;">"single" removed</div>
+      </div>
+
+      <div class="arrow-down"></div>
+
+      <div class="node bg-question skip-box" style="min-width: 240px;">
+        <div class="node-header color-question">Q17</div>
+        <div class="node-title">Cardio Timing</div>
+        <div class="node-desc">Warmup 10/15/20, Finisher 15/20, HIIT Finisher, Separate day</div>
+        <div class="node-field">cardio_timing</div>
+      </div>
+
+      <div class="arrow-down"></div>
+
+      <div class="node bg-question skip-box" style="min-width: 240px;">
+        <div class="node-header color-question">Q18</div>
+        <div class="node-title">Lifting-Day Cardio Type</div>
+        <div class="node-desc">None, HIIT, Steady State, Walking, Distance, Mixed</div>
+        <div class="node-field">incorporated_cardio_type</div>
+      </div>
+
+      <div class="arrow-down"></div>
+
+      <div class="node bg-question skip-box" style="min-width: 240px;">
+        <div class="node-header color-question">Q19</div>
+        <div class="node-title">Standalone Cardio Type</div>
+        <div class="node-desc">None, HIIT, Steady State, Walking, Distance, Mixed</div>
+        <div class="node-field">cardio_type</div>
+      </div>
+
+      <div class="arrow-down"></div>
+
+      <div class="node bg-question skip-box" style="min-width: 240px;">
+        <div class="node-header color-question">Q20</div>
+        <div class="node-title">Cardio Days Per Week</div>
+        <div class="node-desc">0–7 dedicated cardio days</div>
+        <div class="node-field">cardio_days_per_week</div>
+      </div>
+
+      <div class="merge-down"></div>
+    </div>
+
+    <!-- NO: No cardio -->
+    <div class="branch-col">
+      <div class="branch-label branch-no">No — skip to Q21</div>
+
+      <div class="node bg-question skip-box" style="min-width: 180px; opacity: 0.7;">
+        <div class="node-header color-question">Skip</div>
+        <div class="node-title">Q16–Q20 skipped</div>
+        <div class="node-desc">modality_mix, cardio_timing, incorporated_cardio_type, cardio_type, cardio_days_per_week</div>
+        <div class="badge-conditional">Skipped</div>
+      </div>
+
+      <div class="merge-down"></div>
+    </div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <!-- SECTION 6 -->
+  <div class="section-label">// 6. Split & Build</div>
+
+  <div class="row-inline">
+    <div class="node bg-question" style="min-width: 180px;">
+      <div class="node-header color-question">Q21</div>
+      <div class="node-title">Split Style</div>
+      <div class="node-desc">Full Body, Upper/Lower, Push/Pull/Legs, Body Part Split</div>
+      <div class="node-field">focus</div>
+      <div class="badge-conditional" style="margin-top:4px;">Skipped in Custom mode</div>
+    </div>
+    <div class="node bg-question" style="min-width: 180px;">
+      <div class="node-header color-question">Q22</div>
+      <div class="node-title">Build Mode</div>
+      <div class="node-desc">Pre-built Template or Custom Builder</div>
+      <div class="node-field">build_mode</div>
+    </div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <!-- SECTION 7 -->
+  <div class="section-label">// 7. Your Progress</div>
+
+  <div class="node bg-question" style="min-width: 260px;">
+    <div class="node-header color-question">Q23</div>
+    <div class="node-title">Starting Progression</div>
+    <div class="node-desc">Linear, Double, or Percentage</div>
+    <div class="node-field">progression_type</div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <!-- SECTION 8 -->
+  <div class="section-label">// 8. Safety</div>
+
+  <div class="node bg-question" style="min-width: 300px;">
+    <div class="node-header color-question">Q24</div>
+    <div class="node-title">Limitations / Injuries</div>
+    <div class="node-desc">None, Shoulder, Knee, Back, Wrist, Limited Mobility, High-Impact Aversion</div>
+    <div class="node-field">limitations[]</div>
+  </div>
+
+  <div class="arrow-down"></div>
+  <div class="arrow-down"></div>
+
+  <!-- NORMALIZATION -->
+  <div class="section-label">// 9. Backend: Normalize → UserProfile</div>
+
+  <div class="node bg-profile" style="min-width: 320px;">
+    <div class="node-header color-profile">intake.py</div>
+    <div class="node-title">normalize_questionnaire()</div>
+    <div class="node-desc">Converts raw answers → typed UserProfile dataclass</div>
+    <div class="node-field">UserProfile</div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <!-- PROFILE FIELDS -->
+  <div class="section-label">// 10. UserProfile Fields & Effects</div>
+
+  <div class="row-inline">
+    <div class="node bg-profile" style="min-width: 140px;">
       <div class="node-header color-profile">field</div>
       <div class="node-title">goals[]</div>
       <div class="node-desc">Sets volume and intensity curves</div>
     </div>
-    <div class="node bg-profile">
+    <div class="node bg-profile" style="min-width: 140px;">
       <div class="node-header color-profile">field</div>
       <div class="node-title">equipment</div>
-      <div class="node-desc">Filters exercise pool by available equipment</div>
+      <div class="node-desc">Filters exercise pool</div>
     </div>
-    <div class="node bg-profile">
+    <div class="node bg-profile" style="min-width: 160px;">
       <div class="node-header color-profile">field</div>
-      <div class="node-title">modality_primary</div>
+      <div class="node-title">workout_modality</div>
       <div class="node-desc">Routes to template builder</div>
     </div>
   </div>
 
   <div class="arrow-down"></div>
 
-  <div class="row">
-    <div class="node bg-profile">
+  <div class="row-inline">
+    <div class="node bg-profile" style="min-width: 160px;">
       <div class="node-header color-profile">field</div>
       <div class="node-title">modality_secondary[]</div>
-      <div class="node-desc">Populates secondary activity days in week schedule</div>
+      <div class="node-desc">Populates secondary activity days</div>
     </div>
-    <div class="node bg-profile">
+    <div class="node bg-profile" style="min-width: 140px;">
       <div class="node-header color-profile">field</div>
       <div class="node-title">modality_mix</div>
-      <div class="node-desc">Determines session structure (together vs separate)</div>
+      <div class="node-desc">Together / Separate / Mostly / Single</div>
     </div>
-    <div class="node bg-profile">
+    <div class="node bg-profile" style="min-width: 160px;">
+      <div class="node-header color-profile">field</div>
+      <div class="node-title">cardio_timing</div>
+      <div class="node-desc">Warmup / Finisher / Separate day</div>
+    </div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <div class="row-inline">
+    <div class="node bg-profile" style="min-width: 180px;">
+      <div class="node-header color-profile">field</div>
+      <div class="node-title">incorporated_cardio_type</div>
+      <div class="node-desc">Cardio type attached to lifting days</div>
+    </div>
+    <div class="node bg-profile" style="min-width: 160px;">
+      <div class="node-header color-profile">field</div>
+      <div class="node-title">cardio_type</div>
+      <div class="node-desc">Cardio type for dedicated days</div>
+    </div>
+    <div class="node bg-profile" style="min-width: 160px;">
+      <div class="node-header color-profile">field</div>
+      <div class="node-title">cardio_days_per_week</div>
+      <div class="node-desc">Number of dedicated cardio days</div>
+    </div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <div class="row-inline">
+    <div class="node bg-profile" style="min-width: 160px;">
       <div class="node-header color-profile">field</div>
       <div class="node-title">training_history</div>
-      <div class="node-desc">How long training — AI uses for switch recommendations</div>
+      <div class="node-desc">AI uses for split switch recommendations</div>
     </div>
-  </div>
-
-  <div class="arrow-down"></div>
-
-  <div class="row">
-    <div class="node bg-profile">
+    <div class="node bg-profile" style="min-width: 140px;">
       <div class="node-header color-profile">field</div>
       <div class="node-title">progression_type</div>
-      <div class="node-desc">Linear, Double, or Percentage — sets weight increase rule</div>
+      <div class="node-desc">Linear, Double, or Percentage</div>
     </div>
-    <div class="node bg-profile">
+    <div class="node bg-profile" style="min-width: 140px;">
       <div class="node-header color-profile">field</div>
       <div class="node-title">focus</div>
-      <div class="node-desc">Selects template: full body, upper/lower, PPL, body part split</div>
+      <div class="node-desc">Split style selector</div>
     </div>
-    <div class="node bg-profile">
-      <div class="node-header color-profile">field</div>
-      <div class="node-title">limitations[]</div>
-      <div class="node-desc">Excludes painful exercises and ranges of motion</div>
-    </div>
+  </div>
+
+  <div class="arrow-down"></div>
+
+  <div class="node bg-profile" style="min-width: 260px;">
+    <div class="node-header color-profile">field</div>
+    <div class="node-title">limitations[]</div>
+    <div class="node-desc">Excludes painful exercises / ROM</div>
   </div>
 
   <div class="arrow-down"></div>
   <div class="arrow-down"></div>
 
-  <!-- SECTION 4: GENERATION -->
-  <div class="section-label">// 4. Backend: Generate Workout</div>
+  <!-- GENERATION -->
+  <div class="section-label">// 11. Backend: Generate Workout</div>
 
-  <div class="row">
-    <div class="node bg-template" style="min-width: 280px;">
+  <div class="row-inline">
+    <div class="node bg-template" style="min-width: 260px;">
       <div class="node-header color-template">progression.py</div>
       <div class="node-title">generate_workout()</div>
       <div class="node-desc">Routes to correct builder based on modality + focus</div>
       <div class="node-field">_build_weight_training_days()</div>
     </div>
-    <div class="arrow-h">→</div>
-    <div class="node bg-template" style="min-width: 260px;">
+    <div class="node bg-template" style="min-width: 240px;">
       <div class="node-header color-template">progression.py</div>
       <div class="node-title">_build_weight_training_days()</div>
       <div class="node-desc">Selects template rotation based on focus</div>
@@ -446,26 +577,26 @@
 
   <div class="arrow-down"></div>
 
-  <!-- SECTION 5: TEMPLATES -->
-  <div class="section-label">// 5. Templates — Slot-Based Exercise Selection</div>
+  <!-- TEMPLATES -->
+  <div class="section-label">// 12. Templates — Slot-Based Exercise Selection</div>
 
-  <div class="row">
-    <div class="node bg-template">
+  <div class="row-inline">
+    <div class="node bg-template" style="min-width: 140px;">
       <div class="node-header color-template">Template</div>
       <div class="node-title">Full Body</div>
       <div class="node-desc">5 slots: push, pull, squat, accessory, core</div>
     </div>
-    <div class="node bg-template">
+    <div class="node bg-template" style="min-width: 150px;">
       <div class="node-header color-template">Template</div>
       <div class="node-title">Upper Body</div>
       <div class="node-desc">5 slots: push compound, pull compound, shoulder, back, arm</div>
     </div>
-    <div class="node bg-template">
+    <div class="node bg-template" style="min-width: 150px;">
       <div class="node-header color-template">Template</div>
       <div class="node-title">Push / Pull / Legs</div>
       <div class="node-desc">3 templates, rotates by day</div>
     </div>
-    <div class="node bg-template">
+    <div class="node bg-template" style="min-width: 150px;">
       <div class="node-header color-template">Template</div>
       <div class="node-title">Body Part Split</div>
       <div class="node-desc">5 templates: chest/tris, back/bis, legs, shoulders, arms</div>
@@ -474,11 +605,11 @@
 
   <div class="arrow-down"></div>
 
-  <!-- SECTION 6: SLOT FILLING -->
-  <div class="section-label">// 6. Slot Filling — For Each Day</div>
+  <!-- SLOT FILLING -->
+  <div class="section-label">// 13. Slot Filling — For Each Day</div>
 
-  <div class="row">
-    <div class="node bg-template" style="min-width: 300px;">
+  <div class="row-inline">
+    <div class="node bg-template" style="min-width: 280px;">
       <div class="node-header color-template">For each slot</div>
       <div class="node-title">_pick_exercise_for_slot()</div>
       <div class="node-desc">Filters exercise library by:</div>
@@ -489,8 +620,7 @@
         • Limitations exclusion
       </div>
     </div>
-    <div class="arrow-h">→</div>
-    <div class="node bg-template">
+    <div class="node bg-template" style="min-width: 160px;">
       <div class="node-header color-template">Result</div>
       <div class="node-title">Best 3 options</div>
       <div class="node-desc">Randomized selection from top 3 matches</div>
@@ -499,11 +629,11 @@
 
   <div class="arrow-down"></div>
 
-  <!-- SECTION 7: DAY BUILDING -->
-  <div class="section-label">// 7. Day Building</div>
+  <!-- DAY BUILDING -->
+  <div class="section-label">// 14. Day Building</div>
 
-  <div class="row">
-    <div class="node bg-template" style="min-width: 260px;">
+  <div class="row-inline">
+    <div class="node bg-template" style="min-width: 240px;">
       <div class="node-header color-template">Sets/Reps/Rest</div>
       <div class="node-title">Per slot</div>
       <div class="node-desc">Based on experience + goals</div>
@@ -513,7 +643,7 @@
         Advanced: 4-6 sets × 4-8 reps
       </div>
     </div>
-    <div class="node bg-template">
+    <div class="node bg-template" style="min-width: 160px;">
       <div class="node-header color-template">Progression</div>
       <div class="node-title">Per exercise</div>
       <div class="node-desc">User-selected: Linear, Double, or Percentage</div>
@@ -522,18 +652,17 @@
 
   <div class="arrow-down"></div>
 
-  <!-- SECTION 8: OUTPUT -->
-  <div class="section-label">// 8. Output</div>
+  <!-- OUTPUT -->
+  <div class="section-label">// 15. Output</div>
 
-  <div class="row">
-    <div class="node bg-output" style="min-width: 360px;">
+  <div class="row-inline">
+    <div class="node bg-output" style="min-width: 320px;">
       <div class="node-header color-output">Workout Draft</div>
       <div class="node-title">Deterministic JSON</div>
       <div class="node-desc">Same inputs always produce the same plan</div>
       <div class="node-field">{ name, groups[], description }</div>
     </div>
-    <div class="arrow-h">→</div>
-    <div class="node bg-output" style="min-width: 200px;">
+    <div class="node bg-output" style="min-width: 160px;">
       <div class="node-header color-output">Frontend</div>
       <div class="node-title">Week View</div>
       <div class="node-desc">Day cards, exercise lists, video links</div>
@@ -542,21 +671,21 @@
 
   <div class="arrow-down"></div>
 
-  <!-- SECTION 9: AI COACH -->
-  <div class="section-label">// 9. AI Coach Layer (Future)</div>
+  <!-- AI COACH -->
+  <div class="section-label">// 16. AI Coach Layer (Future)</div>
 
-  <div class="row">
-    <div class="node bg-profile" style="min-width: 240px;">
+  <div class="row-inline">
+    <div class="node bg-profile" style="min-width: 220px;">
       <div class="node-header color-profile">AI Coach</div>
       <div class="node-title">Explains questions</div>
       <div class="node-desc">"What's the difference between Upper/Lower and Push/Pull/Legs?"</div>
     </div>
-    <div class="node bg-profile">
+    <div class="node bg-profile" style="min-width: 220px;">
       <div class="node-header color-profile">AI Coach</div>
       <div class="node-title">Reconciles answers</div>
       <div class="node-desc">"You said 4 days + 1 HIIT → let's make it 5"</div>
     </div>
-    <div class="node bg-profile">
+    <div class="node bg-profile" style="min-width: 220px;">
       <div class="node-header color-profile">AI Coach</div>
       <div class="node-title">Builds week_schedule</div>
       <div class="node-desc">Structured day-by-day modality map</div>
@@ -565,22 +694,35 @@
 
   <div class="arrow-down"></div>
 
-  <div class="row">
-    <div class="node bg-profile" style="min-width: 280px;">
-      <div class="node-header color-profile">AI Coach</div>
-      <div class="node-title">Recommends switches</div>
-      <div class="node-desc">"6 months on body part split → try PPL for 6 weeks"</div>
-      <div style="margin-top: 4px; font-size: 11px; color: var(--amber-light);">
-        Does NOT generate workout content<br>
-        Updates profile → backend regenerates
-      </div>
+  <div class="node bg-profile" style="min-width: 280px;">
+    <div class="node-header color-profile">AI Coach</div>
+    <div class="node-title">Recommends switches</div>
+    <div class="node-desc">"6 months on body part split → try PPL for 6 weeks"</div>
+    <div style="margin-top: 4px; font-size: 11px; color: var(--amber-light);">
+      Does NOT generate workout content<br>
+      Updates profile → backend regenerates
     </div>
   </div>
 
 </div>
 
 <p style="margin-top: 24px; color: var(--muted); font-size: 11px;">
-  Last updated: 2026-08-04 · askeo.fit/flowchart
+  Last updated: 2026-08-07 · askeo.fit/flowchart
 </p>
+
+<script>
+  function toggleBranch(id) {
+    const el = document.getElementById('branch-' + id);
+    if (!el) return;
+    const isHidden = el.style.display === 'none';
+    el.style.display = isHidden ? 'flex' : 'none';
+  }
+  // Default: show cardio branch so the conditional flow is visible
+  document.addEventListener('DOMContentLoaded', () => {
+    const branch = document.getElementById('branch-cardio');
+    if (branch) branch.style.display = 'flex';
+  });
+</script>
+
 </body>
 </html>
