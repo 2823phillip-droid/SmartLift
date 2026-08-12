@@ -936,8 +936,8 @@ _CHEST_DAY = DayTemplate(
         SlotSpec("chest_incline_1", "Chest Compound (incline)", ["push_incline"], (1, 2), "dumbbell", 1, (3, 4), (8, 10), 120, preferred_exercises=["barbell incline bench press", "dumbbell incline press on exercise ball"]),
         SlotSpec("chest_flat_dumbbell", "Chest Compound (flat dumbbell)", ["push_flat"], (1, 2), "dumbbell", 1, (3, 4), (8, 10), 90, preferred_exercises=["dumbbell bench press", "dumbbell neutral grip bench press"]),
         SlotSpec("chest_isolation_1", "Chest Isolation", ["push_isolation"], (2, 3), None, 1, (3, 4), (10, 12), 90, preferred_exercises=["cable low fly", "dumbbell fly", "lever seated fly"]),
-        SlotSpec("tricep_compound_1", "Tricep Compound", ["tricep_compound"], (1, 2), None, 1, (3, 4), (8, 10), 90, preferred_exercises=["chest dip", "assisted chest dip (kneeling)"]),
-        SlotSpec("tricep_isolation_1", "Tricep Isolation", ["tricep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["cable pushdown (with rope attachment)", "cable pushdown"]),
+        SlotSpec("tricep_compound_1", "Tricep Compound", ["tricep_compound"], (1, 2), None, 1, (3, 4), (8, 10), 90, preferred_exercises=["chest dip (on dip-pull-up cage)", "assisted chest dip (kneeling)"]),
+        SlotSpec("tricep_isolation_1", "Tricep Isolation", ["tricep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["cable pushdown (with rope attachment)", "cable pushdown (with rope attachment)"]),
     ],
 )
 
@@ -948,8 +948,8 @@ _BACK_DAY = DayTemplate(
         SlotSpec("hinge_1", "Hinge / Deadlift", ["hinge"], (1, 2), None, 1, (4, 5), (6, 8), 150, preferred_exercises=["barbell deadlift", "barbell straight leg deadlift"]),
         SlotSpec("pull_vertical_1", "Vertical Pull", ["pull_vertical"], (1, 2), "cable", 1, (4, 5), (6, 8), 150, preferred_exercises=["twin handle parallel grip lat pulldown", "cable lat pulldown full range of motion"]),
         SlotSpec("pull_horizontal_1", "Horizontal Pull", ["pull_horizontal"], (1, 2), None, 1, (3, 4), (8, 10), 120, preferred_exercises=["barbell bent over row", "lever seated row", "cable seated row"]),
-        SlotSpec("straight_arm_1", "Straight Arm Pulldown", ["pull_vertical"], (2, 3), None, 1, (3, 4), (10, 12), 90, preferred_exercises=["cable straight arm pulldown (with rope)", "cable straight arm pulldown"]),
-        SlotSpec("bicep_isolation_1", "Bicep Isolation", ["bicep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["dumbbell hammer curl", "dumbbell curl", "barbell curl"]),
+        SlotSpec("straight_arm_1", "Straight Arm Pulldown", ["pull_vertical"], (2, 3), None, 1, (3, 4), (10, 12), 90, preferred_exercises=["cable straight arm pulldown (with rope)", "cable straight arm pulldown (with rope)"]),
+        SlotSpec("bicep_isolation_1", "Bicep Isolation", ["bicep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["dumbbell hammer curl", "dumbbell biceps curl", "barbell curl"]),
     ],
 )
 
@@ -960,8 +960,8 @@ _LEG_DAY = DayTemplate(
         SlotSpec("primary_squat_1", "Primary Squat", ["squat"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150, preferred_exercises=["barbell squat (on knees)", "barbell front squat"]),
         SlotSpec("leg_quad_1", "Quad Accessory", ["leg_quad"], (2, 3), "machine", 1, (3, 4), (10, 12), 90, preferred_exercises=["lever leg extension", "resistance band leg extension"]),
         SlotSpec("leg_hamstring_1", "Hamstring Accessory", ["leg_hamstring"], (2, 3), "machine", 1, (3, 4), (10, 12), 90, preferred_exercises=["lever lying leg curl", "lever seated leg curl"]),
-        SlotSpec("leg_press_1", "Leg Press", ["squat"], (2, 3), "machine", 1, (3, 4), (10, 12), 90, preferred_exercises=["sled 45° leg press", "lever alternate leg press"]),
-        SlotSpec("core_1", "Core", ["core"], (1, 2), None, 1, (3, 4), (12, 20), 60, preferred_exercises=["lever seated crunch", "cable seated crunch"]),
+        SlotSpec("leg_press_1", "Leg Press", ["squat"], (2, 3), "machine", 1, (3, 4), (10, 12), 90, preferred_exercises=["sled 45° leg press (side pov)", "lever alternate leg press"]),
+        SlotSpec("core_1", "Core", ["core"], (1, 2), None, 1, (3, 4), (12, 20), 60, preferred_exercises=["lever seated crunch (chest pad)", "cable seated crunch"]),
     ],
 )
 
@@ -969,8 +969,8 @@ _SHOULDER_DAY = DayTemplate(
     name="Shoulder Day",
     description="Overhead press + dumbbell press + front raise + lateral raise + upright row",
     slots=[
-        SlotSpec("overhead_press_1", "Overhead Press", ["push_vertical"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150, preferred_exercises=["barbell seated overhead press", "dumbbell seated shoulder press"]),
-        SlotSpec("dumbbell_shoulder_press", "Dumbbell Shoulder Press", ["push_vertical"], (1, 2), "dumbbell", 1, (3, 4), (8, 10), 90, preferred_exercises=["dumbbell seated shoulder press", "dumbbell bench seated press"]),
+        SlotSpec("overhead_press_1", "Overhead Press", ["push_vertical"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150, preferred_exercises=["barbell seated overhead press", "dumbbell seated shoulder press (parallel grip)"]),
+        SlotSpec("dumbbell_shoulder_press", "Dumbbell Shoulder Press", ["push_vertical"], (1, 2), "dumbbell", 1, (3, 4), (8, 10), 90, preferred_exercises=["dumbbell seated shoulder press (parallel grip)", "dumbbell bench seated press"]),
         SlotSpec("front_delt_1", "Front Delt", ["shoulder_front"], (2, 3), "dumbbell", 1, (3, 4), (10, 12), 75, preferred_exercises=["dumbbell front raise", "barbell front raise"]),
         SlotSpec("lateral_raise_1", "Lateral Raise", ["shoulder_lateral"], (2, 3), "dumbbell", 1, (3, 4), (10, 12), 75, preferred_exercises=["dumbbell lateral raise", "cable lateral raise"]),
         SlotSpec("trap_accessory_1", "Trap / Upper Back", ["trap_upper_back"], (2, 3), None, 1, (3, 4), (10, 12), 75, preferred_exercises=["barbell upright row", "dumbbell upright row"]),
@@ -979,13 +979,12 @@ _SHOULDER_DAY = DayTemplate(
 
 _ARM_DAY = DayTemplate(
     name="Arm Day",
-    description="Triceps + biceps + forearm work",
+    description="Triceps + biceps",
     slots=[
-        SlotSpec("tricep_compound_2", "Tricep Compound", ["tricep_compound"], (1, 2), None, 1, (3, 4), (8, 10), 90, preferred_exercises=["chest dip", "barbell lying close-grip press"]),
-        SlotSpec("tricep_isolation_2", "Tricep Isolation", ["tricep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["cable pushdown (with rope attachment)", "cable pushdown"]),
+        SlotSpec("tricep_compound_2", "Tricep Compound", ["tricep_compound"], (1, 2), None, 1, (3, 4), (8, 10), 90, preferred_exercises=["chest dip (on dip-pull-up cage)", "barbell lying close-grip press"]),
+        SlotSpec("tricep_isolation_2", "Tricep Isolation", ["tricep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["cable pushdown (with rope attachment)", "cable pushdown (with rope attachment)"]),
         SlotSpec("bicep_compound_2", "Bicep Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 90, preferred_exercises=["barbell curl", "cable curl"]),
-        SlotSpec("bicep_isolation_2", "Bicep Isolation", ["bicep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["dumbbell hammer curl", "dumbbell curl"]),
-        SlotSpec("forearm_1", "Forearm / Grip", ["pull", "core"], (2, 3), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["dumbbell wrist curl", "barbell wrist curl"]),
+        SlotSpec("bicep_isolation_2", "Bicep Isolation", ["bicep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["dumbbell hammer curl", "dumbbell biceps curl"]),
     ],
 )
 
@@ -993,8 +992,8 @@ _TRICEPS_DAY = DayTemplate(
     name="Triceps",
     description="Tricep compounds + isolation",
     slots=[
-        SlotSpec("tricep_compound", "Tricep Compound", ["tricep_compound"], (1, 2), None, 1, (3, 4), (8, 10), 90, preferred_exercises=["chest dip", "barbell lying close-grip press"]),
-        SlotSpec("tricep_isolation", "Tricep Isolation", ["tricep_isolation"], (3, 4), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["cable pushdown (with rope attachment)", "cable pushdown"]),
+        SlotSpec("tricep_compound", "Tricep Compound", ["tricep_compound"], (1, 2), None, 1, (3, 4), (8, 10), 90, preferred_exercises=["chest dip (on dip-pull-up cage)", "barbell lying close-grip press"]),
+        SlotSpec("tricep_isolation", "Tricep Isolation", ["tricep_isolation"], (3, 4), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["cable pushdown (with rope attachment)", "cable pushdown (with rope attachment)"]),
     ],
 )
 
@@ -1003,7 +1002,7 @@ _BICEPS_DAY = DayTemplate(
     description="Bicep compounds + isolation",
     slots=[
         SlotSpec("bicep_compound", "Bicep Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 90, preferred_exercises=["barbell curl", "cable curl"]),
-        SlotSpec("bicep_isolation", "Bicep Isolation", ["bicep_isolation"], (3, 4), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["dumbbell hammer curl", "dumbbell curl"]),
+        SlotSpec("bicep_isolation", "Bicep Isolation", ["bicep_isolation"], (3, 4), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["dumbbell hammer curl", "dumbbell biceps curl"]),
     ],
 )
 
@@ -1042,9 +1041,9 @@ _UPPER_BODY = DayTemplate(
     slots=[
         SlotSpec("push_compound", "Push Compound", ["push"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150, preferred_exercises=["barbell bench press", "barbell incline bench press"]),
         SlotSpec("pull_compound", "Pull Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 120, preferred_exercises=["barbell bent over row", "lever seated row"]),
-        SlotSpec("shoulder_work", "Shoulder Work", ["push"], (3, 4), None, 1, (3, 4), (10, 12), 75, muscle_groups=["shoulders"], preferred_exercises=["dumbbell seated shoulder press", "cable lateral raise"]),
-        SlotSpec("back_accessory", "Back Accessory", ["pull"], (2, 3), None, 1, (3, 4), (10, 12), 90, muscle_groups=["back"], preferred_exercises=["cable straight arm pulldown", "lever seated row"]),
-        SlotSpec("arm_isolation", "Arm Isolation", ["push", "pull"], (4, 4), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["dumbbell hammer curl", "cable pushdown"]),
+        SlotSpec("shoulder_work", "Shoulder Work", ["push"], (3, 4), None, 1, (3, 4), (10, 12), 75, muscle_groups=["shoulders"], preferred_exercises=["dumbbell seated shoulder press (parallel grip)", "cable lateral raise"]),
+        SlotSpec("back_accessory", "Back Accessory", ["pull"], (2, 3), None, 1, (3, 4), (10, 12), 90, muscle_groups=["back"], preferred_exercises=["cable straight arm pulldown (with rope)", "lever seated row"]),
+        SlotSpec("arm_isolation", "Arm Isolation", ["push", "pull"], (4, 4), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["dumbbell hammer curl", "cable pushdown (with rope attachment)"]),
     ],
 )
 
@@ -1054,9 +1053,9 @@ _LOWER_BODY = DayTemplate(
     slots=[
         SlotSpec("primary_squat", "Primary Squat", ["squat"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150, preferred_exercises=["barbell squat (on knees)", "barbell front squat"]),
         SlotSpec("hip_hinge", "Hip Hinge", ["hinge"], (1, 2), None, 1, (3, 4), (8, 10), 120, preferred_exercises=["barbell straight leg deadlift", "barbell deadlift"]),
-        SlotSpec("leg_accessory", "Leg Accessory", ["squat"], (2, 3), None, 1, (3, 4), (10, 12), 90, preferred_exercises=["sled 45° leg press", "lever leg extension"]),
-        SlotSpec("calf_work", "Calf Work", ["squat", "hinge"], (4, 4), "machine", 1, (3, 4), (12, 15), 60, muscle_groups=["calves"], preferred_exercises=["standing calf", "donkey calf"]),
-        SlotSpec("core", "Core", ["core"], (1, 3), None, 1, (3, 4), (12, 20), 60, preferred_exercises=["lever seated crunch", "cable seated crunch"]),
+        SlotSpec("leg_accessory", "Leg Accessory", ["squat"], (2, 3), None, 1, (3, 4), (10, 12), 90, preferred_exercises=["sled 45° leg press (side pov)", "lever leg extension"]),
+        SlotSpec("calf_work", "Calf Work", ["squat", "hinge"], (4, 4), "machine", 1, (3, 4), (12, 15), 60, muscle_groups=["calves"], preferred_exercises=["standing calf raise (on a staircase)", "donkey calf raise"]),
+        SlotSpec("core", "Core", ["core"], (1, 3), None, 1, (3, 4), (12, 20), 60, preferred_exercises=["lever seated crunch (chest pad)", "cable seated crunch"]),
     ],
 )
 
@@ -1065,8 +1064,8 @@ _ACTIVE_RECOVERY_DAY = DayTemplate(
     description="Light movement and accessory work",
     slots=[
         SlotSpec("light_push", "Light Push", ["push"], (2, 4), "dumbbell", 1, (2, 3), (10, 15), 60, muscle_groups=["shoulders", "triceps"], preferred_exercises=["dumbbell lateral raise", "dumbbell front raise"]),
-        SlotSpec("light_pull", "Light Pull", ["pull"], (2, 4), "dumbbell", 1, (2, 3), (10, 15), 60, muscle_groups=["biceps", "shoulders"], preferred_exercises=["dumbbell curl", "dumbbell hammer curl"]),
-        SlotSpec("core", "Core", ["core"], (2, 4), None, 1, (2, 3), (10, 15), 60, muscle_groups=["core"], preferred_exercises=["lever seated crunch", "cable seated crunch"]),
+        SlotSpec("light_pull", "Light Pull", ["pull"], (2, 4), "dumbbell", 1, (2, 3), (10, 15), 60, muscle_groups=["biceps", "shoulders"], preferred_exercises=["dumbbell biceps curl", "dumbbell hammer curl"]),
+        SlotSpec("core", "Core", ["core"], (2, 4), None, 1, (2, 3), (10, 15), 60, muscle_groups=["core"], preferred_exercises=["lever seated crunch (chest pad)", "cable seated crunch"]),
         SlotSpec("light_leg", "Light Leg", ["squat", "hinge"], (2, 4), None, 1, (2, 3), (10, 15), 60, muscle_groups=["legs", "calves"], preferred_exercises=["lever lying leg curl", "lever seated leg curl"]),
     ],
 )
@@ -1079,7 +1078,7 @@ _FULL_BODY_DAY = DayTemplate(
         SlotSpec("pull_compound", "Pull Compound", ["pull"], (1, 2), None, 1, (3, 4), (6, 10), 120, preferred_exercises=["barbell bent over row", "twin handle parallel grip lat pulldown"]),
         SlotSpec("squat_compound", "Squat / Leg", ["squat", "hinge"], (1, 2), None, 1, (3, 4), (6, 10), 120, preferred_exercises=["barbell squat (on knees)", "barbell deadlift"]),
         SlotSpec("accessory", "Accessory", ["push", "pull", "squat", "hinge"], (2, 3), None, 1, (3, 4), (10, 12), 75, preferred_exercises=["cable lateral raise", "dumbbell hammer curl"]),
-        SlotSpec("core", "Core", ["core"], (1, 2), None, 1, (3, 4), (12, 20), 60, preferred_exercises=["lever seated crunch", "cable seated crunch"]),
+        SlotSpec("core", "Core", ["core"], (1, 2), None, 1, (3, 4), (12, 20), 60, preferred_exercises=["lever seated crunch (chest pad)", "cable seated crunch"]),
     ],
 )
 
@@ -1207,9 +1206,9 @@ def _find_preferred_exercise(
             continue
         if ex not in available:
             continue
-        # Hard equipment filter: if slot specifies equipment, require exact match
+        # Hard equipment filter: if slot specifies equipment, require substring match
         if slot.equipment:
-            if (ex.equipment or "").lower() != slot.equipment.lower():
+            if slot.equipment.lower() not in (ex.equipment or "").lower():
                 continue
         # Limitation exclusions (already applied in _filter_exercises, double-check)
         if profile:
@@ -1333,15 +1332,6 @@ _MUSCLE_GROUP_TRANSITION: Dict[str, int] = {
     "lower legs": 30,
     "core": 30,       # core → anything in same area
     "waist": 30,
-}
-
-_SESSION_TARGET_EXERCISES = {
-    20: 2,
-    30: 3,
-    45: 4,
-    60: 5,
-    75: 6,
-    90: 7,
 }
 
 _WARMUP_OVERHEAD_SECONDS = 300  # 5 min for first exercise warmup sets
@@ -1686,6 +1676,29 @@ def _build_day_from_template(
     }
 
 
+def _cardio_sort_key(ex: Any) -> int:
+    """Lower is better for steady-state finisher selection."""
+    name = (ex.name or "").lower()
+    # Exclude obvious non-steady-state drills/transitions
+    for kw in ("push to", "quick feet", "backwards", "wheel run", "high knee"):
+        if kw in name:
+            return 5
+    # Best: explicit steady-state cardio names
+    for kw in ("run", "jog", "walk", "elliptical", "stair", "stepmill", "ski erg", "row", "swim", "bicycle"):
+        if kw in name:
+            return 0
+    # Good: stationary bike, cycle cross trainer
+    for kw in ("stationary bike", "cycle"):
+        if kw in name:
+            return 1
+    # De-prioritize obvious HIIT/drills/movement prep
+    for kw in ("jump", "burpee", "mountain climber", "skater", "scissor", "star jump", "astride", "plyo", "sprint", "shuffle", "skip"):
+        if kw in name:
+            return 4
+    # Neutral / generic cardio (incl. hands bike)
+    return 2
+
+
 def _build_incorporated_cardio(
     db: Session,
     profile: UserProfile,
@@ -1715,9 +1728,9 @@ def _build_incorporated_cardio(
             pool = filtered
         template = _HIIT_DAY
     elif incorporated_type == "steady_state":
-        pool = [e for e in filtered if _is_steady_state_cardio(e)]
+        pool = [e for e in filtered if (getattr(e, "category", "") or "").lower() == "cardio"]
         if not pool:
-            pool = [e for e in filtered if (getattr(e, "category", "") or "").lower() == "cardio"]
+            pool = [e for e in filtered if _is_steady_state_cardio(e)]
         if not pool:
             pool = [e for e in filtered if _classify_exercise(e, profile)["modality_fit"] in {"cardio", "hiit"}]
         template = _STEADY_STATE_DAY
@@ -1742,6 +1755,7 @@ def _build_incorporated_cardio(
         return None
 
     slot = template.slots[0]
+    pool.sort(key=_cardio_sort_key)
     pick = pool[0]
     ex = _exercise_to_dict(pick, slot.sets_range[0], slot.reps_range[0], slot.rest_seconds, 0,
                            progression_type, slot_type=slot.slot_type, profile=profile)
