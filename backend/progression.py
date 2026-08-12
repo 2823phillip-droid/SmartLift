@@ -895,6 +895,7 @@ class SlotSpec:
     rest_seconds: int = 75
     muscle_groups: Optional[List[str]] = None  # e.g., ["shoulders"] to narrow selection
     slot_type: str = "lift"       # "lift" | "cardio" | "hiit" | "warmup"
+    preferred_exercises: List[str] = field(default_factory=list)  # canonical names in preference order; empty = legacy dynamic selection
 
 
 @dataclass
@@ -931,48 +932,48 @@ _CHEST_DAY = DayTemplate(
     name="Chest Day",
     description="Flat press + incline + chest isolation + tricep work",
     slots=[
-        SlotSpec("chest_flat_1", "Chest Compound (flat)", ["push_flat"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150),
-        SlotSpec("chest_incline_1", "Chest Compound (incline)", ["push_incline"], (1, 2), "dumbbell", 1, (3, 4), (8, 10), 120),
-        SlotSpec("chest_isolation_1", "Chest Isolation", ["push_isolation"], (2, 3), None, 1, (3, 4), (10, 12), 90),
-        SlotSpec("tricep_compound_1", "Tricep Compound", ["tricep_compound"], (1, 2), None, 1, (3, 4), (8, 10), 90),
-        SlotSpec("tricep_isolation_1", "Tricep Isolation", ["tricep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60),
+        SlotSpec("chest_flat_1", "Chest Compound (flat)", ["push_flat"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150, preferred_exercises=["barbell bench press"]),
+        SlotSpec("chest_incline_1", "Chest Compound (incline)", ["push_incline"], (1, 2), "dumbbell", 1, (3, 4), (8, 10), 120, preferred_exercises=["barbell incline bench press", "dumbbell incline press on exercise ball"]),
+        SlotSpec("chest_flat_dumbbell", "Chest Compound (flat dumbbell)", ["push_flat"], (1, 2), "dumbbell", 1, (3, 4), (8, 10), 90, preferred_exercises=["dumbbell bench press", "dumbbell neutral grip bench press"]),
+        SlotSpec("chest_isolation_1", "Chest Isolation", ["push_isolation"], (2, 3), None, 1, (3, 4), (10, 12), 90, preferred_exercises=["cable low fly", "dumbbell fly", "lever seated fly"]),
+        SlotSpec("tricep_compound_1", "Tricep Compound", ["tricep_compound"], (1, 2), None, 1, (3, 4), (8, 10), 90, preferred_exercises=["chest dip", "assisted chest dip (kneeling)"]),
+        SlotSpec("tricep_isolation_1", "Tricep Isolation", ["tricep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["cable pushdown (with rope attachment)", "cable pushdown"]),
     ],
 )
 
 _BACK_DAY = DayTemplate(
     name="Back Day",
-    description="Vertical pull + horizontal pull + row + bicep work",
+    description="Deadlift + vertical pull + horizontal pull + row + bicep work",
     slots=[
-        SlotSpec("pull_vertical_1", "Vertical Pull", ["pull_vertical"], (1, 2), "cable", 1, (4, 5), (6, 8), 150),
-        SlotSpec("pull_horizontal_1", "Horizontal Pull", ["pull_horizontal"], (1, 2), None, 1, (3, 4), (8, 10), 120),
-        SlotSpec("row_variation_1", "Row Variation", ["pull_horizontal"], (2, 3), None, 1, (3, 4), (8, 12), 90),
-        SlotSpec("bicep_compound_1", "Bicep Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 90),
-        SlotSpec("bicep_isolation_1", "Bicep Isolation", ["bicep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60),
+        SlotSpec("hinge_1", "Hinge / Deadlift", ["hinge"], (1, 2), None, 1, (4, 5), (6, 8), 150, preferred_exercises=["barbell deadlift", "barbell straight leg deadlift"]),
+        SlotSpec("pull_vertical_1", "Vertical Pull", ["pull_vertical"], (1, 2), "cable", 1, (4, 5), (6, 8), 150, preferred_exercises=["twin handle parallel grip lat pulldown", "cable lat pulldown full range of motion"]),
+        SlotSpec("pull_horizontal_1", "Horizontal Pull", ["pull_horizontal"], (1, 2), None, 1, (3, 4), (8, 10), 120, preferred_exercises=["barbell bent over row", "lever seated row", "cable seated row"]),
+        SlotSpec("straight_arm_1", "Straight Arm Pulldown", ["pull_vertical"], (2, 3), None, 1, (3, 4), (10, 12), 90, preferred_exercises=["cable straight arm pulldown (with rope)", "cable straight arm pulldown"]),
+        SlotSpec("bicep_isolation_1", "Bicep Isolation", ["bicep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["dumbbell hammer curl", "dumbbell curl", "barbell curl"]),
     ],
 )
 
 _LEG_DAY = DayTemplate(
     name="Leg Day",
-    description="Squat + hinge + quad accessory + hamstring accessory + calf + core",
+    description="Squat + quad accessory + hamstring accessory + leg press + core",
     slots=[
-        SlotSpec("primary_squat_1", "Primary Squat", ["squat"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150),
-        SlotSpec("hip_hinge_1", "Hip Hinge", ["hinge"], (1, 2), None, 1, (3, 4), (8, 10), 120),
-        SlotSpec("leg_quad_1", "Quad Accessory", ["leg_quad"], (2, 3), "machine", 1, (3, 4), (10, 12), 90),
-        SlotSpec("leg_hamstring_1", "Hamstring Accessory", ["leg_hamstring"], (2, 3), "machine", 1, (3, 4), (10, 12), 90),
-        SlotSpec("calf_work_1", "Calf Work", ["leg_calf"], (2, 3), "machine", 1, (3, 4), (12, 15), 60),
-        SlotSpec("core_1", "Core", ["core"], (1, 2), None, 1, (3, 4), (12, 20), 60),
+        SlotSpec("primary_squat_1", "Primary Squat", ["squat"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150, preferred_exercises=["barbell squat (on knees)", "barbell front squat"]),
+        SlotSpec("leg_quad_1", "Quad Accessory", ["leg_quad"], (2, 3), "machine", 1, (3, 4), (10, 12), 90, preferred_exercises=["lever leg extension", "resistance band leg extension"]),
+        SlotSpec("leg_hamstring_1", "Hamstring Accessory", ["leg_hamstring"], (2, 3), "machine", 1, (3, 4), (10, 12), 90, preferred_exercises=["lever lying leg curl", "lever seated leg curl"]),
+        SlotSpec("leg_press_1", "Leg Press", ["squat"], (2, 3), "machine", 1, (3, 4), (10, 12), 90, preferred_exercises=["sled 45° leg press", "lever alternate leg press"]),
+        SlotSpec("core_1", "Core", ["core"], (1, 2), None, 1, (3, 4), (12, 20), 60, preferred_exercises=["lever seated crunch", "cable seated crunch"]),
     ],
 )
 
 _SHOULDER_DAY = DayTemplate(
     name="Shoulder Day",
-    description="Overhead press + lateral + rear delt + front delt + traps",
+    description="Overhead press + dumbbell press + front raise + lateral raise + upright row",
     slots=[
-        SlotSpec("overhead_press_1", "Overhead Press", ["push_vertical"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150),
-        SlotSpec("lateral_raise_1", "Lateral Raise", ["shoulder_lateral"], (2, 3), "dumbbell", 1, (3, 4), (10, 12), 75),
-        SlotSpec("rear_delt_1", "Rear Delt", ["shoulder_rear"], (2, 3), "dumbbell", 1, (3, 4), (10, 12), 75),
-        SlotSpec("front_delt_1", "Front Delt", ["shoulder_front"], (2, 3), "dumbbell", 1, (3, 4), (10, 12), 75),
-        SlotSpec("trap_accessory_1", "Trap / Upper Back", ["trap_upper_back"], (2, 3), None, 1, (3, 4), (10, 12), 75),
+        SlotSpec("overhead_press_1", "Overhead Press", ["push_vertical"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150, preferred_exercises=["barbell seated overhead press", "dumbbell seated shoulder press"]),
+        SlotSpec("dumbbell_shoulder_press", "Dumbbell Shoulder Press", ["push_vertical"], (1, 2), "dumbbell", 1, (3, 4), (8, 10), 90, preferred_exercises=["dumbbell seated shoulder press", "dumbbell bench seated press"]),
+        SlotSpec("front_delt_1", "Front Delt", ["shoulder_front"], (2, 3), "dumbbell", 1, (3, 4), (10, 12), 75, preferred_exercises=["dumbbell front raise", "barbell front raise"]),
+        SlotSpec("lateral_raise_1", "Lateral Raise", ["shoulder_lateral"], (2, 3), "dumbbell", 1, (3, 4), (10, 12), 75, preferred_exercises=["dumbbell lateral raise", "cable lateral raise"]),
+        SlotSpec("trap_accessory_1", "Trap / Upper Back", ["trap_upper_back"], (2, 3), None, 1, (3, 4), (10, 12), 75, preferred_exercises=["barbell upright row", "dumbbell upright row"]),
     ],
 )
 
@@ -980,11 +981,11 @@ _ARM_DAY = DayTemplate(
     name="Arm Day",
     description="Triceps + biceps + forearm work",
     slots=[
-        SlotSpec("tricep_compound_2", "Tricep Compound", ["tricep_compound"], (1, 2), None, 1, (3, 4), (8, 10), 90),
-        SlotSpec("tricep_isolation_2", "Tricep Isolation", ["tricep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60),
-        SlotSpec("bicep_compound_2", "Bicep Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 90),
-        SlotSpec("bicep_isolation_2", "Bicep Isolation", ["bicep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60),
-        SlotSpec("forearm_1", "Forearm / Grip", ["pull", "core"], (2, 3), None, 1, (3, 4), (12, 15), 60),
+        SlotSpec("tricep_compound_2", "Tricep Compound", ["tricep_compound"], (1, 2), None, 1, (3, 4), (8, 10), 90, preferred_exercises=["chest dip", "barbell lying close-grip press"]),
+        SlotSpec("tricep_isolation_2", "Tricep Isolation", ["tricep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["cable pushdown (with rope attachment)", "cable pushdown"]),
+        SlotSpec("bicep_compound_2", "Bicep Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 90, preferred_exercises=["barbell curl", "cable curl"]),
+        SlotSpec("bicep_isolation_2", "Bicep Isolation", ["bicep_isolation"], (2, 3), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["dumbbell hammer curl", "dumbbell curl"]),
+        SlotSpec("forearm_1", "Forearm / Grip", ["pull", "core"], (2, 3), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["dumbbell wrist curl", "barbell wrist curl"]),
     ],
 )
 
@@ -992,8 +993,8 @@ _TRICEPS_DAY = DayTemplate(
     name="Triceps",
     description="Tricep compounds + isolation",
     slots=[
-        SlotSpec("tricep_compound", "Tricep Compound", ["tricep_compound"], (1, 2), None, 1, (3, 4), (8, 10), 90),
-        SlotSpec("tricep_isolation", "Tricep Isolation", ["tricep_isolation"], (3, 4), None, 1, (3, 4), (12, 15), 60),
+        SlotSpec("tricep_compound", "Tricep Compound", ["tricep_compound"], (1, 2), None, 1, (3, 4), (8, 10), 90, preferred_exercises=["chest dip", "barbell lying close-grip press"]),
+        SlotSpec("tricep_isolation", "Tricep Isolation", ["tricep_isolation"], (3, 4), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["cable pushdown (with rope attachment)", "cable pushdown"]),
     ],
 )
 
@@ -1001,8 +1002,8 @@ _BICEPS_DAY = DayTemplate(
     name="Biceps",
     description="Bicep compounds + isolation",
     slots=[
-        SlotSpec("bicep_compound", "Bicep Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 90),
-        SlotSpec("bicep_isolation", "Bicep Isolation", ["bicep_isolation"], (3, 4), None, 1, (3, 4), (12, 15), 60),
+        SlotSpec("bicep_compound", "Bicep Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 90, preferred_exercises=["barbell curl", "cable curl"]),
+        SlotSpec("bicep_isolation", "Bicep Isolation", ["bicep_isolation"], (3, 4), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["dumbbell hammer curl", "dumbbell curl"]),
     ],
 )
 
@@ -1039,11 +1040,11 @@ _UPPER_BODY = DayTemplate(
     name="Upper Body",
     description="Push + pull + shoulders + arms",
     slots=[
-        SlotSpec("push_compound", "Push Compound", ["push"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150),
-        SlotSpec("pull_compound", "Pull Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 120),
-        SlotSpec("shoulder_work", "Shoulder Work", ["push"], (3, 4), None, 1, (3, 4), (10, 12), 75, muscle_groups=["shoulders"]),
-        SlotSpec("back_accessory", "Back Accessory", ["pull"], (2, 3), None, 1, (3, 4), (10, 12), 90, muscle_groups=["back"]),
-        SlotSpec("arm_isolation", "Arm Isolation", ["push", "pull"], (4, 4), None, 1, (3, 4), (12, 15), 60),
+        SlotSpec("push_compound", "Push Compound", ["push"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150, preferred_exercises=["barbell bench press", "barbell incline bench press"]),
+        SlotSpec("pull_compound", "Pull Compound", ["pull"], (1, 2), None, 1, (3, 4), (8, 10), 120, preferred_exercises=["barbell bent over row", "lever seated row"]),
+        SlotSpec("shoulder_work", "Shoulder Work", ["push"], (3, 4), None, 1, (3, 4), (10, 12), 75, muscle_groups=["shoulders"], preferred_exercises=["dumbbell seated shoulder press", "cable lateral raise"]),
+        SlotSpec("back_accessory", "Back Accessory", ["pull"], (2, 3), None, 1, (3, 4), (10, 12), 90, muscle_groups=["back"], preferred_exercises=["cable straight arm pulldown", "lever seated row"]),
+        SlotSpec("arm_isolation", "Arm Isolation", ["push", "pull"], (4, 4), None, 1, (3, 4), (12, 15), 60, preferred_exercises=["dumbbell hammer curl", "cable pushdown"]),
     ],
 )
 
@@ -1051,11 +1052,11 @@ _LOWER_BODY = DayTemplate(
     name="Lower Body",
     description="Squat + hinge + leg accessory + calf + core",
     slots=[
-        SlotSpec("primary_squat", "Primary Squat", ["squat"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150),
-        SlotSpec("hip_hinge", "Hip Hinge", ["hinge"], (1, 2), None, 1, (3, 4), (8, 10), 120),
-        SlotSpec("leg_accessory", "Leg Accessory", ["squat"], (2, 3), None, 1, (3, 4), (10, 12), 90),
-        SlotSpec("calf_work", "Calf Work", ["squat", "hinge"], (4, 4), "machine", 1, (3, 4), (12, 15), 60, muscle_groups=["calves"]),
-        SlotSpec("core", "Core", ["core"], (1, 3), None, 1, (3, 4), (12, 20), 60),
+        SlotSpec("primary_squat", "Primary Squat", ["squat"], (1, 2), "barbell", 1, (4, 5), (6, 8), 150, preferred_exercises=["barbell squat (on knees)", "barbell front squat"]),
+        SlotSpec("hip_hinge", "Hip Hinge", ["hinge"], (1, 2), None, 1, (3, 4), (8, 10), 120, preferred_exercises=["barbell straight leg deadlift", "barbell deadlift"]),
+        SlotSpec("leg_accessory", "Leg Accessory", ["squat"], (2, 3), None, 1, (3, 4), (10, 12), 90, preferred_exercises=["sled 45° leg press", "lever leg extension"]),
+        SlotSpec("calf_work", "Calf Work", ["squat", "hinge"], (4, 4), "machine", 1, (3, 4), (12, 15), 60, muscle_groups=["calves"], preferred_exercises=["standing calf", "donkey calf"]),
+        SlotSpec("core", "Core", ["core"], (1, 3), None, 1, (3, 4), (12, 20), 60, preferred_exercises=["lever seated crunch", "cable seated crunch"]),
     ],
 )
 
@@ -1063,10 +1064,10 @@ _ACTIVE_RECOVERY_DAY = DayTemplate(
     name="Active Recovery",
     description="Light movement and accessory work",
     slots=[
-        SlotSpec("light_push", "Light Push", ["push"], (2, 4), "dumbbell", 1, (2, 3), (10, 15), 60, muscle_groups=["shoulders", "triceps"]),
-        SlotSpec("light_pull", "Light Pull", ["pull"], (2, 4), "dumbbell", 1, (2, 3), (10, 15), 60, muscle_groups=["biceps", "shoulders"]),
-        SlotSpec("core", "Core", ["core"], (2, 4), None, 1, (2, 3), (10, 15), 60, muscle_groups=["core"]),
-        SlotSpec("light_leg", "Light Leg", ["squat", "hinge"], (2, 4), None, 1, (2, 3), (10, 15), 60, muscle_groups=["legs", "calves"]),
+        SlotSpec("light_push", "Light Push", ["push"], (2, 4), "dumbbell", 1, (2, 3), (10, 15), 60, muscle_groups=["shoulders", "triceps"], preferred_exercises=["dumbbell lateral raise", "dumbbell front raise"]),
+        SlotSpec("light_pull", "Light Pull", ["pull"], (2, 4), "dumbbell", 1, (2, 3), (10, 15), 60, muscle_groups=["biceps", "shoulders"], preferred_exercises=["dumbbell curl", "dumbbell hammer curl"]),
+        SlotSpec("core", "Core", ["core"], (2, 4), None, 1, (2, 3), (10, 15), 60, muscle_groups=["core"], preferred_exercises=["lever seated crunch", "cable seated crunch"]),
+        SlotSpec("light_leg", "Light Leg", ["squat", "hinge"], (2, 4), None, 1, (2, 3), (10, 15), 60, muscle_groups=["legs", "calves"], preferred_exercises=["lever lying leg curl", "lever seated leg curl"]),
     ],
 )
 
@@ -1074,11 +1075,11 @@ _FULL_BODY_DAY = DayTemplate(
     name="Full Body Day",
     description="One of each major movement pattern",
     slots=[
-        SlotSpec("push_compound", "Push Compound", ["push"], (1, 2), None, 1, (3, 4), (6, 10), 120),
-        SlotSpec("pull_compound", "Pull Compound", ["pull"], (1, 2), None, 1, (3, 4), (6, 10), 120),
-        SlotSpec("squat_compound", "Squat / Leg", ["squat", "hinge"], (1, 2), None, 1, (3, 4), (6, 10), 120),
-        SlotSpec("accessory", "Accessory", ["push", "pull", "squat", "hinge"], (2, 3), None, 1, (3, 4), (10, 12), 75),
-        SlotSpec("core", "Core", ["core"], (1, 2), None, 1, (3, 4), (12, 20), 60),
+        SlotSpec("push_compound", "Push Compound", ["push"], (1, 2), None, 1, (3, 4), (6, 10), 120, preferred_exercises=["barbell bench press", "barbell incline bench press"]),
+        SlotSpec("pull_compound", "Pull Compound", ["pull"], (1, 2), None, 1, (3, 4), (6, 10), 120, preferred_exercises=["barbell bent over row", "twin handle parallel grip lat pulldown"]),
+        SlotSpec("squat_compound", "Squat / Leg", ["squat", "hinge"], (1, 2), None, 1, (3, 4), (6, 10), 120, preferred_exercises=["barbell squat (on knees)", "barbell deadlift"]),
+        SlotSpec("accessory", "Accessory", ["push", "pull", "squat", "hinge"], (2, 3), None, 1, (3, 4), (10, 12), 75, preferred_exercises=["cable lateral raise", "dumbbell hammer curl"]),
+        SlotSpec("core", "Core", ["core"], (1, 2), None, 1, (3, 4), (12, 20), 60, preferred_exercises=["lever seated crunch", "cable seated crunch"]),
     ],
 )
 
@@ -1173,6 +1174,55 @@ _MODALITY_TEMPLATES = {
 # Slot-based exercise picker
 # ---------------------------------------------------------------------------
 
+def _build_canonical_lookup(filtered: List[Any]) -> Dict[str, Any]:
+    """Build lookup from canonical name to first matching exercise."""
+    lookup: Dict[str, Any] = {}
+    for ex in filtered:
+        canon = getattr(ex, "_canonical_name", None)
+        if canon and canon not in lookup:
+            lookup[canon] = ex
+    return lookup
+
+
+def _find_preferred_exercise(
+    db: Session,
+    lookup: Dict[str, Any],
+    slot: SlotSpec,
+    profile: Optional[UserProfile] = None,
+) -> Optional[Dict[str, Any]]:
+    """Find first matching exercise from slot's preference list."""
+    if not slot.preferred_exercises:
+        return None
+
+    # Build available set from lookup after equipment/limitation filtering
+    available = set(lookup.values())
+    if profile:
+        allowed = _EQUIPMENT_ALLOWED.get(profile.equipment)
+        if allowed is not None:
+            available = {e for e in available if (e.equipment or "").lower() in allowed}
+
+    for canonical_name in slot.preferred_exercises:
+        ex = lookup.get(canonical_name)
+        if not ex:
+            continue
+        if ex not in available:
+            continue
+        # Hard equipment filter: if slot specifies equipment, require exact match
+        if slot.equipment:
+            if (ex.equipment or "").lower() != slot.equipment.lower():
+                continue
+        # Limitation exclusions (already applied in _filter_exercises, double-check)
+        if profile:
+            excluded_names = set()
+            for lim in (profile.limitations or []):
+                for kw in _limitation_excludes.get(lim, []):
+                    excluded_names.add(kw.lower())
+            if any(kw in ex.name.lower() for kw in excluded_names):
+                continue
+        return _exercise_to_dict(ex, 0, 0, slot.rest_seconds, 0, "linear", slot_type=slot.slot_type, profile=profile)
+    return None
+
+
 def _pick_exercise_for_slot(
     db: Session,
     filtered: List[Any],
@@ -1181,31 +1231,43 @@ def _pick_exercise_for_slot(
     progression_type: str = "linear",
     profile: Optional[UserProfile] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Pick one exercise from filtered list that matches the slot spec."""
-    # Cardio/HIIT slots: pick from cardio-capable pool
+    """Pick one exercise from filtered list that matches the slot spec.
+
+    Deterministic: uses slot.preferred_exercises when set, otherwise
+    falls back to dynamic filtering with deterministic first-match selection.
+    """
+    lookup = _build_canonical_lookup(filtered)
+
+    # Cardio/HIIT slots: prefer explicit list, fallback to modality detection
     if slot.slot_type in ("cardio", "hiit"):
+        preferred = _find_preferred_exercise(db, lookup, slot, profile)
+        if preferred:
+            preferred["sets_target"] = 1
+            preferred["reps_target"] = 0
+            return preferred
+
         if slot.slot_type == "hiit":
             pool = [e for e in filtered if _is_hiit_exercise(e)]
         else:
-            # Prefer exercises explicitly tagged as cardio in the DB
             pool = [e for e in filtered if (getattr(e, "category", "") or "").lower() == "cardio"]
             if not pool:
-                # Fallback: modality-based detection
                 pool = [e for e in filtered if _classify_exercise(e, profile)["modality_fit"] in {"cardio", "hiit"}]
-        pick = rng.choice(pool) if pool else None
+        pick = pool[0] if pool else None
         if pick:
-            sets_target = 1
-            reps_target = 0
-            return _exercise_to_dict(pick, sets_target, reps_target, 0, 0, progression_type, slot_type=slot.slot_type, profile=profile)
+            return _exercise_to_dict(pick, 1, 0, slot.rest_seconds, 0, progression_type, slot_type=slot.slot_type, profile=profile)
         return None
 
+    # Deterministic preference list lookup
+    preferred = _find_preferred_exercise(db, lookup, slot, profile)
+    if preferred:
+        return preferred
+
+    # Fallback: legacy dynamic filtering (deterministic, no randomness)
     candidates = []
     for ex in filtered:
         meta = _classify_exercise(ex, profile)
-        # Check movement
         if not _movement_matches(slot.movements, meta["movement"]):
             continue
-        # Check muscle group hint (if specified) — supports aliases
         if slot.muscle_groups:
             muscle = (ex.muscle_group or "").lower()
             matched_mg = False
@@ -1216,14 +1278,11 @@ def _pick_exercise_for_slot(
                     break
             if not matched_mg:
                 continue
-        # Check tier range
         tier = meta["compound_rank"]
         if tier < slot.tier_range[0] or tier > slot.tier_range[1]:
             continue
-        # Apply universal heavy-compound exclusions
         if _is_heavy_compound_slot(slot) and not _passes_heavy_compound_filter(ex, meta, profile):
             continue
-        # Apply second-compound exclusions (barbell or dumbbell only, no machines)
         if (
             not _is_heavy_compound_slot(slot)
             and slot.tier_range == (1, 2)
@@ -1232,15 +1291,11 @@ def _pick_exercise_for_slot(
             and not _passes_second_compound_filter(ex, meta, profile)
         ):
             continue
-        # Universal misc exercise exclusions (apply to all lift slots)
         name_lower = ex.name.lower()
         if any(pattern in name_lower for pattern in _HEAVY_COMPOUND_EXCLUDE_PATTERNS):
             continue
-        # If slot has a specific equipment preference, prefer matching equipment
-        # but allow fallback to other equipment types if pool is too small
         candidates.append(ex)
 
-    # General equipment availability filter based on gym type
     if profile and candidates:
         allowed = _EQUIPMENT_ALLOWED.get(profile.equipment)
         if allowed is not None:
@@ -1249,20 +1304,15 @@ def _pick_exercise_for_slot(
     if not candidates:
         return None
 
-    # Hard equipment filter: if slot specifies equipment, prioritize exact matches
     if slot.equipment:
-        preferred = [e for e in candidates if (e.equipment or "").lower() == slot.equipment.lower()]
-        if preferred:
-            candidates = preferred
+        preferred_eq = [e for e in candidates if (e.equipment or "").lower() == slot.equipment.lower()]
+        if preferred_eq:
+            candidates = preferred_eq
 
-    # Sort by compound rank, pick top 3 for variety, then randomize
+    # Deterministic: first match instead of random
     candidates.sort(key=lambda e: _classify_exercise(e, profile)["compound_rank"])
-    top_pool = candidates[:min(5, len(candidates))]
-    pick = rng.choice(top_pool)
-
-    sets_target = rng.randint(*slot.sets_range)
-    reps_target = rng.randint(*slot.reps_range)
-    return _exercise_to_dict(pick, sets_target, reps_target, slot.rest_seconds, 0, progression_type)
+    pick = candidates[0]
+    return _exercise_to_dict(pick, 0, 0, slot.rest_seconds, 0, progression_type)
 
 
 # ---------------------------------------------------------------------------
@@ -1477,11 +1527,9 @@ def _build_day_from_template(
                                 break
                     if muscle_filtered:
                         hiit_pool = muscle_filtered
-                pick = rng.choice(hiit_pool) if hiit_pool else None
+                pick = hiit_pool[0] if hiit_pool else None
                 if pick:
-                    sets_target = rng.randint(*slot.sets_range)
-                    reps_target = rng.randint(*slot.reps_range)
-                    ex = _exercise_to_dict(pick, sets_target, reps_target, slot.rest_seconds, len(exercises), progression_type, slot_type=slot.slot_type, profile=profile)
+                    ex = _exercise_to_dict(pick, 1, 0, slot.rest_seconds, len(exercises), progression_type, slot_type=slot.slot_type, profile=profile)
                     ex["order"] = len(exercises)
                     ex["cardio_duration_minutes"] = cardio_budget // 60
                     exercises.append(ex)
@@ -1492,11 +1540,9 @@ def _build_day_from_template(
                     cardio_pool = [e for e in filtered if _classify_exercise(e, profile)["modality_fit"] in {"cardio", "hiit"}]
                 if not cardio_pool:
                     cardio_pool = filtered
-                pick = rng.choice(cardio_pool) if cardio_pool else None
+                pick = cardio_pool[0] if cardio_pool else None
                 if pick:
-                    sets_target = rng.randint(*slot.sets_range)
-                    reps_target = rng.randint(*slot.reps_range)
-                    ex = _exercise_to_dict(pick, sets_target, reps_target, slot.rest_seconds, len(exercises), progression_type, slot_type=slot.slot_type, profile=profile)
+                    ex = _exercise_to_dict(pick, 1, 0, slot.rest_seconds, len(exercises), progression_type, slot_type=slot.slot_type, profile=profile)
                     ex["order"] = len(exercises)
                     ex["cardio_duration_minutes"] = cardio_budget // 60
                     exercises.append(ex)
@@ -1507,8 +1553,8 @@ def _build_day_from_template(
         pool = [e for e in filtered if e.id not in used_ids]
 
         for _ in range(count):
-            sets_for_slot = default_sets
-            reps_for_slot = rng.randint(*slot.reps_range)
+            sets_for_slot = slot.sets_range[0]
+            reps_for_slot = slot.reps_range[0]
             original_sets_range = slot.sets_range
 
             # Try picking at default sets
@@ -1517,7 +1563,7 @@ def _build_day_from_template(
 
             # If no match at default sets, try reducing down to 2
             if not ex:
-                for reduced_sets in range(default_sets - 1, 1, -1):
+                for reduced_sets in range(sets_for_slot - 1, 1, -1):
                     slot.sets_range = (reduced_sets, reduced_sets)
                     ex = _pick_exercise_for_slot(db, pool, slot, rng, progression_type, profile)
                     if ex:
@@ -1539,8 +1585,8 @@ def _build_day_from_template(
                     ex = _pick_exercise_for_slot(db, alt_pool, slot, rng, progression_type, profile)
                     if ex:
                         canonical_name = ex.get("name") or ""
-                        sets_for_slot = default_sets
-                        for reduced_sets in range(default_sets - 1, 1, -1):
+                        sets_for_slot = slot.sets_range[0]
+                        for reduced_sets in range(sets_for_slot - 1, 1, -1):
                             slot.sets_range = (reduced_sets, reduced_sets)
                             ex2 = _pick_exercise_for_slot(db, alt_pool, slot, rng, progression_type, profile)
                             slot.sets_range = original_sets_range
@@ -1567,7 +1613,7 @@ def _build_day_from_template(
             if used_time + transition + ex_time > lift_budget and sets_for_slot > 2:
                 # Try minimum 2 sets one last time
                 slot.sets_range = (2, 2)
-                reps_for_slot = rng.randint(*slot.reps_range)
+                reps_for_slot = slot.reps_range[0]
                 ex2 = _pick_exercise_for_slot(db, pool, slot, rng, progression_type, profile)
                 slot.sets_range = original_sets_range
                 if not ex2:
@@ -1696,10 +1742,8 @@ def _build_incorporated_cardio(
         return None
 
     slot = template.slots[0]
-    pick = rng.choice(pool)
-    sets_target = rng.randint(*slot.sets_range)
-    reps_target = rng.randint(*slot.reps_range)
-    ex = _exercise_to_dict(pick, sets_target, reps_target, slot.rest_seconds, 0,
+    pick = pool[0]
+    ex = _exercise_to_dict(pick, slot.sets_range[0], slot.reps_range[0], slot.rest_seconds, 0,
                            progression_type, slot_type=slot.slot_type, profile=profile)
     ex["cardio_duration_minutes"] = cardio_budget // 60
     return ex
@@ -1767,7 +1811,7 @@ def _build_wildcard_day(
             if pool:
                 options.append((pool, template))
         if options:
-            pool, template = rng.choice(options)
+            pool, template = options[0]
             return _build_day_from_template(db, profile, template, rng, progression_type,
                                             filtered_override=pool)
         return _build_day_from_template(db, profile, _FULL_BODY_DAY, rng, progression_type,
@@ -1809,11 +1853,11 @@ def _build_hiit(
 
     for day_idx in range(days):
         count = min(target_exercises, len(hiit_pool))
-        chosen = rng.sample(hiit_pool, count) if len(hiit_pool) > count else hiit_pool
+        chosen = hiit_pool[:count]
         ex_out = []
         for idx, ex in enumerate(chosen):
-            sets = rng.randint(3, 4)
-            reps = rng.randint(8, 15)
+            sets = 3
+            reps = 8
             ex_out.append(_exercise_to_dict(ex, sets, reps, 30, idx, progression_type))
         groups.append({"name": f"HIIT Day {day_idx + 1}", "exercises": ex_out})
 
@@ -1844,11 +1888,11 @@ def _build_cardio(
 
     for day_idx in range(days):
         count = min(target_exercises, len(cardio_pool))
-        chosen = rng.sample(cardio_pool, count) if len(cardio_pool) > count else cardio_pool
+        chosen = cardio_pool[:count]
         ex_out = []
         for idx, ex in enumerate(chosen):
-            sets = rng.randint(3, 5)
-            reps = rng.randint(10, 20)
+            sets = 3
+            reps = 10
             ex_out.append(_exercise_to_dict(ex, sets, reps, 45, idx, progression_type))
         groups.append({"name": f"Cardio Day {day_idx + 1}", "exercises": ex_out})
 
