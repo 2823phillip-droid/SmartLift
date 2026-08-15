@@ -471,6 +471,7 @@ export default function CustomWorkoutBuilderScreen({
                 />
               </div>
                   </SortableItem>
+                ))}
               </div>
             </SortableContext>
           </DndContext>
