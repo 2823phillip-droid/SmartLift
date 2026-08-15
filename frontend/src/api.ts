@@ -11,6 +11,13 @@ export function setApiBase(next: string) {
   apiBase = next;
 }
 
+export function resolveMediaUrl(url: string | null | undefined): string | null {
+  if (!url) return null;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  const base = getApiBase().replace(/\/api$/, "");
+  return base + url;
+}
+
 export function getAuthToken(): string | null {
   return authToken;
 }

@@ -522,6 +522,7 @@ export default function App() {
                         start_weight: ex.start_weight || 0,
                         rest_seconds: ex.rest_seconds || 90,
                         notes: ex.notes || null,
+                        exercise_library_id: ex.exercise_library_id || null,
                       }));
                       await Promise.all(exercises.map((data: any) => api.createExercise(data)));
                       return tpl.id;

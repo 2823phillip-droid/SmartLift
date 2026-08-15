@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Union
 import json
@@ -31,6 +31,27 @@ from services.generation import build_full_draft
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 AUTH_TOKEN_PREFIX = "Bearer "
+
+
+def _normalize_gif_url(raw: Optional[str]) -> Optional[str]:
+    if not raw:
+        return None
+    if raw.startswith("http://") or raw.startswith("https://"):
+        return raw
+    if raw.startswith("/api/"):
+        return raw
+    # Convert local filesystem paths like /.../exercisedb_gifs/180/0001.gif
+    # or C:\...\exercisedb_gifs\180\0001.gif into /api/exercisedb/gifs/0001.gif
+    norm = raw.replace("\\", "/")
+    marker = "/exercisedb_gifs/"
+    idx = norm.rfind(marker)
+    if idx >= 0:
+        filename = norm[idx + len(marker):]
+        # drop angle folder if present (180/ or 360/)
+        if "/" in filename:
+            filename = filename.split("/", 1)[1]
+        return f"/api/exercisedb/gifs/{filename}"
+    return None
 
 app = FastAPI(title="Workout Logger")
 
@@ -310,6 +331,13 @@ class ExerciseLibraryOut(BaseModel):
     image_url: Optional[str] = None
     gif_url: Optional[str] = None
 
+    @field_validator("name", mode="before")
+    @classmethod
+    def _title_case_name(cls, value: Optional[str]) -> str:
+        if isinstance(value, str) and value and value == value.lower():
+            return value.title()
+        return value or ""
+
     class Config:
         from_attributes = True
 
@@ -341,6 +369,14 @@ class ExerciseEntryOut(BaseModel):
     per_set_data: Optional[str] = None
     progression_type: Optional[str] = None
     deload_override: Optional[bool] = None
+    gif_url: Optional[str] = None
+
+    @field_validator("name", mode="before")
+    @classmethod
+    def _title_case_name(cls, value: Optional[str]) -> str:
+        if isinstance(value, str) and value and value == value.lower():
+            return value.title()
+        return value or ""
 
     class Config:
         from_attributes = True
@@ -993,7 +1029,25 @@ def _template_out(tpl: WorkoutTemplate) -> WorkoutTemplateOut:
         order=tpl.order,
         default_rest_seconds=tpl.default_rest_seconds,
         coach_rules=tpl.coach_rules,
-        exercises=exercises,
+        exercises=[
+            ExerciseEntryOut(
+                id=e.id,
+                template_id=e.template_id,
+                exercise_library_id=e.exercise_library_id,
+                name=e.name,
+                sets_target=e.sets_target,
+                reps_target=e.reps_target,
+                start_weight=e.start_weight,
+                rest_seconds=e.rest_seconds,
+                order=e.order,
+                notes=e.notes,
+                per_set_data=e.per_set_data,
+                progression_type=getattr(e, "progression_type", None),
+                deload_override=getattr(e, "deload_override", None),
+                gif_url=_normalize_gif_url(getattr(getattr(e, "exercise_library", None), "gif_url", None)),
+            )
+            for e in exercises
+        ],
     )
 
 
@@ -1097,11 +1151,49 @@ def delete_exercise(exercise_id: int, db: Session = Depends(get_db), current_use
 
 @app.get("/api/exercises", response_model=List[ExerciseEntryOut])
 def list_exercises(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    return db.query(ExerciseEntry).filter(ExerciseEntry.user_id == current_user.id).all()
+    entries = db.query(ExerciseEntry).filter(ExerciseEntry.user_id == current_user.id).all()
+    return [
+        ExerciseEntryOut(
+            id=e.id,
+            template_id=e.template_id,
+            exercise_library_id=e.exercise_library_id,
+            name=e.name,
+            sets_target=e.sets_target,
+            reps_target=e.reps_target,
+            start_weight=e.start_weight,
+            rest_seconds=e.rest_seconds,
+            order=e.order,
+            notes=e.notes,
+            per_set_data=e.per_set_data,
+            progression_type=getattr(e, "progression_type", None),
+            deload_override=getattr(e, "deload_override", None),
+            gif_url=_normalize_gif_url(getattr(getattr(e, "exercise_library", None), "gif_url", None)),
+        )
+        for e in entries
+    ]
 
 @app.get("/api/templates/{template_id}/exercises", response_model=List[ExerciseEntryOut])
 def list_template_exercises(template_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    return db.query(ExerciseEntry).filter(ExerciseEntry.template_id == template_id, ExerciseEntry.user_id == current_user.id).order_by(ExerciseEntry.order).all()
+    entries = db.query(ExerciseEntry).filter(ExerciseEntry.template_id == template_id, ExerciseEntry.user_id == current_user.id).order_by(ExerciseEntry.order).all()
+    return [
+        ExerciseEntryOut(
+            id=e.id,
+            template_id=e.template_id,
+            exercise_library_id=e.exercise_library_id,
+            name=e.name,
+            sets_target=e.sets_target,
+            reps_target=e.reps_target,
+            start_weight=e.start_weight,
+            rest_seconds=e.rest_seconds,
+            order=e.order,
+            notes=e.notes,
+            per_set_data=e.per_set_data,
+            progression_type=getattr(e, "progression_type", None),
+            deload_override=getattr(e, "deload_override", None),
+            gif_url=_normalize_gif_url(getattr(getattr(e, "exercise_library", None), "gif_url", None)),
+        )
+        for e in entries
+    ]
 
 # --- Exercise Library ---
 
@@ -1110,7 +1202,19 @@ def search_exercise_library(q: str = "", db: Session = Depends(get_db), current_
     query = db.query(ExerciseLibrary)
     if q:
         query = query.filter(ExerciseLibrary.name.ilike(f"%{q}%"))
-    return query.all()
+    return [
+        ExerciseLibraryOut(
+            id=e.id,
+            name=e.name,
+            muscle_group=e.muscle_group,
+            equipment=e.equipment,
+            default_rest_seconds=e.default_rest_seconds,
+            video_url=e.video_url,
+            image_url=e.image_url,
+            gif_url=_normalize_gif_url(e.gif_url),
+        )
+        for e in query.all()
+    ]
 
 @app.post("/api/exercise-library/sync")
 def sync_exercise_library(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):

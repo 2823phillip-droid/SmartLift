@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Browser } from "@capacitor/browser";
-import { api } from "../api";
+import { api, resolveMediaUrl } from "../api";
 import { log } from "../utils/logger";
+import { toTitle } from "../utils/format";
 import type { ExerciseLibraryItem, WorkoutTemplate } from "../types";
 
 type SetRow = { weight: number; reps: number };
@@ -15,14 +16,8 @@ type DraftExercise = {
   sets: SetRow[];
   rest_seconds: number;
   progression_type?: string;
+  gif_url?: string | null;
 };
-
-const toTitle = (v: string) =>
-  v
-    .trim()
-    .split(" ")
-    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : ""))
-    .join(" ");
 
 const DRAFT_KEY = "new-routine-draft-v1";
 
@@ -117,6 +112,7 @@ export default function TemplateEditorScreen({
               libraryExerciseId: ex.exercise_library_id,
               name: ex.name ?? "",
               progression_type: ex.progression_type || "linear",
+              gif_url: ex.gif_url ?? null,
               rest_seconds: globalRestVal,
               sets: ex.per_set_data
                 ? JSON.parse(ex.per_set_data).map((s: SetRow) => ({
@@ -286,7 +282,8 @@ export default function TemplateEditorScreen({
       localId: `new-${Date.now()}-${Math.random()}`,
       id: undefined,
       libraryExerciseId: ex.id,
-      name: ex.name,
+      name: toTitle(ex.name),
+      gif_url: ex.gif_url ?? null,
       sets: [{ weight: 0, reps: 0 }],
       rest_seconds: globalRest,
     };
@@ -464,8 +461,21 @@ export default function TemplateEditorScreen({
                 className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3 space-y-3"
               >
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Exercise {idx + 1}
+                  <div className="flex items-center gap-2">
+                    {ex.gif_url ? (
+                      <img
+                        src={resolveMediaUrl(ex.gif_url)!}
+                        alt={ex.name}
+                        className="h-10 w-10 rounded-lg object-cover border border-slate-800 bg-slate-900 shrink-0"
+                        loading="lazy"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
+                      />
+                    ) : null}
+                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Exercise {idx + 1}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2">
                     <button
@@ -487,7 +497,7 @@ export default function TemplateEditorScreen({
                       className="flex items-center gap-1.5 rounded-xl border border-rose-500/30 bg-rose-950/40 px-3.5 py-2.5 text-rose-400 hover:bg-rose-900/60 active:scale-95 transition-all"
                       aria-label={`Delete ${ex.name || "exercise"}`}
                     >
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022.166m0 0a48.11 48.108 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
                       <span className="text-xs font-semibold">Delete</span>
                     </button>
                   </div>
@@ -733,14 +743,14 @@ export default function TemplateEditorScreen({
                 <div className="flex items-center gap-2" key={ex.id}>
                   <div
                     onClick={() => {
-                      const url = ex.gif_url || ex.image_url;
+                      const url = resolveMediaUrl(ex.gif_url) || resolveMediaUrl(ex.image_url);
                       if (url) openPreview(url);
                     }}
                     className="shrink-0"
                   >
                     {ex.gif_url ? (
                       <img
-                        src={ex.gif_url}
+                        src={resolveMediaUrl(ex.gif_url)!}
                         alt={ex.name}
                         className="h-12 w-12 rounded-xl object-cover border border-slate-800 bg-slate-900 shrink-0"
                         loading="lazy"
@@ -748,7 +758,7 @@ export default function TemplateEditorScreen({
                       />
                     ) : ex.image_url ? (
                       <img
-                        src={ex.image_url}
+                        src={resolveMediaUrl(ex.image_url)!}
                         alt={ex.name}
                         className="h-12 w-12 rounded-xl object-cover border border-slate-800 bg-slate-900 shrink-0"
                         loading="lazy"
@@ -761,7 +771,7 @@ export default function TemplateEditorScreen({
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-semibold truncate">{ex.name}</div>
+                    <div className="text-sm font-semibold truncate">{toTitle(ex.name)}</div>
                     <div className="text-xs text-slate-400 space-x-2">
                       {ex.muscle_group ? <span>{toTitle(ex.muscle_group)}</span> : null}
                       {ex.equipment ? <span>· {toTitle(ex.equipment)}</span> : null}

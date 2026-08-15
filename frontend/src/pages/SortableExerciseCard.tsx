@@ -2,6 +2,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { GripVertical } from "lucide-react";
 import type { ExerciseEntry, SetLog } from "../types";
 import { formatWeight, getUnitsPreference } from "../utils/units";
+import { resolveMediaUrl } from "../api";
 import type { Prescription } from "../rules";
 
 export interface SortableExerciseCardProps {
@@ -93,7 +94,18 @@ export function SortableExerciseCard({
       <div className="pl-8">
         {isDragActive ? (
           <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              {exercise.gif_url ? (
+                <img
+                  src={resolveMediaUrl(exercise.gif_url)!}
+                  alt={exercise.name}
+                  className="h-9 w-9 rounded-lg object-cover border border-slate-800 bg-slate-900 shrink-0"
+                  loading="lazy"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).style.display = "none";
+                  }}
+                />
+              ) : null}
               <div className="text-sm font-semibold text-slate-200 truncate">{exercise.name}</div>
               {isComplete && (
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-full px-2 py-0.5">
@@ -120,10 +132,23 @@ export function SortableExerciseCard({
               disabled={isResting}
               className="w-full flex items-center justify-between px-3 py-2 text-left disabled:opacity-60"
             >
-              <div className="flex-1 min-w-0">
-                <div className="text-xs font-semibold text-slate-200 truncate">{exercise.name}</div>
-                <div className="text-[11px] text-slate-500 mt-0.5">
-                  {completed}/{displayTarget} sets · {formatWeight(exercise.start_weight, getUnitsPreference())} × {exercise.reps_target} reps target
+              <div className="flex items-center gap-2.5 min-w-0">
+                {exercise.gif_url ? (
+                  <img
+                    src={resolveMediaUrl(exercise.gif_url)!}
+                    alt={exercise.name}
+                    className="h-9 w-9 rounded-lg object-cover border border-slate-800 bg-slate-900 shrink-0"
+                    loading="lazy"
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).style.display = "none";
+                    }}
+                  />
+                ) : null}
+                <div className="flex-1 min-w-0">
+                  <div className="text-xs font-semibold text-slate-200 truncate">{exercise.name}</div>
+                  <div className="text-[11px] text-slate-500 mt-0.5">
+                    {completed}/{displayTarget} sets · {formatWeight(exercise.start_weight, getUnitsPreference())} × {exercise.reps_target} reps target
+                  </div>
                 </div>
               </div>
               <div className="flex items-center gap-1.5 ml-2">

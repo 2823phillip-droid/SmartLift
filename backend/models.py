@@ -123,6 +123,8 @@ class ExerciseEntry(Base):
     order = Column(Integer, default=0)
     notes = Column(Text)
     per_set_data = Column(String, nullable=True)  # JSON: [{weight, reps, effort}, ...]
+    progression_type = Column(String, nullable=True)
+    deload_override = Column(Integer, nullable=True, default=0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     user = relationship("User", back_populates="exercise_entries")
