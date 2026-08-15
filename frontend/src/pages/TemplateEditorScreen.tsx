@@ -716,6 +716,7 @@ export default function TemplateEditorScreen({
                   </button>
                 </div>
                     </SortableItem>
+                ))}
                 </div>
               </SortableContext>
             </DndContext>
