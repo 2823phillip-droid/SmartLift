@@ -3,6 +3,22 @@ import { api } from "../api";
 import { log } from "../utils/logger";
 import { toTitle } from "../utils/format";
 import type { ExerciseLibraryItem } from "../types";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { GripVertical } from "lucide-react";
 
 type SplitStyle = "full_body" | "upper_lower_split" | "push_pull_legs" | "body_part_split";
 
@@ -294,6 +310,27 @@ export default function CustomWorkoutBuilderScreen({
     );
   }
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setDays((prev) => {
+      const dayIndex = prev.findIndex((d) => d.exercises.some((e) => e.localId === active.id));
+      if (dayIndex < 0) return prev;
+      const next = [...prev];
+      const day = { ...next[dayIndex], exercises: [...next[dayIndex].exercises] };
+      const activeIndex = day.exercises.findIndex((e) => e.localId === active.id);
+      const overIndex = day.exercises.findIndex((e) => e.localId === over.id);
+      day.exercises = arrayMove(day.exercises, activeIndex, overIndex);
+      next[dayIndex] = day;
+      return next;
+    });
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -345,9 +382,32 @@ export default function CustomWorkoutBuilderScreen({
 
         {/* Exercises for this day */}
         <div className="space-y-2">
-          {activeDay.exercises.map((ex, idx) => (
-            <div key={ex.localId} className="rounded-xl border border-slate-800 bg-slate-950/60 p-3 space-y-2">
-              <div className="flex items-center justify-between">
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={activeDay.exercises.map((ex) => ex.localId)} strategy={verticalListSortingStrategy}>
+              <div className="space-y-3">
+                {activeDay.exercises.map((ex, idx) => {
+                  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: ex.localId });
+                  const style = {
+                    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+                    transition,
+                    opacity: isDragging ? 1 : undefined,
+                    zIndex: isDragging ? 50 : undefined,
+                  };
+                  return (
+                  <div
+                    ref={setNodeRef}
+                    style={style}
+                    key={ex.localId}
+                    className="relative rounded-xl border border-slate-800 bg-slate-950/60 p-3 pl-8 space-y-2"
+                  >
+                    <div
+                      {...attributes}
+                      {...listeners}
+                      className="absolute left-2 top-2 z-10 flex items-center justify-center rounded-lg bg-slate-900/80 border border-slate-800 px-1.5 py-1 text-slate-600 active:cursor-grabbing"
+                    >
+                      <GripVertical className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="flex items-center justify-between">
                 <div className="text-sm font-medium text-slate-200">{ex.name}</div>
                 <div className="flex gap-1">
                   <button
@@ -410,7 +470,11 @@ export default function CustomWorkoutBuilderScreen({
                 />
               </div>
             </div>
-          ))}
+                  );
+                })}
+              </div>
+            </SortableContext>
+          </DndContext>
 
           {activeDay.exercises.length === 0 && (
             <div className="text-xs text-slate-600 py-4 text-center">No exercises yet. Search and add from the library below.</div>

@@ -5,6 +5,22 @@ import { api, resolveMediaUrl } from "../api";
 import { log } from "../utils/logger";
 import { toTitle } from "../utils/format";
 import type { ExerciseLibraryItem, WorkoutTemplate } from "../types";
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+  arrayMove,
+} from "@dnd-kit/sortable";
+import { GripVertical } from "lucide-react";
 
 type SetRow = { weight: number; reps: number };
 
@@ -405,6 +421,21 @@ export default function TemplateEditorScreen({
     removeExercise(idx);
   };
 
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    setExercises((prev) => {
+      const activeIndex = prev.findIndex((e) => e.localId === active.id);
+      const overIndex = prev.findIndex((e) => e.localId === over.id);
+      return arrayMove(prev, activeIndex, overIndex);
+    });
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -455,12 +486,32 @@ export default function TemplateEditorScreen({
               ))}
             </div>
 
-            {exercises.map((ex, idx) => (
-              <div
-                key={ex.localId}
-                className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3 space-y-3"
-              >
-                <div className="flex items-center justify-between gap-2">
+            <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+              <SortableContext items={exercises.map((ex) => ex.localId)} strategy={verticalListSortingStrategy}>
+                <div className="space-y-3">
+                  {exercises.map((ex, idx) => {
+                    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: ex.localId });
+                    const style = {
+                      transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+                      transition,
+                      opacity: isDragging ? 1 : undefined,
+                      zIndex: isDragging ? 50 : undefined,
+                    };
+                    return (
+                    <div
+                      ref={setNodeRef}
+                      style={style}
+                      key={ex.localId}
+                      className="relative rounded-2xl border border-slate-800 bg-slate-900/50 p-3 pl-8 space-y-3"
+                    >
+                      <div
+                        {...attributes}
+                        {...listeners}
+                        className="absolute left-2 top-2 z-10 flex items-center justify-center rounded-lg bg-slate-900/80 border border-slate-800 px-1.5 py-1 text-slate-600 active:cursor-grabbing"
+                      >
+                        <GripVertical className="w-3.5 h-3.5" />
+                      </div>
+                      <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     {ex.gif_url ? (
                       <img
@@ -664,7 +715,11 @@ export default function TemplateEditorScreen({
                   </button>
                 </div>
               </div>
-            ))}
+                    );
+                  })}
+                </div>
+              </SortableContext>
+            </DndContext>
             {exercises.length === 0 && (
               <div className="text-xs text-slate-600 text-center py-2">
                 Add exercises from the library below.
