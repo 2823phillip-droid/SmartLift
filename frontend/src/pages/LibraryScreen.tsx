@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
 import { Capacitor } from "@capacitor/core";
 import { Browser } from "@capacitor/browser";
-import { api } from "../api";
+import { api, resolveMediaUrl } from "../api";
 import type { WorkoutLibrary } from "../types";
 import { formatWeight, getUnitsPreference } from "../utils/units";
+import { toTitle } from "../utils/format";
 
 const DIFFICULTY_COLORS: Record<string, string> = {
   beginner: "text-emerald-400 bg-emerald-950/40 border-emerald-800",
@@ -111,15 +112,15 @@ export default function LibraryScreen({ onBack, onImported }: { onBack: () => vo
                 <div key={idx} className="rounded-2xl border border-slate-800 bg-slate-900/40 px-4 py-3 flex items-center gap-3">
                   <div
                     onClick={() => {
-                      const url = ex.gif_url || ex.image_url;
+                      const url = resolveMediaUrl(ex.gif_url) || resolveMediaUrl(ex.image_url);
                       if (url) openPreview(url);
                     }}
                     className="shrink-0"
                   >
                     {ex.gif_url ? (
-                      <img src={ex.gif_url} alt={ex.name} className="h-12 w-12 rounded-xl object-cover border border-slate-800 bg-slate-900 shrink-0" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      <img src={resolveMediaUrl(ex.gif_url)!} alt={ex.name} className="h-12 w-12 rounded-xl object-cover border border-slate-800 bg-slate-900 shrink-0" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     ) : ex.image_url ? (
-                      <img src={ex.image_url} alt={ex.name} className="h-12 w-12 rounded-xl object-cover border border-slate-800 bg-slate-900 shrink-0" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                      <img src={resolveMediaUrl(ex.image_url)!} alt={ex.name} className="h-12 w-12 rounded-xl object-cover border border-slate-800 bg-slate-900 shrink-0" loading="lazy" onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
                     ) : (
                       <div className="h-12 w-12 rounded-xl border border-slate-800 bg-slate-900 shrink-0 flex items-center justify-center text-xs font-semibold text-slate-300">
                         {ex.name.trim()[0] ? ex.name.trim()[0].toUpperCase() : "?"}
@@ -128,7 +129,7 @@ export default function LibraryScreen({ onBack, onImported }: { onBack: () => vo
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center justify-between">
-                      <div className="text-sm font-semibold truncate">{ex.name}</div>
+                      <div className="text-sm font-semibold truncate">{toTitle(ex.name)}</div>
                       <span className="text-[10px] font-semibold text-slate-500">{ex.order + 1}</span>
                     </div>
                     <div className="text-xs text-slate-400 space-x-2">

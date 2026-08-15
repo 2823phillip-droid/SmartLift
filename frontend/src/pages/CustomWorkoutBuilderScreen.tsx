@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { api } from "../api";
 import { log } from "../utils/logger";
+import { toTitle } from "../utils/format";
 import type { ExerciseLibraryItem } from "../types";
 
 type SplitStyle = "full_body" | "upper_lower_split" | "push_pull_legs" | "body_part_split";
@@ -158,7 +159,7 @@ export default function CustomWorkoutBuilderScreen({
       day.exercises.push({
         localId: uid(),
         libraryExerciseId: ex.id,
-        name: ex.name,
+        name: toTitle(ex.name),
         sets: [{ weight: 0, reps: 10 }],
         rest_seconds: 90,
         muscle_group: ex.muscle_group,
@@ -458,7 +459,7 @@ export default function CustomWorkoutBuilderScreen({
                       : "border-slate-800 bg-slate-950/60 hover:border-indigo-500/40 text-slate-300 hover:text-slate-100"
                   }`}
                 >
-                  <div className="font-medium">{ex.name}</div>
+                  <div className="font-medium">{toTitle(ex.name)}</div>
                   <div className="text-xs text-slate-500 mt-0.5">
                     {ex.muscle_group} · {ex.equipment || "any"}
                   </div>
