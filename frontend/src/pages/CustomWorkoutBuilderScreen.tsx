@@ -470,7 +470,6 @@ export default function CustomWorkoutBuilderScreen({
                   placeholder="Rest"
                 />
               </div>
-            </div>
                   </SortableItem>
               </div>
             </SortableContext>
