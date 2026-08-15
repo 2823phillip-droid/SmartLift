@@ -17,6 +17,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   arrayMove,
+  useSortable,
 } from "@dnd-kit/sortable";
 import { GripVertical } from "lucide-react";
 
@@ -50,6 +51,21 @@ const SPLIT_OPTIONS: { value: SplitStyle; label: string; description: string }[]
 
 function uid(): string {
   return Math.random().toString(36).slice(2, 9);
+}
+
+function SortableItem({ id, children, className }: { id: string; children: React.ReactNode; className?: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transition,
+    opacity: isDragging ? 1 : undefined,
+    zIndex: isDragging ? 50 : undefined,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className={className || ""} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
 }
 
 export default function CustomWorkoutBuilderScreen({
@@ -385,24 +401,9 @@ export default function CustomWorkoutBuilderScreen({
           <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
             <SortableContext items={activeDay.exercises.map((ex) => ex.localId)} strategy={verticalListSortingStrategy}>
               <div className="space-y-3">
-                {activeDay.exercises.map((ex, idx) => {
-                  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: ex.localId });
-                  const style = {
-                    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-                    transition,
-                    opacity: isDragging ? 1 : undefined,
-                    zIndex: isDragging ? 50 : undefined,
-                  };
-                  return (
-                  <div
-                    ref={setNodeRef}
-                    style={style}
-                    key={ex.localId}
-                    className="relative rounded-xl border border-slate-800 bg-slate-950/60 p-3 pl-8 space-y-2"
-                  >
+                {activeDay.exercises.map((ex, idx) => (
+                  <SortableItem key={ex.localId} id={ex.localId} className="relative rounded-xl border border-slate-800 bg-slate-950/60 p-3 pl-8 space-y-2">
                     <div
-                      {...attributes}
-                      {...listeners}
                       className="absolute left-2 top-2 z-10 flex items-center justify-center rounded-lg bg-slate-900/80 border border-slate-800 px-1.5 py-1 text-slate-600 active:cursor-grabbing"
                     >
                       <GripVertical className="w-3.5 h-3.5" />
@@ -470,8 +471,7 @@ export default function CustomWorkoutBuilderScreen({
                 />
               </div>
             </div>
-                  );
-                })}
+                  </SortableItem>
               </div>
             </SortableContext>
           </DndContext>

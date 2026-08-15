@@ -19,6 +19,7 @@ import {
   sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   arrayMove,
+  useSortable,
 } from "@dnd-kit/sortable";
 import { GripVertical } from "lucide-react";
 
@@ -36,6 +37,21 @@ type DraftExercise = {
 };
 
 const DRAFT_KEY = "new-routine-draft-v1";
+
+function SortableItem({ id, children, className }: { id: string; children: React.ReactNode; className?: string }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id });
+  const style = {
+    transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
+    transition,
+    opacity: isDragging ? 1 : undefined,
+    zIndex: isDragging ? 50 : undefined,
+  };
+  return (
+    <div ref={setNodeRef} style={style} className={className || ""} {...attributes} {...listeners}>
+      {children}
+    </div>
+  );
+}
 
 export default function TemplateEditorScreen({
   contextId,
@@ -489,24 +505,9 @@ export default function TemplateEditorScreen({
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={exercises.map((ex) => ex.localId)} strategy={verticalListSortingStrategy}>
                 <div className="space-y-3">
-                  {exercises.map((ex, idx) => {
-                    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: ex.localId });
-                    const style = {
-                      transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
-                      transition,
-                      opacity: isDragging ? 1 : undefined,
-                      zIndex: isDragging ? 50 : undefined,
-                    };
-                    return (
-                    <div
-                      ref={setNodeRef}
-                      style={style}
-                      key={ex.localId}
-                      className="relative rounded-2xl border border-slate-800 bg-slate-900/50 p-3 pl-8 space-y-3"
-                    >
+                  {exercises.map((ex, idx) => (
+                    <SortableItem key={ex.localId} id={ex.localId} className="relative rounded-2xl border border-slate-800 bg-slate-900/50 p-3 pl-8 space-y-3">
                       <div
-                        {...attributes}
-                        {...listeners}
                         className="absolute left-2 top-2 z-10 flex items-center justify-center rounded-lg bg-slate-900/80 border border-slate-800 px-1.5 py-1 text-slate-600 active:cursor-grabbing"
                       >
                         <GripVertical className="w-3.5 h-3.5" />
@@ -715,8 +716,7 @@ export default function TemplateEditorScreen({
                   </button>
                 </div>
               </div>
-                    );
-                  })}
+                    </SortableItem>
                 </div>
               </SortableContext>
             </DndContext>
