@@ -715,7 +715,6 @@ export default function TemplateEditorScreen({
                     Add Set
                   </button>
                 </div>
-              </div>
                     </SortableItem>
                 </div>
               </SortableContext>
