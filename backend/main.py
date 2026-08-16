@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
+from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, ConfigDict, field_validator
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Union, cast
@@ -1079,19 +1080,25 @@ def _next_unique_template_name(db: Session, user_id: int, context_id: int, name:
 @app.post("/api/templates", response_model=WorkoutTemplateOut)
 def create_template(payload: WorkoutTemplateCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     name = _next_unique_template_name(db, cast(int, current_user.id), payload.context_id, payload.name)
-    tpl = WorkoutTemplate(
-        context_id=payload.context_id,
-        name=name,
-        type=payload.type,
-        order=payload.order,
-        default_rest_seconds=payload.default_rest_seconds,
-        coach_rules=payload.coach_rules,
-        user_id=current_user.id,
-    )
-    db.add(tpl)
-    db.commit()
-    db.refresh(tpl)
-    return _template_out(tpl)
+    for _ in range(20):
+        try:
+            tpl = WorkoutTemplate(
+                context_id=payload.context_id,
+                name=name,
+                type=payload.type,
+                order=payload.order,
+                default_rest_seconds=payload.default_rest_seconds,
+                coach_rules=payload.coach_rules,
+                user_id=current_user.id,
+            )
+            db.add(tpl)
+            db.commit()
+            db.refresh(tpl)
+            return _template_out(tpl)
+        except IntegrityError:
+            db.rollback()
+            name = _next_unique_template_name(db, cast(int, current_user.id), payload.context_id, payload.name)
+    raise HTTPException(status_code=409, detail="Could not create unique template name")
 
 @app.get("/api/templates/{template_id}", response_model=WorkoutTemplateOut)
 def get_template(template_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):

@@ -83,6 +83,7 @@ class WorkoutTemplate(Base):
     context = relationship("Context", back_populates="templates")
     exercises = relationship("ExerciseEntry", back_populates="template", cascade="all, delete-orphan", order_by="ExerciseEntry.order")
     sessions = relationship("WorkoutSession", back_populates="template", cascade="all, delete-orphan")
+    __table_args__ = (UniqueConstraint("user_id", "context_id", "name", name="uq_user_context_template_name"),)
 
 class ExerciseLibrary(Base):
     __tablename__ = "exercise_library"
