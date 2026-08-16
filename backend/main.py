@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func
 from pydantic import BaseModel, ConfigDict, field_validator
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List, Union
+from typing import Optional, List, Union, cast
 import json
 import os
 import logging
@@ -1053,11 +1053,35 @@ def _template_out(tpl: WorkoutTemplate) -> WorkoutTemplateOut:
 
 # --- Templates ---
 
+def _next_unique_template_name(db: Session, user_id: int, context_id: int, name: str) -> str:
+    existing = (
+        db.query(WorkoutTemplate)
+        .filter(
+            WorkoutTemplate.user_id == user_id,
+            WorkoutTemplate.context_id == context_id,
+        )
+        .all()
+    )
+    base = name
+    max_suffix = -1
+    for t in existing:
+        if str(t.name) == base:
+            max_suffix = max(max_suffix, 0)
+        elif str(t.name).startswith(base + " "):
+            suffix_part = str(t.name)[len(base) + 1 :]
+            if suffix_part.isdigit():
+                max_suffix = max(max_suffix, int(suffix_part))
+    if max_suffix < 0:
+        return base
+    return f"{base} {max_suffix + 1}"
+
+
 @app.post("/api/templates", response_model=WorkoutTemplateOut)
 def create_template(payload: WorkoutTemplateCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    name = _next_unique_template_name(db, cast(int, current_user.id), payload.context_id, payload.name)
     tpl = WorkoutTemplate(
         context_id=payload.context_id,
-        name=payload.name,
+        name=name,
         type=payload.type,
         order=payload.order,
         default_rest_seconds=payload.default_rest_seconds,
