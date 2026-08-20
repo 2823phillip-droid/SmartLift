@@ -36,6 +36,9 @@ export interface SortableExerciseCardProps {
   onNotesChange: (val: string) => void;
   canLog: boolean;
   onLogSet: () => Promise<boolean>;
+  isLogging: boolean;
+  onEditSet: (log: SetLog, field: "actual_weight" | "actual_reps" | "effort", value: number | string) => void;
+  onDeleteSet: (log: SetLog) => void;
   suggestion?: Prescription;
   isTrainer: boolean;
 }
@@ -71,6 +74,9 @@ export function SortableExerciseCard({
   onNotesChange,
   canLog,
   onLogSet,
+  isLogging,
+  onEditSet,
+  onDeleteSet,
   suggestion,
   isTrainer,
 }: SortableExerciseCardProps) {
@@ -198,13 +204,36 @@ export function SortableExerciseCard({
 
             {isExpanded && (
               <div className="px-3 pb-3 space-y-2">
+                {exercise.notes && (
+                  <div className="text-[10px] text-amber-400/80 bg-amber-950/30 border border-amber-800/50 rounded-lg px-2 py-1.5">
+                    {exercise.notes}
+                  </div>
+                )}
                 {exerciseLogs.length > 0 && (
                   <div className="space-y-1.5">
                     <div className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Completed Sets</div>
                     {exerciseLogs.map((log) => (
                       <div key={log.id} className="flex items-center justify-between rounded-xl bg-slate-950/50 border border-slate-800 px-2.5 py-1.5">
                         <span className="text-xs text-slate-500 font-semibold">Set {log.set_index}</span>
-                        <span className="text-xs text-slate-300 font-semibold">{formatWeight(log.actual_weight ?? 0, getUnitsPreference())} × {log.actual_reps} reps</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs text-slate-300 font-semibold">{formatWeight(log.actual_weight ?? 0, getUnitsPreference())} × {log.actual_reps} reps</span>
+                          <div className="flex items-center gap-1">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onEditSet(log, "actual_weight", log.actual_weight ?? 0); }}
+                              className="text-[10px] text-slate-500 hover:text-indigo-400 transition-colors px-1"
+                              title="Edit weight"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onDeleteSet(log); }}
+                              className="text-[10px] text-slate-500 hover:text-rose-400 transition-colors px-1"
+                              title="Delete set"
+                            >
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -333,10 +362,10 @@ export function SortableExerciseCard({
                       onClick={async () => {
                         await onLogSet();
                       }}
-                      disabled={!canLog}
+                      disabled={!canLog || isLogging}
                       className="w-full rounded-2xl bg-emerald-600 px-4 py-3.5 text-base font-semibold hover:bg-emerald-500 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/30 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
                     >
-                      Complete Set
+                      {isLogging ? "Logging..." : "Complete Set"}
                     </button>
                   </>
                 )}

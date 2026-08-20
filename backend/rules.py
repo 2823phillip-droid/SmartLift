@@ -68,7 +68,7 @@ class RuleInput:
     history: List[SetRecord] = field(default_factory=list)
 
     # Linear/double defaults
-    linear_increment: float = 2.5
+    linear_increment: float = 5.0
     double_increment: float = 5.0
     double_success_threshold: int = 2
 
@@ -203,14 +203,25 @@ def _linear_rule(rule: RuleInput, top_set) -> Prescription:
     weight = float(top_set.actual_weight)
     reps = int(top_set.actual_reps)
     effort = int(top_set.effort) if top_set.effort is not None else 3
+    rir_val = int(top_set.rir) if top_set.rir is not None else None
 
     if reps >= rule.reps_target and effort <= rule.easy_effort_threshold:
         msg = f"Strong top set ({reps} reps, effort {effort}). Adding {increment} lbs next session."
         next_weight = weight + increment
         next_reps = rule.reps_target
         status = WorkloadStatus.easy
-    elif reps >= rule.reps_target:
+    elif reps >= rule.reps_target and effort <= 3 and (rir_val is None or rir_val >= 1):
         msg = f"Hit top reps with solid effort ({effort}). Small bump of {increment} lbs."
+        next_weight = weight + increment
+        next_reps = rule.reps_target
+        status = WorkloadStatus.moderate
+    elif reps >= rule.reps_target and effort >= rule.hard_effort_threshold and (rir_val is None or rir_val <= 1):
+        msg = f"Hit top reps but tough set (effort {effort}, RIR ~{rir_val}). Keeping weight to build consistency."
+        next_weight = weight
+        next_reps = rule.reps_target
+        status = WorkloadStatus.hard
+    elif reps >= rule.reps_target:
+        msg = f"Hit top reps with moderate effort ({effort}). Small bump of {increment} lbs."
         next_weight = weight + increment
         next_reps = rule.reps_target
         status = WorkloadStatus.moderate
