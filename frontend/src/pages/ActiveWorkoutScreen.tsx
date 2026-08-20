@@ -63,6 +63,7 @@ export default function ActiveWorkoutScreen({
   const [lastSessionByExercise, setLastSessionByExercise] = useState<Record<number, {set_index: number; actual_weight: number; actual_reps: number}[]>>({});
   const [originalExercises, setOriginalExercises] = useState<ExerciseEntry[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
+  const [isLogging, setIsLogging] = useState(false);
   const [coachPhase, setCoachPhase] = useState<CoachPhase>("linear");
   const [coachWeek, setCoachWeek] = useState<number>(1);
   const [, setCoachLoaded] = useState(false);
@@ -457,9 +458,8 @@ export default function ActiveWorkoutScreen({
         return;
       }
     }
-    const history = lastSetByExercise[exercise.id];
-    setDraftWeight(history ? String(history.weight) : "0");
-    setDraftReps(history ? String(history.reps) : "0");
+    setDraftWeight(String(exercise.start_weight));
+    setDraftReps(String(exercise.reps_target));
     setDraftEffort(3);
     setNotes("");
     setShowNotes(false);
@@ -493,9 +493,26 @@ export default function ActiveWorkoutScreen({
     }
   };
 
+  const handleEditSet = async (log: SetLog, field: "actual_weight" | "actual_reps" | "effort", value: number | string) => {
+    const numValue = typeof value === "string" ? parseFloat(value) : value;
+    if (field === "actual_weight" && (Number.isNaN(numValue) || numValue < 0)) return;
+    if (field === "actual_reps" && (Number.isNaN(numValue) || numValue < 1)) return;
+    if (field === "effort" && (Number.isNaN(numValue) || numValue < 1 || numValue > 5)) return;
+    await api.updateSetLog(sessionId, log.id, { [field]: numValue });
+    setLogs((prev) => prev.map((l) => (l.id === log.id ? { ...l, [field]: numValue } : l)));
+  };
+
+  const handleDeleteSet = async (log: SetLog) => {
+    if (!confirm(`Delete Set ${log.set_index} (${formatWeight(log.actual_weight ?? 0, getUnitsPreference())} × ${log.actual_reps} reps)?`)) return;
+    await api.deleteSetLog(sessionId, log.id);
+    setLogs((prev) => prev.filter((l) => l.id !== log.id));
+  };
+
   const logSet = async (): Promise<boolean> => {
+    if (isLogging) return false;
     const currentExercise = getCurrentExercise();
     if (!currentExercise || !draftWeight || !draftReps) return false;
+    setIsLogging(true);
     const w = parseFloat(draftWeight);
     const r = parseInt(draftReps, 10);
     const suggestions = parseSetSuggestions(currentExercise);
@@ -531,6 +548,7 @@ export default function ActiveWorkoutScreen({
       });
     } catch (err) {
       console.error("Failed to log set", err);
+      setIsLogging(false);
       return false;
     }
 
@@ -540,10 +558,10 @@ export default function ActiveWorkoutScreen({
       setAddSetExerciseId(null);
       setNotes("");
       setShowNotes(false);
-      const history = lastSetByExercise[currentExercise.id];
-      setDraftWeight(history ? String(history.weight) : "0");
-      setDraftReps(history ? String(history.reps) : "0");
+      setDraftWeight(String(w));
+      setDraftReps(String(r));
       if (rest > 0) startRest(rest);
+      setIsLogging(false);
       return false;
     }
 
@@ -554,6 +572,7 @@ export default function ActiveWorkoutScreen({
 
     if (workoutIsDone) {
       await endWorkout(1);
+      setIsLogging(false);
       return true;
     }
 
@@ -565,19 +584,20 @@ export default function ActiveWorkoutScreen({
         expandExercise(next);
         if (rest > 0) startRest(rest);
       }
+      setIsLogging(false);
       return true;
     }
 
     setNotes("");
     setShowNotes(false);
     if (!exerciseIsDone && !workoutIsDone) {
-      const history = lastSetByExercise[currentExercise.id];
-      setDraftWeight(history ? String(history.weight) : "0");
-      setDraftReps(history ? String(history.reps) : "0");
+      setDraftWeight(String(w));
+      setDraftReps(String(r));
     }
     if (rest > 0) {
       startRest(rest);
     }
+    setIsLogging(false);
     return false;
   };
 
@@ -884,6 +904,9 @@ export default function ActiveWorkoutScreen({
                   onNotesChange={setNotes}
                   canLog={canLog}
                   onLogSet={() => logSet()}
+                  isLogging={isLogging}
+                  onEditSet={handleEditSet}
+                  onDeleteSet={handleDeleteSet}
                   suggestion={prescriptions[exercise.id]}
                   isTrainer={isTrainer}
                 />

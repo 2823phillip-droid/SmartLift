@@ -1684,7 +1684,7 @@ class RuleRequestIn(BaseModel):
     rest_seconds: int = 90
     progression_type: ProgressionType = ProgressionType.linear
     history: List[RuleRequestSetIn] = []
-    linear_increment: float = 2.5
+    linear_increment: float = 5.0
     double_increment: float = 5.0
     double_success_threshold: int = 2
     estimated_1rm: Optional[float] = None
@@ -1789,7 +1789,6 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         if not state:
             state = AlgorithmState(user_id=current_user.id, exercise_entry_id=payload.exercise_entry_id)
             db.add(state)
-        state.current_week = coach_state.week_in_block
         state.last_suggested_weight = result.next_weight
         state.last_suggested_reps = result.next_reps
         if history:

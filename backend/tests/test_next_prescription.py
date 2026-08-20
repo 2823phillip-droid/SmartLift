@@ -204,8 +204,8 @@ def test_creates_algorithm_state(client, test_session, user, exercise_entry):
         .first()
     )
     assert state is not None, "AlgorithmState row was not created"
-    # compute_coach_state advances week_in_block by 1 when still inside the block
-    assert state.current_week == 2
+    # compute_coach_state no longer advances week on prescription; current_week stays at input/default
+    assert state.current_week == 1
     assert state.last_suggested_weight == 100.0
     assert state.last_suggested_reps == 10
     assert state.progression_type == "linear"
@@ -255,10 +255,10 @@ def test_updates_existing_algorithm_state(client, test_session, user, exercise_e
     )
     assert len(states) == 1, "Expected exactly one AlgorithmState row"
     state = states[0]
-    # week_in_block advances by 1 each call while still inside the block
-    assert state.current_week == 3
-    # linear rule: 100 lbs + 2.5 lbs increment = 102.5
-    assert state.last_suggested_weight == 102.5
+    # week_in_block no longer auto-advances on prescription; current_week stays at default
+    assert state.current_week == 1
+    # linear rule: 100 lbs + 5.0 lbs increment = 105.0
+    assert state.last_suggested_weight == 105.0
     assert state.last_suggested_reps == 10
     assert state.progression_type == "linear"
 
