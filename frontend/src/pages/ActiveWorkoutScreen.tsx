@@ -59,7 +59,6 @@ export default function ActiveWorkoutScreen({
   const [showNotes, setShowNotes] = useState(false);
   const [addSetExerciseId, setAddSetExerciseId] = useState<number | null>(null);
   const [displaySetsTarget, setDisplaySetsTarget] = useState<Record<number, number>>({});
-  const [lastSetByExercise, setLastSetByExercise] = useState<Record<number, {weight: number; reps: number} | null>>({});
   const [lastSessionByExercise, setLastSessionByExercise] = useState<Record<number, {set_index: number; actual_weight: number; actual_reps: number}[]>>({});
   const [originalExercises, setOriginalExercises] = useState<ExerciseEntry[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
@@ -258,28 +257,7 @@ export default function ActiveWorkoutScreen({
           else if (exercisesData.length) setExpandedExerciseId(exercisesData[0].id);
         }
 
-        // fetch last logged weight/reps per exercise name across history
         const uniqueNames = Array.from(new Set(exercisesData.map((e: ExerciseEntry) => e.name))) as string[];
-        const historyResults = await Promise.allSettled(
-          uniqueNames.map((name: string) => api.getExerciseNameProgress(name))
-        );
-        const resolved: Record<number, {weight: number; reps: number} | null> = {};
-        for (const exercise of exercisesData) {
-          const idx = uniqueNames.indexOf(exercise.name);
-          const result = idx >= 0 ? historyResults[idx] : undefined;
-          if (result && result.status === "fulfilled") {
-            const data = result.value as any;
-            if (!data.seeded && data.points && data.points.length > 0) {
-              const last = data.points[data.points.length - 1];
-              resolved[exercise.id] = { weight: last.weight, reps: last.reps };
-            } else {
-              resolved[exercise.id] = null;
-            }
-          } else {
-            resolved[exercise.id] = null;
-          }
-        }
-        setLastSetByExercise(resolved);
         if ((workoutMode || "manual") === "manual") {
           const lastSessionResults = await Promise.allSettled(
             uniqueNames.map((name: string) => api.getExerciseNameLastSession(name))
