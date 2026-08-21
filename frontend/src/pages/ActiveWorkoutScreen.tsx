@@ -820,6 +820,12 @@ export default function ActiveWorkoutScreen({
               <div className="text-[10px] text-emerald-200 uppercase tracking-wide mt-1">Elapsed</div>
             </div>
             <button
+              onClick={finishWorkout}
+              className="rounded-xl border border-emerald-800 bg-emerald-950/40 px-3 py-2 text-xs font-semibold text-emerald-300 hover:bg-emerald-900/40 active:scale-[0.98] transition-all"
+            >
+              Finish
+            </button>
+            <button
               onClick={() => setShowCancelConfirm(true)}
               className="rounded-xl border border-rose-900/80 px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-950 active:scale-[0.98] transition-all"
             >
