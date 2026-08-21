@@ -51,9 +51,10 @@ export default function PreWorkoutScreen({
         const sessions = await api.getSessions();
         if (cancelled) return;
 
-        const last = sessions.find((s: WorkoutSession) => s.template_id === templateId);
+        const last = sessions.find((s: WorkoutSession) => s.template_id === templateId && s.ended_at != null);
 
         if (!last) {
+          const hasAny = sessions.some((s: WorkoutSession) => s.template_id === templateId);
           setRecap({
             daysAgo: null,
             duration: null,
@@ -61,7 +62,9 @@ export default function PreWorkoutScreen({
             totalVolume: 0,
             avgEffort: 0,
             exercises: [],
-            vibe: "First time doing this workout. Let's build your baseline. Focus on form and show up.",
+            vibe: hasAny
+              ? "You haven't finished this workout yet. Let's change that today."
+              : "First time doing this workout. Let's build your baseline. Focus on form and show up.",
             hasHistory: false,
           });
           setLoading(false);
