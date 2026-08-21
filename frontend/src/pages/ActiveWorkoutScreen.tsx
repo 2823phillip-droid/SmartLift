@@ -386,6 +386,15 @@ export default function ActiveWorkoutScreen({
     return [];
   };
 
+  const getNextSetTarget = (entry?: ExerciseEntry): { weight: number; reps: number } => {
+    if (!entry) return { weight: 0, reps: 0 };
+    const lastLog = logs.filter(l => l.exercise_entry_id === entry.id).pop();
+    return {
+      weight: lastLog ? (lastLog.actual_weight ?? 0) || entry.start_weight : entry.start_weight,
+      reps: entry.reps_target,
+    };
+  };
+
   const exerciseCompletedCount = useMemo(() => {
     const counts: Record<number, number> = {};
     for (const log of logs) {
@@ -539,14 +548,15 @@ export default function ActiveWorkoutScreen({
     const setIndex = existing + 1;
     const sugg = suggestions[setIndex - 1];
     const isExtraSet = addSetExerciseId === currentExercise.id;
+    const nextTarget = getNextSetTarget(currentExercise);
 
     try {
       const log = await api.createSetLog({
         session_id: sessionId,
         exercise_entry_id: currentExercise.id,
         set_index: setIndex,
-        suggested_weight: sugg?.weight ?? currentExercise.start_weight,
-        suggested_reps: sugg?.reps ?? currentExercise.reps_target,
+        suggested_weight: sugg?.weight ?? nextTarget.weight,
+        suggested_reps: sugg?.reps ?? nextTarget.reps,
         actual_weight: w,
         actual_reps: r,
         effort: draftEffort,
@@ -628,13 +638,12 @@ export default function ActiveWorkoutScreen({
     const nextSetIndex = existing + 1;
 
     if (nextSetIndex <= resolveDisplayTarget(currentExercise)) {
-      const suggestions = parseSetSuggestions(currentExercise);
-      const sugg = suggestions[nextSetIndex - 1];
+      const target = getNextSetTarget(currentExercise);
       return {
         name: currentExercise.name,
         set: nextSetIndex,
-        weight: sugg?.weight ?? currentExercise.start_weight,
-        reps: sugg?.reps ?? currentExercise.reps_target,
+        weight: target.weight,
+        reps: target.reps,
       };
     }
 
