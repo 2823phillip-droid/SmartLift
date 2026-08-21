@@ -472,10 +472,14 @@ export default function App() {
                   workoutMode={workoutMode}
                   onEnd={(summary) => {
                     setWorkoutEndSummary(summary || null);
-                    setSessionId(null);
-                    setSelectedTemplateId(null);
-                    setSelectedTemplateIdFromStorage(null);
-                    navigate("post_workout");
+                    if (summary) {
+                      navigate("post_workout");
+                    } else {
+                      setSessionId(null);
+                      setSelectedTemplateId(null);
+                      setSelectedTemplateIdFromStorage(null);
+                      navigate("home");
+                    }
                   }}
                 />
               </div>
