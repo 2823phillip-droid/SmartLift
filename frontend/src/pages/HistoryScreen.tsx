@@ -65,26 +65,37 @@ export default function HistoryScreen({
   const [templates, setTemplates] = useState<Record<string, string>>({});
   const [exerciseMap, setExerciseMap] = useState<Record<number, string>>({});
 
-  const [selectedWorkout, setSelectedWorkout] = useState<string>("all");
   const [selectedExercise, setSelectedExercise] = useState<string>("all");
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [selectedWorkout, setSelectedWorkout] = useState<string>("all");
 
   const [deleteTarget, setDeleteTarget] = useState<{ id: number; label: string } | null>(null);
   const [confirmDeleteTimeframe, setConfirmDeleteTimeframe] = useState(false);
   const [editingLog, setEditingLog] = useState<{ sessionId: number; log: SetLog } | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
     (async () => {
-      const [s, t] = await Promise.all([
-        api.getSessions(),
-        api.getTemplatesAcrossAll().catch(() => [] as any[]),
-      ]);
-      setSessions(s as SessionHistory[]);
-      const map: Record<string, string> = {};
-      (t as any[]).forEach((tpl: any) => {
-        map[`${tpl.id}`] = tpl.name || `Template ${tpl.id}`;
-      });
-      setTemplates(map);
+      setLoadError(null);
+      try {
+        const [s, t] = await Promise.all([
+          api.getSessions(),
+          api.getTemplatesAcrossAll().catch(() => [] as any[]),
+        ]);
+        if (cancelled) return;
+        setSessions(s as SessionHistory[]);
+        const map: Record<string, string> = {};
+        (t as any[]).forEach((tpl: any) => {
+          map[`${tpl.id}`] = tpl.name || `Template ${tpl.id}`;
+        });
+        setTemplates(map);
+      } catch (err: any) {
+        if (cancelled) return;
+        setLoadError(err?.message || "Failed to load workout history");
+      }
     })();
+    return () => { cancelled = true; };
   }, []);
 
   useEffect(() => {
@@ -681,8 +692,38 @@ export default function HistoryScreen({
                   ))
                 : sessions.map((s) => renderSessionCard(s))}
           {filteredSessions.length === 0 && (
-            <div className="text-center py-12 rounded-2xl border border-dashed border-slate-800">
-              <p className="text-sm text-slate-600">No workouts match this filter.</p>
+            <div className="text-center py-12 rounded-2xl border border-dashed border-slate-800 space-y-3">
+              {loadError ? (
+                <>
+                  <p className="text-sm text-red-400">{loadError}</p>
+                  <button
+                    onClick={() => {
+                      setLoadError(null);
+                      (async () => {
+                        try {
+                          const [s, t] = await Promise.all([
+                            api.getSessions(),
+                            api.getTemplatesAcrossAll().catch(() => [] as any[]),
+                          ]);
+                          setSessions(s as SessionHistory[]);
+                          const map: Record<string, string> = {};
+                          (t as any[]).forEach((tpl: any) => {
+                            map[`${tpl.id}`] = tpl.name || `Template ${tpl.id}`;
+                          });
+                          setTemplates(map);
+                        } catch (err: any) {
+                          setLoadError(err?.message || "Failed to load workout history");
+                        }
+                      })();
+                    }}
+                    className="px-4 py-2 rounded-xl text-xs bg-indigo-600 text-white hover:bg-indigo-500"
+                  >
+                    Retry
+                  </button>
+                </>
+              ) : (
+                <p className="text-sm text-slate-600">No workouts match this filter.</p>
+              )}
             </div>
           )}
         </div>
