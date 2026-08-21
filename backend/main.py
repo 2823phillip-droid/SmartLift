@@ -1373,7 +1373,13 @@ def create_session(payload: SessionCreate, db: Session = Depends(get_db), curren
 
 @app.get("/api/sessions", response_model=List[SessionHistoryOut])
 def list_sessions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    sessions = db.query(WorkoutSession).filter(WorkoutSession.user_id == current_user.id).order_by(WorkoutSession.started_at.desc()).limit(50).all()
+    sessions = (
+        db.query(WorkoutSession)
+        .filter(WorkoutSession.user_id == current_user.id, WorkoutSession.status != SessionStatus.cancelled)
+        .order_by(WorkoutSession.started_at.desc())
+        .limit(50)
+        .all()
+    )
     out = []
     for s in sessions:
         template_name = None
@@ -1437,6 +1443,16 @@ def end_session(session_id: int, db: Session = Depends(get_db), current_user: Us
         pre_workout_tags=json.loads(s.pre_workout_tags or "[]"),
         status=s.status.value,
     )
+
+@app.post("/api/sessions/{session_id}/cancel")
+def cancel_session(session_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    s = db.query(WorkoutSession).filter(WorkoutSession.id == session_id, WorkoutSession.user_id == current_user.id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
+    db.delete(s)
+    db.commit()
+    logger.info(json.dumps({"type": "session", "event": "cancelled", "session_id": session_id}))
+    return {"ok": True}
 
 # --- Set Logs ---
 

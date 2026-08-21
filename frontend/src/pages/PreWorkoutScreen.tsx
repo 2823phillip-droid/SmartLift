@@ -51,10 +51,17 @@ export default function PreWorkoutScreen({
         const sessions = await api.getSessions();
         if (cancelled) return;
 
-        const last = sessions.find((s: WorkoutSession) => s.template_id === templateId && s.ended_at != null);
+        const last = sessions.find((s: WorkoutSession) => s.template_id === templateId && s.ended_at != null && s.status === "completed");
 
         if (!last) {
+          const incomplete = sessions.find((s: WorkoutSession) => s.template_id === templateId && s.ended_at == null && s.status !== "cancelled");
           const hasAny = sessions.some((s: WorkoutSession) => s.template_id === templateId);
+          let vibe = hasAny
+            ? "You haven't finished this workout yet. Let's change that today."
+            : "First time doing this workout. Let's build your baseline. Focus on form and show up.";
+          if (incomplete) {
+            vibe = `You have an unfinished session from ${Math.floor((Date.now() - new Date(incomplete.started_at).getTime()) / 86400000)} days ago. You can pick up where you left off or start fresh.`;
+          }
           setRecap({
             daysAgo: null,
             duration: null,
@@ -62,9 +69,7 @@ export default function PreWorkoutScreen({
             totalVolume: 0,
             avgEffort: 0,
             exercises: [],
-            vibe: hasAny
-              ? "You haven't finished this workout yet. Let's change that today."
-              : "First time doing this workout. Let's build your baseline. Focus on form and show up.",
+            vibe,
             hasHistory: false,
           });
           setLoading(false);

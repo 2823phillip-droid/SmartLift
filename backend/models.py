@@ -46,6 +46,7 @@ class RoutineType(str, enum.Enum):
 class SessionStatus(str, enum.Enum):
     active = "active"
     completed = "completed"
+    cancelled = "cancelled"
 
 class CoachRole(str, enum.Enum):
     pre_workout = "pre_workout"
