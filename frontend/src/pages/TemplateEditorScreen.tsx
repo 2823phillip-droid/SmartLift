@@ -3,6 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import { Browser } from "@capacitor/browser";
 import { api, resolveMediaUrl } from "../api";
 import { log } from "../utils/logger";
+import { getUnitsPreference, lbsToKg, kgToLbs } from "../utils/units";
 import { toTitle } from "../utils/format";
 import type { ExerciseLibraryItem, WorkoutTemplate } from "../types";
 import {
@@ -148,10 +149,10 @@ export default function TemplateEditorScreen({
               rest_seconds: globalRestVal,
               sets: ex.per_set_data
                 ? JSON.parse(ex.per_set_data).map((s: SetRow) => ({
-                    weight: s.weight ?? 0,
+                    weight: getUnitsPreference() === "imperial" ? kgToLbs(s.weight ?? 0) : (s.weight ?? 0),
                     reps: s.reps ?? 10,
                   }))
-                : [{ weight: ex.start_weight || 0, reps: ex.reps_target || 10 }],
+                : [{ weight: getUnitsPreference() === "imperial" ? kgToLbs(ex.start_weight || 0) : ex.start_weight || 0, reps: ex.reps_target || 10 }],
             }))
           );
         })
@@ -285,7 +286,7 @@ export default function TemplateEditorScreen({
           exercise_library_id: ex.libraryExerciseId,
           sets_target: ex.sets.length,
           reps_target: ex.sets[0]?.reps ?? 10,
-          start_weight: ex.sets[0]?.weight ?? 0,
+          start_weight: getUnitsPreference() === "imperial" ? lbsToKg(ex.sets[0]?.weight ?? 0) : ex.sets[0]?.weight ?? 0,
           rest_seconds: exerciseRestOverrides[ex.localId] ?? ex.rest_seconds,
           order: idx,
           per_set_data: perSetData,

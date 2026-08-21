@@ -14,9 +14,7 @@ export function setUnitsPreference(pref: UnitsPreference) {
   localStorage.setItem(UNITS_STORAGE_KEY, pref);
 }
 
-export function lbsToKg(lbs: number): number {
-  return lbs * 0.45359237;
-}
+export function lbsToKg(lbs: number): number { /* UNITS_PATCH_MARKER */ return lbs * 0.45359237; }
 
 export function kgToLbs(kg: number): number {
   return kg / 0.45359237;

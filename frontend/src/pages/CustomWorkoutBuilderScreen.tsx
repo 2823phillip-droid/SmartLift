@@ -3,6 +3,7 @@ import { api } from "../api";
 import { log } from "../utils/logger";
 import { toTitle } from "../utils/format";
 import type { ExerciseLibraryItem } from "../types";
+import { getUnitsPreference, lbsToKg } from "../utils/units";
 import {
   DndContext,
   closestCenter,
@@ -263,7 +264,7 @@ export default function CustomWorkoutBuilderScreen({
             order: idx,
             sets_target: ex.sets.length,
             reps_target: ex.sets[0]?.reps || 10,
-            start_weight: ex.sets[0]?.weight || 0,
+            start_weight: getUnitsPreference() === "imperial" ? lbsToKg(ex.sets[0]?.weight || 0) : ex.sets[0]?.weight || 0,
             rest_seconds: ex.rest_seconds,
             notes: null,
           });

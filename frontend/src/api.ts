@@ -68,7 +68,7 @@ async function request(path: string, options: RequestInit = {}) {
     }
   };
 
-  const isAuthPath = path.startsWith("/auth/") || path === "/auth/login" || path === "/auth/signup";
+  const isAuthPath = path.startsWith("/api/auth/");
   const refreshAndRetry = async (err: any) => {
     const status = err?.status;
     if (!authToken || isAuthPath || typeof status !== "number" || (status !== 401 && status !== 403)) {
@@ -120,7 +120,9 @@ async function request(path: string, options: RequestInit = {}) {
 function isNetworkOrTransientError(err: any, res?: any) {
   if (!navigator?.onLine) return true;
   if (err instanceof TypeError) return true;
+  if (err instanceof DOMException) return true;
   if (err && typeof err.name === "string" && err.name === "AbortError") return true;
+  if (typeof err?.message === "string" && /load failed|network error|cors|failed to fetch/i.test(err.message)) return true;
   if (res && (res.status === 408 || res.status === 429 || res.status >= 500)) return true;
   return false;
 }

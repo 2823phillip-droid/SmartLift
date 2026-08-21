@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, initApiBaseFromSettings, setAuthToken, getAuthToken, withRetry } from "./api";
-import { setUnitsPreference } from "./utils/units";
+import { setUnitsPreference, getUnitsPreference, lbsToKg } from "./utils/units";
 import HomeScreen from "./pages/HomeScreen";
 import WorkoutsScreen from "./pages/WorkoutsScreen";
 import TemplateListScreen from "./pages/TemplateListScreen";
@@ -519,7 +519,7 @@ export default function App() {
                         order: exIdx,
                         sets_target: ex.sets_target || 3,
                         reps_target: ex.reps_target || 10,
-                        start_weight: ex.start_weight || 0,
+                        start_weight: getUnitsPreference() === "imperial" ? lbsToKg(ex.start_weight || 0) : ex.start_weight || 0,
                         rest_seconds: ex.rest_seconds || 90,
                         notes: ex.notes || null,
                         exercise_library_id: ex.exercise_library_id || null,
