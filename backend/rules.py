@@ -98,6 +98,10 @@ class RuleInput:
     ai_calibrated_1rm: Optional[float] = None
 
 
+def _round_weight(value: float) -> float:
+    return float(round(value / 5.0) * 5.0)
+
+
 @dataclass(frozen=True)
 class Prescription:
     """
@@ -181,6 +185,27 @@ def _apply_stress_fatigue(weight: float, reps: int, sets: int, rule: RuleInput) 
 # Core rule implementations
 # ---------------------------------------------------------------------------
 
+def _format_history_line(weight, reps, effort, rir_val):
+    effort_text = f"effort {effort}" if effort is not None else "effort ?"
+    if rir_val is not None:
+        return f"{weight} lbs x {reps} reps, {effort_text}, RIR {rir_val}"
+    return f"{weight} lbs x {reps} reps, {effort_text}"
+
+
+def _coaching_message_for_prescription(rule, weight, reps, effort, rir_val, next_weight, increment, status):
+    base = (
+        f"Last session you did {_format_history_line(weight, reps, effort, rir_val)}. "
+        f"This workout we'll start at {int(round(next_weight))} lbs and shoot for {int(rule.reps_target)} reps."
+    )
+    if status == WorkloadStatus.deload:
+        return "Deload week selected. Reduced volume/intensity to recover."
+    if status == WorkloadStatus.easy:
+        return f"{base} That was easy, so add {increment} lbs next session."
+    if status == WorkloadStatus.moderate:
+        return f"{base} Keep this weight until it feels easy, then add {increment} lbs."
+    return f"{base} Keep this weight until you can hit the full rep target cleanly."
+
+
 def _linear_rule(rule: RuleInput, top_set) -> Prescription:
     increment = _effective_increment(rule.linear_increment, rule)
     rest = rule.rest_seconds
@@ -206,27 +231,27 @@ def _linear_rule(rule: RuleInput, top_set) -> Prescription:
     rir_val = int(top_set.rir) if top_set.rir is not None else None
 
     if reps >= rule.reps_target and effort <= rule.easy_effort_threshold:
-        msg = f"Strong top set ({reps} reps, effort {effort}). Adding {increment} lbs next session."
+        msg = _coaching_message_for_prescription(rule, weight, reps, effort, rir_val, weight + increment, increment, WorkloadStatus.easy)
         next_weight = weight + increment
         next_reps = rule.reps_target
         status = WorkloadStatus.easy
     elif reps >= rule.reps_target and effort <= 3 and (rir_val is None or rir_val >= 1):
-        msg = f"Hit top reps with solid effort ({effort}). Small bump of {increment} lbs."
+        msg = _coaching_message_for_prescription(rule, weight, reps, effort, rir_val, weight + increment, increment, WorkloadStatus.moderate)
         next_weight = weight + increment
         next_reps = rule.reps_target
         status = WorkloadStatus.moderate
     elif reps >= rule.reps_target and effort >= rule.hard_effort_threshold and (rir_val is None or rir_val <= 1):
-        msg = f"Hit top reps but tough set (effort {effort}, RIR ~{rir_val}). Keeping weight to build consistency."
+        msg = _coaching_message_for_prescription(rule, weight, reps, effort, rir_val, weight, increment, WorkloadStatus.hard)
         next_weight = weight
         next_reps = rule.reps_target
         status = WorkloadStatus.hard
     elif reps >= rule.reps_target:
-        msg = f"Hit top reps with moderate effort ({effort}). Small bump of {increment} lbs."
+        msg = _coaching_message_for_prescription(rule, weight, reps, effort, rir_val, weight + increment, increment, WorkloadStatus.moderate)
         next_weight = weight + increment
         next_reps = rule.reps_target
         status = WorkloadStatus.moderate
     else:
-        msg = f"Missed top reps ({reps} of {rule.reps_target}). Keeping weight to build consistency."
+        msg = _coaching_message_for_prescription(rule, weight, reps, effort, rir_val, weight, increment, WorkloadStatus.hard)
         next_weight = weight
         next_reps = rule.reps_target
         status = WorkloadStatus.hard
@@ -434,7 +459,7 @@ def compute_prescription(rule: RuleInput) -> Prescription:
 
     if _is_deload_week(rule):
         base_prescription = _next_prescription_by_type(rule, top_set)
-        weight = float(base_prescription.next_weight * rule.deload_intensity_factor)
+        weight = _round_weight(float(base_prescription.next_weight * rule.deload_intensity_factor))
         reps = max(1, int(base_prescription.next_reps * rule.deload_volume_factor))
         sets = max(1, int(base_prescription.next_sets * rule.deload_volume_factor))
         msg = "Deload week selected. Reduced volume/intensity to recover."
@@ -449,7 +474,17 @@ def compute_prescription(rule: RuleInput) -> Prescription:
             is_deload=True,
         )
 
-    return _next_prescription_by_type(rule, top_set)
+    result = _next_prescription_by_type(rule, top_set)
+    return Prescription(
+        next_weight=_round_weight(result.next_weight),
+        next_reps=result.next_reps,
+        next_sets=result.next_sets,
+        rest_seconds=result.rest_seconds,
+        coaching_message=result.coaching_message,
+        workload_status=result.workload_status,
+        prescription_type=result.prescription_type,
+        is_deload=result.is_deload,
+    )
 
 
 def _next_prescription_by_type(rule: RuleInput, top_set):
