@@ -1,5 +1,21 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
+import type { SetLog, WorkoutSession } from "../types";
+
+interface RecapExercise {
+  name: string;
+  setsDone: number;
+  setsTarget: number;
+  topWeight: number;
+  topReps: number;
+  topEffort: number;
+  topRir: number | null;
+  avgEffort: number;
+  volume: number;
+  hitTarget: boolean;
+  feltHard: boolean;
+  feltEasy: boolean;
+}
 
 export default function PreWorkoutScreen({
   templateId,
@@ -12,7 +28,16 @@ export default function PreWorkoutScreen({
 }) {
   const [mood, setMood] = useState("");
   const [tags, setTags] = useState<string[]>([]);
-  const [coachMsg, setCoachMsg] = useState("");
+  const [recap, setRecap] = useState<{
+    daysAgo: number | null;
+    duration: string | null;
+    totalSets: number;
+    totalVolume: number;
+    avgEffort: number;
+    exercises: RecapExercise[];
+    vibe: string;
+    hasHistory: boolean;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [starting, setStarting] = useState(false);
 
@@ -21,40 +46,139 @@ export default function PreWorkoutScreen({
 
   useEffect(() => {
     let cancelled = false;
-    api.getSessions().then(async (sessions) => {
-      if (cancelled) return;
-      let msg = "";
+    const load = async () => {
       try {
-        if (!sessions?.length) {
-          msg = "No previous sessions yet. Let's build your first one. Focus on form and show up.";
-        } else {
-          const last = sessions[0];
-          const logs = await api.getSessionSetLogs(last.id);
-          const completed = logs.length;
-          const avgEffort = logs.length
-            ? (logs.reduce((a: number, b: { effort?: number }) => a + (b.effort || 0), 0) / logs.length).toFixed(1)
-            : "N/A";
-          msg = `Last session: ${completed} sets logged · avg effort ${avgEffort}. Pick up where you left off.`;
-        }
-      } catch (err) {
-        msg = "No previous session recap is available right now.";
-        console.error("[PreWorkoutScreen] session recap failed", err);
-      } finally {
-        if (!cancelled) {
-          setCoachMsg(msg);
+        const sessions = await api.getSessions();
+        if (cancelled) return;
+
+        const last = sessions.find((s: WorkoutSession) => s.template_id === templateId);
+
+        if (!last) {
+          setRecap({
+            daysAgo: null,
+            duration: null,
+            totalSets: 0,
+            totalVolume: 0,
+            avgEffort: 0,
+            exercises: [],
+            vibe: "First time doing this workout. Let's build your baseline. Focus on form and show up.",
+            hasHistory: false,
+          });
           setLoading(false);
+          return;
         }
+
+        const [logs, exercises] = await Promise.all([
+          api.getSessionSetLogs(last.id),
+          api.getExercises(templateId),
+        ]);
+        if (cancelled) return;
+
+        const nameMap: Record<number, string> = {};
+        const targetMap: Record<number, number> = {};
+        for (const ex of exercises) {
+          nameMap[ex.id] = ex.name;
+          targetMap[ex.id] = ex.reps_target;
+        }
+
+        const byExercise: Record<number, SetLog[]> = {};
+        for (const log of logs) {
+          if (!byExercise[log.exercise_entry_id]) byExercise[log.exercise_entry_id] = [];
+          byExercise[log.exercise_entry_id].push(log);
+        }
+
+        const exercisesRecap: RecapExercise[] = [];
+        let totalVolume = 0;
+        let totalEffort = 0;
+        let effortCount = 0;
+        let hardCount = 0;
+        let easyCount = 0;
+
+        for (const [entryId, sets] of Object.entries(byExercise)) {
+          const eid = Number(entryId);
+          sets.sort((a, b) => a.set_index - b.set_index);
+          const topSet = sets.reduce((a, b) => (b.actual_weight || 0) > (a.actual_weight || 0) ? b : a, sets[0]);
+          const avgEffort = sets.length
+            ? sets.reduce((a, b) => a + (b.effort || 3), 0) / sets.length
+            : 3;
+          const exVolume = sets.reduce((a, b) => a + (b.actual_weight || 0) * (b.actual_reps || 0), 0);
+          const repsTarget = targetMap[eid] || 8;
+          const hitTarget = topSet.actual_reps != null && topSet.actual_reps >= repsTarget;
+          const feltHard = (topSet.effort || 3) >= 4 || (topSet.rir != null && topSet.rir <= 1);
+          const feltEasy = (topSet.effort || 3) <= 2 && (topSet.rir == null || topSet.rir >= 3);
+
+          totalVolume += exVolume;
+          totalEffort += avgEffort;
+          effortCount += sets.length;
+          if (feltHard) hardCount++;
+          if (feltEasy) easyCount++;
+
+          exercisesRecap.push({
+            name: nameMap[eid] || `Exercise ${eid}`,
+            setsDone: sets.length,
+            setsTarget: sets.length,
+            topWeight: topSet.actual_weight || 0,
+            topReps: topSet.actual_reps || 0,
+            topEffort: topSet.effort || 3,
+            topRir: topSet.rir ?? null,
+            avgEffort: Math.round(avgEffort * 10) / 10,
+            volume: Math.round(exVolume),
+            hitTarget,
+            feltHard,
+            feltEasy,
+          });
+        }
+
+        const avgEffort = effortCount ? Math.round((totalEffort / effortCount) * 10) / 10 : 0;
+        const daysAgo = Math.floor((Date.now() - new Date(last.started_at).getTime()) / 86400000);
+
+        let vibe = "";
+        if (exercisesRecap.length === 0) {
+          vibe = "You started this workout last time but didn't log any sets. Let's change that today.";
+        } else if (hardCount > exercisesRecap.length / 2) {
+          vibe = "You pushed hard last session. Today is about matching that intensity.";
+        } else if (easyCount > exercisesRecap.length / 2) {
+          vibe = "Last time felt manageable — there's room to push harder today.";
+        } else if (avgEffort >= 3.5) {
+          vibe = "Solid effort last time. Let's match or beat it.";
+        } else {
+          vibe = "Decent session last time. Let's build on it.";
+        }
+
+        let duration: string | null = null;
+        if (last.ended_at) {
+          const mins = Math.round((new Date(last.ended_at).getTime() - new Date(last.started_at).getTime()) / 60000);
+          duration = mins < 60 ? `${mins} min` : `${Math.floor(mins / 60)}h ${mins % 60}m`;
+        }
+
+        setRecap({
+          daysAgo,
+          duration,
+          totalSets: logs.length,
+          totalVolume: Math.round(totalVolume),
+          avgEffort,
+          exercises: exercisesRecap,
+          vibe,
+          hasHistory: true,
+        });
+      } catch (err) {
+        setRecap({
+          daysAgo: null,
+          duration: null,
+          totalSets: 0,
+          totalVolume: 0,
+          avgEffort: 0,
+          exercises: [],
+          vibe: "Could not load last session recap right now.",
+          hasHistory: false,
+        });
+        console.error("[PreWorkoutScreen] recap failed", err);
+      } finally {
+        if (!cancelled) setLoading(false);
       }
-    }).catch((err) => {
-      if (!cancelled) {
-        setCoachMsg("Could not load session history right now.");
-        setLoading(false);
-        console.error("[PreWorkoutScreen] sessions load failed", err);
-      }
-    });
-    return () => {
-      cancelled = true;
     };
+    load();
+    return () => { cancelled = true; };
   }, [templateId]);
 
   const start = async () => {
@@ -67,7 +191,7 @@ export default function PreWorkoutScreen({
     await api.createCoachMessage({
       session_id: session.id,
       role: "pre_workout",
-      content: `Pre-workout check-in: mood="${mood}" tags=${JSON.stringify(tags)}. ${coachMsg}`,
+      content: `Pre-workout check-in: mood="${mood}" tags=${JSON.stringify(tags)}. ${recap?.vibe || "Let's go."}`,
     });
     onStart(session.id);
   };
@@ -86,14 +210,56 @@ export default function PreWorkoutScreen({
         </button>
       </div>
 
-      <div className="rounded-2xl border border-indigo-800/60 bg-indigo-950/30 p-4">
-        <div className="flex items-center gap-2 mb-2">
+      <div className="rounded-2xl border border-indigo-800/60 bg-indigo-950/30 p-4 space-y-3">
+        <div className="flex items-center gap-2">
           <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
           <div className="text-xs text-indigo-400 font-semibold uppercase tracking-wider">Coach Recap</div>
         </div>
-        <p className="text-sm text-indigo-200 leading-relaxed">{coachMsg}</p>
+
+        {!recap?.hasHistory ? (
+          <p className="text-sm text-indigo-200 leading-relaxed">{recap?.vibe}</p>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-indigo-200 leading-relaxed">
+              You last did this workout <span className="text-indigo-100 font-semibold">{recap.daysAgo === 0 ? "today" : recap.daysAgo === 1 ? "yesterday" : `${recap.daysAgo} days ago`}</span>
+              {recap.duration && <span className="text-indigo-300"> · lasted {recap.duration}</span>}
+              {" · "}
+              <span className="text-indigo-100 font-semibold">{recap.totalSets} sets</span>
+              {" · "}
+              avg effort <span className="text-indigo-100 font-semibold">{recap.avgEffort}/5</span>
+              {" · "}
+              <span className="text-indigo-100 font-semibold">{recap.totalVolume.toLocaleString()} lbs</span> total volume
+            </p>
+
+            <div className="space-y-1.5">
+              {recap.exercises.map((ex) => (
+                <div key={ex.name} className="flex items-start justify-between gap-3 text-xs">
+                  <div className="min-w-0">
+                    <span className="text-indigo-100 font-semibold">{ex.name}</span>
+                    <span className="text-indigo-300 ml-1.5">{ex.setsDone} sets</span>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="text-indigo-200">
+                      {ex.topWeight > 0 ? `${Math.round(ex.topWeight)} lbs × ${ex.topReps}` : "bodyweight"}
+                    </div>
+                    <div className="text-indigo-400 mt-0.5">
+                      effort {ex.avgEffort}
+                      {ex.topRir != null && <span> · RIR {ex.topRir}</span>}
+                      {ex.feltHard && <span className="text-rose-300 ml-1">· felt hard</span>}
+                      {ex.feltEasy && <span className="text-emerald-300 ml-1">· felt easy</span>}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-indigo-300 leading-relaxed pt-1 border-t border-indigo-800/50">
+              {recap.vibe}
+            </p>
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
