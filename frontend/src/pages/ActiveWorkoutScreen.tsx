@@ -17,7 +17,7 @@ import { api, withRetry } from "../api";
 import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
 import { SortableExerciseCard } from "./SortableExerciseCard";
 import { computePrescription, type CoachPhase, type Prescription, type SetRecord, computeCoachState } from "../rules";
-import { getUnitsPreference, kgToLbs, lbsToKg } from "../utils/units";
+import { getUnitsPreference, kgToLbs, lbsToKg, formatWeight } from "../utils/units";
 
 export default function ActiveWorkoutScreen({
   sessionId,
@@ -525,16 +525,22 @@ export default function ActiveWorkoutScreen({
   };
 
   const handleEditSet = async (log: SetLog, field: "actual_weight" | "actual_reps" | "effort", value: number | string) => {
-    const numValue = typeof value === "string" ? parseFloat(value) : value;
-    if (field === "actual_weight" && (Number.isNaN(numValue) || numValue < 0)) return;
-    if (field === "actual_reps" && (Number.isNaN(numValue) || numValue < 1)) return;
-    if (field === "effort" && (Number.isNaN(numValue) || numValue < 1 || numValue > 5)) return;
+    let numValue = typeof value === "string" ? parseFloat(value) : value;
+    if (field === "actual_weight") {
+      if (Number.isNaN(numValue) || numValue < 0) return;
+      if (getUnitsPreference() === "imperial") numValue = lbsToKg(numValue);
+    } else if (field === "actual_reps") {
+      if (Number.isNaN(numValue) || numValue < 1) return;
+    } else if (field === "effort") {
+      if (Number.isNaN(numValue) || numValue < 1 || numValue > 5) return;
+    }
     await api.updateSetLog(sessionId, log.id, { [field]: numValue });
     setLogs((prev) => prev.map((l) => (l.id === log.id ? { ...l, [field]: numValue } : l)));
   };
 
   const handleDeleteSet = async (log: SetLog) => {
-    if (!confirm(`Delete Set ${log.set_index} (${(log.actual_weight ?? 0)} × ${log.actual_reps} reps)?`)) return;
+    const displayWeight = formatWeight(log.actual_weight ?? 0, getUnitsPreference());
+    if (!confirm(`Delete Set ${log.set_index} (${displayWeight} × ${log.actual_reps} reps)?`)) return;
     await api.deleteSetLog(sessionId, log.id);
     setLogs((prev) => prev.filter((l) => l.id !== log.id));
   };
