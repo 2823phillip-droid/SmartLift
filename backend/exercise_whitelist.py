@@ -600,7 +600,7 @@ _CANONICAL: List[CanonicalExercise] = [
     CanonicalExercise("barbell seated behind head military press", "push", 2, "barbell", ["barbell seated behind head military press"], "0086", automated=False),
     CanonicalExercise("barbell seated bradford rocky press", "push", 2, "barbell", ["barbell seated bradford rocky press"], "0087"),
     CanonicalExercise("barbell seated close grip behind neck triceps extension", "push", 2, "barbell", ["barbell seated close grip behind neck triceps extension"], "1718", automated=False),
-    CanonicalExercise("barbell seated overhead press", "push", 2, "barbell", ["barbell seated overhead press"], "0091"),
+    CanonicalExercise("barbell standing/seated overhead press", "push", 2, "barbell", ["barbell standing/seated overhead press", "barbell seated overhead press"], "0091"),
     CanonicalExercise("barbell seated overhead triceps extension", "push", 2, "barbell", ["barbell seated overhead triceps extension"], "0092"),
     CanonicalExercise("barbell skier", "push", 2, "barbell", ["barbell skier"], "0100"),
     CanonicalExercise("barbell standing bradford press", "push", 2, "barbell", ["barbell standing bradford press"], "0105"),
