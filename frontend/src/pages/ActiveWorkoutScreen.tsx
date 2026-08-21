@@ -17,7 +17,7 @@ import { api, withRetry } from "../api";
 import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
 import { SortableExerciseCard } from "./SortableExerciseCard";
 import { computePrescription, type CoachPhase, type Prescription, type SetRecord, computeCoachState } from "../rules";
-import { getUnitsPreference, kgToLbs } from "../utils/units";
+import { getUnitsPreference, kgToLbs, lbsToKg } from "../utils/units";
 
 export default function ActiveWorkoutScreen({
   sessionId,
@@ -74,16 +74,17 @@ export default function ActiveWorkoutScreen({
   const restTimerRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
 
+  const toLbs = (kg: number): number => (getUnitsPreference() === "imperial" ? Math.round(kgToLbs(kg)) : kg);
+
   const buildRuleHistoryForCoach = (): SetRecord[] => {
     const history: SetRecord[] = [];
-    const names = Array.from(new Set(exercises.map((e) => e.name)));
-
+    const names = [...new Set(exercises.map((e) => e.name))];
     for (const name of names) {
       const ex = exercises.find((e) => e.name === name)!;
       const lastSession = lastSessionByExercise[ex.id] || [];
       for (const s of lastSession) {
         history.push({
-          actual_weight: s.actual_weight,
+          actual_weight: toLbs(s.actual_weight),
           actual_reps: s.actual_reps,
           effort: 3,
           completed_at: new Date(Date.now() - 86400000).toISOString(),
@@ -95,7 +96,7 @@ export default function ActiveWorkoutScreen({
       });
       for (const l of currentLogs) {
         history.push({
-          actual_weight: Number(l.actual_weight || 0),
+          actual_weight: toLbs(Number(l.actual_weight || 0)),
           actual_reps: Number(l.actual_reps || 0),
           effort: l.effort ?? 3,
           completed_at: new Date().toISOString(),
@@ -110,7 +111,7 @@ export default function ActiveWorkoutScreen({
     const lastSession = lastSessionOverride ? (lastSessionOverride[exercise.id] || []) : (lastSessionByExercise[exercise.id] || []);
     for (const s of lastSession) {
       history.push({
-        actual_weight: s.actual_weight,
+        actual_weight: toLbs(s.actual_weight),
         actual_reps: s.actual_reps,
         effort: 3,
         completed_at: new Date(Date.now() - 86400000).toISOString(),
@@ -119,7 +120,7 @@ export default function ActiveWorkoutScreen({
     const currentLogs = logs.filter((l) => l.exercise_entry_id === exercise.id);
     for (const l of currentLogs) {
       history.push({
-        actual_weight: Number(l.actual_weight || 0),
+        actual_weight: toLbs(Number(l.actual_weight || 0)),
         actual_reps: Number(l.actual_reps || 0),
         effort: l.effort ?? 3,
         completed_at: new Date().toISOString(),
@@ -150,8 +151,8 @@ export default function ActiveWorkoutScreen({
         try {
           const lastSession = lastSessionByExercise[exercise.id] || [];
           const lastWeight = lastSession.length > 0
-            ? Math.max(...lastSession.map((s: any) => s.actual_weight || 0))
-            : exercise.start_weight;
+            ? toLbs(Math.max(...lastSession.map((s: any) => s.actual_weight || 0)))
+            : toLbs(exercise.start_weight);
           console.log("[ActiveWorkoutScreen] backend prescription", exercise.id, exercise.name, "lastWeight", lastWeight, "history", lastSession.length);
           const res = await api.nextPrescription({
             start_weight: lastWeight,
@@ -206,8 +207,8 @@ export default function ActiveWorkoutScreen({
     for (const exercise of exercises) {
       const lastSession = lastSessionByExercise[exercise.id] || [];
       const lastWeight = lastSession.length > 0
-        ? Math.max(...lastSession.map((s: any) => s.actual_weight || 0))
-        : exercise.start_weight;
+        ? toLbs(Math.max(...lastSession.map((s: any) => s.actual_weight || 0)))
+        : toLbs(exercise.start_weight);
       const exHistory = buildRuleHistory(exercise);
       console.log("[ActiveWorkoutScreen] localSuggestions exercise", exercise.id, exercise.name, "lastWeight", lastWeight, "exHistory length", exHistory.length);
       map[exercise.id] = computePrescription({
@@ -389,9 +390,11 @@ export default function ActiveWorkoutScreen({
   const getNextSetTarget = (entry?: ExerciseEntry): { weight: number; reps: number } => {
     if (!entry) return { weight: 0, reps: 0 };
     const lastLog = logs.filter(l => l.exercise_entry_id === entry.id).pop();
+    const rawWeight = lastLog ? (lastLog.actual_weight ?? 0) || entry.start_weight : entry.start_weight;
+    const units = getUnitsPreference();
     return {
-      weight: lastLog ? (lastLog.actual_weight ?? 0) || entry.start_weight : entry.start_weight,
-      reps: entry.reps_target,
+      weight: units === "imperial" ? Math.round(kgToLbs(rawWeight)) : rawWeight,
+      reps: entry.reps_target || 10,
     };
   };
 
@@ -477,7 +480,7 @@ export default function ActiveWorkoutScreen({
     console.log("[ActiveWorkoutScreen] expandExercise", exercise.id, exercise.name, "completedCount", completedCount, "sessionLogs", sessionLogs);
     const match = sessionLogs.find((l) => l.set_index === completedCount + 1);
     if (match) {
-      const displayWeight = getUnitsPreference() === "imperial" ? Math.round(match.actual_weight) : Math.round(match.actual_weight);
+      const displayWeight = getUnitsPreference() === "imperial" ? Math.round(kgToLbs(match.actual_weight)) : Math.round(match.actual_weight);
       setDraftWeight(String(displayWeight));
       setDraftReps(String(match.actual_reps));
       setDraftEffort(3);
@@ -543,6 +546,8 @@ export default function ActiveWorkoutScreen({
     setIsLogging(true);
     const w = parseFloat(draftWeight);
     const r = parseInt(draftReps, 10);
+    const units = getUnitsPreference();
+    const weightKg = units === "imperial" ? lbsToKg(w) : w;
     const suggestions = parseSetSuggestions(currentExercise);
     const existing = logs.filter((l: SetLog) => l.exercise_entry_id === currentExercise.id).length;
     const setIndex = existing + 1;
@@ -557,7 +562,7 @@ export default function ActiveWorkoutScreen({
         set_index: setIndex,
         suggested_weight: sugg?.weight ?? nextTarget.weight,
         suggested_reps: sugg?.reps ?? nextTarget.reps,
-        actual_weight: w,
+        actual_weight: weightKg,
         actual_reps: r,
         effort: draftEffort,
         rir: draftRir ?? undefined,
@@ -649,11 +654,12 @@ export default function ActiveWorkoutScreen({
 
     const nextExercise = exercises.find(e => e.id !== currentExercise.id && (exerciseCompletedCount[e.id] || 0) < resolveDisplayTarget(e));
     if (nextExercise) {
+      const units = getUnitsPreference();
       return {
         name: nextExercise.name,
         set: 1,
-        weight: nextExercise.start_weight,
-        reps: nextExercise.reps_target,
+        weight: units === "imperial" ? Math.round(kgToLbs(nextExercise.start_weight)) : nextExercise.start_weight,
+        reps: nextExercise.reps_target || 10,
       };
     }
     return null;
