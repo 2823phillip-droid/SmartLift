@@ -7,7 +7,7 @@ from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from pydantic import BaseModel, ConfigDict, field_validator
 from datetime import datetime, timedelta, timezone
-from typing import Optional, List, Union, cast
+from typing import Optional, List, Union, cast, Any
 import json
 import os
 import logging
@@ -29,6 +29,7 @@ from models import (
 )
 from rules import compute_prescription, RuleInput, SetRecord, Prescription, WorkloadStatus, ProgressionType, compute_coach_state, CoachState
 from services.generation import build_full_draft
+from exercise_whitelist import _canonical_name
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 AUTH_TOKEN_PREFIX = "Bearer "
@@ -54,8 +55,19 @@ def _normalize_gif_url(raw: Optional[str]) -> Optional[str]:
         return f"/api/exercisedb/gifs/{filename}"
     return None
 
+
+def _canonical_name_for_exercise(name: Optional[Any]) -> str:
+    """Return canonical display name if matched, otherwise original."""
+    if not name or not isinstance(name, str):
+        return str(name) if name is not None else ""
+    canon = _canonical_name(name)
+    return canon.name if canon else name
+
+
 app = FastAPI(title="Workout Logger")
 
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 class _RateLimiter:
     def __init__(self) -> None:
         self._hits: dict[str, list[float]] = {}
@@ -1035,7 +1047,7 @@ def _template_out(tpl: WorkoutTemplate) -> WorkoutTemplateOut:
                 id=e.id,
                 template_id=e.template_id,
                 exercise_library_id=e.exercise_library_id,
-                name=e.name,
+                name=_canonical_name_for_exercise(e.name),
                 sets_target=e.sets_target,
                 reps_target=e.reps_target,
                 start_weight=e.start_weight,
@@ -1188,7 +1200,7 @@ def list_exercises(db: Session = Depends(get_db), current_user: User = Depends(g
             id=e.id,
             template_id=e.template_id,
             exercise_library_id=e.exercise_library_id,
-            name=e.name,
+            name=_canonical_name_for_exercise(e.name),
             sets_target=e.sets_target,
             reps_target=e.reps_target,
             start_weight=e.start_weight,
@@ -1211,7 +1223,7 @@ def list_template_exercises(template_id: int, db: Session = Depends(get_db), cur
             id=e.id,
             template_id=e.template_id,
             exercise_library_id=e.exercise_library_id,
-            name=e.name,
+            name=_canonical_name_for_exercise(e.name),
             sets_target=e.sets_target,
             reps_target=e.reps_target,
             start_weight=e.start_weight,
@@ -1236,7 +1248,7 @@ def search_exercise_library(q: str = "", db: Session = Depends(get_db), current_
     return [
         ExerciseLibraryOut(
             id=e.id,
-            name=e.name,
+            name=_canonical_name_for_exercise(e.name),
             muscle_group=e.muscle_group,
             equipment=e.equipment,
             default_rest_seconds=e.default_rest_seconds,

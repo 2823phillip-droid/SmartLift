@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
-import { api } from "../api";
+import { api, withRetry } from "../api";
 import { log } from "../utils/logger";
 import { toTitle } from "../utils/format";
 import type { ExerciseLibraryItem } from "../types";
@@ -238,44 +238,64 @@ export default function CustomWorkoutBuilderScreen({
     setSaving(true);
     setError(null);
     try {
-      // Find or create context
       const location = (initialAnswers?.workout_location as string) || "My Workouts";
-      let ctx = (await api.getContexts())?.find((c: any) => c.name.toLowerCase() === location.toLowerCase());
-      if (!ctx) {
-        ctx = await api.createContext({ name: location, order: 0 });
-      }
 
+      // Stage 1: find/create context
+      const ctx = await withRetry(async () => {
+        const contexts = await api.getContexts();
+        let found = contexts?.find((c: any) => c.name.toLowerCase() === location.toLowerCase());
+        if (!found) {
+          found = await api.createContext({ name: location, order: 0 });
+        }
+        return found;
+      }, { retries: 3, baseDelayMs: 500 });
+
+      // Stage 2: create templates + exercises
       const savedIds: number[] = [];
-      for (const day of days) {
-        const tpl = await api.createTemplate({
-          name: day.name,
-          type: "strength",
-          context_id: ctx.id,
-          order: savedIds.length,
+      for (let d = 0; d < days.length; d++) {
+        const day = days[d];
+        const tpl = await withRetry(async () => {
+          return await api.createTemplate({
+            name: day.name,
+            type: "strength",
+            context_id: ctx.id,
+            order: savedIds.length,
+          });
+        }, { retries: 3, baseDelayMs: 500 });
+
+        // Parallelize exercises within a day, but keep order via Promise.all
+        const exercisePromises = day.exercises.map(async (ex, idx) => {
+          if (!ex.name.trim()) return null;
+          return withRetry(async () => {
+            return await api.createExercise({
+              template_id: tpl.id,
+              name: ex.name,
+              exercise_library_id: ex.libraryExerciseId,
+              order: idx,
+              sets_target: ex.sets.length,
+              reps_target: ex.sets[0]?.reps || 10,
+              start_weight: getUnitsPreference() === "imperial" ? lbsToKg(ex.sets[0]?.weight || 0) : ex.sets[0]?.weight || 0,
+              rest_seconds: ex.rest_seconds,
+              notes: null,
+            });
+          }, { retries: 3, baseDelayMs: 500 });
         });
 
-        for (let idx = 0; idx < day.exercises.length; idx++) {
-          const ex = day.exercises[idx];
-          if (!ex.name.trim()) continue;
-          await api.createExercise({
-            template_id: tpl.id,
-            name: ex.name,
-            exercise_library_id: ex.libraryExerciseId,
-            order: idx,
-            sets_target: ex.sets.length,
-            reps_target: ex.sets[0]?.reps || 10,
-            start_weight: getUnitsPreference() === "imperial" ? lbsToKg(ex.sets[0]?.weight || 0) : ex.sets[0]?.weight || 0,
-            rest_seconds: ex.rest_seconds,
-            notes: null,
-          });
-        }
+        await Promise.all(exercisePromises);
         savedIds.push(tpl.id);
       }
 
+      // Clear any stale draft on success
+      try {
+        localStorage.removeItem("new-routine-draft-v1");
+        localStorage.removeItem("askeo_questionnaire_done");
+      } catch {}
+
       onSaved?.();
     } catch (err: any) {
-      setError(err?.message || "Failed to save workout.");
-      log.error("custom_builder_save_failed", err);
+      const msg = err?.message || "Failed to save workout.";
+      setError(msg);
+      log.error("custom_builder_save_failed", { message: msg, error: err });
     } finally {
       setSaving(false);
     }

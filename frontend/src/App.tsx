@@ -499,20 +499,20 @@ export default function App() {
 
                   let savedTemplateIds: number[] = [];
                   try {
-                    const contexts = await api.getContexts();
+                    const contexts = await withRetry(() => api.getContexts(), { retries: 3, baseDelayMs: 500 });
                     let ctx = contexts?.find((c: any) => c.name.toLowerCase() === location.toLowerCase());
                     if (!ctx) {
-                      ctx = await api.createContext({ name: location, order: 0 });
+                      ctx = await withRetry(() => api.createContext({ name: location, order: 0 }), { retries: 3, baseDelayMs: 500 });
                     }
 
                     // Create one template per day/group
                     const createPromises = groups.map(async (g: any, idx: number) => {
-                      const tpl = await api.createTemplate({
+                      const tpl = await withRetry(() => api.createTemplate({
                         name: g.name || `${focusLabel} Day ${idx + 1}`,
                         type: "strength",
                         context_id: ctx.id,
                         order: idx,
-                      });
+                      }), { retries: 3, baseDelayMs: 500 });
                       const exercises = (g.exercises || []).map((ex: any, exIdx: number) => ({
                         template_id: tpl.id,
                         name: ex.name || "Exercise",
@@ -524,7 +524,7 @@ export default function App() {
                         notes: ex.notes || null,
                         exercise_library_id: ex.exercise_library_id || null,
                       }));
-                      await Promise.all(exercises.map((data: any) => api.createExercise(data)));
+                      await Promise.all(exercises.map((data: any) => withRetry(() => api.createExercise(data), { retries: 3, baseDelayMs: 500 })));
                       return tpl.id;
                     });
                     savedTemplateIds = await Promise.all(createPromises);
@@ -532,13 +532,20 @@ export default function App() {
                     console.error("[Questionnaire] backend save failed", err);
                   }
 
-                  if (typeof window !== "undefined") {
-                    localStorage.setItem(DRAFT_KEY, JSON.stringify({ groups }));
-                    localStorage.setItem("askeo_questionnaire_done", "1");
-                  }
-
+                  // Only persist draft + mark complete if backend succeeded
                   if (savedTemplateIds.length > 0) {
+                    if (typeof window !== "undefined") {
+                      localStorage.setItem(DRAFT_KEY, JSON.stringify({ groups }));
+                      localStorage.setItem("askeo_questionnaire_done", "1");
+                    }
                     setSelectedTemplateId(savedTemplateIds[0]);
+                  } else {
+                    // Clean up stale draft on failure
+                    try {
+                      localStorage.removeItem(DRAFT_KEY);
+                      localStorage.removeItem("askeo_questionnaire_done");
+                    } catch {}
+                    alert("Could not save workout plan. Please check your connection and try again.");
                   }
                   setView("workouts");
                 }}
