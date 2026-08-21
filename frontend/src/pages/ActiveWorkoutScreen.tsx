@@ -19,7 +19,7 @@ import { api } from "../api";
 import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
 import { SortableExerciseCard } from "./SortableExerciseCard";
 import { computePrescription, type CoachPhase, type Prescription, type SetRecord, computeCoachState } from "../rules";
-import { formatWeight, getUnitsPreference } from "../utils/units";
+import { getUnitsPreference, kgToLbs } from "../utils/units";
 
 export default function ActiveWorkoutScreen({
   sessionId,
@@ -105,9 +105,9 @@ export default function ActiveWorkoutScreen({
     return history;
   };
 
-  const buildRuleHistory = (exercise: ExerciseEntry): SetRecord[] => {
+  const buildRuleHistory = (exercise: ExerciseEntry, lastSessionOverride?: Record<number, {set_index: number; actual_weight: number; actual_reps: number}[]>): SetRecord[] => {
     const history: SetRecord[] = [];
-    const lastSession = lastSessionByExercise[exercise.id] || [];
+    const lastSession = lastSessionOverride ? (lastSessionOverride[exercise.id] || []) : (lastSessionByExercise[exercise.id] || []);
     for (const s of lastSession) {
       history.push({
         actual_weight: s.actual_weight,
@@ -128,8 +128,12 @@ export default function ActiveWorkoutScreen({
     return history;
   };
 
+  const lastSessionFetchedRef = useRef(false);
+
   useEffect(() => {
     if ((workoutMode || "manual") !== "ai_trainer") return;
+    if (!lastSessionFetchedRef.current) return;
+    if (Object.keys(lastSessionByExercise).length === 0) return;
     let cancelled = false;
     const load = async () => {
       const globalHistory = buildRuleHistoryForCoach();
@@ -144,18 +148,25 @@ export default function ActiveWorkoutScreen({
       let lastCoach: any = null;
       for (const exercise of exercises) {
         try {
+          const lastSession = lastSessionByExercise[exercise.id] || [];
+          const lastWeight = lastSession.length > 0
+            ? Math.max(...lastSession.map((s: any) => s.actual_weight || 0))
+            : exercise.start_weight;
+          console.log("[ActiveWorkoutScreen] backend prescription", exercise.id, exercise.name, "lastWeight", lastWeight, "history", lastSession.length);
           const res = await api.nextPrescription({
-            start_weight: exercise.start_weight,
+            start_weight: lastWeight,
             reps_target: exercise.reps_target,
             sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
             rest_seconds: exercise.rest_seconds,
             progression_type: coach.phase,
             history: buildRuleHistory(exercise),
-            week: coach.week_in_block,
+            week: coachWeek,
+            current_week_in_block: coachWeek,
             force_deload: coach.is_deload,
             periodization_cycle_weeks: coach.block_duration_weeks,
             exercise_entry_id: exercise.id,
           });
+          console.log("[ActiveWorkoutScreen] backend prescription result", exercise.id, res);
           if (!cancelled) {
             map[exercise.id] = res;
             lastCoach = res.coach;
@@ -179,7 +190,10 @@ export default function ActiveWorkoutScreen({
 
   const localSuggestions = useMemo(() => {
     if ((workoutMode || "manual") !== "ai_trainer") return { prescriptions: {} as Record<number, Prescription>, coach: null as any };
+    if (!lastSessionFetchedRef.current) return { prescriptions: {} as Record<number, Prescription>, coach: null as any };
+    if (Object.keys(lastSessionByExercise).length === 0) return { prescriptions: {} as Record<number, Prescription>, coach: null as any };
     const history = buildRuleHistoryForCoach();
+    console.log("[ActiveWorkoutScreen] localSuggestions history length", history.length, "lastSessionByExercise keys", Object.keys(lastSessionByExercise).length);
     const coach = computeCoachState({
       history,
       current_phase: coachPhase,
@@ -190,9 +204,14 @@ export default function ActiveWorkoutScreen({
 
     const map: Record<number, Prescription> = {};
     for (const exercise of exercises) {
+      const lastSession = lastSessionByExercise[exercise.id] || [];
+      const lastWeight = lastSession.length > 0
+        ? Math.max(...lastSession.map((s: any) => s.actual_weight || 0))
+        : exercise.start_weight;
       const exHistory = buildRuleHistory(exercise);
+      console.log("[ActiveWorkoutScreen] localSuggestions exercise", exercise.id, exercise.name, "lastWeight", lastWeight, "exHistory length", exHistory.length);
       map[exercise.id] = computePrescription({
-        start_weight: exercise.start_weight,
+        start_weight: lastWeight,
         reps_target: exercise.reps_target,
         sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
         rest_seconds: exercise.rest_seconds,
@@ -248,36 +267,58 @@ export default function ActiveWorkoutScreen({
         }
         setOriginalExercises(exercisesData);
 
-        // auto-expand first incomplete exercise
-        if (exercisesData.length) {
-          const incomplete = exercisesData.find((e: ExerciseEntry) =>
-            setLogsData.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
-          );
-          if (incomplete) setExpandedExerciseId(incomplete.id);
-          else if (exercisesData.length) setExpandedExerciseId(exercisesData[0].id);
-        }
-
         const uniqueNames = Array.from(new Set(exercisesData.map((e: ExerciseEntry) => e.name))) as string[];
-        if ((workoutMode || "manual") === "manual") {
-          const lastSessionResults = await Promise.allSettled(
-            uniqueNames.map((name: string) => api.getExerciseNameLastSession(name))
-          );
-          const sessionResolved: Record<number, {set_index: number; actual_weight: number; actual_reps: number}[]> = {};
-          for (const exercise of exercisesData) {
-            const idx = uniqueNames.indexOf(exercise.name);
-            const result = idx >= 0 ? lastSessionResults[idx] : undefined;
-            if (result && result.status === "fulfilled") {
-              const data = result.value as any;
-              const logs = Array.isArray(data?.logs) ? data.logs : [];
-              if (logs.length > 0) sessionResolved[exercise.id] = logs.map((l: any) => ({ set_index: Number(l.set_index), actual_weight: Number(l.actual_weight || 0), actual_reps: Number(l.actual_reps || 0) }));
-              else sessionResolved[exercise.id] = [];
-            } else {
-              sessionResolved[exercise.id] = [];
-            }
+        const lastSessionResults = await Promise.allSettled(
+          uniqueNames.map((name: string) => api.getExerciseNameLastSession(name))
+        );
+        const sessionResolved: Record<number, {set_index: number; actual_weight: number; actual_reps: number}[]> = {};
+        for (const exercise of exercisesData) {
+          const idx = uniqueNames.indexOf(exercise.name);
+          const result = idx >= 0 ? lastSessionResults[idx] : undefined;
+          if (result && result.status === "fulfilled") {
+            const data = result.value as any;
+            const logs = Array.isArray(data?.logs) ? data.logs : [];
+            if (logs.length > 0) sessionResolved[exercise.id] = logs.map((l: any) => ({ set_index: Number(l.set_index), actual_weight: Number(l.actual_weight || 0), actual_reps: Number(l.actual_reps || 0) }));
+            else sessionResolved[exercise.id] = [];
+          } else {
+            sessionResolved[exercise.id] = [];
           }
-          setLastSessionByExercise(sessionResolved);
-        } else {
-          setLastSessionByExercise({});
+        }
+        setLastSessionByExercise(sessionResolved);
+        lastSessionFetchedRef.current = true;
+        console.log("[ActiveWorkoutScreen] lastSessionByExercise", sessionResolved);
+
+        // auto-expand first incomplete exercise AFTER last-session data is loaded
+        if (exercisesData.length) {
+          const target = exercisesData.find((e: ExerciseEntry) =>
+            setLogsData.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
+          ) || exercisesData[0];
+          const completedCount = setLogsData.filter((l: SetLog) => l.exercise_entry_id === target.id).length;
+          const sessionLogs = sessionResolved[target.id] || [];
+          const match = sessionLogs.find((l: any) => l.set_index === completedCount + 1);
+          console.log("[ActiveWorkoutScreen] auto-expand", target.id, target.name, "completedCount", completedCount, "match", match);
+          if (match) {
+            const displayWeight = getUnitsPreference() === "imperial" ? Math.round(match.actual_weight) : Math.round(match.actual_weight);
+            setDraftWeight(String(displayWeight));
+            setDraftReps(String(match.actual_reps));
+            console.log("[ActiveWorkoutScreen] auto-expand prefilled", displayWeight, "x", match.actual_reps);
+          } else {
+            const lastSession = sessionResolved[target.id] || [];
+            const lastWeight = lastSession.length > 0
+              ? Math.max(...lastSession.map((s: any) => s.actual_weight || 0))
+              : target.start_weight;
+            const displayWeight = getUnitsPreference() === "imperial"
+              ? Math.round(lastWeight)
+              : Math.round(lastWeight);
+            setDraftWeight(String(displayWeight));
+            setDraftReps(String(target.reps_target));
+            console.log("[ActiveWorkoutScreen] auto-expand default", displayWeight, "x", target.reps_target);
+          }
+          setDraftEffort(3);
+          setNotes("");
+          setShowNotes(false);
+          setExpandedExerciseId(target.id);
+          console.log("[ActiveWorkoutScreen] auto-expand expandedExerciseId", target.id);
         }
       } catch (err) {
         if (!cancelled) {
@@ -424,19 +465,20 @@ export default function ActiveWorkoutScreen({
     setExpandedExerciseId(exercise.id);
     setAddSetExerciseId(null);
     const completedCount = exerciseCompletedCount[exercise.id] || 0;
-    if ((workoutMode || "manual") === "manual") {
-      const sessionLogs = lastSessionByExercise[exercise.id] || [];
-      const match = sessionLogs.find((l) => l.set_index === completedCount + 1);
-      if (match) {
-        setDraftWeight(String(match.actual_weight));
-        setDraftReps(String(match.actual_reps));
-        setDraftEffort(3);
-        setNotes("");
-        setShowNotes(false);
-        return;
-      }
+    const sessionLogs = lastSessionByExercise[exercise.id] || [];
+    console.log("[ActiveWorkoutScreen] expandExercise", exercise.id, exercise.name, "completedCount", completedCount, "sessionLogs", sessionLogs);
+    const match = sessionLogs.find((l) => l.set_index === completedCount + 1);
+    if (match) {
+      const displayWeight = getUnitsPreference() === "imperial" ? Math.round(match.actual_weight) : Math.round(match.actual_weight);
+      setDraftWeight(String(displayWeight));
+      setDraftReps(String(match.actual_reps));
+      setDraftEffort(3);
+      setNotes("");
+      setShowNotes(false);
+      return;
     }
-    setDraftWeight(String(exercise.start_weight));
+    const defaultWeight = getUnitsPreference() === "imperial" ? kgToLbs(exercise.start_weight) : exercise.start_weight;
+    setDraftWeight(String(Math.round(defaultWeight)));
     setDraftReps(String(exercise.reps_target));
     setDraftEffort(3);
     setNotes("");
@@ -481,7 +523,7 @@ export default function ActiveWorkoutScreen({
   };
 
   const handleDeleteSet = async (log: SetLog) => {
-    if (!confirm(`Delete Set ${log.set_index} (${formatWeight(log.actual_weight ?? 0, getUnitsPreference())} × ${log.actual_reps} reps)?`)) return;
+    if (!confirm(`Delete Set ${log.set_index} (${(log.actual_weight ?? 0)} × ${log.actual_reps} reps)?`)) return;
     await api.deleteSetLog(sessionId, log.id);
     setLogs((prev) => prev.filter((l) => l.id !== log.id));
   };
@@ -812,7 +854,7 @@ export default function ActiveWorkoutScreen({
               <div className="text-[10px] text-indigo-400 font-semibold uppercase tracking-wider mb-2">Up Next</div>
               <div className="text-sm font-semibold text-slate-200">{nextSetDuringRest()!.name}</div>
               <div className="text-xs text-slate-400 mt-1">
-                Set {nextSetDuringRest()!.set} — {formatWeight(Number(nextSetDuringRest()!.weight), getUnitsPreference())} × {nextSetDuringRest()!.reps} reps
+                Set {nextSetDuringRest()!.set} — {Math.round(Number(nextSetDuringRest()!.weight))} × {nextSetDuringRest()!.reps} reps
               </div>
             </div>
           )}

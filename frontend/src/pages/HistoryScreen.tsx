@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { api, type SessionHistory, type SetLogUpdate, type SetLog } from "../api";
-import { formatWeight, getUnitsPreference } from "../utils/units";
+import { formatWeight, getUnitsPreference, lbsToKg, kgToLbs } from "../utils/units";
 
 type SessionDetail = {
   session: SessionHistory;
@@ -440,7 +440,11 @@ export default function HistoryScreen({
                                   <div className="text-[10px] text-slate-500">Weight</div>
                                   <input
                                     type="number"
-                                    defaultValue={log.actual_weight ?? ""}
+                                    defaultValue={
+                                      getUnitsPreference() === "imperial"
+                                        ? Math.round(kgToLbs(log.actual_weight ?? 0))
+                                        : (log.actual_weight ?? "")
+                                    }
                                     onChange={(e) =>
                                       ((editingLog as any).log = {
                                         ...editingLog.log,
@@ -502,7 +506,9 @@ export default function HistoryScreen({
                                       editingLog.sessionId,
                                       editingLog.log,
                                       {
-                                        actual_weight: (editingLog.log as any).actual_weight,
+                                        actual_weight: getUnitsPreference() === "imperial"
+                                          ? lbsToKg((editingLog.log as any).actual_weight)
+                                          : (editingLog.log as any).actual_weight,
                                         actual_reps: (editingLog.log as any).actual_reps,
                                         effort: (editingLog.log as any).effort,
                                         notes: (editingLog.log as any).notes,
