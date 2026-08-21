@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useRef } from "react";
-import { api } from "../api";
+import { api, withRetry } from "../api";
 import type { SetLog, WorkoutSession, ExerciseEntry } from "../types";
 import { formatWeight, getUnitsPreference, weightInputPlaceholder } from "../utils/units";
 
@@ -33,6 +33,35 @@ export default function PostWorkoutScreen({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [coachPhase, setCoachPhase] = useState<string | null>(null);
   const [coachWeek, setCoachWeek] = useState<number | null>(null);
+  const [finishing, setFinishing] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  const endWorkout = async () => {
+    if (!sessionId || finishing) return;
+    setFinishing(true);
+    setActionError(null);
+    try {
+      await withRetry(() => api.endSession(sessionId), { retries: 3, baseDelayMs: 300 });
+      onDone();
+    } catch (err) {
+      setActionError("Could not finish workout. Try again.");
+      setFinishing(false);
+    }
+  };
+
+  const cancelWorkout = async () => {
+    if (!sessionId || cancelling) return;
+    setCancelling(true);
+    setActionError(null);
+    try {
+      await withRetry(() => api.cancelSession(sessionId), { retries: 3, baseDelayMs: 300 });
+      onDone();
+    } catch (err) {
+      setActionError("Could not cancel workout. Try again.");
+      setCancelling(false);
+    }
+  };
 
   useEffect(() => {
     api.getSession(sessionId).then(setSession);
@@ -342,11 +371,22 @@ export default function PostWorkoutScreen({
       </div>
 
       <button
-        onClick={onDone}
-        className="w-full rounded-2xl bg-emerald-600 px-5 py-4 text-base font-semibold hover:bg-emerald-500 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/30"
+        onClick={endWorkout}
+        disabled={finishing}
+        className="w-full rounded-2xl bg-emerald-600 px-5 py-4 text-base font-semibold hover:bg-emerald-500 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/30 disabled:opacity-60 disabled:cursor-wait disabled:active:scale-100"
       >
-        Complete Workout
+        {finishing ? "Finishing..." : "Finish Workout"}
       </button>
+
+      <button
+        onClick={cancelWorkout}
+        disabled={cancelling}
+        className="w-full rounded-2xl border border-rose-900/80 px-5 py-4 text-base font-semibold text-rose-300 hover:bg-rose-950 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-wait disabled:active:scale-100"
+      >
+        {cancelling ? "Cancelling..." : "Cancel Workout"}
+      </button>
+
+      {actionError && <div className="text-xs text-rose-400">{actionError}</div>}
 
       <button
         onClick={onDone}

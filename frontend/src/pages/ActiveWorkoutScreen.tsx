@@ -2,7 +2,6 @@ import { useEffect, useState, useRef, useMemo } from "react";
 import {
   DndContext,
   closestCenter,
-  KeyboardSensor,
   PointerSensor,
   useSensor,
   useSensors,
@@ -10,12 +9,11 @@ import {
 } from "@dnd-kit/core";
 import {
   SortableContext,
-  sortableKeyboardCoordinates,
   verticalListSortingStrategy,
   arrayMove,
 } from "@dnd-kit/sortable";
 import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
-import { api } from "../api";
+import { api, withRetry } from "../api";
 import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
 import { SortableExerciseCard } from "./SortableExerciseCard";
 import { computePrescription, type CoachPhase, type Prescription, type SetRecord, computeCoachState } from "../rules";
@@ -70,6 +68,7 @@ export default function ActiveWorkoutScreen({
   const [backendPrescriptions, setBackendPrescriptions] = useState<Record<number, any>>({});
   const [backendCoach, setBackendCoach] = useState<any>(null);
   const [prescriptionError, setPrescriptionError] = useState<string | null>(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   const restTimerRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
@@ -396,7 +395,6 @@ export default function ActiveWorkoutScreen({
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
   );
 
   function handleDragStart() {
@@ -728,6 +726,17 @@ export default function ActiveWorkoutScreen({
     await endWorkout(0);
   };
 
+  const cancelWorkout = async () => {
+    if (!sessionId) return;
+    try {
+      await withRetry(() => api.cancelSession(sessionId), { retries: 3, baseDelayMs: 300 });
+      onEnd?.();
+    } catch (err) {
+      console.error("[ActiveWorkoutScreen] cancel failed", err);
+      alert("Could not cancel workout. Please try again.");
+    }
+  };
+
   const formatElapsed = (totalSeconds: number) => {
     const h = Math.floor(totalSeconds / 3600);
     const m = Math.floor((totalSeconds % 3600) / 60);
@@ -767,6 +776,29 @@ export default function ActiveWorkoutScreen({
 
   return (
     <div className="space-y-4 pb-4">
+      {showCancelConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="rounded-2xl border border-rose-900/80 bg-slate-900 p-5 space-y-3 max-w-sm w-full">
+            <h3 className="text-base font-bold text-slate-100">Cancel workout?</h3>
+            <p className="text-xs text-slate-400">This will delete the session and all logged sets. This cannot be undone.</p>
+            <div className="flex gap-2">
+              <button
+                onClick={cancelWorkout}
+                className="flex-1 rounded-xl border border-rose-900/80 bg-rose-950/40 px-4 py-3 text-sm font-semibold text-rose-300 hover:bg-rose-900/40 active:scale-[0.98] transition-all"
+              >
+                Yes, cancel
+              </button>
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-slate-800 active:scale-[0.98] transition-all"
+              >
+                Keep going
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="space-y-3">
         <div className="flex items-start justify-between gap-3">
@@ -787,6 +819,12 @@ export default function ActiveWorkoutScreen({
               <div className="text-base font-bold text-emerald-300 tabular-nums leading-none">{formatElapsed(workoutElapsed)}</div>
               <div className="text-[10px] text-emerald-200 uppercase tracking-wide mt-1">Elapsed</div>
             </div>
+            <button
+              onClick={() => setShowCancelConfirm(true)}
+              className="rounded-xl border border-rose-900/80 px-3 py-2 text-xs font-semibold text-rose-300 hover:bg-rose-950 active:scale-[0.98] transition-all"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       </div>

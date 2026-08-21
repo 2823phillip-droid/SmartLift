@@ -359,6 +359,8 @@ export const api = {
   getSession: (id: number) => request(`/sessions/${id}`),
   endSession: (id: number) =>
     request(`/sessions/${id}/end`, { method: "POST" }),
+  cancelSession: (id: number) =>
+    request(`/sessions/${id}/cancel`, { method: "POST" }),
   deleteSession: (id: number) =>
     request(`/sessions/${id}`, { method: "DELETE" }),
   deleteSetLog: (sessionId: number, logId: number) =>

@@ -78,7 +78,28 @@ export default function App() {
   const [tab, setTab] = useState<Tab>("home");
   const [selectedContextId, setSelectedContextId] = useState<number | null>(null);
   const [selectedTemplateId, setSelectedTemplateId] = useState<number | null>(null);
-  const [sessionId, setSessionId] = useState<number | null>(null);
+  const ACTIVE_SESSION_KEY = "askeo_active_session";
+  const ACTIVE_TEMPLATE_KEY = "askeo_active_template";
+  const [sessionId, setSessionId] = useState<number | null>(() => {
+    if (typeof window !== "undefined") {
+      const raw = localStorage.getItem(ACTIVE_SESSION_KEY);
+      if (raw) {
+        const parsed = parseInt(raw, 10);
+        if (!Number.isNaN(parsed)) return parsed;
+      }
+    }
+    return null;
+  });
+  const [selectedTemplateIdFromStorage, setSelectedTemplateIdFromStorage] = useState<number | null>(() => {
+    if (typeof window !== "undefined") {
+      const raw = localStorage.getItem(ACTIVE_TEMPLATE_KEY);
+      if (raw) {
+        const parsed = parseInt(raw, 10);
+        if (!Number.isNaN(parsed)) return parsed;
+      }
+    }
+    return null;
+  });
   const [workoutEndSummary, setWorkoutEndSummary] = useState<{
     exerciseOrder: number[];
     setsTargetChanges: Record<number, number>;
@@ -104,6 +125,26 @@ export default function App() {
   }, [workoutMode, WORKOUT_MODE_STORAGE_KEY]);
 
   useEffect(() => {
+    const ACTIVE_SESSION_KEY = "askeo_active_session";
+    if (typeof window === "undefined") return;
+    if (sessionId === null) {
+      localStorage.removeItem(ACTIVE_SESSION_KEY);
+    } else {
+      localStorage.setItem(ACTIVE_SESSION_KEY, String(sessionId));
+    }
+  }, [sessionId]);
+
+  useEffect(() => {
+    const ACTIVE_TEMPLATE_KEY = "askeo_active_template";
+    if (typeof window === "undefined") return;
+    if (selectedTemplateId === null) {
+      localStorage.removeItem(ACTIVE_TEMPLATE_KEY);
+    } else {
+      localStorage.setItem(ACTIVE_TEMPLATE_KEY, String(selectedTemplateId));
+    }
+  }, [selectedTemplateId]);
+
+  useEffect(() => {
     let cancelled = false;
     setCheckingAuth(true);
     const stored = getAuthToken() || (typeof window !== "undefined" ? (localStorage.getItem("askeo_token") || null) : null);
@@ -123,6 +164,9 @@ export default function App() {
         const profile = await withRetry(() => api.getFitnessProfile(), { retries: 2, baseDelayMs: 300 }).catch(() => ({}));
         if ((profile as any) && Object.keys(profile as any).length === 0 && typeof window !== "undefined" && !localStorage.getItem("askeo_questionnaire_done")) {
           setView("questionnaire");
+        } else if (sessionId !== null && (selectedTemplateId !== null || selectedTemplateIdFromStorage !== null)) {
+          setSelectedTemplateId(selectedTemplateIdFromStorage);
+          setView("active_workout");
         } else {
           setView("home");
         }
@@ -428,6 +472,9 @@ export default function App() {
                   workoutMode={workoutMode}
                   onEnd={(summary) => {
                     setWorkoutEndSummary(summary || null);
+                    setSessionId(null);
+                    setSelectedTemplateId(null);
+                    setSelectedTemplateIdFromStorage(null);
                     navigate("post_workout");
                   }}
                 />
