@@ -58,6 +58,15 @@ export default function WorkoutsScreen({
     setError("");
     let contexts: any[] = [];
     let templatesRaw: any[] = [];
+
+    // Safety timeout: if loading takes >20s, surface an error instead of spinning forever
+    const safetyTimer = setTimeout(() => {
+      if (!cancelled) {
+        console.error("[WorkoutsScreen] load safety timeout");
+        setError("Loading is taking longer than expected. Tap retry or reopen the app.");
+      }
+    }, 20000);
+
     withRetry(
       () =>
         api.getContexts()
@@ -105,8 +114,14 @@ export default function WorkoutsScreen({
           setError(`${msg}${url ? `\nURL: ${url}` : ''}`);
         }
       })
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+      .finally(() => {
+        clearTimeout(safetyTimer);
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+      clearTimeout(safetyTimer);
+    };
   }, []);
 
   const templatesSensors = useSensors(
@@ -217,10 +232,20 @@ export default function WorkoutsScreen({
 
   void onEditTemplate;
 
+  const reload = () => {
+    setError("");
+    setLoading(true);
+    // Trigger effect manually by updating a dummy state or just rely on the fact
+    // that the user can back-navigate. For simplicity, we just clear error and
+    // the existing effect will retry via withRetry on its own if it hadn't started.
+    // A full reload requires unmount/remount; back-navigation does that.
+    window.location.reload();
+  };
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold tracking-tight">Workouts</h2>
+        <div className="text-xl font-bold tracking-tight">Workouts</div>
         <button
           onClick={onBack}
           className="text-sm text-slate-400 hover:text-slate-200 transition-colors px-2 py-1 rounded-lg hover:bg-slate-800/50"
@@ -233,7 +258,15 @@ export default function WorkoutsScreen({
         <div className="text-center text-xs text-slate-500">Loading workouts...</div>
       )}
       {error && (
-        <div className="rounded-xl border border-rose-900 bg-rose-950/40 px-4 py-3 text-sm text-rose-300">{error}</div>
+        <div className="space-y-3">
+          <div className="rounded-xl border border-rose-900 bg-rose-950/40 px-4 py-3 text-sm text-rose-300 whitespace-pre-wrap">{error}</div>
+          <button
+            onClick={reload}
+            className="w-full rounded-xl border border-indigo-800 bg-indigo-950/40 hover:border-indigo-500/60 px-4 py-3 text-sm font-semibold text-indigo-200 transition-colors"
+          >
+            Reload Workouts
+          </button>
+        </div>
       )}
 
       {!loading && !hasData && (
