@@ -556,11 +556,12 @@ export default function ActiveWorkoutScreen({
     const nextTarget = getNextSetTarget(currentExercise);
 
     try {
+      const suggestedWeightKg = getUnitsPreference() === "imperial" ? lbsToKg(nextTarget.weight) : nextTarget.weight;
       const log = await api.createSetLog({
         session_id: sessionId,
         exercise_entry_id: currentExercise.id,
         set_index: setIndex,
-        suggested_weight: sugg?.weight ?? nextTarget.weight,
+        suggested_weight: sugg?.weight ?? suggestedWeightKg,
         suggested_reps: sugg?.reps ?? nextTarget.reps,
         actual_weight: weightKg,
         actual_reps: r,
