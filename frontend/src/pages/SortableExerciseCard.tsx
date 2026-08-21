@@ -272,8 +272,17 @@ export function SortableExerciseCard({
                       <div>
                         <input
                           type="number"
+                          inputMode="numeric"
+                          enterKeyHint="next"
                           value={draftWeight}
                           onChange={(e) => onDraftWeightChange(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              const next = e.currentTarget.parentElement?.nextElementSibling?.querySelector("input");
+                              (next as HTMLInputElement | undefined)?.focus();
+                            }
+                          }}
                           placeholder="Weight"
                           className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-50 focus:border-indigo-500 focus:outline-none"
                         />
@@ -282,8 +291,18 @@ export function SortableExerciseCard({
                       <div>
                         <input
                           type="number"
+                          inputMode="numeric"
+                          enterKeyHint="go"
                           value={draftReps}
                           onChange={(e) => onDraftRepsChange(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              e.preventDefault();
+                              if (canLog && !isLogging) {
+                                onLogSet();
+                              }
+                            }
+                          }}
                           placeholder="Reps"
                           className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-50 focus:border-indigo-500 focus:outline-none"
                         />
