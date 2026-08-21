@@ -252,12 +252,9 @@ export function SortableExerciseCard({
                       suggestion.workload_status === "hard" ? "text-rose-400" :
                       "text-indigo-400"
                     }`}>
-                      {suggestion.is_deload ? "Deload Suggestion" : "Rule Suggestion"}
+                      {suggestion.is_deload ? "Deload Week" : "Next Session Target"}
                     </div>
-                    <div className="text-sm font-semibold text-slate-200 mt-0.5">
-                      {formatWeight(suggestion.next_weight, getUnitsPreference())} × {suggestion.next_reps} reps · {suggestion.next_sets} sets
-                    </div>
-                    <div className="text-xs text-slate-400 mt-0.5">{suggestion.coaching_message}</div>
+                    <div className="text-xs text-slate-300 mt-1 leading-relaxed">{suggestion.coaching_message}</div>
                   </div>
                 )}
 
