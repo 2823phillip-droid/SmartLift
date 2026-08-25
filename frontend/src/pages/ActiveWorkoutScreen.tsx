@@ -18,6 +18,7 @@ import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../t
 import { SortableExerciseCard } from "./SortableExerciseCard";
 import { computePrescription, type CoachPhase, type Prescription, type SetRecord, computeCoachState } from "../rules";
 import { getUnitsPreference, kgToLbs, lbsToKg, formatWeight } from "../utils/units";
+import { resolveMediaUrl } from "../api";
 
 export default function ActiveWorkoutScreen({
   sessionId,
@@ -71,6 +72,11 @@ export default function ActiveWorkoutScreen({
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
 
+  // Dynamic Workout — option group selection
+  const [selectedGroups, setSelectedGroups] = useState<Record<string, number>>({});
+  const [showGroupPicker, setShowGroupPicker] = useState<string | null>(null);
+  const [pendingGroupExercises, setPendingGroupExercises] = useState<ExerciseEntry[]>([]);
+
   const restTimerRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
 
@@ -106,24 +112,17 @@ export default function ActiveWorkoutScreen({
     return history;
   };
 
-  const buildRuleHistory = (exercise: ExerciseEntry, lastSessionOverride?: Record<number, {set_index: number; actual_weight: number; actual_reps: number}[]>): SetRecord[] => {
+  // Prescription history = completed sessions ONLY. Current in-progress session
+  // sets must not retroactively change the "next session" target mid-workout.
+  const buildPrescriptionHistory = (exercise: ExerciseEntry): SetRecord[] => {
     const history: SetRecord[] = [];
-    const lastSession = lastSessionOverride ? (lastSessionOverride[exercise.id] || []) : (lastSessionByExercise[exercise.id] || []);
+    const lastSession = lastSessionByExercise[exercise.id] || [];
     for (const s of lastSession) {
       history.push({
         actual_weight: toLbs(s.actual_weight),
         actual_reps: s.actual_reps,
         effort: 3,
         completed_at: new Date(Date.now() - 86400000).toISOString(),
-      });
-    }
-    const currentLogs = logs.filter((l) => l.exercise_entry_id === exercise.id);
-    for (const l of currentLogs) {
-      history.push({
-        actual_weight: toLbs(Number(l.actual_weight || 0)),
-        actual_reps: Number(l.actual_reps || 0),
-        effort: l.effort ?? 3,
-        completed_at: new Date().toISOString(),
       });
     }
     return history;
@@ -160,7 +159,7 @@ export default function ActiveWorkoutScreen({
             sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
             rest_seconds: exercise.rest_seconds,
             progression_type: coach.phase,
-            history: buildRuleHistory(exercise),
+            history: buildPrescriptionHistory(exercise),
             week: coachWeek,
             current_week_in_block: coachWeek,
             force_deload: coach.is_deload,
@@ -209,7 +208,7 @@ export default function ActiveWorkoutScreen({
       const lastWeight = lastSession.length > 0
         ? toLbs(Math.max(...lastSession.map((s: any) => s.actual_weight || 0)))
         : toLbs(exercise.start_weight);
-      const exHistory = buildRuleHistory(exercise);
+      const exHistory = buildPrescriptionHistory(exercise);
       console.log("[ActiveWorkoutScreen] localSuggestions exercise", exercise.id, exercise.name, "lastWeight", lastWeight, "exHistory length", exHistory.length);
       map[exercise.id] = computePrescription({
         start_weight: lastWeight,
@@ -332,6 +331,47 @@ export default function ActiveWorkoutScreen({
       cancelled = true;
     };
   }, [sessionId, templateId]);
+
+  // Dynamic Workout — compute visible exercises and pending groups
+  const visibleExercises = useMemo(() => {
+    const groups: Record<string, ExerciseEntry[]> = {};
+    for (const ex of exercises) {
+      const gid = ex.group_id;
+      if (!gid) continue;
+      (groups[gid] ||= []).push(ex);
+    }
+    return exercises.filter((ex) => {
+      if (!ex.group_id) return true;
+      const chosenId = selectedGroups[ex.group_id];
+      if (chosenId === undefined) return true; // show all until user picks
+      return ex.id === chosenId;
+    });
+  }, [exercises, selectedGroups]);
+
+  const pendingGroups = useMemo(() => {
+    const groups: Record<string, ExerciseEntry[]> = {};
+    for (const ex of exercises) {
+      const gid = ex.group_id;
+      if (!gid) continue;
+      (groups[gid] ||= []).push(ex);
+    }
+    return Object.entries(groups)
+      .filter(([, entries]) => entries.length > 1 && selectedGroups[entries[0].group_id!] === undefined)
+      .map(([gid, entries]) => ({ groupId: gid, exercises: entries }));
+  }, [exercises, selectedGroups]);
+
+  const openGroupPicker = (groupedExercises: ExerciseEntry[]) => {
+    const gid = groupedExercises[0].group_id!;
+    setPendingGroupExercises(groupedExercises);
+    setShowGroupPicker(gid);
+  };
+
+  const pickGroupExercise = (entryId: number) => {
+    if (!showGroupPicker) return;
+    setSelectedGroups((prev) => ({ ...prev, [showGroupPicker]: entryId }));
+    setShowGroupPicker(null);
+    setPendingGroupExercises([]);
+  };
 
   useEffect(() => {
     if (!workoutStart) return;
@@ -488,9 +528,16 @@ export default function ActiveWorkoutScreen({
       setShowNotes(false);
       return;
     }
-    const defaultWeight = getUnitsPreference() === "imperial" ? kgToLbs(exercise.start_weight) : exercise.start_weight;
-    setDraftWeight(String(Math.round(defaultWeight)));
-    setDraftReps(String(exercise.reps_target));
+    const prescription = prescriptions[exercise.id];
+    if (prescription) {
+      const displayWeight = getUnitsPreference() === "imperial" ? Math.round(kgToLbs(prescription.next_weight)) : Math.round(prescription.next_weight);
+      setDraftWeight(String(displayWeight));
+      setDraftReps(String(prescription.next_reps));
+    } else {
+      const defaultWeight = getUnitsPreference() === "imperial" ? kgToLbs(exercise.start_weight) : exercise.start_weight;
+      setDraftWeight(String(Math.round(defaultWeight)));
+      setDraftReps(String(exercise.reps_target));
+    }
     setDraftEffort(3);
     setNotes("");
     setShowNotes(false);
@@ -650,7 +697,10 @@ export default function ActiveWorkoutScreen({
     const nextSetIndex = existing + 1;
 
     if (nextSetIndex <= resolveDisplayTarget(currentExercise)) {
-      const target = getNextSetTarget(currentExercise);
+      const prescription = prescriptions[currentExercise.id];
+      const target = prescription
+        ? { weight: prescription.next_weight, reps: prescription.next_reps }
+        : getNextSetTarget(currentExercise);
       return {
         name: currentExercise.name,
         set: nextSetIndex,
@@ -661,12 +711,15 @@ export default function ActiveWorkoutScreen({
 
     const nextExercise = exercises.find(e => e.id !== currentExercise.id && (exerciseCompletedCount[e.id] || 0) < resolveDisplayTarget(e));
     if (nextExercise) {
-      const units = getUnitsPreference();
+      const prescription = prescriptions[nextExercise.id];
+      const target = prescription
+        ? { weight: prescription.next_weight, reps: prescription.next_reps }
+        : getNextSetTarget(nextExercise);
       return {
         name: nextExercise.name,
         set: 1,
-        weight: units === "imperial" ? Math.round(kgToLbs(nextExercise.start_weight)) : nextExercise.start_weight,
-        reps: nextExercise.reps_target || 10,
+        weight: target.weight,
+        reps: target.reps,
       };
     }
     return null;
@@ -979,10 +1032,44 @@ export default function ActiveWorkoutScreen({
       )}
 
       {/* Exercise layers */}
+
+      {/* Dynamic Workout — pending group selections */}
+      {pendingGroups.length > 0 && (
+        <div className="rounded-2xl border border-indigo-800 bg-indigo-950/40 p-4 space-y-3">
+          <div className="text-sm font-semibold text-indigo-200">Choose your exercise variants</div>
+          <p className="text-xs text-slate-400">Tap each group to pick which variation you're doing today.</p>
+          <div className="space-y-2">
+            {pendingGroups.map(({ groupId, exercises: groupExs }) => (
+              <button
+                key={groupId}
+                onClick={() => openGroupPicker(groupExs)}
+                className="w-full text-left rounded-xl border border-indigo-700/60 bg-slate-950/60 px-3 py-2.5 hover:border-indigo-500/60 active:scale-[0.98] transition-all"
+              >
+                <div className="text-xs font-semibold text-indigo-300 uppercase tracking-wide mb-1">
+                  Exercise slot — {groupExs.length} options
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {groupExs.slice(0, 4).map((ex) => (
+                    <span key={ex.id} className="text-[11px] bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-slate-300">
+                      {ex.name}
+                    </span>
+                  ))}
+                  {groupExs.length > 4 && (
+                    <span className="text-[11px] bg-slate-900 border border-slate-700 rounded-lg px-2 py-1 text-slate-500">
+                      +{groupExs.length - 4} more
+                    </span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} modifiers={[restrictToVerticalAxis]}>
-        <SortableContext items={exercises.map((ex) => ex.id)} strategy={verticalListSortingStrategy}>
+        <SortableContext items={visibleExercises.map((ex) => ex.id)} strategy={verticalListSortingStrategy}>
           <div className="space-y-3">
-            {exercises.map((exercise) => {
+            {visibleExercises.map((exercise) => {
               const completed = exerciseCompletedCount[exercise.id] || 0;
               const displayTarget = resolveDisplayTarget(exercise);
               const isExpanded = exercise.id === expandedExerciseId;
@@ -1054,6 +1141,51 @@ export default function ActiveWorkoutScreen({
         >
           Finish Workout
         </button>
+      )}
+
+      {/* Dynamic Workout — group picker modal */}
+      {showGroupPicker && pendingGroupExercises.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+          <div className="rounded-2xl border border-indigo-800 bg-slate-900 p-5 space-y-4 max-w-sm w-full max-h-[80vh] overflow-y-auto">
+            <div>
+              <div className="text-base font-bold text-slate-100">Pick your exercise</div>
+              <div className="text-xs text-slate-400 mt-1">Choose one variation for this slot.</div>
+            </div>
+            <div className="space-y-2">
+              {pendingGroupExercises.map((ex) => (
+                <button
+                  key={ex.id}
+                  onClick={() => pickGroupExercise(ex.id)}
+                  className="w-full text-left rounded-xl border border-slate-700 bg-slate-950/60 hover:border-indigo-500/60 px-3 py-3 active:scale-[0.98] transition-all"
+                >
+                  <div className="flex items-center gap-3">
+                    {ex.gif_url ? (
+                      <img
+                        src={resolveMediaUrl(ex.gif_url)!}
+                        alt={ex.name}
+                        className="h-10 w-10 rounded-lg object-cover border border-slate-800 bg-slate-900 shrink-0"
+                        loading="lazy"
+                        onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                      />
+                    ) : null}
+                    <div>
+                      <div className="text-sm font-semibold text-slate-200">{ex.name}</div>
+                      <div className="text-xs text-slate-500">
+                        {ex.sets_target} sets · {ex.reps_target} reps · {formatWeight(toLbs(ex.start_weight), getUnitsPreference())}
+                      </div>
+                    </div>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => { setShowGroupPicker(null); setPendingGroupExercises([]); }}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm font-semibold text-slate-300 hover:text-slate-100 transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       )}
     </div>
   )

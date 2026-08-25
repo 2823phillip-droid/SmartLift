@@ -324,7 +324,7 @@ export const api = {
 
   getExercises: (templateId: number) => request(`/templates/${templateId}/exercises`),
   getAllExercises: () => request("/exercises"),
-  createExercise: (data: { template_id: number; name: string; exercise_library_id?: number; order: number; sets_target?: number; reps_target?: number; start_weight?: number; rest_seconds?: number; notes?: string | null }) =>
+  createExercise: (data: { template_id: number; name: string; exercise_library_id?: number; order: number; sets_target?: number; reps_target?: number; start_weight?: number; rest_seconds?: number; notes?: string | null; group_id?: string | null }) =>
     request("/exercises", { method: "POST", body: JSON.stringify(data) }),
   updateExercise: (id: number, data: Partial<Exercise>) =>
     request(`/exercises/${id}`, {

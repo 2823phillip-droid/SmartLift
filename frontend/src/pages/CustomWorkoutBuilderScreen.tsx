@@ -33,6 +33,8 @@ interface DraftExercise {
   rest_seconds: number;
   muscle_group?: string;
   tier?: number;
+  group_id?: string | null;
+  isOption?: boolean;
 }
 
 interface DayDraft {
@@ -83,6 +85,17 @@ export default function CustomWorkoutBuilderScreen({
   const [days, setDays] = useState<DayDraft[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [addAsOption, setAddAsOption] = useState(false);
+  const [lastOptionGroupId, setLastOptionGroupId] = useState<string | null>(null);
+
+  const handleToggleOptionMode = (next: boolean) => {
+    setAddAsOption(next);
+    if (next) {
+      setLastOptionGroupId(`opt-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`);
+    } else {
+      setLastOptionGroupId(null);
+    }
+  };
 
   const daysPerWeek = useMemo(() => {
     if (!initialAnswers) return 3;
@@ -189,6 +202,10 @@ export default function CustomWorkoutBuilderScreen({
     setDays((prev) => {
       const next = [...prev];
       const day = { ...next[dayIndex], exercises: [...next[dayIndex].exercises] };
+      const currentGroupId: string | null = addAsOption ? (lastOptionGroupId || `opt-${Date.now()}`) : null;
+      if (addAsOption && !lastOptionGroupId) {
+        setLastOptionGroupId(currentGroupId);
+      }
       day.exercises.push({
         localId: uid(),
         libraryExerciseId: ex.id,
@@ -196,6 +213,8 @@ export default function CustomWorkoutBuilderScreen({
         sets: [{ weight: 0, reps: 10 }],
         rest_seconds: 90,
         muscle_group: ex.muscle_group,
+        group_id: currentGroupId,
+        isOption: !!currentGroupId,
       });
       next[dayIndex] = day;
       return next;
@@ -277,6 +296,7 @@ export default function CustomWorkoutBuilderScreen({
               start_weight: getUnitsPreference() === "imperial" ? lbsToKg(ex.sets[0]?.weight || 0) : ex.sets[0]?.weight || 0,
               rest_seconds: ex.rest_seconds,
               notes: null,
+              group_id: ex.group_id || null,
             });
           }, { retries: 3, baseDelayMs: 500 });
         });
@@ -505,7 +525,27 @@ export default function CustomWorkoutBuilderScreen({
 
       {/* Exercise library picker */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
-        <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Exercise Library</div>
+        <div className="flex items-center justify-between">
+          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Exercise Library</div>
+          <label className="flex items-center gap-2 cursor-pointer select-none">
+            <span className="text-[11px] font-medium text-indigo-300 uppercase tracking-wide">Dynamic Workout</span>
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={addAsOption}
+                onChange={(e) => handleToggleOptionMode(e.target.checked)}
+                className="sr-only"
+              />
+              <div className={`w-8 h-5 rounded-full transition-colors ${addAsOption ? "bg-indigo-600" : "bg-slate-700"}`} />
+              <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${addAsOption ? "translate-x-3" : "translate-x-0"}`} />
+            </div>
+          </label>
+        </div>
+        {addAsOption && (
+          <div className="text-[11px] text-indigo-300 bg-indigo-950/40 border border-indigo-800/50 rounded-lg px-3 py-2">
+            Adding exercises as options — each tap creates a variant. Toggle off when done.
+          </div>
+        )}
         <div className="flex gap-2">
           <input
             type="text"
