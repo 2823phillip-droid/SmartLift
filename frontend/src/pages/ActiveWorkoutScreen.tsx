@@ -842,7 +842,8 @@ export default function ActiveWorkoutScreen({
   };
 
   const forceDeload = () => {
-    void persistCoach("deload", 1, true);
+    const current = coachPhase || "linear";
+    void persistCoach(current as CoachPhase, coachWeek, true);
   };
   const skipBlock = () => {
     setCoachPhase((prev: CoachPhase) => {
