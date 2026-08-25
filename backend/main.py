@@ -5,7 +5,7 @@ from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, field_validator, model_serializer
 from datetime import datetime, timedelta, timezone
 from typing import Optional, List, Union, cast, Any
 import json
@@ -279,6 +279,10 @@ def _run_migrations():
             if "deload_override" not in ecols:
                 conn.execute(_text("ALTER TABLE exercise_entries ADD COLUMN deload_override INTEGER DEFAULT 0"))
                 conn.commit()
+            if "group_id" not in ecols:
+                conn.execute(_text("ALTER TABLE exercise_entries ADD COLUMN group_id TEXT"))
+                conn.execute(_text("CREATE INDEX IF NOT EXISTS ix_exercise_entries_group_id ON exercise_entries (group_id)"))
+                conn.commit()
 
             scolumns = cols("set_logs")
             if "rir" not in scolumns:
@@ -367,6 +371,7 @@ class ExerciseEntryCreate(BaseModel):
     per_set_data: Optional[str] = None  # JSON string
     progression_type: Optional[str] = None
     deload_override: Optional[bool] = None
+    group_id: Optional[str] = None
 
 class ExerciseEntryOut(BaseModel):
     id: int
@@ -383,6 +388,7 @@ class ExerciseEntryOut(BaseModel):
     progression_type: Optional[str] = None
     deload_override: Optional[bool] = None
     gif_url: Optional[str] = None
+    group_id: Optional[str] = None
 
     @field_validator("name", mode="before")
     @classmethod
@@ -422,12 +428,28 @@ class WorkoutTemplateUpdate(BaseModel):
     default_rest_seconds: Optional[int] = None
     coach_rules: Optional[str] = None
 
+class ApiBaseModel(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    @model_serializer(mode='plain')
+    def serialize_model(self):
+        return {
+            k: (
+                v.replace(tzinfo=timezone.utc).isoformat()
+                if isinstance(v, datetime) and v.tzinfo is None else v
+            )
+            for k, v in self.__dict__.items()
+            if not k.startswith("_")
+        }
+
+
 class SessionCreate(BaseModel):
     template_id: Optional[int] = None
     pre_workout_mood: Optional[str] = None
     pre_workout_tags: Optional[List[str]] = []
 
-class SessionOut(BaseModel):
+
+class SessionOut(ApiBaseModel):
     id: int
     template_id: Optional[int]
     started_at: datetime
@@ -467,7 +489,7 @@ class SetLogOut(BaseModel):
     class Config:
         from_attributes = True
 
-class SessionHistoryOut(BaseModel):
+class SessionHistoryOut(ApiBaseModel):
     id: int
     template_id: Optional[int]
     started_at: datetime
@@ -504,7 +526,7 @@ class CoachMessageCreate(BaseModel):
     role: CoachRole
     content: str
 
-class CoachMessageOut(BaseModel):
+class CoachMessageOut(ApiBaseModel):
     id: int
     session_id: int
     role: str
@@ -518,7 +540,7 @@ class BodyWeightLogCreate(BaseModel):
     weight_lbs: float
     notes: Optional[str] = None
 
-class BodyWeightLogOut(BaseModel):
+class BodyWeightLogOut(ApiBaseModel):
     id: int
     weight_lbs: float
     logged_at: datetime
@@ -589,7 +611,7 @@ def _find_or_create_user_by_email(db: Session, email: str, preferred_role: str =
 def _issue_token_for_user(user: User) -> TokenOut:
     token = _make_token()
     user.token_hash = _token_hash(token)
-    user.token_expires_at = datetime.utcnow() + timedelta(hours=24)
+    user.token_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
     if not user.hashed_password:
         user.hashed_password = ""
     return TokenOut(
@@ -632,7 +654,7 @@ def signup(payload: UserCreate, request: Request, db: Session = Depends(get_db))
     db.refresh(user)
     token = _make_token()
     user.token_hash = _token_hash(token)
-    user.token_expires_at = datetime.utcnow() + timedelta(hours=24)
+    user.token_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -647,7 +669,7 @@ def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
     _auth_rate_limiter.check(f"login:{ip}", 10, 60)
     logger.info(json.dumps({"type": "login", "email": payload.email, "password_length": len(payload.password), "password_prefix": payload.password[:2]}))
     user = db.query(User).filter(User.email == payload.email).first()
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc).replace(tzinfo=None)
     if user and user.locked_until and user.locked_until > now:
         raise HTTPException(status_code=429, detail="Account locked. Try again later.")
     if not user or not _verify_password(payload.password, user.hashed_password):
@@ -708,7 +730,7 @@ def refresh_token(payload: RefreshIn, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Token expired or invalid")
     token = _make_token()
     user.token_hash = _token_hash(token)
-    user.token_expires_at = datetime.utcnow() + timedelta(hours=24)
+    user.token_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -735,7 +757,7 @@ def _user_from_token(token: str, db: Session) -> User | None:
     user = db.query(User).filter(User.token_hash == token_hash).first()
     if not user:
         return None
-    if user.token_expires_at and datetime.utcnow() > user.token_expires_at:
+    if user.token_expires_at and datetime.now(timezone.utc).replace(tzinfo=None) > user.token_expires_at:
         user.token_hash = None
         user.token_expires_at = None
         db.add(user)
@@ -1161,7 +1183,7 @@ def delete_template(template_id: int, db: Session = Depends(get_db), current_use
 @app.post("/api/exercises", response_model=ExerciseEntryOut)
 def create_exercise(payload: ExerciseEntryCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     allowed = {k: v for k, v in payload.dict(exclude_unset=True).items() if k in {
-        "template_id","exercise_library_id","name","sets_target","reps_target","start_weight","rest_seconds","order","notes","per_set_data"
+        "template_id","exercise_library_id","name","sets_target","reps_target","start_weight","rest_seconds","order","notes","per_set_data","group_id"
     }}
     ex = ExerciseEntry(**allowed, user_id=current_user.id)
     db.add(ex)
@@ -1175,7 +1197,7 @@ def update_exercise(exercise_id: int, payload: ExerciseEntryCreate, db: Session 
     if not ex:
         raise HTTPException(status_code=404, detail="Exercise not found")
     allowed = {k: v for k, v in payload.dict(exclude_unset=True).items() if k in {
-        "template_id","exercise_library_id","name","sets_target","reps_target","start_weight","rest_seconds","order","notes","per_set_data"
+        "template_id","exercise_library_id","name","sets_target","reps_target","start_weight","rest_seconds","order","notes","per_set_data","group_id"
     }}
     for field, value in allowed.items():
         setattr(ex, field, value)
@@ -1210,6 +1232,7 @@ def list_exercises(db: Session = Depends(get_db), current_user: User = Depends(g
             per_set_data=e.per_set_data,
             progression_type=getattr(e, "progression_type", None),
             deload_override=getattr(e, "deload_override", None),
+            group_id=e.group_id,
             gif_url=_normalize_gif_url(getattr(getattr(e, "exercise_library", None), "gif_url", None)),
         )
         for e in entries
@@ -1233,6 +1256,7 @@ def list_template_exercises(template_id: int, db: Session = Depends(get_db), cur
             per_set_data=e.per_set_data,
             progression_type=getattr(e, "progression_type", None),
             deload_override=getattr(e, "deload_override", None),
+            group_id=e.group_id,
             gif_url=_normalize_gif_url(getattr(getattr(e, "exercise_library", None), "gif_url", None)),
         )
         for e in entries
@@ -1423,7 +1447,7 @@ def end_session(session_id: int, db: Session = Depends(get_db), current_user: Us
     s = db.query(WorkoutSession).filter(WorkoutSession.id == session_id, WorkoutSession.user_id == current_user.id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Session not found")
-    s.ended_at = datetime.utcnow()
+    s.ended_at = datetime.now(timezone.utc)
     s.status = SessionStatus.completed
     db.commit()
     db.refresh(s)
@@ -1535,7 +1559,7 @@ def get_exercise_progress(exercise_entry_id: int, limit: int = 50, db: Session =
     )
     points = [
         ExerciseProgressPoint(
-            date=log.completed_at.isoformat(),
+            date=log.completed_at.replace(tzinfo=timezone.utc).isoformat() if log.completed_at else None,
             weight=float(log.actual_weight or 0),
             reps=int(log.actual_reps or 0),
         )
@@ -1572,7 +1596,7 @@ def get_exercise_name_progress(name: str, limit: int = 5000, db: Session = Depen
     )
     points = [
         ExerciseProgressPoint(
-            date=log.completed_at.isoformat(),
+            date=log.completed_at.replace(tzinfo=timezone.utc).isoformat() if log.completed_at else None,
             weight=float(log.actual_weight or 0),
             reps=int(log.actual_reps or 0),
         )
@@ -1604,7 +1628,7 @@ def get_exercise_name_last_session(name: str, db: Session = Depends(get_db), cur
         if logs:
             return {
                 "session_id": session.id,
-                "started_at": session.started_at.isoformat(),
+                "started_at": session.started_at.replace(tzinfo=timezone.utc).isoformat(),
                 "logs": [
                     {
                         "set_index": log.set_index,
@@ -1642,7 +1666,7 @@ def get_streak(db: Session = Depends(get_db), current_user: User = Depends(get_c
         {datetime.strptime(str(s.started_at)[:10], "%Y-%m-%d").date() for s in sessions},
         reverse=True,
     )
-    today = datetime.utcnow().date()
+    today = datetime.now(timezone.utc).date()
     if dates[0] < today - timedelta(days=1):
         return {"streak": 0}
     streak = 1
@@ -1860,7 +1884,7 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
     )
 
 
-class AlgorithmStateOut(BaseModel):
+class AlgorithmStateOut(ApiBaseModel):
     exercise_entry_id: int
     current_week: int
     last_suggested_weight: Optional[float]
@@ -1873,7 +1897,7 @@ class AlgorithmStateOut(BaseModel):
         from_attributes = True
 
 
-class ProgressionTransitionOut(BaseModel):
+class ProgressionTransitionOut(ApiBaseModel):
     id: int
     exercise_entry_id: int
     from_phase: str

@@ -18,7 +18,7 @@ Design rules:
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from enum import Enum
 from typing import List, Optional
 
@@ -125,7 +125,7 @@ class Prescription:
 # ---------------------------------------------------------------------------
 
 def _today() -> date:
-    return datetime.utcnow().date()
+    return datetime.now(timezone.utc).date()
 
 
 def _is_deload_week(rule: RuleInput) -> bool:

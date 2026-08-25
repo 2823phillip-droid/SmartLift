@@ -55,6 +55,7 @@ export interface ExerciseEntry {
   compound_rank?: number;
   slot_type?: string;
   gif_url?: string | null;
+  group_id?: string | null;
 }
 
 export interface WorkoutTemplate {
