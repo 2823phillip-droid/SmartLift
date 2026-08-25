@@ -80,12 +80,22 @@
 - [ ] Force control buttons wired to backend overrides so changes persist across devices — implemented 2026-07-29
 - [ ] Coach settings UI in SettingsScreen (`CoachSettingsSection`) — implemented 2026-07-29
 - [ ] Persist Coach state via existing `settings` save on workout end so it survives app reinstalls — implemented 2026-07-29
+- [ ] **Coach Recap on Ready screen: fix session lookup so it finds last completed session of same template** (currently returns empty even when completed session exists)
+- [ ] **Coach Recap weight display: convert backend `actual_weight` from kg to lbs in PreWorkoutScreen before displaying** (PostWorkoutScreen already does this correctly)
+- [ ] **Coach message wording: change "This workout" to "Next workout" in all coaching messages** (backend `rules.py:198` and frontend `rules.ts` multiple locations)
+- [ ] **Auto-update draft weight after logging a set to match coach prescription in ai_trainer mode** (currently stays at logged weight instead of moving to recommended next weight)
+- [ ] **Prevent reps_target=0 from propagating through template editor** (`TemplateEditorScreen.tsx:288` uses `?? 10` but `??` doesn't catch explicit 0; `addSet` initializes `{reps: 0}`)
 
 ### Verification
 - [ ] Unit tests for each rule type against synthetic session history
 - [ ] End-to-end test: user with known history receives correct next-session prescription
 - [ ] Confirm deterministic behavior: same input sequence always yields same next prescription unless RPE/RIR changes it
 - [ ] Verify backend and frontend implementations produce identical outputs on identical inputs
+
+### Data integrity / unit bugs (global)
+- [ ] **Migrate existing `ExerciseEntry.start_weight` values from lbs to kg on backend** (seeded data stored in lbs, frontend assumes kg → shows 254 instead of 115)
+- [ ] **Audit all frontend weight display paths for consistent kg/lbs conversion** (start_weight, draft prefill, `getNextSetTarget()`, coach prescription inputs, recap screens)
+- [ ] **Backend should enforce canonical unit for `start_weight` and `actual_weight`** (document whether kg or lbs is source of truth; migrate legacy data)
 
 ---
 

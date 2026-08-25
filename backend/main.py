@@ -1449,7 +1449,7 @@ def cancel_session(session_id: int, db: Session = Depends(get_db), current_user:
     s = db.query(WorkoutSession).filter(WorkoutSession.id == session_id, WorkoutSession.user_id == current_user.id).first()
     if not s:
         raise HTTPException(status_code=404, detail="Session not found")
-    db.delete(s)
+    s.status = SessionStatus.cancelled
     db.commit()
     logger.info(json.dumps({"type": "session", "event": "cancelled", "session_id": session_id}))
     return {"ok": True}
@@ -2113,11 +2113,11 @@ def seed_data(db: Session = Depends(get_db), current_user: User = Depends(get_cu
         db.refresh(tpl)
 
         exercises = [
-            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Bench Press"), name="Bench Press", sets_target=4, reps_target=10, start_weight=135, rest_seconds=120, order=0, user_id=current_user.id),
-            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Incline Dumbbell Press"), name="Incline Dumbbell Press", sets_target=3, reps_target=10, start_weight=40, rest_seconds=90, order=1, user_id=current_user.id),
-            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Cable Flyes"), name="Cable Flyes", sets_target=3, reps_target=15, start_weight=20, rest_seconds=75, order=2, user_id=current_user.id),
-            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Overhead Press"), name="Overhead Press", sets_target=3, reps_target=8, start_weight=65, rest_seconds=120, order=3, user_id=current_user.id),
-            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Tricep Pushdown"), name="Tricep Pushdown", sets_target=3, reps_target=12, start_weight=30, rest_seconds=60, order=4, user_id=current_user.id),
+            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Bench Press"), name="Bench Press", sets_target=4, reps_target=10, start_weight=61.235, rest_seconds=120, order=0, user_id=current_user.id),
+            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Incline Dumbbell Press"), name="Incline Dumbbell Press", sets_target=3, reps_target=10, start_weight=18.144, rest_seconds=90, order=1, user_id=current_user.id),
+            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Cable Flyes"), name="Cable Flyes", sets_target=3, reps_target=15, start_weight=9.072, rest_seconds=75, order=2, user_id=current_user.id),
+            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Overhead Press"), name="Overhead Press", sets_target=3, reps_target=8, start_weight=29.484, rest_seconds=120, order=3, user_id=current_user.id),
+            ExerciseEntry(template_id=tpl.id, exercise_library_id=next(x.id for x in db.query(ExerciseLibrary).all() if x.name=="Tricep Pushdown"), name="Tricep Pushdown", sets_target=3, reps_target=12, start_weight=13.608, rest_seconds=60, order=4, user_id=current_user.id),
         ]
         db.add_all(exercises)
         db.commit()
@@ -2136,11 +2136,11 @@ def seed_data(db: Session = Depends(get_db), current_user: User = Depends(get_cu
         db.refresh(stronglifts)
 
         db.add_all([
-            WorkoutLibraryExercise(workout_library_id=stronglifts.id, name="Back Squat", muscle_group="Legs", equipment="Barbell", sets_target=5, reps_target=5, start_weight=135, rest_seconds=150, order=0),
-            WorkoutLibraryExercise(workout_library_id=stronglifts.id, name="Bench Press", muscle_group="Chest", equipment="Barbell", sets_target=5, reps_target=5, start_weight=95, rest_seconds=120, order=1),
-            WorkoutLibraryExercise(workout_library_id=stronglifts.id, name="Overhead Press", muscle_group="Shoulders", equipment="Barbell", sets_target=5, reps_target=5, start_weight=65, rest_seconds=120, order=2),
-            WorkoutLibraryExercise(workout_library_id=stronglifts.id, name="Barbell Row", muscle_group="Back", equipment="Barbell", sets_target=5, reps_target=5, start_weight=115, rest_seconds=120, order=3),
-            WorkoutLibraryExercise(workout_library_id=stronglifts.id, name="Deadlift", muscle_group="Back", equipment="Barbell", sets_target=1, reps_target=5, start_weight=185, rest_seconds=180, order=4),
+            WorkoutLibraryExercise(workout_library_id=stronglifts.id, name="Back Squat", muscle_group="Legs", equipment="Barbell", sets_target=5, reps_target=5, start_weight=61.235, rest_seconds=150, order=0),
+            WorkoutLibraryExercise(workout_library_id=stronglifts.id, name="Bench Press", muscle_group="Chest", equipment="Barbell", sets_target=5, reps_target=5, start_weight=43.091, rest_seconds=120, order=1),
+            WorkoutLibraryExercise(workout_library_id=stronglifts.id, name="Overhead Press", muscle_group="Shoulders", equipment="Barbell", sets_target=5, reps_target=5, start_weight=29.484, rest_seconds=120, order=2),
+            WorkoutLibraryExercise(workout_library_id=stronglifts.id, name="Barbell Row", muscle_group="Back", equipment="Barbell", sets_target=5, reps_target=5, start_weight=52.163, rest_seconds=120, order=3),
+            WorkoutLibraryExercise(workout_library_id=stronglifts.id, name="Deadlift", muscle_group="Back", equipment="Barbell", sets_target=1, reps_target=5, start_weight=83.915, rest_seconds=180, order=4),
         ])
         db.commit()
 

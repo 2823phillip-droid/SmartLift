@@ -723,7 +723,13 @@ export default function ActiveWorkoutScreen({
 
   const endWorkout = async (extraSets = 0) => {
     clearRestTimer();
-    await api.endSession(sessionId);
+    try {
+      await withRetry(() => api.endSession(sessionId), { retries: 3, baseDelayMs: 300 });
+    } catch (err) {
+      console.error("[ActiveWorkoutScreen] end failed", err);
+      alert("Could not finish workout. Please try again.");
+      return;
+    }
     const totalSets = logs.length + extraSets;
     await api.createCoachMessage({
       session_id: sessionId,

@@ -18,3 +18,23 @@ I'll triage these later and turn them into actual tasks.
 - Overall feedback: user likes the product; a few issues need tuning.
 - Question: for linear progression, should every exercise start at 6 reps? Needs confirmation of intended rep scheme.
 - Required: set up Fly auth / read-only DB access so agent can inspect live workout logs directly for faster debugging.
+
+---
+
+## 2026-08-24 (second session)
+
+- Ready screen coach recap can't find last workout, even after cancelling and retrying. Recap filters for `ended_at != null && status === "completed"` on same `template_id`.
+- Active workout screen: coach/history says "last time you did 120" (correctly converted from kg to lbs via `toLbs()`), but starting draft weight shows 52.
+- 52 comes from backend `ExerciseEntry.start_weight` stored in lbs (e.g. 23.6 lbs for some exercise), frontend applies `kgToLbs()` and displays 52 lbs. Same root cause as 254 lbs bug.
+- `PreWorkoutScreen` recap displays `actual_weight` directly as lbs without converting from kg — shows wrong weight in recap (e.g. 54 instead of 120).
+- `PostWorkoutScreen` correctly uses `formatWeight()` which converts kg→lbs for imperial users.
+- Weight unit bugs are global: `start_weight`, draft prefill, `getNextSetTarget()`, and coach prescription inputs all mix kg/lbs assumptions.
+
+---
+
+## 2026-08-24 (continued)
+
+- After logging a set, coach panel recommends increasing to 50 lbs, but draft weight input stays at 45 lbs (the weight just logged). Should auto-follow prescription in ai_trainer mode.
+- Coach "Next Session Target" message says "This workout we'll start at..." — should say "Next workout" because recommendation is for the next session, not the current one.
+- Coach message shows "shoot for 0 reps" for some exercises. Root cause: template editor allows reps=0 (`Number(e.target.value) || 0` at line 692), and `addSet` initializes `{weight: 0, reps: 0}`. When saving, `reps_target: ex.sets[0]?.reps ?? 10` uses nullish coalescing which doesn't catch explicit 0, so reps_target=0 propagates to backend and appears in coaching messages.
+- App appears to reset streak to 0 and total volume to ~13,980 — far lower than expected. Either volume recalculation is affected by the kg/lbs double-conversion bug, or the app is reading from a truncated/different dataset. Needs investigation alongside the unit audit.
