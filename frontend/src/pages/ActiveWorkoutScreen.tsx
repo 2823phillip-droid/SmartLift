@@ -263,7 +263,7 @@ export default function ActiveWorkoutScreen({
           setTemplate(tpl);
         }
         if (session?.started_at) {
-          setWorkoutStart(new Date(session.started_at));
+          setWorkoutStart(new Date());
         }
         setOriginalExercises(exercisesData);
 
