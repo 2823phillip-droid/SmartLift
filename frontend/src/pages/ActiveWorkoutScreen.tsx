@@ -158,7 +158,7 @@ export default function ActiveWorkoutScreen({
             reps_target: exercise.reps_target,
             sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
             rest_seconds: exercise.rest_seconds,
-            progression_type: coach.phase,
+            progression_type: coach.phase === "deload" ? "linear" : coach.phase,
             history: buildPrescriptionHistory(exercise),
             week: coachWeek,
             current_week_in_block: coachWeek,
@@ -215,7 +215,7 @@ export default function ActiveWorkoutScreen({
         reps_target: exercise.reps_target,
         sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
         rest_seconds: exercise.rest_seconds,
-        progression_type: coach.phase,
+        progression_type: coach.phase === "deload" ? "linear" : coach.phase,
         history: exHistory,
       });
     }
