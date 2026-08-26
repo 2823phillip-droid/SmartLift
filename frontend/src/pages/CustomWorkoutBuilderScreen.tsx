@@ -526,12 +526,12 @@ export default function CustomWorkoutBuilderScreen({
       {/* Exercise library picker */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
         {/* Dynamic Workout toggle — inside picker so it scrolls with content */}
-        <div className={`rounded-xl border-2 p-3 transition-all ${addAsOption ? "border-indigo-500 bg-indigo-950/70 shadow-lg shadow-indigo-900/30" : "border-slate-700 bg-slate-950/80"}`}>
+        <div className={`rounded-xl border-2 p-4 transition-all ${addAsOption ? "border-indigo-500 bg-indigo-950/70 shadow-lg shadow-indigo-900/30" : "border-red-500 bg-red-950/40 shadow-lg shadow-red-900/20"}`}>
           <div className="flex items-center justify-between gap-3">
             <div className="flex-1 min-w-0">
-              <div className={`text-sm font-bold uppercase tracking-wider ${addAsOption ? "text-indigo-200" : "text-slate-200"}`}>Dynamic Workout</div>
-              <div className="text-[11px] text-slate-400 mt-0.5">
-                {addAsOption ? "✓ ON — Tap exercises below to add as variants. Toggle off when done." : "Group exercise variants so you can swap exercises during the workout"}
+              <div className={`text-base font-black uppercase tracking-wider ${addAsOption ? "text-indigo-200" : "text-red-200"}`}>Dynamic Workout</div>
+              <div className="text-xs text-slate-300 mt-1 font-semibold">
+                {addAsOption ? "✓ ON — Tap exercises below to add as variants. Toggle off when done." : "Tap the switch to GROUP exercise variants for flexible workouts"}
               </div>
             </div>
             <label className="flex items-center cursor-pointer select-none shrink-0">
@@ -539,11 +539,11 @@ export default function CustomWorkoutBuilderScreen({
                 <input
                   type="checkbox"
                   checked={addAsOption}
-                  onChange={(e) => handleToggleOptionMode(e.target.checked)}
+                  onChange={(e) => { console.log("[Builder] toggle dynamic workout:", e.target.checked); handleToggleOptionMode(e.target.checked); }}
                   className="sr-only"
                 />
-                <div className={`w-12 h-7 rounded-full transition-colors ${addAsOption ? "bg-indigo-600" : "bg-slate-600"}`} />
-                <div className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white transition-transform shadow ${addAsOption ? "translate-x-5" : "translate-x-0"}`} />
+                <div className={`w-14 h-8 rounded-full transition-colors ${addAsOption ? "bg-indigo-600" : "bg-slate-600"}`} />
+                <div className={`absolute top-0.5 left-0.5 w-7 h-7 rounded-full bg-white transition-transform shadow-md ${addAsOption ? "translate-x-6" : "translate-x-0"}`} />
               </div>
             </label>
           </div>
