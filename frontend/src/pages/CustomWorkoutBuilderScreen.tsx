@@ -525,21 +525,28 @@ export default function CustomWorkoutBuilderScreen({
 
       {/* Exercise library picker */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Exercise Library</div>
-          <label className="flex items-center gap-2 cursor-pointer select-none">
-            <span className="text-[11px] font-medium text-indigo-300 uppercase tracking-wide">Dynamic Workout</span>
-            <div className="relative">
-              <input
-                type="checkbox"
-                checked={addAsOption}
-                onChange={(e) => handleToggleOptionMode(e.target.checked)}
-                className="sr-only"
-              />
-              <div className={`w-8 h-5 rounded-full transition-colors ${addAsOption ? "bg-indigo-600" : "bg-slate-700"}`} />
-              <div className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white transition-transform ${addAsOption ? "translate-x-3" : "translate-x-0"}`} />
+        {/* Dynamic Workout toggle — inside picker so it scrolls with content */}
+        <div className={`rounded-xl border-2 p-3 transition-all ${addAsOption ? "border-indigo-500 bg-indigo-950/70 shadow-lg shadow-indigo-900/30" : "border-slate-700 bg-slate-950/80"}`}>
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex-1 min-w-0">
+              <div className={`text-sm font-bold uppercase tracking-wider ${addAsOption ? "text-indigo-200" : "text-slate-200"}`}>Dynamic Workout</div>
+              <div className="text-[11px] text-slate-400 mt-0.5">
+                {addAsOption ? "✓ ON — Tap exercises below to add as variants. Toggle off when done." : "Group exercise variants so you can swap exercises during the workout"}
+              </div>
             </div>
-          </label>
+            <label className="flex items-center cursor-pointer select-none shrink-0">
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={addAsOption}
+                  onChange={(e) => handleToggleOptionMode(e.target.checked)}
+                  className="sr-only"
+                />
+                <div className={`w-12 h-7 rounded-full transition-colors ${addAsOption ? "bg-indigo-600" : "bg-slate-600"}`} />
+                <div className={`absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white transition-transform shadow ${addAsOption ? "translate-x-5" : "translate-x-0"}`} />
+              </div>
+            </label>
+          </div>
         </div>
         {addAsOption && (
           <div className="text-[11px] text-indigo-300 bg-indigo-950/40 border border-indigo-800/50 rounded-lg px-3 py-2">
