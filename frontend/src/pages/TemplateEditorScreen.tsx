@@ -285,7 +285,7 @@ export default function TemplateEditorScreen({
           name: ex.name,
           exercise_library_id: ex.libraryExerciseId,
           sets_target: ex.sets.length,
-          reps_target: ex.sets[0]?.reps ?? 10,
+          reps_target: ex.sets[0]?.reps || 10,
           start_weight: getUnitsPreference() === "imperial" ? lbsToKg(ex.sets[0]?.weight ?? 0) : ex.sets[0]?.weight ?? 0,
           rest_seconds: exerciseRestOverrides[ex.localId] ?? ex.rest_seconds,
           order: idx,

@@ -99,7 +99,7 @@ class RuleInput:
 
 
 def _round_weight(value: float) -> float:
-    return float(round(value / 5.0) * 5.0)
+    return float(max(5.0, round(value / 5.0) * 5.0))
 
 
 @dataclass(frozen=True)
@@ -195,7 +195,7 @@ def _format_history_line(weight, reps, effort, rir_val):
 def _coaching_message_for_prescription(rule, weight, reps, effort, rir_val, next_weight, increment, status):
     base = (
         f"Last session you did {_format_history_line(weight, reps, effort, rir_val)}. "
-        f"This workout we'll start at {int(round(next_weight))} lbs and shoot for {int(rule.reps_target)} reps."
+        f"Next workout we'll start at {int(round(next_weight))} lbs and shoot for {int(rule.reps_target)} reps."
     )
     if status == WorkloadStatus.deload:
         return "Deload week selected. Reduced volume/intensity to recover."
@@ -728,7 +728,7 @@ def compute_coach_state(
     elif phase == "deload":
         new_phase = "linear" if current_phase == "deload" else phase
         reason = "from_deload"
-        week = week + 1 if week < 1 else 1
+        week = current_week_in_block if current_week_in_block is not None else 1
         duration = _block_duration(new_phase)
     elif week >= duration and not force_deload:
         new_phase = _next_phase_after(phase, deload_due, custom_phase_order)
@@ -738,7 +738,7 @@ def compute_coach_state(
     else:
         new_phase = phase
         reason = "continue"
-        week = min(week + 1, duration) if current_week_in_block is not None else 1
+        week = current_week_in_block if current_week_in_block is not None else 1
         if current_week_in_block is None:
             week = 1
 

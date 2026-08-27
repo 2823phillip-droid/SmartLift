@@ -162,6 +162,8 @@ class SetLog(Base):
     suggested_weight = Column(Float, nullable=True)
     suggested_reps = Column(Integer, nullable=True)
     actual_weight = Column(Float, nullable=True)
+    actual_weight_left = Column(Float, nullable=True)
+    actual_weight_right = Column(Float, nullable=True)
     actual_reps = Column(Integer, nullable=True)
     effort = Column(Integer, nullable=True)  # 1-5
     rir = Column(Integer, nullable=True)  # Reps in Reserve: 0=failure, 1+=easy

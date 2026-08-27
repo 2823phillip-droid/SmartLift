@@ -289,6 +289,13 @@ def _run_migrations():
                 conn.execute(_text("ALTER TABLE set_logs ADD COLUMN rir INTEGER"))
                 conn.commit()
 
+            if "actual_weight_left" not in scolumns:
+                conn.execute(_text("ALTER TABLE set_logs ADD COLUMN actual_weight_left FLOAT"))
+                conn.commit()
+            if "actual_weight_right" not in scolumns:
+                conn.execute(_text("ALTER TABLE set_logs ADD COLUMN actual_weight_right FLOAT"))
+                conn.commit()
+
             # Migrate exercise_library to ExerciseDB schema
             elib_cols = cols("exercise_library")
             if "program_worthy" not in elib_cols:
@@ -468,6 +475,8 @@ class SetLogCreate(BaseModel):
     suggested_weight: Optional[float] = None
     suggested_reps: Optional[int] = None
     actual_weight: Optional[float] = None
+    actual_weight_left: Optional[float] = None
+    actual_weight_right: Optional[float] = None
     actual_reps: Optional[int] = None
     effort: Optional[int] = None
     rir: Optional[int] = None
@@ -481,6 +490,8 @@ class SetLogOut(BaseModel):
     suggested_weight: Optional[float]
     suggested_reps: Optional[int]
     actual_weight: Optional[float]
+    actual_weight_left: Optional[float]
+    actual_weight_right: Optional[float]
     actual_reps: Optional[int]
     effort: Optional[int]
     rir: Optional[int]
@@ -1509,6 +1520,10 @@ def update_set_log(session_id: int, log_id: int, payload: SetLogUpdate, db: Sess
         raise HTTPException(status_code=404, detail="Set log not found")
     if payload.actual_weight is not None:
         log.actual_weight = payload.actual_weight
+    if payload.actual_weight_left is not None:
+        log.actual_weight_left = payload.actual_weight_left
+    if payload.actual_weight_right is not None:
+        log.actual_weight_right = payload.actual_weight_right
     if payload.actual_reps is not None:
         log.actual_reps = payload.actual_reps
     if payload.effort is not None:
@@ -1785,6 +1800,7 @@ class RuleResponseOut(BaseModel):
     prescription_type: str
     is_deload: bool = False
     coach: CoachStateResponse
+    linear_increment: float = 5.0
 
     class Config:
         from_attributes = True
@@ -1880,6 +1896,7 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         workload_status=result.workload_status.value,
         prescription_type=result.prescription_type,
         is_deload=result.is_deload,
+        linear_increment=rule.linear_increment,
         coach=CoachStateResponse(**dataclasses.asdict(coach_state)),
     )
 

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { SetLog, WorkoutSession } from "../types";
+import { formatWeight, getUnitsPreference } from "../utils/units";
 
 interface RecapExercise {
   name: string;
@@ -125,12 +126,12 @@ export default function PreWorkoutScreen({
             name: nameMap[eid] || `Exercise ${eid}`,
             setsDone: sets.length,
             setsTarget: sets.length,
-            topWeight: topSet.actual_weight || 0,
+            topWeight: formatWeight(topSet.actual_weight || 0, getUnitsPreference()),
             topReps: topSet.actual_reps || 0,
             topEffort: topSet.effort || 3,
             topRir: topSet.rir ?? null,
             avgEffort: Math.round(avgEffort * 10) / 10,
-            volume: Math.round(exVolume),
+            volume: formatWeight(Math.round(exVolume), getUnitsPreference()),
             hitTarget,
             feltHard,
             feltEasy,

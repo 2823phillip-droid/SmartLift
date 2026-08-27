@@ -95,6 +95,8 @@ export interface SetLog {
   suggested_weight?: number;
   suggested_reps?: number;
   actual_weight?: number;
+  actual_weight_left?: number;
+  actual_weight_right?: number;
   actual_reps?: number;
   effort?: number;
   rir?: number;
