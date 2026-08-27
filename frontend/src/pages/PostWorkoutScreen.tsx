@@ -359,7 +359,10 @@ export default function PostWorkoutScreen({
                 <span className="text-xs text-slate-500">{log.effort}/5</span>
               </div>
               <div className="text-sm font-semibold mt-0.5">
-                {formatWeight(log.actual_weight ?? 0, getUnitsPreference())} × {log.actual_reps} reps
+                {(log.actual_weight_left != null && log.actual_weight_right != null && Math.abs(log.actual_weight_left - log.actual_weight_right) > 0.01)
+                  ? `${formatWeight(log.actual_weight_left, getUnitsPreference())} / ${formatWeight(log.actual_weight_right, getUnitsPreference())}`
+                  : `${formatWeight(log.actual_weight ?? 0, getUnitsPreference())}`
+                } × {log.actual_reps} reps
               </div>
               {log.notes && <div className="text-xs text-slate-400 mt-1 italic">"{log.notes}"</div>}
             </div>

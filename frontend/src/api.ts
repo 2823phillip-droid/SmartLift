@@ -284,6 +284,8 @@ export interface SetLog {
   suggested_weight?: number | null;
   suggested_reps?: number | null;
   actual_weight?: number | null;
+  actual_weight_left?: number | null;
+  actual_weight_right?: number | null;
   actual_reps?: number | null;
   effort?: number | null;
   completed?: boolean;
@@ -293,6 +295,8 @@ export interface SetLog {
 
 export interface SetLogUpdate {
   actual_weight?: number | null;
+  actual_weight_left?: number | null;
+  actual_weight_right?: number | null;
   actual_reps?: number | null;
   effort?: number | null;
   notes?: string | null;
@@ -378,6 +382,8 @@ export const api = {
     suggested_weight?: number | null;
     suggested_reps?: number | null;
     actual_weight?: number | null;
+    actual_weight_left?: number | null;
+    actual_weight_right?: number | null;
     actual_reps?: number | null;
     effort?: number | null;
     rir?: number | null;

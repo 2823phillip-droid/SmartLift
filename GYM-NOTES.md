@@ -38,3 +38,11 @@ I'll triage these later and turn them into actual tasks.
 - Coach "Next Session Target" message says "This workout we'll start at..." — should say "Next workout" because recommendation is for the next session, not the current one.
 - Coach message shows "shoot for 0 reps" for some exercises. Root cause: template editor allows reps=0 (`Number(e.target.value) || 0` at line 692), and `addSet` initializes `{weight: 0, reps: 0}`. When saving, `reps_target: ex.sets[0]?.reps ?? 10` uses nullish coalescing which doesn't catch explicit 0, so reps_target=0 propagates to backend and appears in coaching messages.
 - App appears to reset streak to 0 and total volume to ~13,980 — far lower than expected. Either volume recalculation is affected by the kg/lbs double-conversion bug, or the app is reading from a truncated/different dataset. Needs investigation alongside the unit audit.
+
+---
+
+## 2026-08-27 (current session)
+
+- Working out at YMCA in Nashville. Has a separate shoulder workout template from the Clarksville YMCA. Question: should exercise memory/progression span across separate shoulder workout templates, or stay isolated per template? If both templates contain Overhead Press, should the coach see the same history and apply the same progression for both?
+- Streak on home page shows 0. User asks: is streak supposed to be consecutive workout days in a row? (Note: this is likely related to the reset issue from 2026-08-24 session.)
+
