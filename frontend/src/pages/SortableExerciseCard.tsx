@@ -23,11 +23,9 @@ export interface SortableExerciseCardProps {
   editingRestValue: string;
   onRestChange: (val: string) => void;
   draftWeight: string;
-  draftWeightRight: string;
   draftReps: string;
   draftEffort: number;
   onDraftWeightChange: (val: string) => void;
-  onDraftWeightRightChange: (val: string) => void;
   onDraftRepsChange: (val: string) => void;
   onDraftEffortChange: (val: number) => void;
   draftRir: number | null;
@@ -63,11 +61,9 @@ export function SortableExerciseCard({
   editingRestValue,
   onRestChange,
   draftWeight,
-  draftWeightRight,
   draftReps,
   draftEffort,
   onDraftWeightChange,
-  onDraftWeightRightChange,
   onDraftRepsChange,
   onDraftEffortChange,
   draftRir,
@@ -221,23 +217,13 @@ export function SortableExerciseCard({
                         <span className="text-xs text-slate-500 font-semibold">Set {log.set_index}</span>
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-slate-300 font-semibold">
-                            {(log.actual_weight_left != null && log.actual_weight_right != null && Math.abs(log.actual_weight_left - log.actual_weight_right) > 0.01)
-                              ? `${formatWeight(log.actual_weight_left, getUnitsPreference())} / ${formatWeight(log.actual_weight_right, getUnitsPreference())}`
-                              : `${formatWeight(log.actual_weight ?? 0, getUnitsPreference())}`
-                            } × {log.actual_reps} reps
+                            {`${formatWeight(log.actual_weight ?? 0, getUnitsPreference())}`} × {log.actual_reps} reps
                           </span>
                           <div className="flex items-center gap-1">
                             <button
-                              onClick={(e) => { e.stopPropagation(); onEditSet(log, "actual_weight_left", log.actual_weight_left ?? log.actual_weight ?? 0); }}
+                              onClick={(e) => { e.stopPropagation(); onEditSet(log, "actual_weight", log.actual_weight ?? 0); }}
                               className="text-[10px] text-slate-500 hover:text-indigo-400 transition-colors px-1"
-                              title="Edit left weight"
-                            >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); onEditSet(log, "actual_weight_right", log.actual_weight_right ?? log.actual_weight ?? 0); }}
-                              className="text-[10px] text-slate-500 hover:text-indigo-400 transition-colors px-1"
-                              title="Edit right weight"
+                              title="Edit weight"
                             >
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
                             </button>
@@ -284,7 +270,7 @@ export function SortableExerciseCard({
                         ← Cancel
                       </button>
                     )}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2">
                       <div>
                         <input
                           type="number"
@@ -299,33 +285,12 @@ export function SortableExerciseCard({
                               (next as HTMLInputElement | undefined)?.focus();
                             }
                           }}
-                          placeholder="L"
+                          placeholder="Weight"
                           className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-50 focus:border-indigo-500 focus:outline-none"
                         />
-                        <div className="text-[10px] text-slate-500 text-center mt-1 uppercase tracking-wider">L</div>
+                        <div className="text-[10px] text-slate-500 text-center mt-1 uppercase tracking-wider">Weight</div>
+                        <div className="text-[10px] text-slate-600 text-center mt-0.5">For unilateral exercises, log the heavier side</div>
                       </div>
-                      <div>
-                        <input
-                          type="number"
-                          inputMode="numeric"
-                          enterKeyHint="next"
-                          value={draftWeightRight}
-                          onChange={(e) => onDraftWeightRightChange(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") {
-                              e.preventDefault();
-                              const next = e.currentTarget.parentElement?.nextElementSibling?.querySelector("input");
-                              (next as HTMLInputElement | undefined)?.focus();
-                            }
-                          }}
-                          placeholder="R"
-                          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-50 focus:border-indigo-500 focus:outline-none"
-                        />
-                        <div className="text-[10px] text-slate-500 text-center mt-1 uppercase tracking-wider">R</div>
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-2">
                       <div>
                         <input
                           type="number"
