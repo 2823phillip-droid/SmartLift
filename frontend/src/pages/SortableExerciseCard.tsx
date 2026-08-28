@@ -270,7 +270,7 @@ export function SortableExerciseCard({
                         ← Cancel
                       </button>
                     )}
-                    <div className="grid grid-cols-1 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
                       <div>
                         <input
                           type="number"
