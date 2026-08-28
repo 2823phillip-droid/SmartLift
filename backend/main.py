@@ -1858,6 +1858,16 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         ai_stress_fatigue_adjustment=payload.ai_stress_fatigue_adjustment,
         ai_calibrated_1rm=payload.ai_calibrated_1rm,
     )
+    # Read previous phase before computing new state so we can reset load on deload exit
+    prev_phase_setting = (
+        db.query(AppSetting)
+        .filter(AppSetting.key == "coach_phase", AppSetting.user_id == current_user.id)
+        .first()
+    )
+    previous_phase = None
+    if prev_phase_setting is not None and prev_phase_setting.value is not None:
+        previous_phase = str(prev_phase_setting.value)
+
     coach_state = compute_coach_state(
         history=history,
         current_phase=payload.current_phase,
@@ -1866,8 +1876,19 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         periodization_cycle_weeks=payload.periodization_cycle_weeks,
         default_progression=payload.progression_type.value,
         custom_phase_order=payload.custom_phase_order,
+        previous_phase=previous_phase,
     )
     result = compute_prescription(rule)
+
+    # Persist load_pct so the home screen can read it
+    load_val = str(coach_state.load_pct)
+    load_setting = db.query(AppSetting).filter(
+        AppSetting.key == "coach_load_pct", AppSetting.user_id == current_user.id
+    ).first()
+    if load_setting:
+        load_setting.value = load_val  # type: ignore[assignment]
+    else:
+        db.add(AppSetting(key="coach_load_pct", value=load_val, user_id=current_user.id))
 
     if payload.exercise_entry_id is not None:
         state = db.query(AlgorithmState).filter(
@@ -2021,20 +2042,64 @@ class CoachStateResponseOut(BaseModel):
     coach_force_deload: Optional[bool] = None
     coach_periodization_cycle_weeks: Optional[int] = None
     coach_custom_phase_order: Optional[List[str]] = None
+    coach_load_pct: Optional[int] = None
 
 
 @app.get("/api/coach/state", response_model=CoachStateResponseOut)
 def get_coach_state(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    keys = ["coach_phase", "coach_week_in_block", "coach_force_deload", "coach_periodization_cycle_weeks", "coach_custom_phase_order"]
+    keys = ["coach_phase", "coach_week_in_block", "coach_force_deload", "coach_periodization_cycle_weeks", "coach_custom_phase_order", "coach_load_pct"]
     out: dict[str, str] = {}
     for s in db.query(AppSetting).filter(AppSetting.key.in_(keys), AppSetting.user_id == current_user.id).all():
         out[s.key] = s.value
+
+    # Derive actual elapsed weeks from completed session dates rather than a stored counter.
+    # This prevents the UI from showing an artificially advanced week after testing.
+    computed_week: Optional[int] = None
+    sessions = (
+        db.query(WorkoutSession.started_at)
+        .filter(WorkoutSession.user_id == current_user.id, WorkoutSession.ended_at.is_not(None))
+        .order_by(WorkoutSession.started_at.asc())
+        .all()
+    )
+    if sessions:
+        oldest = sessions[0].started_at
+        if oldest.tzinfo is None:
+            oldest = oldest.replace(tzinfo=timezone.utc)
+        now = datetime.now(timezone.utc)
+        elapsed_days = max(0, (now - oldest).days)
+        computed_week = elapsed_days // 7 + 1
+
+    # Compute load from recent set history
+    load_pct = 0
+    try:
+        from rules import compute_load, SetRecord
+        raw_sets = (
+            db.query(SetLog.actual_weight, SetLog.actual_reps, SetLog.effort, SetLog.rir, SetLog.completed_at)
+            .filter(SetLog.user_id == current_user.id, SetLog.is_seeded == False)
+            .all()
+        )
+        history = [
+            SetRecord(
+                actual_weight=s.actual_weight or 0,
+                actual_reps=s.actual_reps or 0,
+                effort=s.effort,
+                rir=s.rir,
+                completed_at=s.completed_at,
+                is_seeded=False,
+            )
+            for s in raw_sets
+        ]
+        load_pct = compute_load(history)
+    except Exception:
+        pass
+
     return CoachStateResponseOut(
         coach_phase=out.get("coach_phase"),
-        coach_week_in_block=int(out["coach_week_in_block"]) if out.get("coach_week_in_block") else None,
+        coach_week_in_block=computed_week if computed_week is not None else (int(out["coach_week_in_block"]) if out.get("coach_week_in_block") else None),
         coach_force_deload=out.get("coach_force_deload") == "true" if out.get("coach_force_deload") else None,
         coach_periodization_cycle_weeks=int(out["coach_periodization_cycle_weeks"]) if out.get("coach_periodization_cycle_weeks") else None,
         coach_custom_phase_order=json.loads(out["coach_custom_phase_order"]) if out.get("coach_custom_phase_order") else None,
+        coach_load_pct=load_pct,
     )
 
 

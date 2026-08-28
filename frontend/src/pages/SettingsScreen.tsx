@@ -452,13 +452,8 @@ function CoachSettingsSection() {
       </div>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-xs text-slate-400">Week {week} in current block</div>
-          <div className="text-[10px] text-slate-500">You can advance or reset week counter here too</div>
-        </div>
-        <div className="flex gap-2">
-          <button onClick={() => setWeek(Math.max(1, week - 1))} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800">-</button>
-          <div className="rounded-xl border border-slate-700 bg-slate-950 px-4 py-2 text-sm font-bold text-slate-200 min-w-[48px] text-center">{week}</div>
-          <button onClick={() => setWeek(week + 1)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800">+</button>
+          <div className="text-xs text-slate-400">Deload triggers when your load hits 100%, or every {cycle} weeks as a fallback.</div>
+          <div className="text-[10px] text-slate-500">Load is based on recent effort and volume</div>
         </div>
       </div>
       <button

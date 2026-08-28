@@ -20,6 +20,33 @@ export interface SetRecord {
   completed_at?: string;
 }
 
+export function computeLoad(history: SetRecord[], windowDays: number = 14): number {
+  const now = new Date();
+  const cutoff = new Date(now.getTime() - windowDays * 86400000);
+  const recent = history.filter(
+    (s) => s.completed_at && new Date(s.completed_at) >= cutoff && !s.is_seeded
+  );
+  if (!recent.length) return 0;
+
+  // Group by session date
+  const sessions: Record<string, SetRecord[]> = {};
+  for (const s of recent) {
+    const day = new Date(s.completed_at!).toISOString().split("T")[0];
+    if (!sessions[day]) sessions[day] = [];
+    sessions[day].push(s);
+  }
+
+  let totalScore = 0;
+  for (const daySets of Object.values(sessions)) {
+    const effort = daySets.reduce((a, s) => a + (s.effort || 2), 0) / daySets.length;
+    const sets = daySets.length;
+    const sessionScore = (effort / 4) * 50 + Math.min(sets / 8, 1) * 50;
+    totalScore += sessionScore;
+  }
+
+  return Math.min(100, Math.floor(totalScore));
+}
+
 export interface RuleInput {
   start_weight: number;
   reps_target: number;
@@ -66,12 +93,12 @@ function toDate(v?: string): Date | undefined {
   return Number.isNaN(d.getTime()) ? undefined : d;
 }
 
-function isDeloadWeek(rule: RuleInput): boolean {
+function isDeloadWeek(rule: RuleInput, week?: number): boolean {
   if (rule.force_deload) return true;
   const cycle = Number(rule.periodization_cycle_weeks) || 0;
   if (cycle > 0) {
-    const week = Number(rule.week) || 1;
-    return week % cycle === 0;
+    const w = week ?? (Number(rule.week) || 1);
+    return w % cycle === 0;
   }
   return false;
 }
@@ -467,7 +494,23 @@ function nextPrescriptionByType(rule: RuleInput, topSet: SetRecord | null): Pres
 
 export function computePrescription(rule: RuleInput): Prescription {
   const topSet = lastSessionTopSet(rule.history);
-  if (isDeloadWeek(rule)) {
+
+  // Derive actual elapsed weeks from real history dates, matching computeCoachState.
+  const actualWeek = (() => {
+    const real = rule.history.filter((s) => s.completed_at && !s.is_seeded);
+    if (!real.length) return null;
+    const oldest = new Date(real[0].completed_at!);
+    for (let i = 1; i < real.length; i++) {
+      const d = new Date(real[i].completed_at!);
+      if (d < oldest) oldest.setTime(d.getTime());
+    }
+    const now = new Date();
+    const elapsedDays = Math.max(0, Math.floor((now.getTime() - oldest.getTime()) / 86400000));
+    return elapsedDays / 7 + 1;
+  })();
+  const week = actualWeek ?? (rule.week ?? 1);
+
+  if (isDeloadWeek(rule, week)) {
     const base = nextPrescriptionByType(rule, topSet);
     return buildPrescription({
       next_weight: base.next_weight * (rule.deload_intensity_factor ?? 0.7),
@@ -571,6 +614,7 @@ export interface CoachState {
   is_deload: boolean;
   explanation: string;
   next_deload_date?: string;
+  load_pct: number;
 }
 
 function candidateTypes(customPhaseOrder?: CoachPhase[]): CoachPhase[] {
@@ -584,7 +628,8 @@ function detectStalls(history: SetRecord[]): boolean {
   return hardSets.length >= 3;
 }
 
-function shouldForceDeload(history: SetRecord[], week: number, cycleWeeks: number): boolean {
+function shouldForceDeload(history: SetRecord[], week: number, cycleWeeks: number, loadPct: number = 0): boolean {
+  if (loadPct >= 100) return true;
   if (cycleWeeks > 0 && week > 0) {
     return week % cycleWeeks === 0;
   }
@@ -643,11 +688,31 @@ export function computeCoachState(input: {
   periodization_cycle_weeks?: number;
   default_progression?: CoachPhase;
   custom_phase_order?: CoachPhase[];
+  previous_phase?: CoachPhase;
 }): CoachState {
   const phase = input.current_phase ?? progressionFromHistory(input.history, input.default_progression ?? "linear");
-  const week = input.current_week_in_block ?? 1;
+
+  // Derive actual elapsed weeks from real history dates, not from a stored counter.
+  const actualWeek = (() => {
+    const real = input.history.filter((s) => s.completed_at && !s.is_seeded);
+    if (!real.length) return null;
+    const oldest = new Date(real[0].completed_at!);
+    for (let i = 1; i < real.length; i++) {
+      const d = new Date(real[i].completed_at!);
+      if (d < oldest) oldest.setTime(d.getTime());
+    }
+    const now = new Date();
+    const elapsedDays = Math.max(0, Math.floor((now.getTime() - oldest.getTime()) / 86400000));
+    return elapsedDays / 7 + 1;
+  })();
+
+  const week = actualWeek ?? input.current_week_in_block ?? 1;
   const duration = blockDuration(phase);
-  const deloadDue = input.force_deload || shouldForceDeload(input.history, week, input.periodization_cycle_weeks ?? 4);
+
+  // Compute load from recent training stress
+  const loadPct = computeLoad(input.history);
+
+  const deloadDue = input.force_deload || shouldForceDeload(input.history, week, input.periodization_cycle_weeks ?? 4, loadPct);
 
   const nextDeloadDate = (() => {
     try {
@@ -677,6 +742,9 @@ export function computeCoachState(input: {
     reason = "continue";
   }
 
+  // Reset load when transitioning out of deload
+  const finalLoad = input.previous_phase === "deload" && newPhase !== "deload" ? 0 : loadPct;
+
   const weekIndex = newPhase === phase && input.current_phase !== "deload" ? Math.min(week + 1, duration) : 1;
   const state: CoachState = {
     phase: newPhase,
@@ -692,6 +760,7 @@ export function computeCoachState(input: {
       progression_type: newPhase,
     }, reason),
     next_deload_date: nextDeloadDate,
+    load_pct: finalLoad,
   };
   return state;
 }
