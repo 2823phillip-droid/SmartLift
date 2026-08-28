@@ -165,8 +165,10 @@ class SetLog(Base):
     actual_weight_left = Column(Float, nullable=True)
     actual_weight_right = Column(Float, nullable=True)
     actual_reps = Column(Integer, nullable=True)
-    effort = Column(Integer, nullable=True)  # 1-5
-    rir = Column(Integer, nullable=True)  # Reps in Reserve: 0=failure, 1+=easy
+    effort = Column(Integer, nullable=True)  # 1-5 (legacy)
+    rir = Column(Integer, nullable=True)  # Reps in Reserve: 0=failure, 1+=easy (legacy)
+    rpe = Column(Integer, nullable=True)  # Rate of Perceived Exertion: 1-10
+    form_quality = Column(Integer, nullable=True)  # 0=clean, 1=struggled_held, 2=broke
     notes = Column(Text)
     is_seeded = Column(Boolean, default=False, nullable=False)
     completed_at = Column(DateTime, default=datetime.now(timezone.utc))

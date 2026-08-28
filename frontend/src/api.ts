@@ -387,6 +387,8 @@ export const api = {
     actual_reps?: number | null;
     effort?: number | null;
     rir?: number | null;
+    rpe?: number | null;
+    form_quality?: number | null;
     notes?: string | null;
   }) =>
     request("/set-logs", { method: "POST", body: JSON.stringify(data) }),

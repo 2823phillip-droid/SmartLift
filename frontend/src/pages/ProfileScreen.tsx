@@ -1,10 +1,21 @@
 import { useEffect, useState } from "react";
-import { api, withRetry } from "../api";
+import { api, withRetry, getApiBase, getAuthToken } from "../api";
+
+const GOAL_OPTIONS = [
+  { value: "strength", label: "Strength" },
+  { value: "muscle", label: "Muscle" },
+  { value: "endurance", label: "Endurance" },
+  { value: "weight_loss", label: "Weight Loss" },
+  { value: "mobility", label: "Mobility" },
+  { value: "appearance", label: "Appearance" },
+  { value: "general_fitness", label: "General Fitness" },
+];
 
 type Profile = {
   username?: string;
   email?: string;
   fitness_goals?: string;
+  goals?: string[];
 };
 
 export default function ProfileScreen({ onBack, onOpenSettings, user }: { onBack: () => void; onOpenSettings: () => void; user: { email?: string; first_name?: string; last_name?: string } | null }) {
@@ -12,11 +23,12 @@ export default function ProfileScreen({ onBack, onOpenSettings, user }: { onBack
     username: user?.first_name || "",
     email: user?.email || "",
     fitness_goals: "",
+    goals: [],
   });
   const [loading, setLoading] = useState(true);
   const [editingGoals, setEditingGoals] = useState(false);
   const [savingGoals, setSavingGoals] = useState(false);
-  const [goalsDraft, setGoalsDraft] = useState("");
+  const [goalsDraft, setGoalsDraft] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -31,7 +43,7 @@ export default function ProfileScreen({ onBack, onOpenSettings, user }: { onBack
         email: user?.email || map.profile_email || "",
         fitness_goals: goals,
       });
-      setGoalsDraft(goals);
+      setGoalsDraft([]);
       setEditingGoals(false);
     }).catch(() => {}).finally(() => {
       if (!cancelled) setLoading(false);
@@ -39,27 +51,51 @@ export default function ProfileScreen({ onBack, onOpenSettings, user }: { onBack
     return () => { cancelled = true; };
   }, [user]);
 
+  useEffect(() => {
+    let cancelled = false;
+    withRetry(() => api.getFitnessProfile(), { retries: 2, baseDelayMs: 300 }).then((fp: any) => {
+      if (cancelled) return;
+      const goals = Array.isArray(fp?.goal) ? fp.goal : [];
+      setProfile((p) => ({ ...p, goals }));
+      setGoalsDraft(goals);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   const displayValue = (value: string | undefined) => (value && value.trim().length ? value.trim() : "—");
 
   const startEditGoals = () => {
-    setGoalsDraft(profile.fitness_goals || "");
+    setGoalsDraft(profile.goals || []);
     setEditingGoals(true);
   };
 
   const cancelEditGoals = () => {
-    setGoalsDraft(profile.fitness_goals || "");
+    setGoalsDraft(profile.goals || []);
     setEditingGoals(false);
   };
 
   const saveGoals = async () => {
     setSavingGoals(true);
     try {
-      await withRetry(() => api.setSetting("profile_fitness_goals", goalsDraft || ""), { retries: 2, baseDelayMs: 300 });
-      setProfile((p) => ({ ...p, fitness_goals: goalsDraft }));
+      await withRetry(() => fetch(`${getApiBase()}/profile/fitness`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${getAuthToken() || ""}`,
+        },
+        body: JSON.stringify({ goal: goalsDraft }),
+      }).then((r: any) => r.json()), { retries: 2, baseDelayMs: 300 });
+      setProfile((p) => ({ ...p, goals: goalsDraft }));
       setEditingGoals(false);
     } finally {
       setSavingGoals(false);
     }
+  };
+
+  const toggleGoal = (value: string) => {
+    setGoalsDraft((prev) =>
+      prev.includes(value) ? prev.filter((g) => g !== value) : [...prev, value]
+    );
   };
 
   return (
@@ -139,14 +175,33 @@ export default function ProfileScreen({ onBack, onOpenSettings, user }: { onBack
             </div>
 
             {editingGoals ? (
-              <textarea
-                value={goalsDraft}
-                onChange={(e) => setGoalsDraft(e.target.value)}
-                rows={4}
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm text-slate-200 resize-none focus:outline-none focus:border-indigo-500/50 focus:ring-1 focus:ring-indigo-500/50 transition-colors"
-              />
+              <div className="flex flex-wrap gap-2">
+                {GOAL_OPTIONS.map(({ value, label }) => (
+                  <button
+                    key={value}
+                    onClick={() => toggleGoal(value)}
+                    className={`px-3 py-2 text-xs font-semibold rounded-xl border transition-all ${
+                      goalsDraft.includes(value)
+                        ? "bg-indigo-600 border-indigo-500 text-white"
+                        : "border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300"
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             ) : (
-              <div className="text-sm text-slate-300 whitespace-pre-wrap break-words">{displayValue(profile.fitness_goals)}</div>
+              <div className="flex flex-wrap gap-2">
+                {(profile.goals && profile.goals.length > 0) ? (
+                  profile.goals.map((g) => (
+                    <span key={g} className="px-3 py-1.5 text-xs font-semibold rounded-lg bg-indigo-900/40 border border-indigo-700/60 text-indigo-200">
+                      {GOAL_OPTIONS.find((o) => o.value === g)?.label || g}
+                    </span>
+                  ))
+                ) : (
+                  <span className="text-sm text-slate-500">No goals set</span>
+                )}
+              </div>
             )}
           </div>
 

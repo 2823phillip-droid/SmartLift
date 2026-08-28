@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { SetLog, WorkoutSession } from "../types";
+import { kgToLbs, getUnitsPreference } from "../utils/units";
 
 interface RecapExercise {
   name: string;
@@ -95,6 +96,9 @@ export default function PreWorkoutScreen({
           byExercise[log.exercise_entry_id].push(log);
         }
 
+        const units = getUnitsPreference();
+        const toDisplayWeight = (kg: number) => (units === "imperial" ? kgToLbs(kg) : kg);
+
         const exercisesRecap: RecapExercise[] = [];
         let totalVolume = 0;
         let totalEffort = 0;
@@ -106,7 +110,7 @@ export default function PreWorkoutScreen({
           const eid = Number(entryId);
           sets.sort((a, b) => a.set_index - b.set_index);
           const topSet = sets.reduce((a, b) => (b.actual_weight || 0) > (a.actual_weight || 0) ? b : a, sets[0]);
-          const avgEffort = sets.length
+          const rawAvgEffort = sets.length
             ? sets.reduce((a, b) => a + (b.effort || 3), 0) / sets.length
             : 3;
           const exVolume = sets.reduce((a, b) => a + (b.actual_weight || 0) * (b.actual_reps || 0), 0);
@@ -115,8 +119,8 @@ export default function PreWorkoutScreen({
           const feltHard = (topSet.effort || 3) >= 4 || (topSet.rir != null && topSet.rir <= 1);
           const feltEasy = (topSet.effort || 3) <= 2 && (topSet.rir == null || topSet.rir >= 3);
 
-          totalVolume += exVolume;
-          totalEffort += avgEffort;
+          totalVolume += toDisplayWeight(exVolume);
+          totalEffort += sets.reduce((a, b) => a + (b.effort || 3), 0);
           effortCount += sets.length;
           if (feltHard) hardCount++;
           if (feltEasy) easyCount++;
@@ -125,12 +129,12 @@ export default function PreWorkoutScreen({
             name: nameMap[eid] || `Exercise ${eid}`,
             setsDone: sets.length,
             setsTarget: sets.length,
-            topWeight: topSet.actual_weight || 0,
+            topWeight: toDisplayWeight(topSet.actual_weight || 0),
             topReps: topSet.actual_reps || 0,
             topEffort: topSet.effort || 3,
             topRir: topSet.rir ?? null,
-            avgEffort: Math.round(avgEffort * 10) / 10,
-            volume: Math.round(exVolume),
+            avgEffort: Math.round(rawAvgEffort * 10) / 10,
+            volume: Math.round(toDisplayWeight(exVolume)),
             hitTarget,
             feltHard,
             feltEasy,
