@@ -84,6 +84,7 @@ export default function HomeScreen() {
   const [timeframe, setTimeframe] = useState<Timeframe>("all");
   const [streak, setStreak] = useState<number | null>(null);
   const [totalVolume, setTotalVolume] = useState<number | null>(null);
+  const [loadPct, setLoadPct] = useState<number | null>(null);
 
   const filteredWidgets = useMemo(
     () => widgets.map((w) => ({ ...w, points: filterPoints(w.points, timeframe) })),
@@ -98,13 +99,16 @@ export default function HomeScreen() {
     Promise.all([
       withRetry(() => api.getTotalVolume(), { retries: 3, baseDelayMs: 500 }),
       withRetry(() => api.getStreak(), { retries: 3, baseDelayMs: 500 }),
-    ]).then(([vol, s]) => {
+      withRetry(() => api.getCoachState(), { retries: 3, baseDelayMs: 500 }),
+    ]).then(([vol, s, coach]) => {
       setTotalVolume((vol as any)?.total_volume ?? null);
       setStreak((s as any)?.streak ?? null);
+      setLoadPct((coach as any)?.coach_load_pct ?? null);
       setLastError(null);
     }).catch((err) => {
       setTotalVolume(null);
       setStreak(null);
+      setLoadPct(null);
       const serialized =
         typeof err === "object" && err !== null
           ? JSON.stringify({
@@ -196,7 +200,7 @@ export default function HomeScreen() {
       </div>
 
       {/* Stats row */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-3 gap-3">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
           <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1">Streak</div>
           <div className="text-xl font-bold">{streak !== null ? `${streak} day${streak === 1 ? '' : 's'}` : '--'}</div>
@@ -204,6 +208,22 @@ export default function HomeScreen() {
         <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
           <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1">Total volume</div>
           <div className="text-xl font-bold">{totalVolume !== null ? formatWeight(totalVolume, getUnitsPreference()) : '--'}</div>
+        </div>
+        <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
+          <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1">Load</div>
+          <div className="text-xl font-bold">{loadPct !== null ? `${loadPct}%` : '--'}</div>
+          <div className="mt-2 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+            <div
+              className={`h-full rounded-full transition-all ${
+                (loadPct ?? 0) >= 100
+                  ? "bg-amber-400"
+                  : (loadPct ?? 0) >= 70
+                  ? "bg-orange-400"
+                  : "bg-indigo-400"
+              }`}
+              style={{ width: `${Math.min(100, loadPct ?? 0)}%` }}
+            />
+          </div>
         </div>
       </div>
 

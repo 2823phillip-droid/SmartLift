@@ -37,6 +37,35 @@ class WorkloadStatus(str, Enum):
     deload = "deload"
 
 
+def compute_load(history: List[SetRecord], window_days: int = 14) -> int:
+    """Return 0-100 accumulated training load from recent history."""
+    now = datetime.now(timezone.utc)
+    cutoff = now - timedelta(days=window_days)
+    recent = [
+        s for s in history
+        if s.completed_at is not None
+        and s.completed_at >= cutoff
+        and not s.is_seeded
+    ]
+    if not recent:
+        return 0
+
+    # Group by session date
+    sessions: dict = {}
+    for s in recent:
+        day = s.completed_at.date()
+        sessions.setdefault(day, []).append(s)
+
+    total_score = 0.0
+    for day_sets in sessions.values():
+        effort = sum(s.effort or 2 for s in day_sets) / len(day_sets)
+        sets = len(day_sets)
+        session_score = (effort / 4) * 50 + min(sets / 8, 1.0) * 50
+        total_score += session_score
+
+    return min(100, int(total_score))
+
+
 @dataclass(frozen=True)
 class SetRecord:
     """One completed set from history."""
@@ -128,12 +157,14 @@ def _today() -> date:
     return datetime.now(timezone.utc).date()
 
 
-def _is_deload_week(rule: RuleInput) -> bool:
+def _is_deload_week(rule: RuleInput, week: Optional[int] = None) -> bool:
     """Deload is either forced or scheduled by simple weekly periodization."""
     if rule.force_deload:
         return True
-    if rule.periodization_cycle_weeks > 0:
-        return (rule.week % rule.periodization_cycle_weeks) == 0
+    cycle = rule.periodization_cycle_weeks or 0
+    if cycle > 0:
+        w = week if week is not None else (rule.week or 1)
+        return (w % cycle) == 0
     return False
 
 
@@ -457,7 +488,18 @@ def compute_prescription(rule: RuleInput) -> Prescription:
     """
     top_set = _last_session_top_set(rule.history)
 
-    if _is_deload_week(rule):
+    # Derive actual elapsed weeks from real history dates, matching compute_coach_state.
+    actual_week: Optional[int] = None
+    if rule.history:
+        dates = [s.completed_at for s in rule.history if s.completed_at is not None and not s.is_seeded]
+        if dates:
+            oldest = min(dates)
+            now = datetime.now(timezone.utc)
+            elapsed_days = max(0, (now - oldest).days)
+            actual_week = elapsed_days // 7 + 1
+    week = actual_week if actual_week is not None else (rule.week or 1)
+
+    if _is_deload_week(rule, week):
         base_prescription = _next_prescription_by_type(rule, top_set)
         weight = _round_weight(float(base_prescription.next_weight * rule.deload_intensity_factor))
         reps = max(1, int(base_prescription.next_reps * rule.deload_volume_factor))
@@ -605,6 +647,7 @@ class CoachState:
     is_deload: bool
     explanation: str
     next_deload_date: Optional[str] = None
+    load_pct: int = 0
 
 
 def _candidate_types() -> List[str]:
@@ -619,7 +662,9 @@ def _detect_stalls(history: List[SetRecord], hard_effort_threshold: int) -> bool
     return len(hard_sets) >= 3
 
 
-def _should_force_deload(history: List[SetRecord], week: int, periodization_cycle_weeks: int) -> bool:
+def _should_force_deload(history: List[SetRecord], week: int, periodization_cycle_weeks: int, load_pct: int = 0) -> bool:
+    if load_pct >= 100:
+        return True
     if periodization_cycle_weeks > 0 and week > 0:
         return (week % periodization_cycle_weeks) == 0
     return _detect_stalls(history, hard_effort_threshold=4)
@@ -702,12 +747,29 @@ def compute_coach_state(
     periodization_cycle_weeks: int = 4,
     default_progression: str = "linear",
     custom_phase_order: Optional[List[str]] = None,
+    previous_phase: Optional[str] = None,
 ) -> CoachState:
     """Compute deterministic coach state from workout history and cadence rules."""
     phase = current_phase or _progression_from_history(history, default_progression)
-    week = current_week_in_block or 1
+
+    # Derive actual elapsed weeks from real history dates, not from a stored counter.
+    # This prevents the week from advancing faster than calendar time.
+    actual_week: Optional[int] = None
+    if history:
+        real_sets = [s for s in history if s.completed_at is not None and not s.is_seeded]
+        if real_sets:
+            oldest = min(s.completed_at for s in real_sets)
+            now = datetime.now(timezone.utc)
+            elapsed_days = max(0, (now - oldest).days)
+            actual_week = elapsed_days // 7 + 1
+
+    week = actual_week if actual_week is not None else (current_week_in_block or 1)
     duration = _block_duration(phase)
-    deload_due = force_deload or _should_force_deload(history, week, periodization_cycle_weeks)
+
+    # Compute load from recent training stress
+    load_pct = compute_load(history)
+
+    deload_due = force_deload or _should_force_deload(history, week, periodization_cycle_weeks, load_pct)
 
     next_deload_date: Optional[str] = None
     try:
@@ -728,7 +790,7 @@ def compute_coach_state(
     elif phase == "deload":
         new_phase = "linear" if current_phase == "deload" else phase
         reason = "from_deload"
-        week = current_week_in_block if current_week_in_block is not None else 1
+        # week already reflects date-derived elapsed time from the block above
         duration = _block_duration(new_phase)
     elif week >= duration and not force_deload:
         new_phase = _next_phase_after(phase, deload_due, custom_phase_order)
@@ -738,9 +800,11 @@ def compute_coach_state(
     else:
         new_phase = phase
         reason = "continue"
-        week = current_week_in_block if current_week_in_block is not None else 1
-        if current_week_in_block is None:
-            week = 1
+        # week already reflects date-derived elapsed time from the block above
+
+    # Reset load when transitioning out of deload
+    if previous_phase == "deload" and new_phase != "deload":
+        load_pct = 0
 
     state = CoachState(
         phase=new_phase,
@@ -759,9 +823,11 @@ def compute_coach_state(
                 is_deload=new_phase == "deload",
                 explanation="",
                 next_deload_date=next_deload_date,
+                load_pct=load_pct,
             ),
             reason,
         ),
         next_deload_date=next_deload_date,
+        load_pct=load_pct,
     )
     return state

@@ -58,12 +58,13 @@ export default function ActiveWorkoutScreen({
   const [showNotes, setShowNotes] = useState(false);
   const [addSetExerciseId, setAddSetExerciseId] = useState<number | null>(null);
   const [displaySetsTarget, setDisplaySetsTarget] = useState<Record<number, number>>({});
-  const [lastSessionByExercise, setLastSessionByExercise] = useState<Record<number, {set_index: number; actual_weight: number; actual_reps: number}[]>>({});
+  const [lastSessionByExercise, setLastSessionByExercise] = useState<Record<number, {set_index: number; actual_weight: number; actual_reps: number; started_at?: string}[]>>({});
   const [originalExercises, setOriginalExercises] = useState<ExerciseEntry[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
   const [isLogging, setIsLogging] = useState(false);
   const [coachPhase, setCoachPhase] = useState<CoachPhase>("linear");
   const [coachWeek, setCoachWeek] = useState<number>(1);
+  const [coachLoadPct, setCoachLoadPct] = useState<number | null>(null);
   const [, setCoachLoaded] = useState(false);
 
   const [backendPrescriptions, setBackendPrescriptions] = useState<Record<number, any>>({});
@@ -88,12 +89,15 @@ export default function ActiveWorkoutScreen({
     for (const name of names) {
       const ex = exercises.find((e) => e.name === name)!;
       const lastSession = lastSessionByExercise[ex.id] || [];
+      const sessionDate = lastSession[0]?.started_at
+        ? new Date(lastSession[0].started_at).toISOString()
+        : new Date(Date.now() - 86400000).toISOString();
       for (const s of lastSession) {
         history.push({
           actual_weight: toLbs(s.actual_weight),
           actual_reps: s.actual_reps,
           effort: 3,
-          completed_at: new Date(Date.now() - 86400000).toISOString(),
+          completed_at: sessionDate,
         });
       }
       const currentLogs = logs.filter((l) => {
@@ -117,12 +121,15 @@ export default function ActiveWorkoutScreen({
   const buildPrescriptionHistory = (exercise: ExerciseEntry): SetRecord[] => {
     const history: SetRecord[] = [];
     const lastSession = lastSessionByExercise[exercise.id] || [];
+    const sessionDate = lastSession[0]?.started_at
+      ? new Date(lastSession[0].started_at).toISOString()
+      : new Date(Date.now() - 86400000).toISOString();
     for (const s of lastSession) {
       history.push({
         actual_weight: toLbs(s.actual_weight),
         actual_reps: s.actual_reps,
         effort: 3,
-        completed_at: new Date(Date.now() - 86400000).toISOString(),
+        completed_at: sessionDate,
       });
     }
     return history;
@@ -217,6 +224,8 @@ export default function ActiveWorkoutScreen({
         rest_seconds: exercise.rest_seconds,
         progression_type: coach.phase === "deload" ? "linear" : coach.phase,
         history: exHistory,
+        week: coachWeek,
+        periodization_cycle_weeks: 4,
       });
     }
     return { prescriptions: map, coach };
@@ -256,6 +265,7 @@ export default function ActiveWorkoutScreen({
         if ((workoutMode || "manual") === "ai_trainer" && coachState) {
           if (coachState.coach_phase) setCoachPhase(coachState.coach_phase);
           if (coachState.coach_week_in_block) setCoachWeek(coachState.coach_week_in_block);
+          if ((coachState as any)?.coach_load_pct !== undefined) setCoachLoadPct((coachState as any).coach_load_pct);
           setCoachLoaded(true);
         }
         if (session?.template_id) {
@@ -278,7 +288,7 @@ export default function ActiveWorkoutScreen({
           if (result && result.status === "fulfilled") {
             const data = result.value as any;
             const logs = Array.isArray(data?.logs) ? data.logs : [];
-            if (logs.length > 0) sessionResolved[exercise.id] = logs.map((l: any) => ({ set_index: Number(l.set_index), actual_weight: Number(l.actual_weight || 0), actual_reps: Number(l.actual_reps || 0) }));
+            if (logs.length > 0) sessionResolved[exercise.id] = logs.map((l: any) => ({ set_index: Number(l.set_index), actual_weight: Number(l.actual_weight || 0), actual_reps: Number(l.actual_reps || 0), started_at: data?.started_at }));
             else sessionResolved[exercise.id] = [];
           } else {
             sessionResolved[exercise.id] = [];
@@ -1004,12 +1014,22 @@ export default function ActiveWorkoutScreen({
             <div className="min-w-0">
               <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-300">Coach — {coach.is_deload ? "Deload" : "Current Phase"}</div>
               <div className="text-sm font-semibold text-slate-100 truncate mt-0.5">
-                Week {coach.week_in_block} / {coach.block_duration_weeks}
+                {coach.is_deload ? "Deload week" : coach.phase}
               </div>
+              {!coach.is_deload && coachLoadPct !== null && (
+                <div className="mt-1.5 h-1.5 rounded-full bg-slate-800 overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all ${
+                      coachLoadPct >= 100 ? "bg-amber-400" : coachLoadPct >= 70 ? "bg-orange-400" : "bg-indigo-400"
+                    }`}
+                    style={{ width: `${Math.min(100, coachLoadPct)}%` }}
+                  />
+                </div>
+              )}
             </div>
             <div className="rounded-lg border border-white/10 px-2 py-1 text-center min-w-[80px]">
               <div className={`text-xs font-bold ${coach.is_deload ? "text-amber-300" : "text-indigo-300"}`}>
-                {coach.transition_in_weeks <= 1 && !coach.is_deload ? "Almost done" : `${coach.transition_in_weeks} weeks left`}
+                {coach.is_deload ? "Recover" : `${coachLoadPct !== null ? `${coachLoadPct}%` : "--"}`}
               </div>
             </div>
           </div>
