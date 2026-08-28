@@ -1797,6 +1797,7 @@ class RuleRequestIn(BaseModel):
     current_phase: Optional[str] = None
     current_week_in_block: Optional[int] = None
     custom_phase_order: Optional[List[str]] = None
+    deload_mode: str = "ai_driven"
     exercise_entry_id: Optional[int] = None
 
 
@@ -1877,6 +1878,7 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         default_progression=payload.progression_type.value,
         custom_phase_order=payload.custom_phase_order,
         previous_phase=previous_phase,
+        deload_mode=payload.deload_mode,
     )
     result = compute_prescription(rule)
 
@@ -2002,6 +2004,7 @@ class CoachOverrideRequest(BaseModel):
     force_deload: bool = False
     periodization_cycle_weeks: int = 4
     custom_phase_order: Optional[List[str]] = None
+    deload_mode: str = "ai_driven"
 
 
 @app.post("/api/coach/override")
@@ -2011,6 +2014,7 @@ def coach_override(payload: CoachOverrideRequest, db: Session = Depends(get_db),
         "coach_week_in_block": str(payload.week_in_block),
         "coach_force_deload": str(payload.force_deload).lower(),
         "coach_periodization_cycle_weeks": str(payload.periodization_cycle_weeks),
+        "coach_deload_mode": payload.deload_mode,
     }
     if payload.custom_phase_order is not None:
         keys["coach_custom_phase_order"] = json.dumps(payload.custom_phase_order)
@@ -2042,12 +2046,13 @@ class CoachStateResponseOut(BaseModel):
     coach_force_deload: Optional[bool] = None
     coach_periodization_cycle_weeks: Optional[int] = None
     coach_custom_phase_order: Optional[List[str]] = None
+    coach_deload_mode: Optional[str] = None
     coach_load_pct: Optional[int] = None
 
 
 @app.get("/api/coach/state", response_model=CoachStateResponseOut)
 def get_coach_state(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    keys = ["coach_phase", "coach_week_in_block", "coach_force_deload", "coach_periodization_cycle_weeks", "coach_custom_phase_order", "coach_load_pct"]
+    keys = ["coach_phase", "coach_week_in_block", "coach_force_deload", "coach_periodization_cycle_weeks", "coach_custom_phase_order", "coach_deload_mode", "coach_load_pct"]
     out: dict[str, str] = {}
     for s in db.query(AppSetting).filter(AppSetting.key.in_(keys), AppSetting.user_id == current_user.id).all():
         out[s.key] = s.value
@@ -2099,6 +2104,7 @@ def get_coach_state(db: Session = Depends(get_db), current_user: User = Depends(
         coach_force_deload=out.get("coach_force_deload") == "true" if out.get("coach_force_deload") else None,
         coach_periodization_cycle_weeks=int(out["coach_periodization_cycle_weeks"]) if out.get("coach_periodization_cycle_weeks") else None,
         coach_custom_phase_order=json.loads(out["coach_custom_phase_order"]) if out.get("coach_custom_phase_order") else None,
+        coach_deload_mode=out.get("coach_deload_mode"),
         coach_load_pct=load_pct,
     )
 

@@ -335,6 +335,7 @@ function CoachSettingsSection() {
   const [phase, setPhase] = useState("linear");
   const [week, setWeek] = useState(1);
   const [cycle, setCycle] = useState(4);
+  const [deloadMode, setDeloadMode] = useState("ai_driven");
   const [, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -349,6 +350,7 @@ function CoachSettingsSection() {
         if (data.coach_week_in_block) setWeek(data.coach_week_in_block);
         if (data.coach_periodization_cycle_weeks) setCycle(data.coach_periodization_cycle_weeks);
         if (data.coach_custom_phase_order) setCustomOrder([...(data.coach_custom_phase_order)]);  // pyright: ignore [reportImplicitAny]
+        if (data.coach_deload_mode) setDeloadMode(data.coach_deload_mode);
       }
       setLoading(false);
     }).catch((err: any) => {
@@ -376,7 +378,7 @@ function CoachSettingsSection() {
     setSaved(false);
     setSaveError(null);
     try {
-      await api.coachOverride({ phase, week_in_block: week, periodization_cycle_weeks: cycle, custom_phase_order: customOrder });
+      await api.coachOverride({ phase, week_in_block: week, periodization_cycle_weeks: cycle, custom_phase_order: customOrder, deload_mode: deloadMode });
       setSaved(true);
     } catch (err: any) {
       setSaveError(err?.message || "Failed to save coach settings");
@@ -434,6 +436,18 @@ function CoachSettingsSection() {
         </div>
       </div>
       <div>
+        <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Deload trigger mode</div>
+        <select
+          value={deloadMode}
+          onChange={(e) => setDeloadMode(e.target.value)}
+          className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2.5 text-sm focus:outline-none focus:border-indigo-500/50"
+        >
+          <option value="ai_driven">AI Driven</option>
+          <option value="calendar">Calendar</option>
+        </select>
+        <p className="text-[10px] text-slate-500 mt-1">AI Driven triggers deload when load hits 100% or stalls are detected. Calendar triggers every N weeks.</p>
+      </div>
+      <div>
         <div className="text-[10px] text-slate-500 uppercase tracking-wider mb-2">Progression order</div>
         <div className="space-y-2">
           {customOrder.map((p, idx) => (
@@ -452,7 +466,11 @@ function CoachSettingsSection() {
       </div>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-xs text-slate-400">Deload triggers when your load hits 100%, or every {cycle} weeks as a fallback.</div>
+          <div className="text-xs text-slate-400">
+            {deloadMode === "ai_driven"
+              ? "Deload triggers automatically when your load hits 100% or stalls are detected."
+              : `Deload triggers every ${cycle} weeks as a fallback, plus when load hits 100%.`}
+          </div>
           <div className="text-[10px] text-slate-500">Load is based on recent effort and volume</div>
         </div>
       </div>

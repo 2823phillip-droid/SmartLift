@@ -20,7 +20,7 @@ export interface SetRecord {
   completed_at?: string;
 }
 
-export function computeLoad(history: SetRecord[], windowDays: number = 14): number {
+export function computeLoad(history: SetRecord[], windowDays: number = 21): number {
   const now = new Date();
   const cutoff = new Date(now.getTime() - windowDays * 86400000);
   const recent = history.filter(
@@ -628,9 +628,9 @@ function detectStalls(history: SetRecord[]): boolean {
   return hardSets.length >= 3;
 }
 
-function shouldForceDeload(history: SetRecord[], week: number, cycleWeeks: number, loadPct: number = 0): boolean {
+function shouldForceDeload(history: SetRecord[], week: number, cycleWeeks: number, loadPct: number = 0, deloadMode: string = "ai_driven"): boolean {
   if (loadPct >= 100) return true;
-  if (cycleWeeks > 0 && week > 0) {
+  if (deloadMode === "calendar" && cycleWeeks > 0 && week > 0) {
     return week % cycleWeeks === 0;
   }
   return detectStalls(history);
@@ -689,6 +689,7 @@ export function computeCoachState(input: {
   default_progression?: CoachPhase;
   custom_phase_order?: CoachPhase[];
   previous_phase?: CoachPhase;
+  deload_mode?: string;
 }): CoachState {
   const phase = input.current_phase ?? progressionFromHistory(input.history, input.default_progression ?? "linear");
 
@@ -712,7 +713,7 @@ export function computeCoachState(input: {
   // Compute load from recent training stress
   const loadPct = computeLoad(input.history);
 
-  const deloadDue = input.force_deload || shouldForceDeload(input.history, week, input.periodization_cycle_weeks ?? 4, loadPct);
+  const deloadDue = input.force_deload || shouldForceDeload(input.history, week, input.periodization_cycle_weeks ?? 4, loadPct, input.deload_mode);
 
   const nextDeloadDate = (() => {
     try {
