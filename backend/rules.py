@@ -37,7 +37,7 @@ class WorkloadStatus(str, Enum):
     deload = "deload"
 
 
-def compute_load(history: List[SetRecord], window_days: int = 14) -> int:
+def compute_load(history: List[SetRecord], window_days: int = 21) -> int:
     """Return 0-100 accumulated training load from recent history."""
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=window_days)
@@ -662,10 +662,10 @@ def _detect_stalls(history: List[SetRecord], hard_effort_threshold: int) -> bool
     return len(hard_sets) >= 3
 
 
-def _should_force_deload(history: List[SetRecord], week: int, periodization_cycle_weeks: int, load_pct: int = 0) -> bool:
+def _should_force_deload(history: List[SetRecord], week: int, periodization_cycle_weeks: int, load_pct: int = 0, deload_mode: str = "ai_driven") -> bool:
     if load_pct >= 100:
         return True
-    if periodization_cycle_weeks > 0 and week > 0:
+    if deload_mode == "calendar" and periodization_cycle_weeks > 0 and week > 0:
         return (week % periodization_cycle_weeks) == 0
     return _detect_stalls(history, hard_effort_threshold=4)
 
@@ -748,6 +748,7 @@ def compute_coach_state(
     default_progression: str = "linear",
     custom_phase_order: Optional[List[str]] = None,
     previous_phase: Optional[str] = None,
+    deload_mode: str = "ai_driven",
 ) -> CoachState:
     """Compute deterministic coach state from workout history and cadence rules."""
     phase = current_phase or _progression_from_history(history, default_progression)
@@ -769,7 +770,7 @@ def compute_coach_state(
     # Compute load from recent training stress
     load_pct = compute_load(history)
 
-    deload_due = force_deload or _should_force_deload(history, week, periodization_cycle_weeks, load_pct)
+    deload_due = force_deload or _should_force_deload(history, week, periodization_cycle_weeks, load_pct, deload_mode)
 
     next_deload_date: Optional[str] = None
     try:

@@ -318,7 +318,7 @@ export function SortableExerciseCard({
                         RPE {draftRpe !== null ? draftRpe : "—"}
                       </label>
                       <div className="grid grid-cols-5 gap-1.5">
-                        {[6, 7, 8, 9, 10].map((n) => (
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
                           <button
                             key={n}
                             onClick={() => onDraftRpeChange(n)}
@@ -332,7 +332,7 @@ export function SortableExerciseCard({
                           </button>
                         ))}
                       </div>
-                      <p className="text-[10px] text-slate-500">How hard was this set? 6 = easy, 10 = failure.</p>
+                      <p className="text-[10px] text-slate-500">How hard was this set? 1 = trivial, 10 = failure.</p>
                     </div>
 
                     <div className="space-y-1.5">
