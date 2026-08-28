@@ -24,12 +24,12 @@ export interface SortableExerciseCardProps {
   onRestChange: (val: string) => void;
   draftWeight: string;
   draftReps: string;
-  draftEffort: number;
+  draftRpe: number | null;
   onDraftWeightChange: (val: string) => void;
   onDraftRepsChange: (val: string) => void;
-  onDraftEffortChange: (val: number) => void;
-  draftRir: number | null;
-  onDraftRirChange: (val: number) => void;
+  onDraftRpeChange: (val: number) => void;
+  draftFormQuality: number;
+  onDraftFormQualityChange: (val: number) => void;
   showNotes: boolean;
   notes: string;
   onToggleNotes: () => void;
@@ -37,7 +37,7 @@ export interface SortableExerciseCardProps {
   canLog: boolean;
   onLogSet: () => Promise<boolean>;
   isLogging: boolean;
-  onEditSet: (log: SetLog, field: "actual_weight" | "actual_reps" | "effort", value: number | string) => void;
+  onEditSet: (log: SetLog, field: "actual_weight" | "actual_reps" | "effort" | "rpe" | "form_quality", value: number | string) => void;
   onDeleteSet: (log: SetLog) => void;
   suggestion?: Prescription;
   isTrainer: boolean;
@@ -62,12 +62,12 @@ export function SortableExerciseCard({
   onRestChange,
   draftWeight,
   draftReps,
-  draftEffort,
+  draftRpe,
   onDraftWeightChange,
   onDraftRepsChange,
-  onDraftEffortChange,
-  draftRir,
-  onDraftRirChange,
+  onDraftRpeChange,
+  draftFormQuality,
+  onDraftFormQualityChange,
   showNotes,
   notes,
   onToggleNotes,
@@ -315,15 +315,15 @@ export function SortableExerciseCard({
 
                     <div className="space-y-1.5">
                       <label className="text-xs text-slate-500 uppercase tracking-widest font-semibold">
-                        Effort {draftEffort}/5
+                        RPE {draftRpe !== null ? draftRpe : "—"}
                       </label>
                       <div className="grid grid-cols-5 gap-1.5">
-                        {[1, 2, 3, 4, 5].map((n) => (
+                        {[6, 7, 8, 9, 10].map((n) => (
                           <button
                             key={n}
-                            onClick={() => onDraftEffortChange(n)}
+                            onClick={() => onDraftRpeChange(n)}
                             className={`py-2.5 text-sm font-bold rounded-xl border transition-all ${
-                              draftEffort === n
+                              draftRpe === n
                                 ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-900/20 scale-[1.02]"
                                 : "border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300"
                             }`}
@@ -332,28 +332,36 @@ export function SortableExerciseCard({
                           </button>
                         ))}
                       </div>
+                      <p className="text-[10px] text-slate-500">How hard was this set? 6 = easy, 10 = failure.</p>
                     </div>
 
                     <div className="space-y-1.5">
                       <label className="text-xs text-slate-500 uppercase tracking-widest font-semibold">
-                        RIR {draftRir !== null ? draftRir : "—"}
+                        Form Quality
                       </label>
-                      <div className="grid grid-cols-6 gap-1.5">
-                        {[0, 1, 2, 3, 4, 5].map((n) => (
+                      <div className="grid grid-cols-3 gap-1.5">
+                        {[
+                          { value: 0, label: "Clean" },
+                          { value: 1, label: "Struggled" },
+                          { value: 2, label: "Broke" },
+                        ].map(({ value, label }) => (
                           <button
-                            key={n}
-                            onClick={() => onDraftRirChange(n)}
-                            className={`py-2 text-xs font-bold rounded-xl border transition-all ${
-                              draftRir === n
-                                ? "bg-emerald-600 border-emerald-500 text-white shadow-md shadow-emerald-900/20"
+                            key={value}
+                            onClick={() => onDraftFormQualityChange(value)}
+                            className={`py-2.5 text-xs font-bold rounded-xl border transition-all ${
+                              draftFormQuality === value
+                                ? value === 0
+                                  ? "bg-emerald-600 border-emerald-500 text-white"
+                                  : value === 1
+                                  ? "bg-amber-600 border-amber-500 text-white"
+                                  : "bg-rose-600 border-rose-500 text-white"
                                 : "border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300"
                             }`}
                           >
-                            {n}
+                            {label}
                           </button>
                         ))}
                       </div>
-                      <p className="text-[10px] text-slate-500">How many more reps could you have done?</p>
                     </div>
 
                     <div className="space-y-1.5">

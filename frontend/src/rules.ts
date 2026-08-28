@@ -495,6 +495,28 @@ export function applyAiProfile(rule: RuleInput): RuleInput {
   };
 }
 
+export function withinWorkoutProgression(opts: {
+  prevWeight: number;
+  prevReps: number;
+  prevRpe: number | null | undefined;
+  prevFormQuality: number | null | undefined;
+  repsTarget: number;
+  increment?: number;
+}): { weight: number; reps: number } {
+  const inc = opts.increment ?? 5;
+  const reps = opts.prevReps;
+  const rpe = opts.prevRpe;
+  const form = opts.prevFormQuality;
+
+  if (form === 2) {
+    return { weight: Math.max(0, opts.prevWeight - inc), reps: opts.repsTarget };
+  }
+  if (form === 1 || reps < opts.repsTarget || (rpe != null && rpe >= 10)) {
+    return { weight: opts.prevWeight, reps: opts.repsTarget };
+  }
+  return { weight: opts.prevWeight + inc, reps: opts.repsTarget };
+}
+
 /* ---------------------------------------------------------------------------
    Coach: deterministic block-level orchestration
    --------------------------------------------------------------------------- */

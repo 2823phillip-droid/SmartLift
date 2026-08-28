@@ -100,6 +100,8 @@ export interface SetLog {
   actual_reps?: number;
   effort?: number;
   rir?: number;
+  rpe?: number;
+  form_quality?: number;
   notes?: string;
 }
 

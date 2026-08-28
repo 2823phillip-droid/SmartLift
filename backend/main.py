@@ -296,6 +296,13 @@ def _run_migrations():
                 conn.execute(_text("ALTER TABLE set_logs ADD COLUMN actual_weight_right FLOAT"))
                 conn.commit()
 
+            if "rpe" not in scolumns:
+                conn.execute(_text("ALTER TABLE set_logs ADD COLUMN rpe INTEGER"))
+                conn.commit()
+            if "form_quality" not in scolumns:
+                conn.execute(_text("ALTER TABLE set_logs ADD COLUMN form_quality INTEGER"))
+                conn.commit()
+
             # Migrate exercise_library to ExerciseDB schema
             elib_cols = cols("exercise_library")
             if "program_worthy" not in elib_cols:
@@ -480,6 +487,8 @@ class SetLogCreate(BaseModel):
     actual_reps: Optional[int] = None
     effort: Optional[int] = None
     rir: Optional[int] = None
+    rpe: Optional[int] = None
+    form_quality: Optional[int] = None
     notes: Optional[str] = None
 
 class SetLogOut(BaseModel):
@@ -495,6 +504,8 @@ class SetLogOut(BaseModel):
     actual_reps: Optional[int]
     effort: Optional[int]
     rir: Optional[int]
+    rpe: Optional[int]
+    form_quality: Optional[int]
     notes: Optional[str]
 
     class Config:
@@ -515,6 +526,9 @@ class SetLogUpdate(BaseModel):
     actual_weight: Optional[float] = None
     actual_reps: Optional[int] = None
     effort: Optional[int] = None
+    rir: Optional[int] = None
+    rpe: Optional[int] = None
+    form_quality: Optional[int] = None
     notes: Optional[str] = None
 
 class ExerciseProgressPoint(BaseModel):
@@ -1383,6 +1397,7 @@ def create_session(payload: SessionCreate, db: Session = Depends(get_db), curren
     session = WorkoutSession(
         user_id=current_user.id,
         template_id=payload.template_id,
+        started_at=datetime.now(timezone.utc),
         pre_workout_mood=payload.pre_workout_mood,
         pre_workout_tags=json.dumps(payload.pre_workout_tags or []),
     )
@@ -1528,6 +1543,12 @@ def update_set_log(session_id: int, log_id: int, payload: SetLogUpdate, db: Sess
         log.actual_reps = payload.actual_reps
     if payload.effort is not None:
         log.effort = payload.effort
+    if payload.rir is not None:
+        log.rir = payload.rir
+    if payload.rpe is not None:
+        log.rpe = payload.rpe
+    if payload.form_quality is not None:
+        log.form_quality = payload.form_quality
     if payload.notes is not None:
         log.notes = payload.notes
     db.commit()
