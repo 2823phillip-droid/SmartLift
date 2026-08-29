@@ -85,6 +85,7 @@ export default function HomeScreen() {
   const [streak, setStreak] = useState<number | null>(null);
   const [totalVolume, setTotalVolume] = useState<number | null>(null);
   const [loadPct, setLoadPct] = useState<number | null>(null);
+  const [deloadMode, setDeloadMode] = useState<string | null>(null);
 
   const filteredWidgets = useMemo(
     () => widgets.map((w) => ({ ...w, points: filterPoints(w.points, timeframe) })),
@@ -104,11 +105,13 @@ export default function HomeScreen() {
       setTotalVolume((vol as any)?.total_volume ?? null);
       setStreak((s as any)?.streak ?? null);
       setLoadPct((coach as any)?.coach_load_pct ?? null);
+      setDeloadMode((coach as any)?.coach_deload_mode ?? null);
       setLastError(null);
     }).catch((err) => {
       setTotalVolume(null);
       setStreak(null);
       setLoadPct(null);
+      setDeloadMode(null);
       const serialized =
         typeof err === "object" && err !== null
           ? JSON.stringify({
@@ -224,6 +227,11 @@ export default function HomeScreen() {
               style={{ width: `${Math.min(100, loadPct ?? 0)}%` }}
             />
           </div>
+              {deloadMode && (
+                <div className="text-[10px] text-slate-500 mt-1.5">
+                  Deload: {deloadMode === "ai_driven" ? "AI Driven" : "Calendar"}
+                </div>
+              )}
         </div>
       </div>
 
