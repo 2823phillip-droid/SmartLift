@@ -81,7 +81,7 @@ export default function ActiveWorkoutScreen({
   const restTimerRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
 
-  const toLbs = (kg: number): number => (getUnitsPreference() === "imperial" ? Math.round(kgToLbs(kg)) : kg);
+  const toLbs = (lbs: number): number => lbs;
 
   const buildRuleHistoryForCoach = (): SetRecord[] => {
     const history: SetRecord[] = [];
@@ -462,10 +462,14 @@ export default function ActiveWorkoutScreen({
     }
     const prescription = prescriptions[entry.id];
     if (prescription) {
-      const displayWeight = Math.round(prescription.next_weight);
+      const displayWeight = getUnitsPreference() === "imperial"
+        ? Math.round(prescription.next_weight)
+        : Math.round(lbsToKg(prescription.next_weight));
       return { weight: displayWeight, reps: prescription.next_reps };
     }
-    const defaultWeight = toLbs(entry.start_weight);
+    const defaultWeight = getUnitsPreference() === "imperial"
+      ? entry.start_weight
+      : lbsToKg(entry.start_weight);
     return { weight: Math.round(defaultWeight), reps: entry.reps_target || 10 };
   };
 
@@ -551,7 +555,9 @@ export default function ActiveWorkoutScreen({
     console.log("[ActiveWorkoutScreen] expandExercise", exercise.id, exercise.name, "completedCount", completedCount, "sessionLogs", sessionLogs);
     const match = sessionLogs.find((l) => l.set_index === completedCount + 1);
     if (match && completedCount > 0) {
-      const displayWeight = getUnitsPreference() === "imperial" ? Math.round(kgToLbs(match.actual_weight)) : Math.round(match.actual_weight);
+      const displayWeight = getUnitsPreference() === "imperial"
+        ? Math.round(match.actual_weight)
+        : Math.round(lbsToKg(match.actual_weight || 0));
       setDraftWeight(String(displayWeight));
       setDraftReps(String(match.actual_reps));
       setDraftRpe(8);
@@ -564,11 +570,13 @@ export default function ActiveWorkoutScreen({
     if (prescription) {
       const displayWeight = getUnitsPreference() === "imperial"
         ? Math.round(prescription.next_weight)
-        : Math.round(prescription.next_weight);
+        : Math.round(lbsToKg(prescription.next_weight));
       setDraftWeight(String(displayWeight));
       setDraftReps(String(prescription.next_reps));
     } else {
-      const defaultWeight = getUnitsPreference() === "imperial" ? kgToLbs(exercise.start_weight) : exercise.start_weight;
+      const defaultWeight = getUnitsPreference() === "imperial"
+        ? exercise.start_weight
+        : lbsToKg(exercise.start_weight);
       setDraftWeight(String(Math.round(defaultWeight)));
       setDraftReps(String(exercise.reps_target));
     }
