@@ -169,3 +169,55 @@ Next (business build-out):
 ## License
 
 Private — all rights reserved.
+
+## Development Workflow
+
+### Before Building / Testing
+
+Run the sync check script to verify everything is up to date:
+
+```bash
+cd ~/workout-logger
+./scripts/sync-check.sh
+```
+
+This checks:
+1. Local git is synced to remote
+2. Linux box git is synced (skipped if unreachable)
+3. Backend on Fly.io is running the latest code
+4. Frontend bundle in `dist/` matches what's synced to the iOS project
+
+**All checks must pass before building from Xcode or testing.**
+
+### After Code Changes
+
+```bash
+git add .
+git commit -m "feat: ..."
+git push origin master
+```
+
+Then on the MacBook:
+```bash
+cd ~/workout-logger
+git pull origin master
+./scripts/sync-check.sh
+```
+
+If the script flags frontend changes:
+```bash
+cd frontend && npm run build
+cd .. && npx cap sync ios
+```
+
+### Backend Deploy
+
+If `sync-check.sh` flags the backend as behind:
+```bash
+cd ~/workout-logger/backend
+fly deploy
+```
+
+### Git Hooks
+
+A `pre-push` hook is installed that runs the sync check before every push. Complete it with `y` to proceed.
