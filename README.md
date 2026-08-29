@@ -172,52 +172,46 @@ Private — all rights reserved.
 
 ## Development Workflow
 
-### Before Building / Testing
-
-Run the sync check script to verify everything is up to date:
+### Deploy from MacBook
 
 ```bash
 cd ~/workout-logger
-./scripts/sync-check.sh
+bash scripts/deploy.sh
 ```
 
-This checks:
-1. Local git is synced to remote
-2. Linux box git is synced (skipped if unreachable)
-3. Backend on Fly.io is running the latest code
-4. Frontend bundle in `dist/` matches what's synced to the iOS project
+This is the canonical deploy entrypoint. It runs `sync-check.sh`, then
+conditionally pulls from GitHub, deploys the backend to Fly, builds the
+frontend, and runs `cap sync ios`. When it finishes, open Xcode and press
+Run.
 
-**All checks must pass before building from Xcode or testing.**
+### What `deploy.sh` handles
 
-### After Code Changes
+1. **Sync check** — local git vs remote, Linux box reachability, Fly deploy
+   timestamp, frontend bundle hash match
+2. **Git pull** — if local is behind remote
+3. **Backend deploy** — if `backend/` files changed and Fly is stale
+4. **Frontend build** — if `dist/` bundle hash differs from iOS project
+5. **Capacitor sync** — copies the new bundle into the iOS project
+
+### After Code Changes on Linux
 
 ```bash
-git add .
+git add -A
 git commit -m "feat: ..."
 git push origin master
 ```
 
-Then on the MacBook:
-```bash
-cd ~/workout-logger
-git pull origin master
-./scripts/sync-check.sh
-```
-
-If the script flags frontend changes:
-```bash
-cd frontend && npm run build
-cd .. && npx cap sync ios
-```
+Then on the MacBook, run `bash scripts/deploy.sh`.
 
 ### Backend Deploy
 
-If `sync-check.sh` flags the backend as behind:
+If you need to deploy the backend manually outside of `deploy.sh`:
 ```bash
-cd ~/workout-logger/backend
-fly deploy
+cd ~/workout-logger
+fly deploy -a smartlift-api
 ```
 
 ### Git Hooks
 
-A `pre-push` hook is installed that runs the sync check before every push. Complete it with `y` to proceed.
+No interactive git hooks are installed. The repo uses `scripts/sync-check.sh`
+and `scripts/deploy.sh` instead of hook-based gating.
