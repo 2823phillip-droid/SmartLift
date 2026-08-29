@@ -30,9 +30,9 @@ export function cmToInches(cm: number): number {
 
 export function formatWeight(value: number, units: UnitsPreference): string {
   if (units === "imperial") {
-    return `${Math.round(value)} lbs`;
+    return `${Math.round(kgToLbs(value))} lbs`;
   }
-  return `${Math.round(lbsToKg(value))} kg`;
+  return `${Math.round(value)} kg`;
 }
 
 export function formatHeight(value: number, units: UnitsPreference): string {

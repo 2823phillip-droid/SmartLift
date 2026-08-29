@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { SetLog, WorkoutSession } from "../types";
-import { kgToLbs, getUnitsPreference } from "../utils/units";
+import { lbsToKg, getUnitsPreference } from "../utils/units";
 
 interface RecapExercise {
   name: string;
