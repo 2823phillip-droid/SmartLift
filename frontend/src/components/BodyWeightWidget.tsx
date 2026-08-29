@@ -90,7 +90,9 @@ export default function BodyWeightWidget({ timeframe }: { timeframe: "week" | "3
   }));
 
   const fmtBodyWeight = (lbs: number) =>
-    units === "imperial" ? `${Math.round(lbs)} lbs` : `${Math.round(lbsToKg(lbs))} kg`;
+    units === "imperial"
+      ? `${lbs.toFixed(1)} lbs`
+      : `${lbsToKg(lbs).toFixed(1)} kg`;
 
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
