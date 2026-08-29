@@ -453,8 +453,8 @@ export default function HistoryScreen({
                                     type="number"
                                     defaultValue={
                                       getUnitsPreference() === "imperial"
-                                        ? Math.round(kgToLbs(log.actual_weight ?? 0))
-                                        : (log.actual_weight ?? "")
+                                        ? Math.round(log.actual_weight ?? 0)
+                                        : Math.round(lbsToKg(log.actual_weight ?? 0))
                                     }
                                     onChange={(e) =>
                                       ((editingLog as any).log = {

@@ -97,7 +97,7 @@ export default function PreWorkoutScreen({
         }
 
         const units = getUnitsPreference();
-        const toDisplayWeight = (kg: number) => (units === "imperial" ? kgToLbs(kg) : kg);
+        const toDisplayWeight = (lbs: number) => (units === "imperial" ? lbs : lbsToKg(lbs));
 
         const exercisesRecap: RecapExercise[] = [];
         let totalVolume = 0;
