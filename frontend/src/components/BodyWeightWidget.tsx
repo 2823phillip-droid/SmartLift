@@ -45,7 +45,20 @@ export default function BodyWeightWidget({ timeframe }: { timeframe: "week" | "3
   const [logs, setLogs] = useState<BodyWeightLog[]>(() => loadState().logs);
   const [input, setInput] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const units = getUnitsPreference();
+
+  useEffect(() => {
+    let cancelled = false;
+    api.getBodyWeightLogs().then((fetched) => {
+      if (cancelled) return;
+      setLogs(fetched);
+    }).catch(() => {
+      if (cancelled) return;
+      // keep localStorage fallback on network error
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
     saveState({ logs });
@@ -56,10 +69,13 @@ export default function BodyWeightWidget({ timeframe }: { timeframe: "week" | "3
     if (Number.isNaN(raw) || raw <= 0) return;
     const lbs = units === "imperial" ? raw : raw * 2.20462;
     setSaving(true);
+    setError(null);
     try {
       const created: BodyWeightLog = await api.createBodyWeightLog({ weight_lbs: lbs });
       setLogs((prev) => [...prev, created].sort((a, b) => new Date(a.logged_at).getTime() - new Date(b.logged_at).getTime()));
       setInput("");
+    } catch (err: any) {
+      setError(err?.message || "Failed to log weight");
     } finally {
       setSaving(false);
     }
@@ -113,6 +129,9 @@ export default function BodyWeightWidget({ timeframe }: { timeframe: "week" | "3
         <div className="text-xs text-slate-600 text-center py-4 mb-3">No body weight logs yet</div>
       )}
 
+      {error && (
+        <div className="text-xs text-rose-400 mb-2">{error}</div>
+      )}
       <div className="flex gap-2">
         <input
           type="number"

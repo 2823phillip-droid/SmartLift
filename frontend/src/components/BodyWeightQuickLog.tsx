@@ -5,6 +5,7 @@ import { getUnitsPreference, weightInputPlaceholder } from "../utils/units";
 export default function BodyWeightQuickLog() {
   const [weight, setWeight] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const units = getUnitsPreference();
 
   const add = async () => {
@@ -12,16 +13,23 @@ export default function BodyWeightQuickLog() {
     if (Number.isNaN(raw) || raw <= 0) return;
     const lbs = units === "imperial" ? raw : raw * 2.20462;
     setSaving(true);
+    setError(null);
     try {
       await api.createBodyWeightLog({ weight_lbs: lbs });
       setWeight("");
+    } catch (err: any) {
+      setError(err?.message || "Failed to log weight");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className="flex gap-2">
+    <div className="space-y-2">
+      {error && (
+        <div className="text-xs text-rose-400">{error}</div>
+      )}
+      <div className="flex gap-2">
       <input
         type="number"
         value={weight}
