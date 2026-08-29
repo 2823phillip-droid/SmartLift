@@ -1634,7 +1634,7 @@ def get_exercise_name_progress(name: str, limit: int = 5000, db: Session = Depen
     points = []
     date_map: dict[str, dict[str, Any]] = {}
     for log in reversed(logs):
-        date_key = log.completed_at.replace(tzinfo=timezone.utc).isoformat() if log.completed_at else None
+        date_key = log.completed_at.astimezone(timezone.utc).date().isoformat() if log.completed_at else None
         if not date_key:
             continue
         weight = float(log.actual_weight or 0)
