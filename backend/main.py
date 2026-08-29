@@ -18,6 +18,7 @@ import hashlib
 import httpx
 import asyncio
 import dataclasses
+from collections import defaultdict
 from logging.handlers import RotatingFileHandler
 from passlib.context import CryptContext
 
@@ -1630,14 +1631,20 @@ def get_exercise_name_progress(name: str, limit: int = 5000, db: Session = Depen
         .limit(limit)
         .all()
     )
-    points = [
-        ExerciseProgressPoint(
-            date=log.completed_at.replace(tzinfo=timezone.utc).isoformat() if log.completed_at else None,
-            weight=float(log.actual_weight or 0),
-            reps=int(log.actual_reps or 0),
-        )
-        for log in reversed(logs)
-    ]
+    points = []
+    date_map: dict[str, dict[str, Any]] = {}
+    for log in reversed(logs):
+        date_key = log.completed_at.replace(tzinfo=timezone.utc).isoformat() if log.completed_at else None
+        if not date_key:
+            continue
+        weight = float(log.actual_weight or 0)
+        if date_key not in date_map or weight > date_map[date_key]["weight"]:
+            date_map[date_key] = {
+                "date": date_key,
+                "weight": weight,
+                "reps": int(log.actual_reps or 0),
+            }
+    points = [ExerciseProgressPoint(**v) for v in date_map.values()]
     seeded = len(logs) > 0 and all(bool(log.is_seeded) for log in logs)
     return ExerciseNameProgressResponse(name=name, points=points, seeded=seeded)
 
