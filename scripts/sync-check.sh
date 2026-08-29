@@ -25,12 +25,27 @@ LOCAL=$(git rev-parse HEAD)
 REMOTE=$(git rev-parse origin/master 2>/dev/null || echo "unknown")
 echo "  Local HEAD:  $LOCAL"
 echo "  Remote HEAD: $REMOTE"
-if [ "$LOCAL" != "$REMOTE" ]; then
-    echo -e "  ${RED}✗ LOCAL != REMOTE${NC}"
-    NEEDS_PULL=true
-else
+if [ "$LOCAL" = "$REMOTE" ]; then
     echo -e "  ${GREEN}✓ Synced to remote${NC}"
     NEEDS_PULL=false
+    NEEDS_PUSH=false
+else
+    AHEAD_BEHIND=$(git rev-list --left-right --count origin/master...HEAD 2>/dev/null || echo "0 0")
+    AHEAD=$(echo "$AHEAD_BEHIND" | awk '{print $2}')
+    BEHIND=$(echo "$AHEAD_BEHIND" | awk '{print $1}')
+    if [ "$BEHIND" -gt 0 ] && [ "$AHEAD" -eq 0 ]; then
+        echo -e "  ${RED}✗ LOCAL BEHIND REMOTE by $BEHIND commit(s)${NC}"
+        NEEDS_PULL=true
+        NEEDS_PUSH=false
+    elif [ "$AHEAD" -gt 0 ] && [ "$BEHIND" -eq 0 ]; then
+        echo -e "  ${YELLOW}! LOCAL AHEAD REMOTE by $AHEAD commit(s)${NC}"
+        NEEDS_PULL=false
+        NEEDS_PUSH=true
+    else
+        echo -e "  ${RED}✗ LOCAL DIVERGED: $BEHIND behind, $AHEAD ahead${NC}"
+        NEEDS_PULL=true
+        NEEDS_PUSH=true
+    fi
 fi
 
 UNSTAGED=$(git diff --name-only)
@@ -140,6 +155,10 @@ if [ "$NEEDS_PULL" = "true" ]; then
     echo -e "  ${YELLOW}! Git needs pull on MacBook:${NC}"
     echo "    cd $REPO && git pull origin master"
 fi
+if [ "$NEEDS_PUSH" = "true" ]; then
+    echo -e "  ${YELLOW}! Git needs push on MacBook:${NC}"
+    echo "    cd $REPO && git push origin master"
+fi
 if [ "$NEEDS_BACKEND_DEPLOY" = "true" ]; then
     echo -e "  ${YELLOW}! Backend needs deploy to Fly:${NC}"
     echo "    cd $REPO/backend && fly deploy"
@@ -150,7 +169,7 @@ if [ "$NEEDS_BUILD" = "true" ]; then
     echo "    cd $REPO && npx cap sync ios"
 fi
 
-if [ "$NEEDS_PULL" = "false" ] && [ "$NEEDS_BACKEND_DEPLOY" = "false" ] && [ "$NEEDS_BUILD" = "false" ]; then
+if [ "$NEEDS_PULL" = "false" ] && [ "$NEEDS_PUSH" = "false" ] && [ "$NEEDS_BACKEND_DEPLOY" = "false" ] && [ "$NEEDS_BUILD" = "false" ]; then
     echo -e "  ${GREEN}✓ ALL SYSTEMS SYNCED — ready to build from Xcode${NC}"
 fi
 echo ""
