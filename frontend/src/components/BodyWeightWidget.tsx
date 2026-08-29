@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from "recharts";
 import { api } from "../api";
 import type { BodyWeightLog } from "../types";
-import { formatWeight, getUnitsPreference, weightInputPlaceholder } from "../utils/units";
+import { lbsToKg, getUnitsPreference, weightInputPlaceholder } from "../utils/units";
 
 type WidgetState = {
   logs: BodyWeightLog[];
