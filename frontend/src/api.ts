@@ -410,6 +410,12 @@ export const api = {
     }),
   getCoachState: () => request("/coach/state"),
 
+  coachChat: (data: { question: string; template_id?: number; session_id?: number }) =>
+    request("/coach/chat", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   nextPrescription: (data: {
     start_weight: number;
     reps_target: number;

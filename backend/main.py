@@ -22,6 +22,18 @@ from collections import defaultdict
 from logging.handlers import RotatingFileHandler
 from passlib.context import CryptContext
 
+# Load backend .env manually
+_BACKEND_DIR = os.path.dirname(os.path.abspath(__file__))
+_ENV_PATH = os.path.join(_BACKEND_DIR, ".env")
+if os.path.exists(_ENV_PATH):
+    with open(_ENV_PATH) as f:
+        for line in f:
+            line = line.strip()
+            if not line or line.startswith("#") or "=" not in line:
+                continue
+            k, v = line.split("=", 1)
+            os.environ.setdefault(k.strip(), v.strip())
+
 from db import SessionLocal, init_db
 from models import (
     User, UserRole, Context, WorkoutTemplate, ExerciseLibrary, ExerciseEntry,
@@ -2114,6 +2126,178 @@ def get_coach_state(db: Session = Depends(get_db), current_user: User = Depends(
         coach_deload_mode=out.get("coach_deload_mode"),
         coach_load_pct=load_pct,
     )
+
+
+class CoachChatRequest(BaseModel):
+    question: str
+    template_id: Optional[int] = None
+    session_id: Optional[int] = None
+
+
+class CoachChatResponse(BaseModel):
+    message: str
+
+
+@app.post("/api/coach/chat", response_model=CoachChatResponse)
+def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    """Answer a user question about their training using recent session history and current prescription."""
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        return CoachChatResponse(message="Coach is not configured. Add OPENROUTER_API_KEY to backend .env.")
+
+    # Gather context: last 2 completed sessions for this template (or any template if not specified)
+    sessions_q = (
+        db.query(WorkoutSession)
+        .filter(WorkoutSession.user_id == current_user.id, WorkoutSession.ended_at.is_not(None), WorkoutSession.status == "completed")
+    )
+    if payload.template_id:
+        sessions_q = sessions_q.filter(WorkoutSession.template_id == payload.template_id)
+    recent_sessions = sessions_q.order_by(WorkoutSession.started_at.desc()).limit(2).all()
+
+    session_summaries = []
+    for s in recent_sessions:
+        logs = (
+            db.query(SetLog, ExerciseEntry.name)
+            .join(ExerciseEntry, SetLog.exercise_entry_id == ExerciseEntry.id)
+            .filter(SetLog.session_id == s.id)
+            .order_by(SetLog.exercise_entry_id, SetLog.set_index)
+            .all()
+        )
+        by_ex: dict[str, list] = {}
+        for log, ex_name in logs:
+            by_ex.setdefault(ex_name, []).append(log)
+        exercises = []
+        for ex_name, sets in by_ex.items():
+            top = max(sets, key=lambda x: x.actual_weight or 0)
+            exercises.append({
+                "name": ex_name,
+                "sets": len(sets),
+                "top_weight": top.actual_weight,
+                "top_reps": top.actual_reps,
+                "avg_effort": round(sum((l.effort or 3) for l in sets) / len(sets), 1),
+                "avg_rir": round(sum((l.rir or 0) for l in sets) / len(sets), 1) if any(l.rir is not None for l in sets) else None,
+            })
+        session_summaries.append({
+            "date": s.started_at.isoformat() if s.started_at else None,
+            "duration_min": round(((s.ended_at - s.started_at).total_seconds() / 60)) if s.ended_at and s.started_at else None,
+            "exercises": exercises,
+        })
+
+    # Try to get current prescription if session_id provided
+    prescription = None
+    if payload.session_id:
+        try:
+            from rules import compute_prescription, RuleInput, SetRecord
+            session = db.query(WorkoutSession).filter(WorkoutSession.id == payload.session_id).first()
+            if session and session.template_id:
+                exercises = db.query(ExerciseEntry).filter(ExerciseEntry.template_id == session.template_id).all()
+                raw_sets = (
+                    db.query(SetLog)
+                    .filter(SetLog.session_id == payload.session_id)
+                    .order_by(SetLog.exercise_entry_id, SetLog.set_index)
+                    .all()
+                )
+                history = [
+                    SetRecord(
+                        actual_weight=l.actual_weight or 0,
+                        actual_reps=l.actual_reps or 0,
+                        effort=l.effort,
+                        rir=l.rir,
+                        completed_at=l.completed_at,
+                        is_seeded=False,
+                    )
+                    for l in raw_sets
+                ]
+                coach_state = compute_coach_state(history)
+                ex_history = {eid: [r for r in history] for eid in [e.id for e in exercises]}
+                for ex in exercises:
+                    pt = ProgressionType(coach_state.phase) if coach_state.phase in [p.value for p in ProgressionType] else ProgressionType.linear
+                    rule = compute_prescription(RuleInput(
+                        start_weight=ex.start_weight or 0,
+                        reps_target=ex.reps_target or 8,
+                        sets_target=ex.sets_target or 3,
+                        rest_seconds=ex.rest_seconds or 90,
+                        progression_type=pt,
+                        history=ex_history.get(ex.id, []),
+                        linear_increment=5.0,
+                        double_increment=5.0,
+                        double_success_threshold=2,
+                        estimated_1rm=None,
+                        percentage_of_1rm=0.0,
+                        pct_increment_success=0.0,
+                        pct_decrement_fail=0.0,
+                    ))
+                    prescription = {
+                        "exercise": ex.name,
+                        "next_weight": rule.next_weight,
+                        "next_reps": rule.next_reps,
+                        "message": rule.coaching_message,
+                    }
+                    break
+        except Exception:
+            prescription = None
+
+    system_prompt = """You are Askeo Coach — a knowledgeable, motivating training coach.
+Use the provided JSON context ONLY. Do not invent data. If context is missing, say so.
+Be concise and actionable. Prefer bullet points for trends and tips.
+Tone: direct, encouraging, no fluff."""
+
+    context = {
+        "recent_sessions": session_summaries,
+        "current_prescription": prescription,
+        "user_question": payload.question,
+    }
+
+    message = None
+    for attempt in range(1):
+        try:
+            resp = httpx.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                json={
+                    "model": "google/gemma-4-31b-it:free",
+                    "messages": [
+                        {"role": "system", "content": system_prompt},
+                        {"role": "user", "content": json.dumps(context)},
+                    ],
+                    "max_tokens": 600,
+                    "temperature": 0.7,
+                },
+                timeout=15,
+            )
+            if resp.status_code == 429:
+                break
+            resp.raise_for_status()
+            data = resp.json()
+            message = data["choices"][0]["message"]["content"]
+            break
+        except Exception as e:
+            logger.warning(f"coach_chat LLM error attempt {attempt}: {e}")
+            message = None
+
+    if message is None:
+        # Deterministic fallback from context
+        lines = [f"Coach notes for: \"{payload.question}\""]
+        if session_summaries:
+            latest = session_summaries[0]
+            lines.append(f"Last session: {len(latest['exercises'])} exercises, {latest.get('duration_min')} min.")
+            top_ex = latest["exercises"][0] if latest["exercises"] else None
+            if top_ex:
+                lines.append(f"- Top set last time: {top_ex['name']} — {top_ex['top_weight']} lbs × {top_ex['top_reps']} reps, effort {top_ex.get('avg_effort', '?')}")
+            if len(session_summaries) > 1:
+                prev = session_summaries[1]
+                prev_top = prev["exercises"][0] if prev["exercises"] else None
+                if prev_top and top_ex and prev_top["name"] == top_ex["name"]:
+                    if prev_top["top_weight"] != top_ex["top_weight"] or prev_top["top_reps"] != top_ex["top_reps"]:
+                        lines.append(f"- Trend: {top_ex['name']} went from {prev_top['top_weight']}×{prev_top['top_reps']} to {top_ex['top_weight']}×{top_ex['top_reps']}.")
+        if prescription:
+            lines.append(f"Up next: {prescription['exercise']} — start at {prescription['next_weight']} lbs × {prescription['next_reps']} reps.")
+            if prescription.get("message"):
+                lines.append(f"- {prescription['message']}")
+        lines.append("Focus: keep reps smooth and controlled. If it feels easy, add weight next time; if form breaks, hold weight.")
+        message = "\n".join(lines)
+
+    return CoachChatResponse(message=message)
 
 
 class AISuggestionRequest(BaseModel):
