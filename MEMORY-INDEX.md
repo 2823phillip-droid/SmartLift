@@ -115,3 +115,11 @@ Update the registry whenever a project moves, is renamed, or is archived.
 
 ## Global registry
 Hermes maintains a project registry at `~/.hermes/projects.md` that maps all projects to their paths and entry points.
+
+## Pre-Build Sync Check
+
+Before building from Xcode or testing, run:
+\`\`\`bash
+./scripts/sync-check.sh
+\`\`\`
+This verifies git sync across all machines and Fly backend deploy state. Backend deploy: \`cd backend && fly deploy\`.
