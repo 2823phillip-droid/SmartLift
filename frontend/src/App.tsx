@@ -317,7 +317,6 @@ export default function App() {
     <div className="min-h-screen bg-slate-950 text-slate-50 flex flex-col safe-top safe-bottom">
       <header className="border-b border-slate-800/80 px-5 py-3 flex items-center justify-between sticky top-0 bg-slate-950/90 backdrop-blur-md z-10 safe-top">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center text-sm font-bold">S</div>
           <div>
             <h1 className="text-base font-bold tracking-tight leading-tight">Askeo</h1>
             {user && (
