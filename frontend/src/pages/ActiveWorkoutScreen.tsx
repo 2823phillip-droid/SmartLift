@@ -17,7 +17,7 @@ import { api, withRetry } from "../api";
 import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
 import { SortableExerciseCard } from "./SortableExerciseCard";
 import { computePrescription, type CoachPhase, type Prescription, type SetRecord, computeCoachState, withinWorkoutProgression } from "../rules";
-import { getUnitsPreference, kgToLbs, lbsToKg, formatWeight } from "../utils/units";
+import { getUnitsPreference, lbsToKg, formatWeight } from "../utils/units";
 import { resolveMediaUrl } from "../api";
 
 export default function ActiveWorkoutScreen({

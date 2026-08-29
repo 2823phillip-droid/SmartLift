@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import { api, type SessionHistory, type SetLogUpdate, type SetLog } from "../api";
-import { formatWeight, getUnitsPreference, lbsToKg, kgToLbs } from "../utils/units";
+import { formatWeight, getUnitsPreference, lbsToKg } from "../utils/units";
 
 type SessionDetail = {
   session: SessionHistory;

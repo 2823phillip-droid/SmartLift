@@ -89,11 +89,14 @@ export default function BodyWeightWidget({ timeframe }: { timeframe: "week" | "3
     short: new Date(l.logged_at).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }),
   }));
 
+  const fmtBodyWeight = (lbs: number) =>
+    units === "imperial" ? `${Math.round(lbs)} lbs` : `${Math.round(lbsToKg(lbs))} kg`;
+
   return (
     <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
       <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-2">Body Weight</div>
       <div className="flex items-baseline gap-2 mb-3">
-        <span className="text-xl font-bold">{latest ? formatWeight(latest.weight_lbs, units) : "--"}</span>
+        <span className="text-xl font-bold">{latest ? fmtBodyWeight(latest.weight_lbs) : "--"}</span>
       </div>
 
       {chartData.length > 1 ? (
@@ -115,7 +118,7 @@ export default function BodyWeightWidget({ timeframe }: { timeframe: "week" | "3
                 minTickGap={40}
               />
               <YAxis
-                tickFormatter={(v: number) => formatWeight(v, units)}
+                tickFormatter={(v: number) => fmtBodyWeight(v)}
                 tick={{ fontSize: 10, fill: "#94a3b8" }}
                 axisLine={false}
                 tickLine={false}
