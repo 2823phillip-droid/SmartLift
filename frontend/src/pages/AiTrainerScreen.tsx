@@ -304,7 +304,7 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
               className={`inline-block w-2 h-2 rounded-full ${
                 coachSource === "llm"
                   ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"
-                  : coachSource === "degraded"
+                  : coachSource === "fallback" || coachSource === "degraded"
                   ? "bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.6)]"
                   : "bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.6)]"
               }`}
