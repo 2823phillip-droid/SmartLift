@@ -42,6 +42,7 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
   const [coachMessages, setCoachMessages] = useState<CoachMessage[]>([]);
   const [coachLoading, setCoachLoading] = useState(false);
   const [coachState, setCoachState] = useState<CoachState>({});
+  const [coachSource, setCoachSource] = useState<string>("offline");
 
   const units = getUnitsPreference();
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -50,10 +51,11 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
     let cancelled = false;
     (async () => {
       try {
-        const [sessionsData, exercises, state] = await Promise.all([
+        const [sessionsData, exercises, state, health] = await Promise.all([
           api.getSessions(),
           api.getAllExercises(),
           api.getCoachState?.().catch(() => ({})),
+          api.getCoachHealth?.().catch(() => ({ llm_available: false, status: "offline" })),
         ]);
         if (cancelled) return;
         const completed = (sessionsData as SessionHistory[])
@@ -74,6 +76,11 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
             week_in_block: cs.coach_week_in_block,
             load_pct: cs.coach_load_pct,
           });
+        }
+
+        const h = health as any;
+        if (h) {
+          setCoachSource(h.status === "connected" ? "llm" : h.status === "degraded" ? "degraded" : "offline");
         }
       } catch {
         // silent — show empty state
@@ -162,9 +169,11 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
         ...(selectedSessionId ? { session_id: selectedSessionId } : {}),
       });
       setCoachMessages((m) => [...m, { id: Date.now(), question: q, answer: resp.message }]);
+      setCoachSource((resp as any).source || "fallback");
       setCoachInput("");
     } catch {
       setCoachMessages((m) => [...m, { id: Date.now(), question: q, answer: "Coach is unavailable right now. Try again in a moment." }]);
+      setCoachSource("offline");
       setCoachInput("");
     } finally {
       setCoachLoading(false);
@@ -291,6 +300,15 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
             </svg>
             <span className="text-sm font-semibold text-indigo-300">Ask the Coach</span>
+            <span
+              className={`inline-block w-2 h-2 rounded-full ${
+                coachSource === "llm"
+                  ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"
+                  : coachSource === "degraded"
+                  ? "bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.6)]"
+                  : "bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.6)]"
+              }`}
+            />
           </div>
           <svg
             className={`w-4 h-4 text-indigo-500 transition-transform ${coachOpen ? "rotate-180" : ""}`}
