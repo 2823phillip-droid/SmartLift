@@ -54,7 +54,7 @@ export default function LoginScreen({ onLogin, onSwitch }: { onLogin: (user: { i
         console.log("[Google] initializing native plugin...");
         await GoogleSignIn.initialize({ clientId: googleClientId, scopes: ["profile", "email"] });
         console.log("[Google] calling signIn...");
-        const result = await GoogleSignIn.signIn();
+        const result = await withRetry(() => GoogleSignIn.signIn(), { retries: 2, baseDelayMs: 400 });
         console.log("[Google] signIn result:", result);
         if (!result.idToken) {
           throw new Error("Google sign-in did not return an ID token.");
