@@ -21,6 +21,7 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import TabBar, { type Tab } from "./components/TabBar";
 import DebugLogScreen from "./pages/DebugLogScreen";
 import CustomWorkoutBuilderScreen from "./pages/CustomWorkoutBuilderScreen";
+import AiTrainerScreen from "./pages/AiTrainerScreen";
 
 type View =
   | "home"
@@ -534,7 +535,7 @@ export default function App() {
               <LibraryScreen onBack={goBack} onImported={() => {}} />
             )}
             {view === "ai_trainer" && (
-              <AiTrainerScreen onBack={goBack} onLaunchQuestionnaire={() => setView("questionnaire")} onOpenTransitionHistory={() => navigate("transition_history")} />
+              <AiTrainerScreen onBack={goBack} />
             )}
             {view === "questionnaire" && (
               <QuestionnaireScreen
@@ -654,31 +655,6 @@ export default function App() {
   );
 }
 
-function AiTrainerScreen({ onBack, onLaunchQuestionnaire, onOpenTransitionHistory }: { onBack: () => void; onLaunchQuestionnaire: () => void; onOpenTransitionHistory?: () => void }) {
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold tracking-tight">AI Trainer</h2>
-        <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-200 transition-colors px-2 py-1 rounded-lg hover:bg-slate-800/50">Back</button>
-      </div>
-      <p className="text-slate-400 text-sm">Your AI coaching assistant is coming soon. For now, you can re-run the questionnaire to generate a new workout plan.</p>
-      <button
-        onClick={onLaunchQuestionnaire}
-        className="w-full rounded-xl border border-indigo-800 bg-indigo-950/40 px-4 py-3 text-sm font-bold text-indigo-200 hover:border-indigo-500/60 transition-colors"
-      >
-        Generate New Workout Plan
-      </button>
-      {onOpenTransitionHistory && (
-        <button
-          onClick={onOpenTransitionHistory}
-          className="w-full rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3 text-sm font-bold text-slate-200 hover:border-indigo-500/40 transition-colors"
-        >
-          View Progression Transitions
-        </button>
-      )}
-    </div>
-  )
-}
 
 // Admin login on first launch / reinstall:
 // email: phillip@askeo.fit
