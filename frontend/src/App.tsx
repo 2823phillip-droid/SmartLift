@@ -151,35 +151,51 @@ export default function App() {
     if (stored) {
       setAuthToken(stored);
     }
-    withRetry(() => initApiBaseFromSettings(), { retries: 2, baseDelayMs: 300 }).then(async () => {
-      if (cancelled) return;
-      if (!stored) {
-        setView("login");
-        setCheckingAuth(false);
-        return;
-      }
-      try {
-        const me = await withRetry(() => api.me(), { retries: 2, baseDelayMs: 300 });
-        setUser(me as any);
-        const profile = await withRetry(() => api.getFitnessProfile(), { retries: 2, baseDelayMs: 300 }).catch(() => ({}));
-        if ((profile as any) && Object.keys(profile as any).length === 0 && typeof window !== "undefined" && !localStorage.getItem("askeo_questionnaire_done")) {
-          setView("questionnaire");
-        } else if (sessionId !== null && (selectedTemplateId !== null || selectedTemplateIdFromStorage !== null)) {
-          setSelectedTemplateId(selectedTemplateIdFromStorage);
-          setView("active_workout");
-        } else {
-          setView("home");
+    const AUTH_TIMEOUT_MS = 6000;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error("AUTH_TIMEOUT")), AUTH_TIMEOUT_MS);
+    });
+    Promise.race([
+      withRetry(() => initApiBaseFromSettings(), { retries: 2, baseDelayMs: 300 }).then(async () => {
+        if (cancelled) return;
+        if (!stored) {
+          setView("login");
+          setCheckingAuth(false);
+          return;
         }
-      } catch {
+        try {
+          const refreshed = await api.refreshToken();
+          if (refreshed?.token) {
+            setAuthToken(refreshed.token);
+            if (typeof window !== "undefined") localStorage.setItem("askeo_token", refreshed.token);
+          }
+          const me = await withRetry(() => api.me(), { retries: 2, baseDelayMs: 300 });
+          setUser(me as any);
+          const profile = await withRetry(() => api.getFitnessProfile(), { retries: 2, baseDelayMs: 300 }).catch(() => ({}));
+          if ((profile as any) && Object.keys(profile as any).length === 0 && typeof window !== "undefined" && !localStorage.getItem("askeo_questionnaire_done")) {
+            setView("questionnaire");
+          } else if (sessionId !== null && (selectedTemplateId !== null || selectedTemplateIdFromStorage !== null)) {
+            setSelectedTemplateId(selectedTemplateIdFromStorage);
+            setView("active_workout");
+          } else {
+            setView("home");
+          }
+        } catch {
+          setAuthToken(null);
+          if (typeof window !== "undefined") localStorage.removeItem("askeo_token");
+          setView("login");
+        } finally {
+          if (!cancelled) setCheckingAuth(false);
+        }
+      }),
+      timeoutPromise,
+    ]).catch(() => {
+      if (!cancelled) {
+        setCheckingAuth(false);
         setAuthToken(null);
         if (typeof window !== "undefined") localStorage.removeItem("askeo_token");
         setView("login");
-      } finally {
-        if (!cancelled) setCheckingAuth(false);
       }
-    }).catch(() => {
-      if (!cancelled) setCheckingAuth(false);
-      setView("login");
     });
     return () => { cancelled = true; };
   }, []);
