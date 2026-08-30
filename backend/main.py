@@ -2215,8 +2215,8 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
         session_summaries.append({
             "id": s.id,
             "date": s.started_at.isoformat() if s.started_at else None,
-            "template_name": s.template_name,
-            "context_name": s.context_name,
+            "template_name": s.template.name if s.template else None,
+            "context_name": s.template.context.name if s.template and s.template.context else None,
             "duration_min": duration_min,
             "exercises": exercises,
         })
