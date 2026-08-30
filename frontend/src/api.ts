@@ -409,6 +409,7 @@ export const api = {
       body: JSON.stringify(data),
     }),
   getCoachState: () => request("/coach/state"),
+  getCoachHealth: () => request("/coach/health"),
 
   coachChat: (data: { question: string; template_id?: number; session_id?: number }) =>
     request("/coach/chat", {

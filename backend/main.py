@@ -2136,6 +2136,33 @@ class CoachChatRequest(BaseModel):
 
 class CoachChatResponse(BaseModel):
     message: str
+    source: str = "fallback"
+
+
+class CoachHealthResponse(BaseModel):
+    llm_available: bool
+    model: Optional[str] = None
+    status: str
+
+
+@app.get("/api/coach/health", response_model=CoachHealthResponse)
+def coach_health(current_user: User = Depends(get_current_user_dep)):
+    api_key = os.getenv("OPENROUTER_API_KEY")
+    if not api_key:
+        return CoachHealthResponse(llm_available=False, status="offline")
+    try:
+        resp = httpx.get(
+            "https://openrouter.ai/api/v1/models",
+            headers={"Authorization": f"Bearer {api_key}"},
+            timeout=5,
+        )
+        if resp.status_code == 200:
+            return CoachHealthResponse(llm_available=True, model="google/gemma-4-31b-it:free", status="connected")
+        elif resp.status_code == 429:
+            return CoachHealthResponse(llm_available=True, model="google/gemma-4-31b-it:free", status="degraded")
+        return CoachHealthResponse(llm_available=False, status="offline")
+    except Exception:
+        return CoachHealthResponse(llm_available=False, status="offline")
 
 
 @app.post("/api/coach/chat", response_model=CoachChatResponse)
@@ -2143,7 +2170,7 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
     """Answer a user question about their training using recent session history and current prescription."""
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
-        return CoachChatResponse(message="Coach is not configured. Add OPENROUTER_API_KEY to backend .env.")
+        return CoachChatResponse(message="Coach is not configured. Add OPENROUTER_API_KEY to backend .env.", source="offline")
 
     # Gather context: last 20 completed sessions for this template (or any template if not specified)
     sessions_q = (
@@ -2415,8 +2442,9 @@ Tailor recommendations to their fitness profile, current phase, and training age
                     lines.append(f"- {prescription['message']}")
         lines.append("Focus: keep reps smooth and controlled. If it feels easy, add weight next time; if form breaks, hold weight.")
         message = "\n".join(lines)
+        return CoachChatResponse(message=message, source="fallback")
 
-    return CoachChatResponse(message=message)
+    return CoachChatResponse(message=message, source="llm")
 
 
 class AISuggestionRequest(BaseModel):
