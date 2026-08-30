@@ -2159,9 +2159,9 @@ def coach_health(current_user: User = Depends(get_current_user_dep)):
         )
         logger.info("[coach_health] Nous status=%s body=%s", resp.status_code, resp.text[:200])
         if resp.status_code == 200:
-            return CoachHealthResponse(llm_available=True, model="NousResearch/Hermes-4-70B", status="connected")
+            return CoachHealthResponse(llm_available=True, model="Hermes-4-70B", status="connected")
         elif resp.status_code == 429:
-            return CoachHealthResponse(llm_available=True, model="NousResearch/Hermes-4-70B", status="degraded")
+            return CoachHealthResponse(llm_available=True, model="Hermes-4-70B", status="degraded")
         return CoachHealthResponse(llm_available=False, status="offline")
     except Exception as e:
         logger.error("[coach_health] Nous error: %s", e)
@@ -2390,12 +2390,12 @@ Tailor recommendations to their fitness profile, current phase, and training age
     message = None
     for attempt in range(1):
         try:
-            logger.info("[coach_chat] Nous request model=NousResearch/Hermes-4-70B key_prefix=%s", api_key[:12] if api_key else "NONE")
+            logger.info("[coach_chat] Nous request model=Hermes-4-70B key_prefix=%s", api_key[:12] if api_key else "NONE")
             resp = httpx.post(
                 "https://inference-api.nousresearch.com/v1/chat/completions",
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                 json={
-                    "model": "NousResearch/Hermes-4-70B",
+                    "model": "Hermes-4-70B",
                     "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": json.dumps(context)},
