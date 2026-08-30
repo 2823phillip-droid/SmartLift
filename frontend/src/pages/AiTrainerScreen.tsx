@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { api, type SessionHistory, type SetLog } from "../api";
 import { getUnitsPreference, formatWeight } from "../utils/units";
 
@@ -24,6 +24,12 @@ type CoachMessage = {
   answer: string;
 };
 
+type CoachState = {
+  phase?: string;
+  week_in_block?: number;
+  load_pct?: number;
+};
+
 export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
   const [sessions, setSessions] = useState<SessionHistory[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
@@ -35,29 +41,40 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
   const [coachInput, setCoachInput] = useState("");
   const [coachMessages, setCoachMessages] = useState<CoachMessage[]>([]);
   const [coachLoading, setCoachLoading] = useState(false);
-  const [coachContext, setCoachContext] = useState<{ template_id?: number; session_id?: number }>({});
+  const [coachState, setCoachState] = useState<CoachState>({});
 
   const units = getUnitsPreference();
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [sessionsData, exercises] = await Promise.all([
+        const [sessionsData, exercises, state] = await Promise.all([
           api.getSessions(),
           api.getAllExercises(),
+          api.getCoachState?.().catch(() => ({})),
         ]);
         if (cancelled) return;
         const completed = (sessionsData as SessionHistory[])
           .filter((s) => s.ended_at && s.status === "completed")
           .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
-        setSessions(completed.slice(0, 10));
+        setSessions(completed.slice(0, 20));
 
         const map: Record<number, string> = {};
         (exercises as any[]).forEach((e: any) => {
           map[e.id] = e.name || `Exercise ${e.id}`;
         });
         setExerciseMap(map);
+
+        const cs = state as any;
+        if (cs) {
+          setCoachState({
+            phase: cs.coach_phase,
+            week_in_block: cs.coach_week_in_block,
+            load_pct: cs.coach_load_pct,
+          });
+        }
       } catch {
         // silent — show empty state
       } finally {
@@ -67,9 +84,16 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
     return () => { cancelled = true; };
   }, []);
 
+  useEffect(() => {
+    if (chatEndRef.current) {
+      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [coachMessages, coachLoading]);
+
   const loadSession = async (session: SessionHistory) => {
     if (sessionDetails[session.id]) {
       setSelectedSessionId(session.id);
+      setCoachOpen(true);
       return;
     }
     try {
@@ -122,7 +146,7 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
         },
       }));
       setSelectedSessionId(session.id);
-      setCoachContext({ template_id: session.template_id, session_id: session.id });
+      setCoachOpen(true);
     } catch {
       // show error inline
     }
@@ -133,7 +157,10 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
     if (!q || coachLoading) return;
     setCoachLoading(true);
     try {
-      const resp = await api.coachChat({ question: q, ...coachContext });
+      const resp = await api.coachChat({
+        question: q,
+        ...(selectedSessionId ? { session_id: selectedSessionId } : {}),
+      });
       setCoachMessages((m) => [...m, { id: Date.now(), question: q, answer: resp.message }]);
       setCoachInput("");
     } catch {
@@ -144,25 +171,51 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
+  const phaseColor = (phase?: string) => {
+    if (!phase) return "text-slate-400";
+    switch (phase) {
+      case "linear": return "text-emerald-400";
+      case "deload": return "text-amber-400";
+      case "block": return "text-indigo-400";
+      default: return "text-indigo-300";
+    }
+  };
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-xl font-bold tracking-tight">AI Trainer</h2>
-        <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-200 transition-colors px-2 py-1 rounded-lg hover:bg-slate-800/50">Back</button>
+        <div>
+          <h2 className="text-xl font-bold tracking-tight text-slate-100">AI Trainer</h2>
+          <p className="text-xs text-slate-500 mt-0.5">Review workouts, track progress, ask the coach.</p>
+        </div>
+        <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-200 transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-800/60">Back</button>
       </div>
 
-      <p className="text-slate-400 text-xs leading-relaxed">
-        Review your recent workouts, track progress, and ask the coach anything about your training.
-      </p>
+      {/* Coach State Bar */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+          <div>
+            <div className="text-xs text-slate-400">
+              Program: <span className={phaseColor(coachState.phase)}>{coachState.phase || "unknown"}</span>
+            </div>
+            <div className="text-[10px] text-slate-500">
+              Week {coachState.week_in_block ?? "?"} · Load {coachState.load_pct ?? 0}%
+            </div>
+          </div>
+        </div>
+        <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Coach Active</div>
+      </div>
 
       {/* Recent Sessions */}
       <div className="space-y-2">
-        <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Recent Sessions</div>
+        <div className="text-[11px] text-slate-500 uppercase tracking-widest font-semibold px-1">Recent Sessions</div>
         {loadingSessions ? (
-          <div className="text-sm text-slate-500 text-center py-6">Loading sessions...</div>
+          <div className="text-sm text-slate-500 text-center py-8">Loading sessions...</div>
         ) : sessions.length === 0 ? (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
-            <p className="text-sm text-slate-400">No completed sessions yet. Finish a workout to see it here.</p>
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
+            <p className="text-sm text-slate-400 text-center">No completed sessions yet. Finish a workout to see it here.</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -179,19 +232,19 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
                 <button
                   key={s.id}
                   onClick={() => loadSession(s)}
-                  className={`w-full rounded-2xl border px-4 py-3 text-left transition-colors ${
-                    isSelected ? "border-indigo-500/60 bg-indigo-950/30" : "border-slate-800 bg-slate-900/50 hover:border-slate-700"
+                  className={`w-full rounded-2xl border px-4 py-3 text-left transition-all active:scale-[0.985] ${
+                    isSelected
+                      ? "border-indigo-500/60 bg-indigo-950/40 shadow-lg shadow-indigo-500/10"
+                      : "border-slate-800 bg-slate-900/50 hover:border-slate-700"
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-semibold text-slate-200">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm font-semibold text-slate-200 truncate">
                         {s.template_name || `Session #${s.id}`}
                       </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        {dateLabel}
-                        {durLabel}
-                        {detail && `${detail.exercises.length} exercises`}
+                      <div className="text-xs text-slate-500 mt-0.5 truncate">
+                        {dateLabel}{durLabel}{detail && `${detail.exercises.length} exercises`}
                       </div>
                     </div>
                     {detail && (
@@ -205,18 +258,16 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
                   {isSelected && detail && (
                     <div className="mt-3 space-y-2 border-t border-indigo-800/40 pt-3">
                       {detail.exercises.map((ex, idx) => (
-                        <div key={idx} className="flex items-start justify-between gap-3 text-xs">
-                          <div className="min-w-0">
-                            <span className="text-indigo-100 font-semibold">{ex.name}</span>
+                        <div key={idx} className="flex items-center justify-between gap-3 text-xs">
+                          <div className="min-w-0 flex-1">
+                            <span className="text-indigo-100 font-medium">{ex.name}</span>
                             <span className="text-indigo-400 ml-1.5">{ex.sets} sets</span>
                           </div>
                           <div className="text-right shrink-0">
                             <div className="text-indigo-200">
                               {ex.topWeight > 0 ? `${formatWeight(ex.topWeight, units)} × ${ex.topReps}` : "bodyweight"}
                             </div>
-                            <div className="text-indigo-400 mt-0.5">
-                              effort {ex.avgEffort}
-                            </div>
+                            <div className="text-indigo-400 mt-0.5">effort {ex.avgEffort}</div>
                           </div>
                         </div>
                       ))}
@@ -259,16 +310,24 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
               </p>
             ) : null}
 
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
               {coachMessages.map((m) => (
-                <div key={m.id} className="space-y-1">
-                  <div className="text-xs text-slate-400">You: {m.question}</div>
-                  <div className="text-xs text-indigo-200 bg-indigo-900/30 rounded-lg px-3 py-2 whitespace-pre-wrap">{m.answer}</div>
+                <div key={m.id} className="space-y-1.5">
+                  <div className="text-xs text-slate-400 text-right">You: {m.question}</div>
+                  <div className="text-xs text-indigo-100 bg-indigo-900/40 rounded-2xl rounded-tl-sm px-3 py-2.5 whitespace-pre-wrap leading-relaxed border border-indigo-800/40">
+                    {m.answer}
+                  </div>
                 </div>
               ))}
               {coachLoading && (
-                <div className="text-xs text-indigo-400 italic">Coach is thinking...</div>
+                <div className="text-xs text-indigo-400 italic flex items-center gap-2">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" />
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce delay-100" />
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce delay-200" />
+                  <span className="ml-1">Coach is thinking...</span>
+                </div>
               )}
+              <div ref={chatEndRef} />
             </div>
 
             <form
@@ -283,12 +342,12 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
                 onChange={(e) => setCoachInput(e.target.value)}
                 placeholder="Ask about your training..."
                 disabled={coachLoading}
-                className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-60"
+                className="flex-1 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-60"
               />
               <button
                 type="submit"
                 disabled={coachLoading || !coachInput.trim()}
-                className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold hover:bg-indigo-500 disabled:opacity-60 active:scale-[0.98] transition-all"
+                className="rounded-2xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold hover:bg-indigo-500 disabled:opacity-60 active:scale-[0.97] transition-all"
               >
                 Send
               </button>
