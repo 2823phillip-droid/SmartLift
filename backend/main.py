@@ -2145,16 +2145,17 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
     if not api_key:
         return CoachChatResponse(message="Coach is not configured. Add OPENROUTER_API_KEY to backend .env.")
 
-    # Gather context: last 2 completed sessions for this template (or any template if not specified)
+    # Gather context: last 20 completed sessions for this template (or any template if not specified)
     sessions_q = (
         db.query(WorkoutSession)
         .filter(WorkoutSession.user_id == current_user.id, WorkoutSession.ended_at.is_not(None), WorkoutSession.status == "completed")
     )
     if payload.template_id:
         sessions_q = sessions_q.filter(WorkoutSession.template_id == payload.template_id)
-    recent_sessions = sessions_q.order_by(WorkoutSession.started_at.desc()).limit(2).all()
+    recent_sessions = sessions_q.order_by(WorkoutSession.started_at.desc()).limit(20).all()
 
     session_summaries = []
+    ex_names: set[str] = set()
     for s in recent_sessions:
         logs = (
             db.query(SetLog, ExerciseEntry.name)
@@ -2166,6 +2167,7 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
         by_ex: dict[str, list] = {}
         for log, ex_name in logs:
             by_ex.setdefault(ex_name, []).append(log)
+            ex_names.add(ex_name)
         exercises = []
         for ex_name, sets in by_ex.items():
             top = max(sets, key=lambda x: x.actual_weight or 0)
@@ -2176,6 +2178,7 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
                 "top_reps": top.actual_reps,
                 "avg_effort": round(sum((l.effort or 3) for l in sets) / len(sets), 1),
                 "avg_rir": round(sum((l.rir or 0) for l in sets) / len(sets), 1) if any(l.rir is not None for l in sets) else None,
+                "volume": round(sum((l.actual_weight or 0) * (l.actual_reps or 0) for l in sets)),
             })
         duration_seconds = (s.ended_at - s.started_at).total_seconds() if s.ended_at and s.started_at else 0
         duration_min = round(duration_seconds / 60) if duration_seconds > 0 else 0
@@ -2183,10 +2186,101 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
         if duration_min > 360:
             duration_min = 360
         session_summaries.append({
+            "id": s.id,
             "date": s.started_at.isoformat() if s.started_at else None,
+            "template_name": s.template_name,
+            "context_name": s.context_name,
             "duration_min": duration_min,
             "exercises": exercises,
         })
+
+    # Exercise library lookup for exercises in recent sessions
+    exercise_library: dict[str, dict[str, Any]] = {}
+    if ex_names:
+        lib_entries = (
+            db.query(ExerciseLibrary)
+            .filter(ExerciseLibrary.name.in_(list(ex_names)))
+            .all()
+        )
+        for entry in lib_entries:
+            exercise_library[entry.name] = {
+                "muscle_group": entry.muscle_group,
+                "equipment": entry.equipment,
+                "difficulty": entry.difficulty,
+                "category": entry.category,
+                "target": entry.target,
+                "secondary_muscles": entry.secondary_muscles,
+                "instructions": entry.instructions,
+            }
+
+    # User fitness profile
+    fitness_profile: dict[str, Any] = {}
+    try:
+        raw = current_user.fitness_profile
+        if isinstance(raw, dict):
+            fitness_profile = raw
+        elif isinstance(raw, str) and raw.strip():
+            fitness_profile = json.loads(raw)
+    except Exception:
+        fitness_profile = {}
+
+    # Current coach state from persisted settings + computed load
+    coach_state_data: dict[str, Any] = {}
+    try:
+        state_keys = [
+            "coach_phase", "coach_week_in_block", "coach_force_deload",
+            "coach_periodization_cycle_weeks", "coach_custom_phase_order",
+            "coach_deload_mode", "coach_load_pct",
+        ]
+        out: dict[str, str] = {}
+        for s in db.query(AppSetting).filter(AppSetting.key.in_(state_keys), AppSetting.user_id == current_user.id).all():
+            out[s.key] = s.value
+
+        from rules import compute_load, SetRecord
+        raw_sets = (
+            db.query(SetLog.actual_weight, SetLog.actual_reps, SetLog.effort, SetLog.rir, SetLog.completed_at)
+            .filter(SetLog.user_id == current_user.id, SetLog.is_seeded == False)
+            .all()
+        )
+        history = [
+            SetRecord(
+                actual_weight=s.actual_weight or 0,
+                actual_reps=s.actual_reps or 0,
+                effort=s.effort,
+                rir=s.rir,
+                completed_at=s.completed_at,
+                is_seeded=False,
+            )
+            for s in raw_sets
+        ]
+        load_pct = compute_load(history)
+
+        sessions = (
+            db.query(WorkoutSession.started_at)
+            .filter(WorkoutSession.user_id == current_user.id, WorkoutSession.ended_at.is_not(None))
+            .order_by(WorkoutSession.started_at.asc())
+            .all()
+        )
+        computed_week = None
+        if sessions:
+            oldest = sessions[0].started_at
+            if oldest.tzinfo is None:
+                oldest = oldest.replace(tzinfo=timezone.utc)
+            now = datetime.now(timezone.utc)
+            elapsed_days = max(0, (now - oldest).days)
+            computed_week = elapsed_days // 7 + 1
+
+        coach_state_data = {
+            "phase": out.get("coach_phase"),
+            "week_in_block": computed_week if computed_week is not None else (int(out["coach_week_in_block"]) if out.get("coach_week_in_block") else None),
+            "force_deload": out.get("coach_force_deload") == "true" if out.get("coach_force_deload") else None,
+            "periodization_cycle_weeks": int(out["coach_periodization_cycle_weeks"]) if out.get("coach_periodization_cycle_weeks") else None,
+            "custom_phase_order": json.loads(out["coach_custom_phase_order"]) if out.get("coach_custom_phase_order") else None,
+            "deload_mode": out.get("coach_deload_mode"),
+            "load_pct": load_pct,
+        }
+    except Exception:
+        pass
 
     # Try to get current prescription if session_id provided
     prescription = None
@@ -2247,12 +2341,18 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
             prescription = None
 
     system_prompt = """You are Askeo Coach — a knowledgeable, motivating training coach.
+You have access to the user's full recent training history, exercise library knowledge, fitness profile, and current program state.
 Use the provided JSON context ONLY. Do not invent data. If context is missing, say so.
 Be concise and actionable. Prefer bullet points for trends and tips.
-Tone: direct, encouraging, no fluff."""
+Tone: direct, encouraging, no fluff.
+When giving advice, reference specific sessions, weights, and exercises from the user's actual history.
+Tailor recommendations to their fitness profile, current phase, and training age."""
 
     context = {
         "recent_sessions": session_summaries,
+        "exercise_library": exercise_library,
+        "user_profile": fitness_profile,
+        "coach_state": coach_state_data,
         "current_prescription": prescription,
         "user_question": payload.question,
     }
@@ -2289,16 +2389,19 @@ Tone: direct, encouraging, no fluff."""
         lines = [f"Coach notes for: \"{payload.question}\""]
         if session_summaries:
             latest = session_summaries[0]
-            lines.append(f"Last session: {len(latest['exercises'])} exercises, {latest.get('duration_min')} min.")
-            top_ex = latest["exercises"][0] if latest["exercises"] else None
-            if top_ex:
-                lines.append(f"- Top set last time: {top_ex['name']} — {top_ex['top_weight']} lbs × {top_ex['top_reps']} reps, effort {top_ex.get('avg_effort', '?')}")
+            lines.append(f"Last session ({latest.get('template_name') or latest.get('context_name') or 'session'}): {len(latest['exercises'])} exercises, {latest.get('duration_min')} min.")
+            for ex in latest["exercises"][:5]:
+                lines.append(f"- {ex['name']}: {ex['top_weight']} lbs × {ex['top_reps']} reps, effort {ex.get('avg_effort', '?')}, volume {ex.get('volume', 0)}")
             if len(session_summaries) > 1:
                 prev = session_summaries[1]
-                prev_top = prev["exercises"][0] if prev["exercises"] else None
-                if prev_top and top_ex and prev_top["name"] == top_ex["name"]:
-                    if prev_top["top_weight"] != top_ex["top_weight"] or prev_top["top_reps"] != top_ex["top_reps"]:
-                        lines.append(f"- Trend: {top_ex['name']} went from {prev_top['top_weight']}×{prev_top['top_reps']} to {top_ex['top_weight']}×{top_ex['top_reps']}.")
+                for ex in prev["exercises"][:3]:
+                    matches = [l for l in latest["exercises"] if l["name"] == ex["name"]]
+                    if matches:
+                        cur = matches[0]
+                        if ex["top_weight"] != cur["top_weight"] or ex["top_reps"] != cur["top_reps"]:
+                            lines.append(f"- Trend: {ex['name']} went from {ex['top_weight']}×{ex['top_reps']} to {cur['top_weight']}×{cur['top_reps']}.")
+        if coach_state_data:
+            lines.append(f"Program state: {coach_state_data.get('phase') or 'unknown phase'}, week {coach_state_data.get('week_in_block') or '?'}, load {coach_state_data.get('load_pct', 0)}%")
         if prescription:
             if isinstance(prescription, list):
                 lines.append("Up next:")
