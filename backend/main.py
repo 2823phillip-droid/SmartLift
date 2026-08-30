@@ -2147,19 +2147,19 @@ class CoachHealthResponse(BaseModel):
 
 @app.get("/api/coach/health", response_model=CoachHealthResponse)
 def coach_health(current_user: User = Depends(get_current_user_dep)):
-    api_key = os.getenv("OPENROUTER_API_KEY")
+    api_key = os.getenv("NOUS_API_KEY")
     if not api_key:
         return CoachHealthResponse(llm_available=False, status="offline")
     try:
         resp = httpx.get(
-            "https://openrouter.ai/api/v1/models",
+            "https://inference-api.nousresearch.com/v1/models",
             headers={"Authorization": f"Bearer {api_key}"},
             timeout=5,
         )
         if resp.status_code == 200:
-            return CoachHealthResponse(llm_available=True, model="google/gemma-4-31b-it:free", status="connected")
+            return CoachHealthResponse(llm_available=True, model="NousResearch/Hermes-4-70B", status="connected")
         elif resp.status_code == 429:
-            return CoachHealthResponse(llm_available=True, model="google/gemma-4-31b-it:free", status="degraded")
+            return CoachHealthResponse(llm_available=True, model="NousResearch/Hermes-4-70B", status="degraded")
         return CoachHealthResponse(llm_available=False, status="offline")
     except Exception:
         return CoachHealthResponse(llm_available=False, status="offline")
@@ -2168,9 +2168,9 @@ def coach_health(current_user: User = Depends(get_current_user_dep)):
 @app.post("/api/coach/chat", response_model=CoachChatResponse)
 def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     """Answer a user question about their training using recent session history and current prescription."""
-    api_key = os.getenv("OPENROUTER_API_KEY")
+    api_key = os.getenv("NOUS_API_KEY")
     if not api_key:
-        return CoachChatResponse(message="Coach is not configured. Add OPENROUTER_API_KEY to backend .env.", source="offline")
+        return CoachChatResponse(message="Coach is not configured. Add NOUS_API_KEY to backend .env.", source="offline")
 
     # Gather context: last 20 completed sessions for this template (or any template if not specified)
     sessions_q = (
@@ -2388,10 +2388,10 @@ Tailor recommendations to their fitness profile, current phase, and training age
     for attempt in range(1):
         try:
             resp = httpx.post(
-                "https://openrouter.ai/api/v1/chat/completions",
+                "https://inference-api.nousresearch.com/v1/chat/completions",
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                 json={
-                    "model": "google/gemma-4-31b-it:free",
+                    "model": "NousResearch/Hermes-4-70B",
                     "messages": [
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": json.dumps(context)},
