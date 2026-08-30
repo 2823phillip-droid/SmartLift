@@ -253,11 +253,15 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
 
         {coachOpen && (
           <div className="px-4 pb-4 space-y-3">
-            {coachMessages.length === 0 && !coachLoading && (
+            {!selectedSessionId ? (
+              <p className="text-xs text-slate-400">
+                Select a workout above first so the coach knows what to recap.
+              </p>
+            ) : coachMessages.length === 0 && !coachLoading ? (
               <p className="text-xs text-indigo-400/80">
                 Ask anything: "Why did it suggest this weight?" / "What should I focus on today?"
               </p>
-            )}
+            ) : null}
 
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
               {coachMessages.map((m) => (
@@ -281,13 +285,13 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
               <input
                 value={coachInput}
                 onChange={(e) => setCoachInput(e.target.value)}
-                placeholder="Type your question..."
-                disabled={coachLoading}
+                placeholder={selectedSessionId ? "Type your question..." : "Select a workout first"}
+                disabled={coachLoading || !selectedSessionId}
                 className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-sm placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-60"
               />
               <button
                 type="submit"
-                disabled={coachLoading || !coachInput.trim()}
+                disabled={coachLoading || !coachInput.trim() || !selectedSessionId}
                 className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold hover:bg-indigo-500 disabled:opacity-60 active:scale-[0.98] transition-all"
               >
                 Send

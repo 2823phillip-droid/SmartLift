@@ -2177,9 +2177,14 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
                 "avg_effort": round(sum((l.effort or 3) for l in sets) / len(sets), 1),
                 "avg_rir": round(sum((l.rir or 0) for l in sets) / len(sets), 1) if any(l.rir is not None for l in sets) else None,
             })
+        duration_seconds = (s.ended_at - s.started_at).total_seconds() if s.ended_at and s.started_at else 0
+        duration_min = round(duration_seconds / 60) if duration_seconds > 0 else 0
+        # Sanity cap so broken timestamps don't pollute coach context
+        if duration_min > 360:
+            duration_min = 360
         session_summaries.append({
             "date": s.started_at.isoformat() if s.started_at else None,
-            "duration_min": round(((s.ended_at - s.started_at).total_seconds() / 60)) if s.ended_at and s.started_at else None,
+            "duration_min": duration_min,
             "exercises": exercises,
         })
 
@@ -2210,7 +2215,10 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
                 ]
                 coach_state = compute_coach_state(history)
                 ex_history = {eid: [r for r in history] for eid in [e.id for e in exercises]}
+                prescriptions = []
                 for ex in exercises:
+                    if not ex_history.get(ex.id):
+                        continue
                     pt = ProgressionType(coach_state.phase) if coach_state.phase in [p.value for p in ProgressionType] else ProgressionType.linear
                     rule = compute_prescription(RuleInput(
                         start_weight=ex.start_weight or 0,
@@ -2227,13 +2235,14 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
                         pct_increment_success=0.0,
                         pct_decrement_fail=0.0,
                     ))
-                    prescription = {
+                    prescriptions.append({
                         "exercise": ex.name,
                         "next_weight": rule.next_weight,
                         "next_reps": rule.next_reps,
                         "message": rule.coaching_message,
-                    }
-                    break
+                    })
+                if prescriptions:
+                    prescription = prescriptions
         except Exception:
             prescription = None
 
@@ -2291,9 +2300,16 @@ Tone: direct, encouraging, no fluff."""
                     if prev_top["top_weight"] != top_ex["top_weight"] or prev_top["top_reps"] != top_ex["top_reps"]:
                         lines.append(f"- Trend: {top_ex['name']} went from {prev_top['top_weight']}×{prev_top['top_reps']} to {top_ex['top_weight']}×{top_ex['top_reps']}.")
         if prescription:
-            lines.append(f"Up next: {prescription['exercise']} — start at {prescription['next_weight']} lbs × {prescription['next_reps']} reps.")
-            if prescription.get("message"):
-                lines.append(f"- {prescription['message']}")
+            if isinstance(prescription, list):
+                lines.append("Up next:")
+                for p in prescription[:5]:
+                    lines.append(f"- {p['exercise']} — start at {p['next_weight']} lbs × {p['next_reps']} reps.")
+                    if p.get("message"):
+                        lines.append(f"  {p['message']}")
+            else:
+                lines.append(f"Up next: {prescription['exercise']} — start at {prescription['next_weight']} lbs × {prescription['next_reps']} reps.")
+                if prescription.get("message"):
+                    lines.append(f"- {prescription['message']}")
         lines.append("Focus: keep reps smooth and controlled. If it feels easy, add weight next time; if form breaks, hold weight.")
         message = "\n".join(lines)
 
