@@ -2148,6 +2148,7 @@ class CoachHealthResponse(BaseModel):
 @app.get("/api/coach/health", response_model=CoachHealthResponse)
 def coach_health(current_user: User = Depends(get_current_user_dep)):
     api_key = os.getenv("NOUS_API_KEY")
+    logger.info("[coach_health] NOUS_API_KEY present=%s prefix=%s", bool(api_key), (api_key or "")[:12])
     if not api_key:
         return CoachHealthResponse(llm_available=False, status="offline")
     try:
@@ -2156,12 +2157,14 @@ def coach_health(current_user: User = Depends(get_current_user_dep)):
             headers={"Authorization": f"Bearer {api_key}"},
             timeout=5,
         )
+        logger.info("[coach_health] Nous status=%s body=%s", resp.status_code, resp.text[:200])
         if resp.status_code == 200:
             return CoachHealthResponse(llm_available=True, model="NousResearch/Hermes-4-70B", status="connected")
         elif resp.status_code == 429:
             return CoachHealthResponse(llm_available=True, model="NousResearch/Hermes-4-70B", status="degraded")
         return CoachHealthResponse(llm_available=False, status="offline")
-    except Exception:
+    except Exception as e:
+        logger.error("[coach_health] Nous error: %s", e)
         return CoachHealthResponse(llm_available=False, status="offline")
 
 
@@ -2387,6 +2390,7 @@ Tailor recommendations to their fitness profile, current phase, and training age
     message = None
     for attempt in range(1):
         try:
+            logger.info("[coach_chat] Nous request model=NousResearch/Hermes-4-70B key_prefix=%s", api_key[:12] if api_key else "NONE")
             resp = httpx.post(
                 "https://inference-api.nousresearch.com/v1/chat/completions",
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
@@ -2401,6 +2405,7 @@ Tailor recommendations to their fitness profile, current phase, and training age
                 },
                 timeout=15,
             )
+            logger.info("[coach_chat] Nous response status=%s body=%s", resp.status_code, resp.text[:200])
             if resp.status_code == 429:
                 break
             resp.raise_for_status()
@@ -2408,7 +2413,7 @@ Tailor recommendations to their fitness profile, current phase, and training age
             message = data["choices"][0]["message"]["content"]
             break
         except Exception as e:
-            logger.warning(f"coach_chat LLM error attempt {attempt}: {e}")
+            logger.error(f"coach_chat LLM error attempt {attempt}: {e}")
             message = None
 
     if message is None:
