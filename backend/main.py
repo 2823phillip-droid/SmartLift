@@ -649,7 +649,7 @@ def _find_or_create_user_by_email(db: Session, email: str, preferred_role: str =
 def _issue_token_for_user(user: User) -> TokenOut:
     token = _make_token()
     user.token_hash = _token_hash(token)
-    user.token_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+    user.token_expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     if not user.hashed_password:
         user.hashed_password = ""
     return TokenOut(
@@ -692,7 +692,7 @@ def signup(payload: UserCreate, request: Request, db: Session = Depends(get_db))
     db.refresh(user)
     token = _make_token()
     user.token_hash = _token_hash(token)
-    user.token_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+    user.token_expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -721,7 +721,7 @@ def login(payload: LoginIn, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     token = _make_token()
     user.token_hash = _token_hash(token)
-    user.token_expires_at = now + timedelta(hours=24)
+    user.token_expires_at = now + timedelta(days=7)
     user.failed_login_count = 0
     user.locked_until = None
     db.add(user)
@@ -768,7 +768,7 @@ def refresh_token(payload: RefreshIn, db: Session = Depends(get_db)):
         raise HTTPException(status_code=401, detail="Token expired or invalid")
     token = _make_token()
     user.token_hash = _token_hash(token)
-    user.token_expires_at = datetime.now(timezone.utc) + timedelta(hours=24)
+    user.token_expires_at = datetime.now(timezone.utc) + timedelta(days=7)
     db.add(user)
     db.commit()
     db.refresh(user)
