@@ -44,6 +44,8 @@ const SUGGESTED_QUESTIONS = [
   "Am I recovering well?",
   "Build me a shoulder-focused upper day",
   "What trends do you see in my training?",
+  "Drop my bench press by 10lbs",
+  "Swap leg press for back squats",
 ];
 
 export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
@@ -370,14 +372,30 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
 
                       {/* Workout draft card */}
                       {m.workout_draft && (
-                        <div className="rounded-xl border border-emerald-800/60 bg-emerald-950/40 p-3 space-y-2">
-                          <div className="text-xs font-semibold text-emerald-300 mb-1">
-                            {m.workout_draft.name || "Generated Workout"}
+                        <div className={`rounded-xl border ${m.workout_draft.type === "modified_workout" ? "border-indigo-800/60 bg-indigo-950/40" : "border-emerald-800/60 bg-emerald-950/40"} p-3 space-y-2`}>
+                          <div className="flex items-center justify-between">
+                            <div className={`text-xs font-semibold ${m.workout_draft.type === "modified_workout" ? "text-indigo-300" : "text-emerald-300"} mb-1`}>
+                              {m.workout_draft.name || (m.workout_draft.type === "modified_workout" ? "Modified Workout" : "Generated Workout")}
+                            </div>
+                            {m.workout_draft.type === "modified_workout" && (
+                              <span className="text-[10px] font-semibold uppercase tracking-wider text-indigo-400 bg-indigo-900/60 px-2 py-0.5 rounded-full">
+                                Modified
+                              </span>
+                            )}
                           </div>
+                          {m.workout_draft.type === "modified_workout" && m.workout_draft.applied_changes && m.workout_draft.applied_changes.length > 0 && (
+                            <div className="space-y-1 mb-2">
+                              {m.workout_draft.applied_changes.map((change: string, idx: number) => (
+                                <div key={idx} className="text-[11px] text-indigo-300/90 bg-indigo-900/40 rounded-lg px-2 py-1">
+                                  {change}
+                                </div>
+                              ))}
+                            </div>
+                          )}
                           {m.workout_draft.groups?.map((group: any, gi: number) => (
                             <div key={gi} className="space-y-1">
                               {group.name && (
-                                <div className="text-[11px] text-emerald-400/80 font-medium">{group.name}</div>
+                                <div className={`text-[11px] font-medium ${m.workout_draft.type === "modified_workout" ? "text-indigo-400/80" : "text-emerald-400/80"}`}>{group.name}</div>
                               )}
                               {group.exercises?.map((ex: any, ei: number) => (
                                 <div key={ei} className="flex items-center justify-between text-[11px]">
@@ -392,9 +410,9 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
                           ))}
                           <button
                             onClick={() => handleUseWorkout(m.workout_draft)}
-                            className="mt-2 w-full rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2 transition-colors active:scale-[0.98]"
+                            className={`mt-2 w-full rounded-lg ${m.workout_draft.type === "modified_workout" ? "bg-indigo-600 hover:bg-indigo-500" : "bg-emerald-600 hover:bg-emerald-500"} text-white text-xs font-semibold py-2 transition-colors active:scale-[0.98]`}
                           >
-                            Use this workout
+                            {m.workout_draft.type === "modified_workout" ? "Use this modified workout" : "Use this workout"}
                           </button>
                         </div>
                       )}
