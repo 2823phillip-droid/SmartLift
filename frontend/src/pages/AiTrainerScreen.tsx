@@ -44,7 +44,6 @@ const SUGGESTED_QUESTIONS = [
 ];
 
 export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
-  const [loadingSessions, setLoadingSessions] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [sessionDetails, setSessionDetails] = useState<Record<number, SessionRecap>>({});
 
@@ -89,9 +88,8 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
         }
       } catch {
         // silent
-      } finally {
-        if (!cancelled) setLoadingSessions(false);
       }
+      return () => { cancelled = true; };
     })();
     return () => { cancelled = true; };
   }, []);
