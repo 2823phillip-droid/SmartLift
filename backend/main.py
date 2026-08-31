@@ -118,9 +118,10 @@ _handler.setFormatter(logging.Formatter("%(message)s"))
 logger.addHandler(_handler)
 logger.addHandler(logging.StreamHandler())  # also echo to console/systemd
 
-# Coach LLM pricing (update these if Nous changes rates)
-_COACH_INPUT_COST_PER_M = 0.0
-_COACH_OUTPUT_COST_PER_M = 0.0
+# Coach LLM pricing for Hermes 4 70B via NousResearch
+# Source: public provider pricing pages (Nebius/OpenRouter), $0.13/M input, $0.40/M output
+_COACH_INPUT_COST_PER_M = 0.13
+_COACH_OUTPUT_COST_PER_M = 0.40
 
 def _estimate_coach_cost(prompt_tokens: Optional[int], completion_tokens: Optional[int]) -> Optional[float]:
     if prompt_tokens is None and completion_tokens is None:
@@ -2697,31 +2698,6 @@ def admin_tasks(db: Session = Depends(get_db), current_user: User = Depends(get_
                     items.append(AdminTaskItem(phase=current_phase, lane=current_lane, text=text, status=status))
     return items
 
-
-class AdminBootstrapIn(BaseModel):
-    email: str
-    password: str
-    secret: str
-
-@app.post("/api/admin/bootstrap")
-def admin_bootstrap(payload: AdminBootstrapIn, db: Session = Depends(get_db)):
-    expected_secret = os.getenv("ADMIN_BOOTSTRAP_SECRET", "temp-bootstrap-2026")
-    if not expected_secret or payload.secret != expected_secret:
-        raise HTTPException(status_code=403, detail="Invalid bootstrap secret")
-    user = db.query(User).filter(User.email == payload.email).first()
-    if not user:
-        user = User(email=payload.email, role="admin", hashed_password=pwd_context.hash(payload.password))
-        db.add(user)
-    else:
-        user.hashed_password = pwd_context.hash(payload.password)
-        user.role = UserRole.admin
-        user.token_hash = None
-        user.token_expires_at = None
-        user.failed_login_count = 0
-        user.locked_until = None
-    db.commit()
-    db.refresh(user)
-    return {"ok": True, "user_id": user.id, "email": user.email, "role": user.role.value}
 
 @app.get("/dashboard")
 def dashboard():
