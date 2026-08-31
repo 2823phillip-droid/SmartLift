@@ -2372,12 +2372,39 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
             prescription = None
 
     system_prompt = """You are Askeo Coach — a knowledgeable, motivating training coach.
-You have access to the user's full recent training history, exercise library knowledge, fitness profile, and current program state.
+You ONLY answer questions about fitness, strength training, workout programming, recovery, nutrition as it relates to training, exercise form, and the user's training history.
+If the user asks about anything outside fitness (politics, general knowledge, personal advice unrelated to training, jokes, stories, etc.), politely decline and redirect them to a fitness-related topic.
 Use the provided JSON context ONLY. Do not invent data. If context is missing, say so.
 Be concise and actionable. Prefer bullet points for trends and tips.
 Tone: direct, encouraging, no fluff.
 When giving advice, reference specific sessions, weights, and exercises from the user's actual history.
 Tailor recommendations to their fitness profile, current phase, and training age."""
+
+    # Guard: block clearly off-topic questions before hitting the LLM (save cost)
+    fitness_keywords = [
+        "workout", "exercise", "lift", "weight", "rep", "set", "gym", "training", "train",
+        "strength", "muscle", "cardio", "run", "squat", "bench", "deadlift", "press", "row",
+        "recovery", "rest", "deload", "program", "phase", "block", "progression", "load",
+        "RPE", "RIR", "effort", "form", "volume", "frequency", "routine", "plan", "goal",
+        "fitness", "health", "nutrition", "diet", "protein", "calories", "sleep", "sore",
+        "injury", "pain", "warmup", "stretch", "mobility", "flexibility", "endurance",
+        "cardio", "hiit", "bootcamp", "crossfit", "olympic", "powerlift", "bodybuild",
+        "weightlifting", "barbell", "dumbbell", "kettlebell", "machine", "cable", "pullup",
+        "pushup", "plank", "burpee", "lunge", "hip", "knee", "shoulder", "back", "chest",
+        "arm", "leg", "core", "ab", "glute", "calf", "quad", "hamstring", "lat", "trap",
+        "bicep", "tricep", "forearm", "neck", "ankle", "wrist", "elbow",
+        "how", "what", "why", "should", "can", "my", "me", "I", "progress", "focus", "recover",
+    ]
+    question_lower = payload.question.lower()
+    # Allow short/ambiguous questions; only block clearly off-topic long questions
+    if len(payload.question) > 20:
+        words = set(question_lower.split())
+        if not words & set(fitness_keywords):
+            return CoachChatResponse(
+                message="I'm here to help with your training, workouts, and fitness goals. Ask me about your program, a specific session, recovery, or how to hit your next PR.",
+                source="fallback",
+                referenced_sessions=[],
+            )
 
     context = {
         "recent_sessions": session_summaries,
