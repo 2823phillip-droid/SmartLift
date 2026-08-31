@@ -84,6 +84,7 @@
 - `MEMORY-INDEX.md` — index of all project knowledge files
 - `memory/` — durable lessons by domain: deploy, debugging, backend-db, auth, frontend-fetch, decisions, trainer
 - `memory/trainer.md` — questionnaire schema, template system, generation rules, AI coach role
+- `memory/ai-coach-capabilities.md` — **live reference for AI coach tools, validation rules, and hard limits**
 - `memory/decisions.md` — ADR records for all major technical decisions
 - `TODO.md` — roadmap/priorities
 - `CONTEXT.md` — current active task
