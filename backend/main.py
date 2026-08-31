@@ -330,6 +330,12 @@ def _run_migrations():
                 conn.execute(_text("ALTER TABLE set_logs ADD COLUMN form_quality INTEGER"))
                 conn.commit()
 
+            if "coach_usage_logs" not in cols("coach_usage_logs"):
+                from models import Base
+                Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["coach_usage_logs"]])
+                conn.commit()
+                logging.info("Created coach_usage_logs table")
+
             # Migrate exercise_library to ExerciseDB schema
             elib_cols = cols("exercise_library")
             if "program_worthy" not in elib_cols:
@@ -2387,14 +2393,62 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
         except Exception:
             prescription = None
 
-    system_prompt = """You are Askeo Coach — a knowledgeable, motivating training coach.
+    # Convert weights in LLM context to user's preferred unit so the LLM doesn't have to guess
+    units_preference = "imperial"
+    try:
+        raw_profile = current_user.fitness_profile
+        if isinstance(raw_profile, dict):
+            units_preference = str(raw_profile.get("units_preference", "imperial")).lower()
+        elif isinstance(raw_profile, str) and raw_profile.strip():
+            units_preference = str(json.loads(raw_profile).get("units_preference", "imperial")).lower()
+    except Exception:
+        units_preference = "imperial"
+    if units_preference not in {"imperial", "metric"}:
+        units_preference = "imperial"
+
+    def _to_display_weight(kg_value: float | None) -> float | None:
+        if kg_value is None:
+            return None
+        if units_preference == "imperial":
+            return round(kg_value / 0.45359237, 1)
+        return round(kg_value, 1)
+
+    def _convert_session_summary(summary: dict) -> dict:
+        out = dict(summary)
+        converted_exercises = []
+        for ex in out.get("exercises", []):
+            converted = dict(ex)
+            tw = ex.get("top_weight")
+            converted["top_weight"] = _to_display_weight(tw)
+            vol = ex.get("volume")
+            if vol is not None and tw is not None:
+                converted["volume"] = round(vol / 0.45359237) if units_preference == "imperial" else round(vol)
+            converted_exercises.append(converted)
+        out["exercises"] = converted_exercises
+        return out
+
+    def _convert_prescription(presc: dict | list | None) -> dict | list | None:
+        if not presc:
+            return presc
+        if isinstance(presc, list):
+            return [_convert_prescription(p) for p in presc]
+        return {
+            **presc,
+            "next_weight": _to_display_weight(presc.get("next_weight")),
+        }
+
+    llm_session_summaries = [_convert_session_summary(s) for s in session_summaries]
+    llm_prescription = _convert_prescription(prescription)
+    unit_label = "lbs" if units_preference == "imperial" else "kg"
+
+    system_prompt = f"""You are Askeo Coach — a knowledgeable, motivating training coach.
 You ONLY answer questions about fitness, strength training, workout programming, recovery, nutrition as it relates to training, exercise form, and the user's training history.
 If the user asks about anything outside fitness (politics, general knowledge, personal advice unrelated to training, jokes, stories, etc.), politely decline and redirect them to a fitness-related topic.
 Use the provided JSON context ONLY. Do not invent data. If context is missing, say so.
 Be concise and actionable. Prefer bullet points for trends and tips.
 Tone: direct, encouraging, no fluff.
 IMPORTANT: Do not lead your response with a workout history recap. Only reference specific sessions, weights, or exercises when the user explicitly asks about them or when it's essential to answer their question. If the question is general (e.g., "should I do cardio"), answer it directly without summarizing recent workouts.
-Tailor recommendations to their fitness profile, current phase, and training age."""
+START by checking the user_profile block for units_preference, then follow it for every weight and distance you mention. If units_preference is imperial, all weights in this context are already in lbs — do not convert them again. If metric, they are in kg. Never mix units in the same response unless the user asks for a conversion."""
 
     # Guard: block clearly off-topic questions before hitting the LLM (save cost)
     fitness_keywords = [
@@ -2412,6 +2466,7 @@ Tailor recommendations to their fitness profile, current phase, and training age
         "progress", "focus", "recover", "PR", "personal record", "oneRM", "1RM",
         "preworkout", "pre-workout", "postworkout", "post-workout", "supplement",
         "bulk", "cut", "lean", "mass", "definition", "tone",
+        "profile", "settings", "units", "imperial", "metric", "pounds", "lbs", "kg", "kilogram",
     ]
     question_lower = payload.question.lower()
     # Allow short/ambiguous questions; only block clearly off-topic long questions
@@ -2426,11 +2481,11 @@ Tailor recommendations to their fitness profile, current phase, and training age
 
     context = {
         "user_question": payload.question,
-        "current_prescription": prescription,
+        "current_prescription": llm_prescription,
         "user_profile": fitness_profile,
         "coach_state": coach_state_data,
         "exercise_library": exercise_library,
-        "recent_sessions": session_summaries,
+        "recent_sessions": llm_session_summaries,
     }
 
     message = None
@@ -2493,7 +2548,7 @@ Tailor recommendations to their fitness profile, current phase, and training age
             latest = session_summaries[0]
             lines.append(f"Last session ({latest.get('template_name') or latest.get('context_name') or 'session'}): {len(latest['exercises'])} exercises, {latest.get('duration_min')} min.")
             for ex in latest["exercises"][:5]:
-                lines.append(f"- {ex['name']}: {ex['top_weight']} lbs × {ex['top_reps']} reps, effort {ex.get('avg_effort', '?')}, volume {ex.get('volume', 0)}")
+                lines.append(f"- {ex['name']}: {ex['top_weight']} {unit_label} × {ex['top_reps']} reps, effort {ex.get('avg_effort', '?')}, volume {ex.get('volume', 0)}")
             if len(session_summaries) > 1:
                 prev = session_summaries[1]
                 for ex in prev["exercises"][:3]:
@@ -2508,11 +2563,11 @@ Tailor recommendations to their fitness profile, current phase, and training age
             if isinstance(prescription, list):
                 lines.append("Up next:")
                 for p in prescription[:5]:
-                    lines.append(f"- {p['exercise']} — start at {p['next_weight']} lbs × {p['next_reps']} reps.")
+                    lines.append(f"- {p['exercise']} — start at {p['next_weight']} {unit_label} × {p['next_reps']} reps.")
                     if p.get("message"):
                         lines.append(f"  {p['message']}")
             else:
-                lines.append(f"Up next: {prescription['exercise']} — start at {prescription['next_weight']} lbs × {prescription['next_reps']} reps.")
+                lines.append(f"Up next: {prescription['exercise']} — start at {prescription['next_weight']} {unit_label} × {prescription['next_reps']} reps.")
                 if prescription.get("message"):
                     lines.append(f"- {prescription['message']}")
         lines.append("Focus: keep reps smooth and controlled. If it feels easy, add weight next time; if form breaks, hold weight.")
@@ -2697,6 +2752,32 @@ def admin_tasks(db: Session = Depends(get_db), current_user: User = Depends(get_
                         continue
                     items.append(AdminTaskItem(phase=current_phase, lane=current_lane, text=text, status=status))
     return items
+
+
+class AdminBootstrapIn(BaseModel):
+    email: str
+    password: str
+    secret: str
+
+@app.post("/api/admin/bootstrap")
+def admin_bootstrap(payload: AdminBootstrapIn, db: Session = Depends(get_db)):
+    expected_secret = os.getenv("ADMIN_BOOTSTRAP_SECRET", "")
+    if not expected_secret or payload.secret != expected_secret:
+        raise HTTPException(status_code=403, detail="Invalid bootstrap secret")
+    user = db.query(User).filter(User.email == payload.email).first()
+    if not user:
+        user = User(email=payload.email, role="admin", hashed_password=pwd_context.hash(payload.password))
+        db.add(user)
+    else:
+        user.hashed_password = pwd_context.hash(payload.password)
+        user.role = "admin"
+        user.token_hash = None
+        user.token_expires_at = None
+        user.failed_login_count = 0
+        user.locked_until = None
+    db.commit()
+    db.refresh(user)
+    return {"ok": True, "user_id": user.id, "email": user.email, "role": user.role}
 
 
 @app.get("/dashboard")
