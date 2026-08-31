@@ -30,6 +30,7 @@ File | When to read
 `memory/auth.md` | When debugging login, token, or 401/403 errors
 `memory/frontend-fetch.md` | When touching api.ts or fetch logic
 `memory/trainer.md` | When building or changing trainer-generated workout or meal plan features
+`memory/ai-coach-capabilities.md` | Before changing AI coach tools, prompts, or workout/profile modification logic
 `memory/decisions.md` | When revisiting a past technical decision
 `memory/changelog.md` | When auditing what changed and when
 
