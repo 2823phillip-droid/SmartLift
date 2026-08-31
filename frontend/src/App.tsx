@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, initApiBaseFromSettings, setAuthToken, getAuthToken, withRetry } from "./api";
-import { setUnitsPreference, getUnitsPreference, lbsToKg } from "./utils/units";
+import { setUnitsPreference } from "./utils/units";
 import HomeScreen from "./pages/HomeScreen";
 import WorkoutsScreen from "./pages/WorkoutsScreen";
 import TemplateListScreen from "./pages/TemplateListScreen";
@@ -542,77 +542,23 @@ export default function App() {
                 onBack={() => {
                   setView("home");
                 }}
-                onComplete={async (draft, answers) => {
-                  const DRAFT_KEY = "new-routine-draft-v1";
-                  const groups = draft?.workout_draft?.groups || [];
-                  const location = (answers?.workout_location as string) || "My Workouts";
-                  const focus = (answers?.focus as string) || "full_body";
+                onComplete={async (_draft, answers) => {
                   const buildMode = (answers?.build_mode as string) || "template";
 
-                  // Custom mode: go straight to builder, skip template generation
+                  // Custom mode: go straight to builder
                   if (buildMode === "custom") {
                     setCustomBuilderAnswers(answers);
                     setView("custom_builder");
                     return;
                   }
 
-                  // Better top-level name for localStorage fallback
-                  const focusLabel = {
-                    full_body: "Full Body",
-                    upper_lower_split: "Upper/Lower Split",
-                    push_pull_legs: "Push/Pull/Legs",
-                    cardio: "Cardio",
-                  }[focus] || "Full Body";
-
-                  let savedTemplateIds: number[] = [];
+                  // Profile-only: mark questionnaire done and go to workouts
                   try {
-                    const contexts = await withRetry(() => api.getContexts(), { retries: 3, baseDelayMs: 500 });
-                    let ctx = contexts?.find((c: any) => c.name.toLowerCase() === location.toLowerCase());
-                    if (!ctx) {
-                      ctx = await withRetry(() => api.createContext({ name: location, order: 0 }), { retries: 3, baseDelayMs: 500 });
-                    }
-
-                    // Create one template per day/group
-                    const createPromises = groups.map(async (g: any, idx: number) => {
-                      const tpl = await withRetry(() => api.createTemplate({
-                        name: g.name || `${focusLabel} Day ${idx + 1}`,
-                        type: "strength",
-                        context_id: ctx.id,
-                        order: idx,
-                      }), { retries: 3, baseDelayMs: 500 });
-                      const exercises = (g.exercises || []).map((ex: any, exIdx: number) => ({
-                        template_id: tpl.id,
-                        name: ex.name || "Exercise",
-                        order: exIdx,
-                        sets_target: ex.sets_target || 3,
-                        reps_target: ex.reps_target || 10,
-                        start_weight: getUnitsPreference() === "metric" ? lbsToKg(ex.start_weight || 0) : ex.start_weight || 0,
-                        rest_seconds: ex.rest_seconds || 90,
-                        notes: ex.notes || null,
-                        exercise_library_id: ex.exercise_library_id || null,
-                      }));
-                      await Promise.all(exercises.map((data: any) => withRetry(() => api.createExercise(data), { retries: 3, baseDelayMs: 500 })));
-                      return tpl.id;
-                    });
-                    savedTemplateIds = await Promise.all(createPromises);
-                  } catch (err) {
-                    console.error("[Questionnaire] backend save failed", err);
-                  }
-
-                  // Only persist draft + mark complete if backend succeeded
-                  if (savedTemplateIds.length > 0) {
                     if (typeof window !== "undefined") {
-                      localStorage.setItem(DRAFT_KEY, JSON.stringify({ groups }));
                       localStorage.setItem("askeo_questionnaire_done", "1");
                     }
-                    setSelectedTemplateId(savedTemplateIds[0]);
-                  } else {
-                    // Clean up stale draft on failure
-                    try {
-                      localStorage.removeItem(DRAFT_KEY);
-                      localStorage.removeItem("askeo_questionnaire_done");
-                    } catch {}
-                    alert("Could not save workout plan. Please check your connection and try again.");
+                  } catch {
+                    // non-fatal
                   }
                   setView("workouts");
                 }}

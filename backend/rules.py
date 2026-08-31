@@ -39,7 +39,7 @@ class WorkloadStatus(str, Enum):
 
 def compute_load(history: List[SetRecord], window_days: int = 21) -> int:
     """Return 0-100 accumulated training load from recent history."""
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     cutoff = now - timedelta(days=window_days)
     recent = [
         s for s in history
@@ -494,7 +494,7 @@ def compute_prescription(rule: RuleInput) -> Prescription:
         dates = [s.completed_at for s in rule.history if s.completed_at is not None and not s.is_seeded]
         if dates:
             oldest = min(dates)
-            now = datetime.now(timezone.utc)
+            now = datetime.utcnow()
             elapsed_days = max(0, (now - oldest).days)
             actual_week = elapsed_days // 7 + 1
     week = actual_week if actual_week is not None else (rule.week or 1)
@@ -648,6 +648,7 @@ class CoachState:
     explanation: str
     next_deload_date: Optional[str] = None
     load_pct: int = 0
+    deload_mode: str = "ai_driven"
 
 
 def _candidate_types() -> List[str]:
@@ -760,7 +761,7 @@ def compute_coach_state(
         real_sets = [s for s in history if s.completed_at is not None and not s.is_seeded]
         if real_sets:
             oldest = min(s.completed_at for s in real_sets)
-            now = datetime.now(timezone.utc)
+            now = datetime.utcnow()
             elapsed_days = max(0, (now - oldest).days)
             actual_week = elapsed_days // 7 + 1
 

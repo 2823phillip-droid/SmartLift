@@ -269,22 +269,8 @@ export default function QuestionnaireScreen({
         }
       }
 
-      // Generate draft
-      const genRes = await fetch(`${getApiBase()}/trainer/generate`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${getAuthToken()}`,
-        },
-        body: JSON.stringify(backendProfile),
-      });
-      if (!genRes.ok) {
-        const errText = await genRes.text();
-        throw new Error(`Generate failed: ${genRes.status} - ${errText}`);
-      }
-      const data = await genRes.json();
-
-      onComplete(data, answers);
+      // Mark questionnaire complete and return to workouts
+      onComplete(null, answers);
     } catch (err: any) {
       setError(err?.message || "Something went wrong.");
     } finally {

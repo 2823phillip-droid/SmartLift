@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SmartLift Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 0; padding: 0; background: #f5f7fa; color: #1f2937; }
+  .container { max-width: 1200px; margin: 0 auto; padding: 1.5rem; }
+  h1 { margin: 0 0 1.5rem; font-size: 1.75rem; }
+  .grid { display: grid; gap: 1.5rem; }
+  .grid-2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .grid-3 { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+  .card { background: white; border-radius: 0.75rem; padding: 1.25rem; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+  .card h2 { margin: 0 0 1rem; font-size: 1.1rem; color: #374151; }
+  .stat { display: flex; flex-direction: column; gap: 0.25rem; }
+  .stat-value { font-size: 1.75rem; font-weight: 700; }
+  .stat-label { font-size: 0.85rem; color: #6b7280; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 0.6rem 0.5rem; border-bottom: 1px solid #e5e7eb; }
+  th { color: #6b7280; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  tr:hover { background: #f9fafb; }
+  .badge { display: inline-block; padding: 0.2rem 0.5rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 600; }
+  .badge-success { background: #d1fae5; color: #065f46; }
+  .badge-error { background: #fee2e2; color: #991b1b; }
+  .badge-pending { background: #fef3c7; color: #92400e; }
+  .badge-429 { background: #f3e8ff; color: #6b21a8; }
+  .chat-box { display: flex; flex-direction: column; height: 420px; }
+  .messages { flex: 1; overflow-y: auto; padding: 0.75rem; background: #f9fafb; border-radius: 0.5rem; margin-bottom: 0.75rem; }
+  .msg { margin-bottom: 0.75rem; padding: 0.6rem 0.8rem; border-radius: 0.5rem; max-width: 85%; }
+  .msg-user { background: #dbeafe; color: #1e40af; margin-left: auto; }
+  .msg-coach { background: white; border: 1px solid #e5e7eb; }
+  .msg-meta { font-size: 0.7rem; opacity: 0.7; margin-top: 0.2rem; }
+  .chat-input { display: flex; gap: 0.5rem; }
+  .chat-input input { flex: 1; padding: 0.6rem 0.8rem; border: 1px solid #d1d5db; border-radius: 0.5rem; font-size: 0.95rem; }
+  .chat-input button { padding: 0.6rem 1rem; background: #2563eb; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 600; }
+  .chat-input button:disabled { background: #9ca3af; }
+  .login-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); display: flex; align-items: center; justify-content: center; }
+  .login-box { background: white; padding: 2rem; border-radius: 0.75rem; width: 320px; }
+  .login-box input { width: 100%; padding: 0.6rem; margin: 0.5rem 0 1rem; border: 1px solid #d1d5db; border-radius: 0.5rem; }
+  .login-box button { width: 100%; padding: 0.7rem; background: #2563eb; color: white; border: none; border-radius: 0.5rem; cursor: pointer; font-weight: 600; }
+  .hidden { display: none !important; }
+  .task-group { margin-bottom: 1rem; }
+  .task-group h3 { font-size: 0.85rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 0.4rem; }
+  .task-item { padding: 0.35rem 0; font-size: 0.9rem; }
+  .nav { display: flex; gap: 1rem; margin-bottom: 1.5rem; border-bottom: 1px solid #e5e7eb; padding-bottom: 0.5rem; }
+  .nav button { background: none; border: none; padding: 0.4rem 0.8rem; cursor: pointer; font-weight: 600; color: #6b7280; border-radius: 0.4rem; }
+  .nav button.active { background: #dbeafe; color: #1e40af; }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>SmartLift Dashboard</h1>
+  <div class="nav">
+    <button class="active" onclick="showTab('costs')">Costs</button>
+    <button onclick="showTab('tasks')">Tasks</button>
+    <button onclick="showTab('chat')">Coach Chat</button>
+  </div>
+
+  <div id="tab-costs">
+    <div class="grid grid-3" style="margin-bottom:1.5rem;">
+      <div class="card"><div class="stat"><div class="stat-value" id="total-calls">-</div><div class="stat-label">Total Coach Calls</div></div></div>
+      <div class="card"><div class="stat"><div class="stat-value" id="total-cost">-</div><div class="stat-label">Est. Total Cost</div></div></div>
+      <div class="card"><div class="stat"><div class="stat-value" id="total-tokens">-</div><div class="stat-label">Total Tokens</div></div></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <h2>Per-User Spend</h2>
+        <div style="overflow-x:auto;">
+          <table><thead><tr><th>User</th><th>Calls</th><th>Success</th><th>429</th><th>Errors</th><th>Tokens</th><th>Cost</th></tr></thead><tbody id="costs-table"></tbody></table>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Top Talkers</h2>
+        <div style="overflow-x:auto;">
+          <table><thead><tr><th>User</th><th>Calls</th><th>Tokens</th><th>Cost</th></tr></thead><tbody id="talkers-table"></tbody></table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="tab-tasks" class="hidden">
+    <div class="card">
+      <h2>Project Tasks</h2>
+      <div id="tasks-list"></div>
+    </div>
+  </div>
+
+  <div id="tab-chat" class="hidden">
+    <div class="card">
+      <h2>Chat with Coach</h2>
+      <div class="chat-box">
+        <div class="messages" id="chat-messages"></div>
+        <div class="chat-input">
+          <input id="chat-input" type="text" placeholder="Ask about your training..." />
+          <button onclick="sendChat()">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const API_BASE = window.location.origin;
+let token = localStorage.getItem('dash_token') || '';
+
+function authHeaders() {
+  return token ? { 'Authorization': 'Bearer ' + token } : {};
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(API_BASE + path, {
+    headers: { 'Content-Type': 'application/json', ...authHeaders(), ...opts.headers },
+    ...opts,
+  });
+  if (res.status === 401 && token) {
+    localStorage.removeItem('dash_token');
+    token = '';
+    location.reload();
+  }
+  if (res.status === 403) {
+    alert('Admin access required');
+    return null;
+  }
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.json();
+}
+
+function showTab(name) {
+  document.querySelectorAll('[id^="tab-"]').forEach(el => el.classList.add('hidden'));
+  document.getElementById('tab-' + name).classList.remove('hidden');
+  document.querySelectorAll('.nav button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  if (name === 'costs') loadCosts();
+  if (name === 'tasks') loadTasks();
+  if (name === 'chat') renderChat();
+}
+
+async function loadCosts() {
+  const data = await api('/api/admin/coach-costs');
+  if (!data) return;
+  document.getElementById('total-calls').textContent = data.total_calls || 0;
+  document.getElementById('total-cost').textContent = '$' + (data.total_estimated_cost_usd || 0).toFixed(4);
+  document.getElementById('total-tokens').textContent = (data.total_prompt_tokens + data.total_completion_tokens).toLocaleString();
+
+  const tbody = document.getElementById('costs-table');
+  tbody.innerHTML = '';
+  for (const u of data.users) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${u.email}</td><td>${u.total_calls}</td><td>${u.success_calls}</td><td><span class="badge badge-429">${u.rate_limited_calls}</span></td><td><span class="badge badge-error">${u.error_calls}</span></td><td>${(u.total_prompt_tokens + u.total_completion_tokens).toLocaleString()}</td><td>$${u.total_estimated_cost_usd.toFixed(4)}</td>`;
+    tbody.appendChild(tr);
+  }
+
+  const talkers = await api('/api/admin/coach-costs/top-talkers?limit=10');
+  if (!talkers) return;
+  const tbody2 = document.getElementById('talkers-table');
+  tbody2.innerHTML = '';
+  for (const t of talkers) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td>${t.email}</td><td>${t.call_count}</td><td>${t.total_tokens.toLocaleString()}</td><td>$${t.estimated_cost_usd.toFixed(4)}</td>`;
+    tbody2.appendChild(tr);
+  }
+}
+
+async function loadTasks() {
+  const items = await api('/api/admin/tasks');
+  if (!items) return;
+  const container = document.getElementById('tasks-list');
+  const phases = {};
+  for (const item of items) {
+    if (!phases[item.phase]) phases[item.phase] = { completed: [], pending: [] };
+    const key = item.status === 'completed' ? 'completed' : 'pending';
+    phases[item.phase][key].push(item);
+  }
+  container.innerHTML = '';
+  for (const [phase, groups] of Object.entries(phases)) {
+    const div = document.createElement('div');
+    div.className = 'task-group';
+    div.innerHTML = '<h3>' + phase + '</h3>';
+    const all = [...groups.completed.map(i => ({...i, status: 'completed'})), ...groups.pending.map(i => ({...i, status: 'pending'}))];
+    all.sort((a, b) => (a.status === 'completed' ? 1 : -1) - (b.status === 'completed' ? 1 : -1));
+    for (const item of all) {
+      const badgeClass = item.status === 'completed' ? 'badge-success' : 'badge-pending';
+      div.innerHTML += '<div class="task-item"><span class="badge ' + badgeClass + '">' + item.status + '</span> ' + item.text + '</div>';
+    }
+    container.appendChild(div);
+  }
+}
+
+async function sendChat() {
+  const input = document.getElementById('chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  appendChat('user', text);
+  input.value = '';
+  const data = await api('/api/coach/chat', {
+    method: 'POST',
+    body: JSON.stringify({ question: text }),
+  });
+  if (data) appendChat('coach', data.message, data.source);
+}
+
+function appendChat(role, text, source) {
+  const box = document.getElementById('chat-messages');
+  const div = document.createElement('div');
+  div.className = 'msg msg-' + role;
+  div.innerHTML = text.replace(/\n/g, '<br>') + (source ? '<div class="msg-meta">' + source + '</div>' : '');
+  box.appendChild(div);
+  box.scrollTop = box.scrollHeight;
+}
+
+function renderChat() {}
+
+function login() {
+  const email = document.getElementById('login-email').value.trim();
+  const password = document.getElementById('login-password').value;
+  fetch(API_BASE + '/api/auth/login', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  }).then(r => r.json()).then(data => {
+    if (data.token) {
+      token = data.token;
+      localStorage.setItem('dash_token', token);
+      location.reload();
+    } else {
+      alert('Login failed: ' + (data.detail || 'unknown'));
+    }
+  });
+}
+
+if (!token) {
+  document.body.insertAdjacentHTML('afterbegin', '<div class="login-overlay"><div class="login-box"><h2>Admin Login</h2><input id="login-email" type="email" placeholder="Email" /><input id="login-password" type="password" placeholder="Password" /><button onclick="login()">Login</button></div></div>');
+} else {
+  loadCosts();
+}
+</script>
+</body>
+</html>

@@ -17,6 +17,7 @@ from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from intake import UserProfile
+from models import AppSetting
 
 
 # ---------------------------------------------------------------------------
@@ -1917,12 +1918,24 @@ def _build_cardio(
 # Phase rotation
 # ---------------------------------------------------------------------------
 
-def _maybe_transition_phase(profile: UserProfile, db: Session) -> UserProfile:
+def _maybe_transition_phase(profile: UserProfile, db: Session, user_id: Optional[int] = None) -> UserProfile:
     """Check if a phase transition should occur for full_program users.
     Returns a new UserProfile with updated phase if transition fires.
     """
     goal = profile.goals[0] if profile.goals else "general_fitness"
     if goal != "full_program":
+        return profile
+
+    # AI-driven mode: let compute_coach_state handle phase transitions based on load/stalls
+    deload_mode = "ai_driven"
+    if user_id is not None:
+        try:
+            setting = db.query(AppSetting).filter(AppSetting.key == "coach_deload_mode", AppSetting.user_id == user_id).first()
+            if setting and setting.value:
+                deload_mode = str(setting.value)
+        except Exception:
+            pass
+    if deload_mode == "ai_driven":
         return profile
 
     current_phase = profile.current_phase or "foundation"
@@ -2020,14 +2033,14 @@ def _maybe_transition_phase(profile: UserProfile, db: Session) -> UserProfile:
 # Main generator
 # ---------------------------------------------------------------------------
 
-def generate_workout(db: Session, profile: UserProfile) -> dict:
+def generate_workout(db: Session, profile: UserProfile, user_id: Optional[int] = None) -> dict:
     """Build a deterministic workout plan from a UserProfile."""
     rng = _seed(profile)
 
     # Phase rotation: if goal is full_program, compute current phase and effective goal
     effective_goal = profile.goals[0] if profile.goals else "general_fitness"
     if effective_goal == "full_program":
-        profile = _maybe_transition_phase(profile, db)
+        profile = _maybe_transition_phase(profile, db, user_id)
         effective_goal = _PHASE_GOAL.get(profile.current_phase, "general_fitness")
 
     base_sets, max_sets, base_reps, max_reps = _goal_volume.get(effective_goal, _goal_volume["general_fitness"])
