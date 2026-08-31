@@ -2482,10 +2482,7 @@ Tailor recommendations to their fitness profile, current phase, and training age
             for s in session_summaries[:3]
         ])
 
-    return CoachChatResponse(message=message, source="llm", referenced_sessions=[
-        {"id": s["id"], "template_name": s.get("template_name"), "date": s.get("date"), "exercises": s.get("exercises", [])[:3]}
-        for s in session_summaries[:3]
-    ])
+    return CoachChatResponse(message=message, source="llm", referenced_sessions=[])
 
 
 class AISuggestionRequest(BaseModel):
