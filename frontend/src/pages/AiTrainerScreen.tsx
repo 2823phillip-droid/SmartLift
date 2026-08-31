@@ -22,6 +22,12 @@ type CoachMessage = {
   id: number;
   question: string;
   answer: string;
+  referenced_sessions?: Array<{
+    id: number;
+    template_name?: string;
+    date?: string;
+    exercises: Array<{ name: string; top_weight: number; top_reps: number }>;
+  }>;
 };
 
 type CoachState = {
@@ -30,12 +36,17 @@ type CoachState = {
   load_pct?: number;
 };
 
+const SUGGESTED_QUESTIONS = [
+  "How's my progress?",
+  "What should I focus on today?",
+  "Why this weight?",
+  "Am I recovering well?",
+];
+
 export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
-  const [sessions, setSessions] = useState<SessionHistory[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(true);
   const [selectedSessionId, setSelectedSessionId] = useState<number | null>(null);
   const [sessionDetails, setSessionDetails] = useState<Record<number, SessionRecap>>({});
-  const [exerciseMap, setExerciseMap] = useState<Record<number, string>>({});
 
   const [coachOpen, setCoachOpen] = useState(false);
   const [coachInput, setCoachInput] = useState("");
@@ -43,32 +54,27 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
   const [coachLoading, setCoachLoading] = useState(false);
   const [coachState, setCoachState] = useState<CoachState>({});
   const [coachSource, setCoachSource] = useState<string>("offline");
+  const [exerciseMap, setExerciseMap] = useState<Record<number, string>>({});
 
   const units = getUnitsPreference();
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
-        const [sessionsData, exercises, state, health] = await Promise.all([
-          api.getSessions(),
-          api.getAllExercises(),
+        const [exercises, state, health] = await Promise.all([
+          api.getAllExercises().catch(() => []),
           api.getCoachState?.().catch(() => ({})),
           api.getCoachHealth?.().catch(() => ({ llm_available: false, status: "offline" })),
         ]);
         if (cancelled) return;
-        const completed = (sessionsData as SessionHistory[])
-          .filter((s) => s.ended_at && s.status === "completed")
-          .sort((a, b) => new Date(b.started_at).getTime() - new Date(a.started_at).getTime());
-        setSessions(completed.slice(0, 20));
-
         const map: Record<number, string> = {};
         (exercises as any[]).forEach((e: any) => {
           map[e.id] = e.name || `Exercise ${e.id}`;
         });
         setExerciseMap(map);
-
         const cs = state as any;
         if (cs) {
           setCoachState({
@@ -77,13 +83,12 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
             load_pct: cs.coach_load_pct,
           });
         }
-
         const h = health as any;
         if (h) {
           setCoachSource(h.status === "connected" ? "llm" : h.status === "degraded" ? "degraded" : "offline");
         }
       } catch {
-        // silent — show empty state
+        // silent
       } finally {
         if (!cancelled) setLoadingSessions(false);
       }
@@ -92,19 +97,26 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
   }, []);
 
   useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: "smooth" });
-    }
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [coachMessages, coachLoading]);
 
-  const loadSession = async (session: SessionHistory) => {
-    if (sessionDetails[session.id]) {
-      setSelectedSessionId(session.id);
+  useEffect(() => {
+    if (coachOpen && inputRef.current) {
+      setTimeout(() => inputRef.current?.focus(), 100);
+    }
+  }, [coachOpen]);
+
+  const loadSession = async (id: number) => {
+    if (sessionDetails[id]) {
+      setSelectedSessionId(id);
       setCoachOpen(true);
       return;
     }
     try {
-      const logs = await api.getSessionSetLogs(session.id);
+      const [session, logs] = await Promise.all([
+        api.getSession(id),
+        api.getSessionSetLogs(id),
+      ]);
       const logsTyped = logs as SetLog[];
       const byExercise: Record<number, SetLog[]> = {};
       for (const log of logsTyped) {
@@ -137,14 +149,15 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
         });
       }
 
-      const durationMin = session.ended_at && session.started_at
-        ? Math.round((new Date(session.ended_at).getTime() - new Date(session.started_at).getTime()) / 60000)
+      const sessionTyped = session as SessionHistory;
+      const durationMin = sessionTyped?.started_at && sessionTyped?.ended_at
+        ? Math.round((new Date(sessionTyped.ended_at).getTime() - new Date(sessionTyped.started_at).getTime()) / 60000)
         : null;
 
       setSessionDetails((d) => ({
         ...d,
-        [session.id]: {
-          session,
+        [id]: {
+          session: sessionTyped,
           logs: logsTyped,
           exercises,
           totalVolume: Math.round(totalVolume),
@@ -152,29 +165,39 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
           durationMin,
         },
       }));
-      setSelectedSessionId(session.id);
+      setSelectedSessionId(id);
       setCoachOpen(true);
     } catch {
-      // show error inline
+      // silent
     }
   };
 
-  const handleCoachQuestion = async () => {
-    const q = coachInput.trim();
+  const handleCoachQuestion = async (question?: string) => {
+    const q = question || coachInput.trim();
     if (!q || coachLoading) return;
     setCoachLoading(true);
+    setCoachInput("");
     try {
       const resp = await api.coachChat({
         question: q,
         ...(selectedSessionId ? { session_id: selectedSessionId } : {}),
       });
-      setCoachMessages((m) => [...m, { id: Date.now(), question: q, answer: resp.message }]);
-      setCoachSource((resp as any).source || "fallback");
-      setCoachInput("");
+      const data = resp as any;
+      setCoachMessages((m) => [...m, {
+        id: Date.now(),
+        question: q,
+        answer: data.message,
+        referenced_sessions: data.referenced_sessions || [],
+      }]);
+      setCoachSource(data.source || "fallback");
     } catch {
-      setCoachMessages((m) => [...m, { id: Date.now(), question: q, answer: "Coach is unavailable right now. Try again in a moment." }]);
+      setCoachMessages((m) => [...m, {
+        id: Date.now(),
+        question: q,
+        answer: "Coach is unavailable right now. Try again in a moment.",
+        referenced_sessions: [],
+      }]);
       setCoachSource("offline");
-      setCoachInput("");
     } finally {
       setCoachLoading(false);
     }
@@ -190,188 +213,193 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
+  const sourceLabel = (src: string) => {
+    switch (src) {
+      case "llm": return "Live";
+      case "degraded": return "Limited";
+      default: return "Offline";
+    }
+  };
+
+  const sourceColor = (src: string) => {
+    switch (src) {
+      case "llm": return "bg-emerald-500";
+      case "degraded": return "bg-amber-500";
+      default: return "bg-rose-500";
+    }
+  };
+
+  const formatDate = (iso?: string) => {
+    if (!iso) return "";
+    return new Date(iso).toLocaleDateString(undefined, {
+      month: "short", day: "numeric",
+    });
+  };
+
+  const handleChip = (q: string) => {
+    handleCoachQuestion(q);
+  };
+
   return (
-    <div className="space-y-5">
+    <div className="flex flex-col h-[calc(100vh-140px)]">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-bold tracking-tight text-slate-100">AI Trainer</h2>
-          <p className="text-xs text-slate-500 mt-0.5">Review workouts, track progress, ask the coach.</p>
-        </div>
-        <button onClick={onBack} className="text-sm text-slate-400 hover:text-slate-200 transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-800/60">Back</button>
-      </div>
-
-      {/* Coach State Bar */}
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/70 px-4 py-3 flex items-center justify-between">
+      <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-3">
-          <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
+          <div className="w-9 h-9 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+            A
+          </div>
           <div>
-            <div className="text-xs text-slate-400">
-              Program: <span className={phaseColor(coachState.phase)}>{coachState.phase || "unknown"}</span>
-            </div>
-            <div className="text-[10px] text-slate-500">
-              Week {coachState.week_in_block ?? "?"} · Load {coachState.load_pct ?? 0}%
+            <h2 className="text-lg font-bold tracking-tight text-slate-100">Askeo Coach</h2>
+            <div className="flex items-center gap-1.5">
+              <span className={`inline-block w-1.5 h-1.5 rounded-full ${sourceColor(coachSource)}`} />
+              <span className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">
+                {sourceLabel(coachSource)}
+              </span>
             </div>
           </div>
         </div>
-        <div className="text-[10px] text-slate-500 uppercase tracking-wider font-semibold">Coach Active</div>
+        <button
+          onClick={onBack}
+          className="text-xs text-slate-500 hover:text-slate-300 transition-colors px-3 py-1.5 rounded-lg hover:bg-slate-800/60"
+        >
+          Back
+        </button>
       </div>
 
-      {/* Recent Sessions */}
-      <div className="space-y-2">
-        <div className="text-[11px] text-slate-500 uppercase tracking-widest font-semibold px-1">Recent Sessions</div>
-        {loadingSessions ? (
-          <div className="text-sm text-slate-500 text-center py-8">Loading sessions...</div>
-        ) : sessions.length === 0 ? (
-          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-6">
-            <p className="text-sm text-slate-400 text-center">No completed sessions yet. Finish a workout to see it here.</p>
+      {/* Program state bar */}
+      <div className="rounded-xl border border-slate-800 bg-slate-900/70 px-3 py-2 mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <div className="text-[10px] text-slate-500">
+            Program: <span className={phaseColor(coachState.phase)}>{coachState.phase || "unknown"}</span>
           </div>
-        ) : (
-          <div className="space-y-2">
-            {sessions.map((s) => {
-              const isSelected = selectedSessionId === s.id;
-              const detail = sessionDetails[s.id];
-              const dateLabel = new Date(s.started_at).toLocaleDateString(undefined, {
-                month: "short", day: "numeric", hour: "numeric", minute: "2-digit",
-              });
-              const durLabel = detail
-                ? (detail.durationMin ? `${detail.durationMin} min · ` : "")
-                : "";
-              return (
-                <button
-                  key={s.id}
-                  onClick={() => loadSession(s)}
-                  className={`w-full rounded-2xl border px-4 py-3 text-left transition-all active:scale-[0.985] ${
-                    isSelected
-                      ? "border-indigo-500/60 bg-indigo-950/40 shadow-lg shadow-indigo-500/10"
-                      : "border-slate-800 bg-slate-900/50 hover:border-slate-700"
-                  }`}
-                >
-                  <div className="flex items-center justify-between">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold text-slate-200 truncate">
-                        {s.template_name || `Session #${s.id}`}
-                      </div>
-                      <div className="text-xs text-slate-500 mt-0.5 truncate">
-                        {dateLabel}{durLabel}{detail && `${detail.exercises.length} exercises`}
-                      </div>
+          <div className="text-[10px] text-slate-600">
+            Week {coachState.week_in_block ?? "?"} · Load {coachState.load_pct ?? 0}%
+          </div>
+        </div>
+      </div>
+
+      {/* Chat area */}
+      <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950/40 mb-3">
+        <div className="p-4 space-y-4">
+          {coachMessages.length === 0 && !coachLoading ? (
+            <div className="flex flex-col items-center justify-center h-full text-center py-10">
+              <div className="w-14 h-14 rounded-full bg-indigo-600/20 flex items-center justify-center mb-4">
+                <span className="text-2xl">💪</span>
+              </div>
+              <h3 className="text-base font-semibold text-slate-300 mb-1">Ask your coach anything</h3>
+              <p className="text-xs text-slate-500 max-w-[260px] mb-5">
+                I know your workout history, program phase, and current prescription. Just ask.
+              </p>
+              <div className="flex flex-wrap justify-center gap-2">
+                {SUGGESTED_QUESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    onClick={() => handleChip(q)}
+                    className="text-xs px-3 py-2 rounded-xl bg-indigo-950/60 border border-indigo-800/50 text-indigo-300 hover:bg-indigo-900/60 hover:border-indigo-700 transition-all active:scale-[0.97]"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {coachMessages.map((m) => (
+                <div key={m.id} className="space-y-2">
+                  {/* User question */}
+                  <div className="flex justify-end">
+                    <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-indigo-600 px-3.5 py-2.5 text-sm text-white leading-relaxed">
+                      {m.question}
                     </div>
-                    {detail && (
-                      <div className="text-right shrink-0 ml-3">
-                        <div className="text-xs text-indigo-300 font-semibold">{formatWeight(detail.totalVolume, units)}</div>
-                        <div className="text-[10px] text-slate-500">effort {detail.avgEffort}/5</div>
-                      </div>
-                    )}
                   </div>
 
-                  {isSelected && detail && (
-                    <div className="mt-3 space-y-2 border-t border-indigo-800/40 pt-3">
-                      {detail.exercises.map((ex, idx) => (
-                        <div key={idx} className="flex items-center justify-between gap-3 text-xs">
-                          <div className="min-w-0 flex-1">
-                            <span className="text-indigo-100 font-medium">{ex.name}</span>
-                            <span className="text-indigo-400 ml-1.5">{ex.sets} sets</span>
-                          </div>
-                          <div className="text-right shrink-0">
-                            <div className="text-indigo-200">
-                              {ex.topWeight > 0 ? `${formatWeight(ex.topWeight, units)} × ${ex.topReps}` : "bodyweight"}
-                            </div>
-                            <div className="text-indigo-400 mt-0.5">effort {ex.avgEffort}</div>
-                          </div>
-                        </div>
-                      ))}
+                  {/* Coach answer */}
+                  <div className="flex gap-2.5">
+                    <div className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0 mt-1">
+                      A
                     </div>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <div className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap bg-slate-900/60 border border-slate-800/60 rounded-2xl rounded-tl-sm px-3.5 py-2.5">
+                        {m.answer}
+                      </div>
 
-      {/* Ask the Coach */}
-      <div className="rounded-2xl border border-indigo-800/60 bg-indigo-950/20 overflow-hidden">
-        <button
-          onClick={() => setCoachOpen((o) => !o)}
-          className="w-full flex items-center justify-between px-4 py-3 text-left"
-        >
-          <div className="flex items-center gap-2">
-            <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
-            </svg>
-            <span className="text-sm font-semibold text-indigo-300">Ask the Coach</span>
-            <span
-              className={`inline-block w-2 h-2 rounded-full ${
-                coachSource === "llm"
-                  ? "bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.6)]"
-                  : coachSource === "fallback" || coachSource === "degraded"
-                  ? "bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.6)]"
-                  : "bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.6)]"
-              }`}
-            />
-          </div>
-          <svg
-            className={`w-4 h-4 text-indigo-500 transition-transform ${coachOpen ? "rotate-180" : ""}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-          </svg>
-        </button>
-
-        {coachOpen && (
-          <div className="px-4 pb-4 space-y-3">
-            {coachMessages.length === 0 && !coachLoading ? (
-              <p className="text-xs text-indigo-400/80">
-                Ask anything: "Why did it suggest this weight?" / "What should I focus on today?"
-              </p>
-            ) : null}
-
-            <div className="space-y-3 max-h-80 overflow-y-auto pr-1">
-              {coachMessages.map((m) => (
-                <div key={m.id} className="space-y-1.5">
-                  <div className="text-xs text-slate-400 text-right">You: {m.question}</div>
-                  <div className="text-xs text-indigo-100 bg-indigo-900/40 rounded-2xl rounded-tl-sm px-3 py-2.5 whitespace-pre-wrap leading-relaxed border border-indigo-800/40">
-                    {m.answer}
+                      {/* Referenced workout cards */}
+                      {m.referenced_sessions && m.referenced_sessions.length > 0 && (
+                        <div className="space-y-1.5 pl-1">
+                          {m.referenced_sessions.map((s) => (
+                            <div
+                              key={s.id}
+                              onClick={() => loadSession(s.id)}
+                              className="cursor-pointer rounded-xl border border-slate-800/80 bg-slate-900/80 px-3 py-2.5 hover:border-indigo-700/60 transition-colors active:scale-[0.99]"
+                            >
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-xs font-semibold text-indigo-300 truncate">
+                                  {s.template_name || `Session #${s.id}`}
+                                </span>
+                                <span className="text-[10px] text-slate-500 ml-2 shrink-0">
+                                  {formatDate(s.date)}
+                                </span>
+                              </div>
+                              <div className="space-y-1">
+                                {s.exercises.slice(0, 3).map((ex, idx) => (
+                                  <div key={idx} className="flex items-center justify-between text-[11px]">
+                                    <span className="text-slate-400 truncate">{ex.name}</span>
+                                    <span className="text-slate-500 ml-2 shrink-0">
+                                      {ex.top_weight > 0 ? `${formatWeight(ex.top_weight, units)} × ${ex.top_reps}` : "bodyweight"}
+                                    </span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
+
               {coachLoading && (
-                <div className="text-xs text-indigo-400 italic flex items-center gap-2">
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" />
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce delay-100" />
-                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce delay-200" />
-                  <span className="ml-1">Coach is thinking...</span>
+                <div className="flex gap-2.5">
+                  <div className="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold shrink-0 mt-1">
+                    A
+                  </div>
+                  <div className="flex items-center gap-1.5 px-3.5 py-3 bg-slate-900/60 border border-slate-800/60 rounded-2xl rounded-tl-sm">
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce" />
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce delay-100" />
+                    <span className="inline-block w-1.5 h-1.5 rounded-full bg-indigo-500 animate-bounce delay-200" />
+                  </div>
                 </div>
               )}
               <div ref={chatEndRef} />
             </div>
+          )}
+        </div>
+      </div>
 
-            <form
-              onSubmit={(e) => {
-                e.preventDefault();
-                void handleCoachQuestion();
-              }}
-              className="flex gap-2"
-            >
-              <input
-                value={coachInput}
-                onChange={(e) => setCoachInput(e.target.value)}
-                placeholder="Ask about your training..."
-                disabled={coachLoading}
-                className="flex-1 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-60"
-              />
-              <button
-                type="submit"
-                disabled={coachLoading || !coachInput.trim()}
-                className="rounded-2xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold hover:bg-indigo-500 disabled:opacity-60 active:scale-[0.97] transition-all"
-              >
-                Send
-              </button>
-            </form>
-          </div>
-        )}
+      {/* Input area */}
+      <div className="flex gap-2">
+        <input
+          ref={inputRef}
+          value={coachInput}
+          onChange={(e) => setCoachInput(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              void handleCoachQuestion();
+            }
+          }}
+          placeholder="Ask about your training..."
+          disabled={coachLoading}
+          className="flex-1 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-60"
+        />
+        <button
+          onClick={() => handleCoachQuestion()}
+          disabled={coachLoading || !coachInput.trim()}
+          className="rounded-2xl bg-indigo-600 px-5 py-2.5 text-sm font-semibold hover:bg-indigo-500 disabled:opacity-60 active:scale-[0.97] transition-all"
+        >
+          Send
+        </button>
       </div>
     </div>
   );
