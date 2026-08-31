@@ -3074,32 +3074,6 @@ def admin_tasks(db: Session = Depends(get_db), current_user: User = Depends(get_
     return items
 
 
-class AdminBootstrapIn(BaseModel):
-    email: str
-    password: str
-    secret: str
-
-@app.post("/api/admin/bootstrap")
-def admin_bootstrap(payload: AdminBootstrapIn, db: Session = Depends(get_db)):
-    expected_secret = os.getenv("ADMIN_BOOTSTRAP_SECRET", "")
-    if not expected_secret or payload.secret != expected_secret:
-        raise HTTPException(status_code=403, detail="Invalid bootstrap secret")
-    user = db.query(User).filter(User.email == payload.email).first()
-    if not user:
-        user = User(email=payload.email, role="admin", hashed_password=pwd_context.hash(payload.password))
-        db.add(user)
-    else:
-        user.hashed_password = pwd_context.hash(payload.password)
-        user.role = "admin"
-        user.token_hash = None
-        user.token_expires_at = None
-        user.failed_login_count = 0
-        user.locked_until = None
-    db.commit()
-    db.refresh(user)
-    return {"ok": True, "user_id": user.id, "email": user.email, "role": user.role}
-
-
 @app.get("/dashboard")
 def dashboard():
     dashboard_path = os.path.join(os.path.dirname(__file__), "dashboard.html")
