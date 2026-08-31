@@ -2137,6 +2137,7 @@ class CoachChatRequest(BaseModel):
 class CoachChatResponse(BaseModel):
     message: str
     source: str = "fallback"
+    referenced_sessions: list[dict] = []
 
 
 class CoachHealthResponse(BaseModel):
@@ -2447,9 +2448,15 @@ Tailor recommendations to their fitness profile, current phase, and training age
                     lines.append(f"- {prescription['message']}")
         lines.append("Focus: keep reps smooth and controlled. If it feels easy, add weight next time; if form breaks, hold weight.")
         message = "\n".join(lines)
-        return CoachChatResponse(message=message, source="fallback")
+        return CoachChatResponse(message=message, source="fallback", referenced_sessions=[
+            {"id": s["id"], "template_name": s.get("template_name"), "date": s.get("date"), "exercises": s.get("exercises", [])[:3]}
+            for s in session_summaries[:3]
+        ])
 
-    return CoachChatResponse(message=message, source="llm")
+    return CoachChatResponse(message=message, source="llm", referenced_sessions=[
+        {"id": s["id"], "template_name": s.get("template_name"), "date": s.get("date"), "exercises": s.get("exercises", [])[:3]}
+        for s in session_summaries[:3]
+    ])
 
 
 class AISuggestionRequest(BaseModel):
