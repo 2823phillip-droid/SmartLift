@@ -38,7 +38,8 @@ from db import SessionLocal, init_db
 from models import (
     User, UserRole, Context, WorkoutTemplate, ExerciseLibrary, ExerciseEntry,
     WorkoutSession, SetLog, CoachMessage, AlgorithmState, ProgressionTransition, RoutineType, SessionStatus, CoachRole, AppSetting,
-    WorkoutLibrary, WorkoutLibraryExercise, BodyWeightLog, AITrainerAdjustment, CoachUsageLog
+    WorkoutLibrary, WorkoutLibraryExercise, BodyWeightLog, AITrainerAdjustment, CoachUsageLog,
+    AiCoachConversation, AiCoachMessage
 )
 from rules import compute_prescription, RuleInput, SetRecord, Prescription, WorkloadStatus, ProgressionType, compute_coach_state, CoachState
 from services.generation import build_full_draft
@@ -2154,12 +2155,15 @@ class CoachChatRequest(BaseModel):
     question: str
     template_id: Optional[int] = None
     session_id: Optional[int] = None
+    conversation_id: Optional[int] = None
 
 
 class CoachChatResponse(BaseModel):
     message: str
     source: str = "fallback"
     referenced_sessions: list[dict] = []
+    conversation_id: Optional[int] = None
+    workout_draft: Optional[dict] = None
 
 
 class CoachHealthResponse(BaseModel):
@@ -2189,6 +2193,108 @@ def coach_health(current_user: User = Depends(get_current_user_dep)):
     except Exception as e:
         logger.error("[coach_health] Nous error: %s", e)
         return CoachHealthResponse(llm_available=False, status="offline")
+
+
+# --- AI Coach Conversations ---
+
+class AiCoachMessageCreate(BaseModel):
+    role: CoachRole
+    content: str
+    message_type: Optional[str] = "text"
+    extra_data: Optional[dict] = None
+
+
+class AiCoachConversationOut(BaseModel):
+    id: int
+    title: Optional[str]
+    created_at: datetime
+    updated_at: datetime
+
+    class Config:
+        from_attributes = True
+
+
+class AiCoachMessageOut(BaseModel):
+    id: int
+    conversation_id: int
+    role: str
+    content: str
+    timestamp: datetime
+    message_type: str = "text"
+    extra_data: Optional[dict] = None
+
+    class Config:
+        from_attributes = True
+
+
+@app.get("/api/ai-coach/conversations", response_model=List[AiCoachConversationOut])
+def list_ai_coach_conversations(current_user: User = Depends(get_current_user_dep), db: Session = Depends(get_db)):
+    return sorted(
+        db.query(AiCoachConversation).filter(AiCoachConversation.user_id == current_user.id).all(),
+        key=lambda c: c.updated_at or c.created_at,
+        reverse=True,
+    )
+
+
+@app.post("/api/ai-coach/conversations", response_model=AiCoachConversationOut)
+def create_ai_coach_conversation(current_user: User = Depends(get_current_user_dep), db: Session = Depends(get_db)):
+    conv = AiCoachConversation(user_id=current_user.id)
+    db.add(conv)
+    db.commit()
+    db.refresh(conv)
+    return AiCoachConversationOut(id=conv.id, title=conv.title, created_at=conv.created_at, updated_at=conv.updated_at)
+
+
+@app.get("/api/ai-coach/conversations/{conversation_id}/messages", response_model=List[AiCoachMessageOut])
+def list_ai_coach_messages(conversation_id: int, current_user: User = Depends(get_current_user_dep), db: Session = Depends(get_db)):
+    conv = db.query(AiCoachConversation).filter(
+        AiCoachConversation.id == conversation_id,
+        AiCoachConversation.user_id == current_user.id,
+    ).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    return [
+        AiCoachMessageOut(
+            id=m.id,
+            conversation_id=m.conversation_id,
+            role=m.role.value,
+            content=m.content,
+            timestamp=m.timestamp,
+            message_type=m.message_type,
+            extra_data=m.extra_data,
+        )
+        for m in sorted(conv.messages, key=lambda x: x.timestamp)
+    ]
+
+
+@app.post("/api/ai-coach/conversations/{conversation_id}/messages", response_model=AiCoachMessageOut)
+def create_ai_coach_message(conversation_id: int, payload: AiCoachMessageCreate, current_user: User = Depends(get_current_user_dep), db: Session = Depends(get_db)):
+    conv = db.query(AiCoachConversation).filter(
+        AiCoachConversation.id == conversation_id,
+        AiCoachConversation.user_id == current_user.id,
+    ).first()
+    if not conv:
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    msg = AiCoachMessage(
+        conversation_id=conversation_id,
+        role=payload.role,
+        content=payload.content,
+        message_type=payload.message_type or "text",
+        extra_data=payload.extra_data,
+    )
+    db.add(msg)
+    conv.updated_at = datetime.now(timezone.utc)
+    db.commit()
+    db.refresh(msg)
+    return AiCoachMessageOut(
+        id=msg.id,
+        conversation_id=msg.conversation_id,
+        role=msg.role.value,
+        content=msg.content,
+        timestamp=msg.timestamp,
+        message_type=msg.message_type,
+        extra_data=msg.extra_data,
+    )
 
 
 @app.post("/api/coach/chat", response_model=CoachChatResponse)
