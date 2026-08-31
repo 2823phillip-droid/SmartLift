@@ -9,6 +9,9 @@ Format: DATE | FILE | TYPE | SUMMARY
 ## 2026-08-06
 | File | Type | Summary |
 |---|---|---|
+| memory/ai-coach-capabilities.md | created | AI coach capabilities reference with tool definitions, validation rules, and domain guardrails |
+| MEMORY-INDEX.md | updated | Added ai-coach-capabilities.md to knowledge map |
+| memory/README.md | updated | Added ai-coach-capabilities.md to catalog |
 | `MEMORY.md` (Hermes) | pruned | Trimmed to 1-line pointer to workout-logger/MEMORY-INDEX.md |
 | `USER.md` (Hermes) | trimmed | Removed project state, kept Phillip's profile/preferences only |
 | `.MEMORY.md.bak.*` | deleted | 73 stale backups containing old MacBook IP 192.168.1.234 |
@@ -30,6 +33,9 @@ Format: DATE | FILE | TYPE | SUMMARY
 ## 2026-08-05
 | File | Type | Summary |
 |---|---|---|
+| memory/ai-coach-capabilities.md | created | AI coach capabilities reference with tool definitions, validation rules, and domain guardrails |
+| MEMORY-INDEX.md | updated | Added ai-coach-capabilities.md to knowledge map |
+| memory/README.md | updated | Added ai-coach-capabilities.md to catalog |
 | `frontend/src/pages/CustomWorkoutBuilderScreen.tsx` | created | Guided custom workout builder: split selection, day tabs, exercise picker, manual reorder, save to backend |
 | `frontend/src/config/questionnaire.ts` | updated | Added `build_mode` question; custom mode skips `focus` |
 | `frontend/src/pages/QuestionnaireScreen.tsx` | updated | Conditional `focus` skip in custom mode |
@@ -46,6 +52,9 @@ Format: DATE | FILE | TYPE | SUMMARY
 ## 2026-08-04
 | File | Type | Summary |
 |---|---|---|
+| memory/ai-coach-capabilities.md | created | AI coach capabilities reference with tool definitions, validation rules, and domain guardrails |
+| MEMORY-INDEX.md | updated | Added ai-coach-capabilities.md to knowledge map |
+| memory/README.md | updated | Added ai-coach-capabilities.md to catalog |
 | `memory/trainer.md` | updated | Questionnaire redesign: removed nutrition and age_range, added training_history and progression_type, documented modality_mix semantics and body_part_split rotation |
 | `frontend/src/config/questionnaire.ts` | updated | 13 questions: removed nutrition section, added Training History + Starting Progression Method, renamed Split Style, made Workout Location optional |
 | `backend/intake.py` | updated | Removed nutrition/age fields from UserProfile; added training_history and progression_type |
@@ -60,6 +69,9 @@ Format: DATE | FILE | TYPE | SUMMARY
 ## 2026-08-01
 | File | Type | Summary |
 |---|---|---|
+| memory/ai-coach-capabilities.md | created | AI coach capabilities reference with tool definitions, validation rules, and domain guardrails |
+| MEMORY-INDEX.md | updated | Added ai-coach-capabilities.md to knowledge map |
+| memory/README.md | updated | Added ai-coach-capabilities.md to catalog |
 | `backend/models.py` | updated | Added missing `__tablename__ = "app_settings"` to `AppSetting` which caused 502 on startup |
 | `CONTEXT.md` | updated | Phase 1 backend complete; validation blocked on user RIR data |
 | `TODO.md` | updated | Phase 1 renamed to Linear Progression; backend/frontend tasks marked complete |
@@ -75,6 +87,9 @@ Format: DATE | FILE | TYPE | SUMMARY
 ## 2026-07-31
 | File | Type | Summary |
 |---|---|---|
+| memory/ai-coach-capabilities.md | created | AI coach capabilities reference with tool definitions, validation rules, and domain guardrails |
+| MEMORY-INDEX.md | updated | Added ai-coach-capabilities.md to knowledge map |
+| memory/README.md | updated | Added ai-coach-capabilities.md to catalog |
 | `memory/README.md` | created | Directory index with file catalog and usage rules |
 | `memory/deploy.md` | created | Frontend rsync/cap sync pipeline, bundle hash validation, backend deploy, checklist |
 | `memory/debugging.md` | created | iOS WKWebView/CORS/Capacitor lessons, Network tab triage, cache invalidation |
@@ -99,4 +114,7 @@ Format: DATE | FILE | TYPE | SUMMARY
 ## 2026-07-29
 | File | Type | Summary |
 |---|---|---|
+| memory/ai-coach-capabilities.md | created | AI coach capabilities reference with tool definitions, validation rules, and domain guardrails |
+| MEMORY-INDEX.md | updated | Added ai-coach-capabilities.md to knowledge map |
+| memory/README.md | updated | Added ai-coach-capabilities.md to catalog |
 | `TODO.md` | updated | Phase 2 coaching UX items marked implemented via coach settings/save/override endpoints |
