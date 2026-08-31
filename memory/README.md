@@ -18,6 +18,7 @@ This directory contains one-file-per-domain lessons learned through debugging an
 | `frontend-fetch.md` | `api.ts`, fetch, retry, timeout, AbortController | Before touching fetch logic or error handling |
 | `decisions.md` | ADR records: context, options, decision, consequence | When revisiting a past technical decision |
 | `trainer.md` | Trainer questionnaire schema, workout/meal generation rules, backend endpoints | When building or changing trainer-generated workout or meal plan features |
+| `ai-coach-capabilities.md` | AI coach tools, prompts, validation rules, hard limits, domain guardrails | Before changing AI coach behavior, tools, or profile/workout modification logic |
 | `changelog.md` | History of changes to the knowledge base | When auditing what changed and when |
 
 ## Adding a new domain
