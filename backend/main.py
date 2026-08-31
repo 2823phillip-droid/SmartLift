@@ -2297,6 +2297,77 @@ def create_ai_coach_message(conversation_id: int, payload: AiCoachMessageCreate,
     )
 
 
+def _validate_and_apply_changes(
+    current_prescription: list[dict] | None,
+    changes: list[dict],
+    exercise_library: dict[str, dict],
+) -> tuple[list[dict] | None, str | None]:
+    if not current_prescription:
+        return None, "No current prescription found. Start a workout or ask about your current plan first."
+    if not changes:
+        return None, "No changes specified."
+
+    presc_by_name = {p["exercise"]: p for p in current_prescription}
+    modified = [dict(p) for p in current_prescription]
+    applied: list[str] = []
+
+    for c in changes:
+        ex_name = c.get("exercise")
+        field = c.get("field")
+        new_value = c.get("new_value")
+
+        if not ex_name or not field:
+            return None, f"Invalid change format: {c}"
+
+        if ex_name not in presc_by_name:
+            return None, f"Exercise '{ex_name}' is not in your current prescription."
+
+        target = next((p for p in modified if p["exercise"] == ex_name), None)
+        if not target:
+            return None, f"Exercise '{ex_name}' not found in current prescription."
+
+        if field == "swap_exercise":
+            new_ex = str(new_value)
+            lib_entry = exercise_library.get(new_ex)
+            if not lib_entry:
+                return None, f"Exercise '{new_ex}' is not in the exercise library."
+            old_name = target["exercise"]
+            target["exercise"] = new_ex
+            target["swap_note"] = f"Swapped from {old_name}"
+            applied.append(f"Swapped {old_name} → {new_ex}")
+        elif field == "next_weight":
+            try:
+                w = float(new_value)
+                if w <= 0:
+                    return None, f"Weight must be positive for {ex_name}."
+                target["next_weight"] = w
+                applied.append(f"{ex_name} weight → {w}")
+            except (TypeError, ValueError):
+                return None, f"Invalid weight value for {ex_name}: {new_value}"
+        elif field == "next_reps":
+            try:
+                r = int(new_value)
+                if r < 1 or r > 20:
+                    return None, f"Reps must be between 1 and 20 for {ex_name}."
+                target["next_reps"] = r
+                applied.append(f"{ex_name} reps → {r}")
+            except (TypeError, ValueError):
+                return None, f"Invalid reps value for {ex_name}: {new_value}"
+        elif field == "sets_target":
+            try:
+                s = int(new_value)
+                if s < 1 or s > 10:
+                    return None, f"Sets must be between 1 and 10 for {ex_name}."
+                target["sets_target"] = s
+                applied.append(f"{ex_name} sets → {s}")
+            except (TypeError, ValueError):
+                return None, f"Invalid sets value for {ex_name}: {new_value}"
+        else:
+            return None, f"Unsupported change field: {field}"
+
+    return modified, None
+
+
 @app.post("/api/coach/chat", response_model=CoachChatResponse)
 def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     """Answer a user question about their training using recent session history and current prescription."""
@@ -2668,7 +2739,10 @@ COMPUTED INSIGHTS (use these to add value):
 {insights_block}
 
 WORKOUT GENERATION:
-If the user asks you to build, create, or generate a workout, plan, or program, call the generate_workout tool with any overrides they requested (focus, goal, days_per_week, etc.). The tool will return a structured workout draft. Present the draft clearly to the user and explain why you chose those exercises."""
+If the user asks you to build, create, or generate a workout, plan, or program, call the generate_workout tool with any overrides they requested (focus, goal, days_per_week, etc.). The tool will return a structured workout draft. Present the draft clearly to the user and explain why you chose those exercises.
+
+WORKOUT MODIFICATIONS:
+If the user asks you to modify, adjust, change, drop, swap, increase, or decrease something in their current workout or prescription, call the modify_workout tool. Pass the current_prescription from the context and a list of changes they requested. The tool will return a modified workout draft with the applied changes. Present the modified draft and clearly explain what you changed and why."""
 
     tools = [
         {
@@ -2687,6 +2761,37 @@ If the user asks you to build, create, or generate a workout, plan, or program, 
                     },
                 },
             },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "modify_workout",
+                "description": "Modify the user's current workout prescription by applying specific changes. Use this when the user asks to adjust, change, drop, swap, increase, or decrease something in their current workout.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "current_prescription": {
+                            "type": "array",
+                            "items": {"type": "object"},
+                            "description": "The current prescription array from the context"
+                        },
+                        "changes": {
+                            "type": "array",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "exercise": {"type": "string", "description": "Exact exercise name from the prescription"},
+                                    "field": {"type": "string", "enum": ["next_weight", "next_reps", "sets_target", "swap_exercise"]},
+                                    "new_value": {"type": "string", "description": "New value for the field. For swap_exercise, the replacement exercise name."}
+                                },
+                                "required": ["exercise", "field", "new_value"]
+                            },
+                            "description": "List of changes to apply"
+                        }
+                    },
+                    "required": ["current_prescription", "changes"]
+                }
+            }
         }
     ]
 
@@ -2707,6 +2812,7 @@ If the user asks you to build, create, or generate a workout, plan, or program, 
         "preworkout", "pre-workout", "postworkout", "post-workout", "supplement",
         "bulk", "cut", "lean", "mass", "definition", "tone",
         "profile", "settings", "units", "imperial", "metric", "pounds", "lbs", "kg", "kilogram",
+        "modify", "change", "swap", "drop", "increase", "decrease", "adjust", "lower", "reduce", "replace", "switch",
     ]
     question_lower = payload.question.lower()
     if len(payload.question) > 20:
@@ -2748,11 +2854,15 @@ If the user asks you to build, create, or generate a workout, plan, or program, 
                 "max_tokens": 1200,
                 "temperature": 0.7,
             }
-            # Only include tools if the question looks like a workout generation request
+            # Only include tools if the question looks like a workout generation or modification request
             workout_keywords = {"build", "create", "generate", "make", "design", "plan", "write", "new workout", "workout plan", "program"}
+            modification_keywords = {"modify", "change", "swap", "drop", "increase", "decrease", "adjust", "lower", "reduce", "replace", "switch"}
             if words & workout_keywords or any(k in question_lower for k in ["build me", "create a", "generate a", "make me a", "write me a", "design a"]):
                 request_body["tools"] = tools
                 request_body["tool_choice"] = {"type": "function", "function": {"name": "generate_workout"}}
+            elif words & modification_keywords or any(k in question_lower for k in ["change my", "swap my", "drop the", "increase my", "decrease my", "lower my", "reduce my", "replace the", "switch the", "modify my"]):
+                request_body["tools"] = tools
+                request_body["tool_choice"] = {"type": "function", "function": {"name": "modify_workout"}}
 
             resp = httpx.post(
                 "https://inference-api.nousresearch.com/v1/chat/completions",
@@ -2769,7 +2879,7 @@ If the user asks you to build, create, or generate a workout, plan, or program, 
             data = resp.json()
             choice = data["choices"][0]["message"]
 
-            # Handle tool call for workout generation
+            # Handle tool call for workout generation or modification
             if choice.get("tool_calls"):
                 tool_call = choice["tool_calls"][0]
                 if tool_call["function"]["name"] == "generate_workout":
@@ -2787,6 +2897,37 @@ If the user asks you to build, create, or generate a workout, plan, or program, 
                     except Exception as tool_err:
                         logger.error("[coach_chat] generate_workout tool error: %s", tool_err)
                         message = "I tried to generate that workout but ran into an issue. Could you try again, or let me know if you want to adjust your profile first?"
+                elif tool_call["function"]["name"] == "modify_workout":
+                    try:
+                        args = json.loads(tool_call["function"]["arguments"])
+                        current_presc = args.get("current_prescription") or llm_prescription
+                        changes = args.get("changes", [])
+                        modified_presc, validation_error = _validate_and_apply_changes(current_presc, changes, exercise_library)
+                        if validation_error:
+                            message = f"I couldn't apply those changes: {validation_error}"
+                        else:
+                            workout_draft = {
+                                "type": "modified_workout",
+                                "groups": [
+                                    {
+                                        "name": p.get("exercise"),
+                                        "sets_target": p.get("sets_target"),
+                                        "reps_target": p.get("next_reps"),
+                                        "start_weight": p.get("next_weight"),
+                                        "swap_note": p.get("swap_note"),
+                                    }
+                                    for p in (modified_presc or [])
+                                ],
+                                "applied_changes": [
+                                    c.get("exercise") + " " + c.get("field") + " → " + str(c.get("new_value"))
+                                    for c in changes
+                                ],
+                            }
+                            change_summary = "; ".join(workout_draft["applied_changes"])
+                            message = f"Here's your updated workout. Changes applied: {change_summary}. Would you like me to explain any of these adjustments?"
+                    except Exception as tool_err:
+                        logger.error("[coach_chat] modify_workout tool error: %s", tool_err)
+                        message = "I tried to modify your workout but ran into an issue. Could you try again?"
                 else:
                     message = choice.get("content") or "I can help with that. Could you tell me more about what you're looking for?"
             else:
