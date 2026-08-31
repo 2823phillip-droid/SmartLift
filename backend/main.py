@@ -38,7 +38,7 @@ from db import SessionLocal, init_db
 from models import (
     User, UserRole, Context, WorkoutTemplate, ExerciseLibrary, ExerciseEntry,
     WorkoutSession, SetLog, CoachMessage, AlgorithmState, ProgressionTransition, RoutineType, SessionStatus, CoachRole, AppSetting,
-    WorkoutLibrary, WorkoutLibraryExercise, BodyWeightLog, AITrainerAdjustment
+    WorkoutLibrary, WorkoutLibraryExercise, BodyWeightLog, AITrainerAdjustment, CoachUsageLog
 )
 from rules import compute_prescription, RuleInput, SetRecord, Prescription, WorkloadStatus, ProgressionType, compute_coach_state, CoachState
 from services.generation import build_full_draft
@@ -117,6 +117,19 @@ _handler = RotatingFileHandler(LOG_PATH, maxBytes=5_000_000, backupCount=5, enco
 _handler.setFormatter(logging.Formatter("%(message)s"))
 logger.addHandler(_handler)
 logger.addHandler(logging.StreamHandler())  # also echo to console/systemd
+
+# Coach LLM pricing (update these if Nous changes rates)
+_COACH_INPUT_COST_PER_M = 0.0
+_COACH_OUTPUT_COST_PER_M = 0.0
+
+def _estimate_coach_cost(prompt_tokens: Optional[int], completion_tokens: Optional[int]) -> Optional[float]:
+    if prompt_tokens is None and completion_tokens is None:
+        return None
+    return round(
+        ((prompt_tokens or 0) / 1_000_000) * _COACH_INPUT_COST_PER_M
+        + ((completion_tokens or 0) / 1_000_000) * _COACH_OUTPUT_COST_PER_M,
+        6,
+    )
 
 # Middleware
 app.add_middleware(
@@ -976,7 +989,7 @@ def trainer_generate(payload: Optional[TrainerGenerateIn] = None, current_user: 
         merged["activity_level"] = merged.pop("current_training_status")
     profile = merged
 
-    workout_draft, meal_plan_draft = build_full_draft(db, merged)
+    workout_draft, meal_plan_draft = build_full_draft(db, merged, current_user.id)
     return TrainerGenerateOut(workout_draft=workout_draft, meal_plan_draft=meal_plan_draft)
 
 # --- Body Weight ---
@@ -1829,6 +1842,8 @@ class CoachStateResponse(BaseModel):
     is_deload: bool
     explanation: str
     next_deload_date: Optional[str] = None
+    load_pct: int = 0
+    deload_mode: str = "ai_driven"
 
 
 class RuleResponseOut(BaseModel):
@@ -2418,6 +2433,10 @@ Tailor recommendations to their fitness profile, current phase, and training age
     }
 
     message = None
+    llm_status = "error"
+    llm_error = None
+    prompt_tokens = None
+    completion_tokens = None
     for attempt in range(1):
         try:
             logger.info("[coach_chat] Nous request model=NousResearch/Hermes-4-70B key_prefix=%s", api_key[:12] if api_key else "NONE")
@@ -2437,14 +2456,34 @@ Tailor recommendations to their fitness profile, current phase, and training age
             )
             logger.info("[coach_chat] Nous response status=%s body=%s", resp.status_code, resp.text[:200])
             if resp.status_code == 429:
+                llm_status = "429"
+                llm_error = "rate_limited"
                 break
             resp.raise_for_status()
             data = resp.json()
             message = data["choices"][0]["message"]["content"]
+            llm_status = "success"
+            prompt_tokens = data.get("usage", {}).get("prompt_tokens")
+            completion_tokens = data.get("usage", {}).get("completion_tokens")
             break
         except Exception as e:
             logger.error(f"coach_chat LLM error attempt {attempt}: {e}")
+            llm_error = str(e)
             message = None
+
+    try:
+        db.add(CoachUsageLog(
+            user_id=current_user.id,
+            model="NousResearch/Hermes-4-70B",
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            estimated_cost_usd=_estimate_coach_cost(prompt_tokens, completion_tokens),
+            status=llm_status,
+            error_message=llm_error,
+        ))
+        db.commit()
+    except Exception:
+        db.rollback()
 
     if message is None:
         # Deterministic fallback from context
@@ -2483,6 +2522,222 @@ Tailor recommendations to their fitness profile, current phase, and training age
         ])
 
     return CoachChatResponse(message=message, source="llm", referenced_sessions=[])
+
+
+def get_admin_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)) -> User:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing Authorization header")
+    token = authorization.split(" ", 1)[1]
+    user = _user_from_token(token, db)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid token")
+    if user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return user
+
+
+class AdminCoachCostItem(BaseModel):
+    user_id: int
+    email: str
+    total_calls: int
+    success_calls: int
+    rate_limited_calls: int
+    error_calls: int
+    total_prompt_tokens: int
+    total_completion_tokens: int
+    total_estimated_cost_usd: float
+    first_call_at: Optional[str] = None
+    last_call_at: Optional[str] = None
+
+class AdminCoachCostsResponse(BaseModel):
+    total_calls: int
+    total_estimated_cost_usd: float
+    total_prompt_tokens: int
+    total_completion_tokens: int
+    users: List[AdminCoachCostItem]
+    model_config = ConfigDict(from_attributes=True)
+
+@app.get("/api/admin/coach-costs", response_model=AdminCoachCostsResponse)
+def admin_coach_costs(range: str = "all", db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
+    from datetime import datetime, timezone, timedelta
+    query = db.query(CoachUsageLog)
+    cutoff = None
+    if range == "24h":
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=24)
+    elif range == "7d":
+        cutoff = datetime.now(timezone.utc) - timedelta(days=7)
+    elif range == "30d":
+        cutoff = datetime.now(timezone.utc) - timedelta(days=30)
+    if cutoff:
+        query = query.filter(CoachUsageLog.timestamp >= cutoff)
+
+    logs = query.all()
+    total_calls = len(logs)
+    total_prompt = sum(int(l.prompt_tokens or 0) for l in logs)
+    total_completion = sum(int(l.completion_tokens or 0) for l in logs)
+    total_cost = round(sum(float(l.estimated_cost_usd or 0.0) for l in logs), 6)
+
+    user_map = {}
+    for l in logs:
+        item = user_map.setdefault(l.user_id, {
+            "user_id": l.user_id,
+            "email": "unknown",
+            "total_calls": 0,
+            "success_calls": 0,
+            "rate_limited_calls": 0,
+            "error_calls": 0,
+            "total_prompt_tokens": 0,
+            "total_completion_tokens": 0,
+            "total_estimated_cost_usd": 0.0,
+            "first_call_at": None,
+            "last_call_at": None,
+        })
+        item["total_calls"] += 1
+        if l.status == "success":
+            item["success_calls"] += 1
+        elif l.status == "429":
+            item["rate_limited_calls"] += 1
+        else:
+            item["error_calls"] += 1
+        item["total_prompt_tokens"] += int(l.prompt_tokens or 0)
+        item["total_completion_tokens"] += int(l.completion_tokens or 0)
+        item["total_estimated_cost_usd"] = round(float(item["total_estimated_cost_usd"]) + float(l.estimated_cost_usd or 0.0), 6)
+        ts = l.timestamp.isoformat() if l.timestamp else None
+        if ts is not None:
+            item["first_call_at"] = ts if item["first_call_at"] is None else min(item["first_call_at"], ts)
+            item["last_call_at"] = ts if item["last_call_at"] is None else max(item["last_call_at"], ts)
+
+    # Backfill emails
+    user_ids = [uid for uid in user_map if uid is not None]
+    if user_ids:
+        users = db.query(User).filter(User.id.in_(user_ids)).all()
+        email_map = {u.id: u.email for u in users}
+        for item in user_map.values():
+            if item["user_id"] is not None:
+                item["email"] = email_map.get(item["user_id"], "deleted")
+
+    users_sorted = sorted(user_map.values(), key=lambda x: x["total_estimated_cost_usd"], reverse=True)
+    return AdminCoachCostsResponse(
+        total_calls=total_calls,
+        total_estimated_cost_usd=total_cost,
+        total_prompt_tokens=total_prompt,
+        total_completion_tokens=total_completion,
+        users=[AdminCoachCostItem(**u) for u in users_sorted],
+    )
+
+
+class TopTalkerItem(BaseModel):
+    user_id: int
+    email: str
+    call_count: int
+    total_tokens: int
+    estimated_cost_usd: float
+
+@app.get("/api/admin/coach-costs/top-talkers", response_model=List[TopTalkerItem])
+def admin_top_talkers(limit: int = 10, db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
+    logs = db.query(CoachUsageLog).all()
+    user_map = {}
+    for l in logs:
+        uid = l.user_id
+        item = user_map.setdefault(uid, {
+            "user_id": uid,
+            "email": "unknown",
+            "call_count": 0,
+            "total_tokens": 0,
+            "estimated_cost_usd": 0.0,
+        })
+        item["call_count"] += 1
+        item["total_tokens"] += (l.prompt_tokens or 0) + (l.completion_tokens or 0)
+        item["estimated_cost_usd"] = round(item["estimated_cost_usd"] + (l.estimated_cost_usd or 0.0), 6)
+
+    user_ids = [uid for uid in user_map if uid is not None]
+    if user_ids:
+        users = db.query(User).filter(User.id.in_(user_ids)).all()
+        email_map = {u.id: u.email for u in users}
+        for item in user_map.values():
+            if item["user_id"] is not None:
+                item["email"] = email_map.get(item["user_id"], "deleted")
+
+    top = sorted(user_map.values(), key=lambda x: x["call_count"], reverse=True)[: max(1, min(limit, 100))]
+    return [TopTalkerItem(**t) for t in top]
+
+
+class AdminTaskItem(BaseModel):
+    phase: str
+    lane: str
+    text: str
+    status: str  # completed / pending / cancelled
+
+@app.get("/api/admin/tasks", response_model=List[AdminTaskItem])
+def admin_tasks(db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
+    import re
+    todo_path = os.path.join(os.path.dirname(__file__), "..", "TODO.md")
+    if not os.path.exists(todo_path):
+        todo_path = os.path.join(os.path.dirname(__file__), "TODO.md")
+    items: List[AdminTaskItem] = []
+    current_phase = "Uncategorized"
+    current_lane = "General"
+    if os.path.exists(todo_path):
+        with open(todo_path, "r") as f:
+            for raw_line in f:
+                line = raw_line.rstrip("\n")
+                stripped = line.strip()
+                if stripped.startswith("## "):
+                    current_phase = stripped.replace("## ", "", 1).strip()
+                    current_lane = "General"
+                    continue
+                if stripped.startswith("### "):
+                    current_lane = stripped.replace("### ", "", 1).strip()
+                    continue
+                if stripped.startswith("- [ ] ") or stripped.startswith("- [x] ") or stripped.startswith("- [X] "):
+                    status = "completed" if stripped[3].lower() == "x" else "pending"
+                    text = stripped[5:].strip()
+                    if not text:
+                        continue
+                    items.append(AdminTaskItem(phase=current_phase, lane=current_lane, text=text, status=status))
+    return items
+
+
+@app.get("/dashboard")
+def dashboard():
+    dashboard_path = os.path.join(os.path.dirname(__file__), "dashboard.html")
+    if not os.path.exists(dashboard_path):
+        return HTMLResponse(content="<h1>Dashboard not found</h1>", media_type="text/html")
+    with open(dashboard_path, "r") as f:
+        html = f.read()
+    return HTMLResponse(content=html, media_type="text/html")
+
+
+class AdminLogItem(BaseModel):
+    timestamp: Optional[str] = None
+    level: str
+    message: str
+
+@app.get("/api/admin/logs", response_model=List[AdminLogItem])
+def admin_logs(lines: int = 200, db: Session = Depends(get_db), current_user: User = Depends(get_admin_user)):
+    log_path = os.path.join(os.path.dirname(__file__), "logs", "workout.log")
+    items: List[AdminLogItem] = []
+    if os.path.exists(log_path):
+        with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
+            all_lines = f.readlines()
+        tail = all_lines[-max(1, min(lines, 1000)):]
+        for raw in tail:
+            raw = raw.strip()
+            if not raw:
+                continue
+            try:
+                obj = json.loads(raw)
+                ts = obj.get("timestamp") or obj.get("time")
+                level = "info"
+                if obj.get("type") in ("unhandled_exception", "timeout"):
+                    level = "error"
+                elif obj.get("level"):
+                    level = obj["level"]
+                msg = obj.get("message") or obj.get("error") or obj.get("detail") or raw
+                items.append(AdminLogItem(timestamp=ts, level=level, message=str(msg)))
+            except Exception:
+                items.append(AdminLogItem(level="info", message=raw))
+    return items
 
 
 class AISuggestionRequest(BaseModel):

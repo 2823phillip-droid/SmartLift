@@ -311,3 +311,18 @@ class AITrainerAdjustment(Base):
     created_at = Column(DateTime, default=datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="ai_trainer_adjustments")
+
+
+class CoachUsageLog(Base):
+    __tablename__ = "coach_usage_logs"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    timestamp = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
+    model = Column(String, nullable=False)
+    prompt_tokens = Column(Integer, nullable=True)
+    completion_tokens = Column(Integer, nullable=True)
+    estimated_cost_usd = Column(Float, nullable=True)
+    status = Column(String, nullable=False)  # success / 429 / error
+    error_message = Column(Text, nullable=True)
+
+    user = relationship("User")
