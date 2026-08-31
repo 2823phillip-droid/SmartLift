@@ -37,6 +37,7 @@ class User(Base):
     body_weight_logs = relationship("BodyWeightLog", back_populates="user", cascade="all, delete-orphan")
     workout_libraries = relationship("WorkoutLibrary", back_populates="user", cascade="all, delete-orphan")
     workout_library_exercises = relationship("WorkoutLibraryExercise", back_populates="user", cascade="all, delete-orphan")
+    ai_coach_conversations = relationship("AiCoachConversation", back_populates="user", cascade="all, delete-orphan")
 
 class RoutineType(str, enum.Enum):
     strength = "strength"
@@ -52,6 +53,32 @@ class CoachRole(str, enum.Enum):
     pre_workout = "pre_workout"
     in_workout = "in_workout"
     post_workout = "post_workout"
+
+
+class AiCoachConversation(Base):
+    __tablename__ = "ai_coach_conversations"
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    title = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+
+    user = relationship("User", back_populates="ai_coach_conversations")
+    messages = relationship("AiCoachMessage", back_populates="conversation", cascade="all, delete-orphan")
+
+
+class AiCoachMessage(Base):
+    __tablename__ = "ai_coach_messages"
+    id = Column(Integer, primary_key=True)
+    conversation_id = Column(Integer, ForeignKey("ai_coach_conversations.id", ondelete="CASCADE"), nullable=False)
+    role = Column(Enum(CoachRole), nullable=False)
+    content = Column(Text, nullable=False)
+    timestamp = Column(DateTime, default=datetime.now(timezone.utc))
+    message_type = Column(String, default="text")  # text | workout_draft
+    extra_data = Column(JSON, nullable=True)
+
+    conversation = relationship("AiCoachConversation", back_populates="messages")
+
 
 class Context(Base):
     __tablename__ = "contexts"

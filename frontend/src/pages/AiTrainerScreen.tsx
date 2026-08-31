@@ -28,6 +28,7 @@ type CoachMessage = {
     date?: string;
     exercises: Array<{ name: string; top_weight: number; top_reps: number }>;
   }>;
+  workout_draft?: any;
 };
 
 type CoachState = {
@@ -37,10 +38,12 @@ type CoachState = {
 };
 
 const SUGGESTED_QUESTIONS = [
-  "How's my progress?",
+  "How's my progress this week?",
   "What should I focus on today?",
-  "Why this weight?",
+  "Why this weight on my main lifts?",
   "Am I recovering well?",
+  "Build me a shoulder-focused upper day",
+  "What trends do you see in my training?",
 ];
 
 export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
@@ -54,6 +57,8 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
   const [coachState, setCoachState] = useState<CoachState>({});
   const [coachSource, setCoachSource] = useState<string>("offline");
   const [exerciseMap, setExerciseMap] = useState<Record<number, string>>({});
+  const [conversationId, setConversationId] = useState<number | null>(null);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const units = getUnitsPreference();
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -63,10 +68,11 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
     let cancelled = false;
     (async () => {
       try {
-        const [exercises, state, health] = await Promise.all([
+        const [exercises, state, health, conversations] = await Promise.all([
           api.getAllExercises().catch(() => []),
           api.getCoachState?.().catch(() => ({})),
           api.getCoachHealth?.().catch(() => ({ llm_available: false, status: "offline" })),
+          api.listAiCoachConversations?.().catch(() => []),
         ]);
         if (cancelled) return;
         const map: Record<number, string> = {};
@@ -85,6 +91,35 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
         const h = health as any;
         if (h) {
           setCoachSource(h.status === "connected" ? "llm" : h.status === "degraded" ? "degraded" : "offline");
+        }
+
+        // Load most recent conversation
+        const convs = conversations as any[];
+        const sorted = Array.isArray(convs)
+          ? [...convs].sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
+          : [];
+        const latest = sorted[0];
+        if (latest?.id) {
+          setConversationId(latest.id);
+          try {
+            const msgs = await api.getAiCoachMessages(latest.id);
+            const typed = msgs as any[];
+            setCoachMessages(
+              typed.map((m, idx, arr) => {
+                const prev = arr[idx - 1];
+                const isUser = m.role === "pre_workout";
+                return {
+                  id: m.id,
+                  question: isUser ? m.content : (prev?.content || ""),
+                  answer: isUser ? (arr[idx + 1]?.content || "") : m.content,
+                  referenced_sessions: [],
+                  workout_draft: m.message_type === "workout_draft" ? m.extra_data : undefined,
+                };
+              }).filter((m) => m.answer || m.question),
+            );
+          } catch {
+            // ignore
+          }
         }
       } catch {
         // silent
@@ -179,13 +214,19 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
       const resp = await api.coachChat({
         question: q,
         ...(selectedSessionId ? { session_id: selectedSessionId } : {}),
+        ...(conversationId ? { conversation_id: conversationId } : {}),
       });
       const data = resp as any;
+      const newConvId = data.conversation_id || conversationId;
+      if (newConvId && !conversationId) {
+        setConversationId(newConvId);
+      }
       setCoachMessages((m) => [...m, {
         id: Date.now(),
         question: q,
         answer: data.message,
         referenced_sessions: data.referenced_sessions || [],
+        workout_draft: data.workout_draft,
       }]);
       setCoachSource(data.source || "fallback");
     } catch {
@@ -199,6 +240,12 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
     } finally {
       setCoachLoading(false);
     }
+  };
+
+  const handleUseWorkout = async (draft: any) => {
+    // Workout draft is already visible above. In a future update this will
+    // convert the draft into a real template the user can start.
+    alert("Workout preview saved to this chat. Template creation coming soon — for now you can see the full plan above.");
   };
 
   const phaseColor = (phase?: string) => {
@@ -285,8 +332,8 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
                 <span className="text-2xl">💪</span>
               </div>
               <h3 className="text-base font-semibold text-slate-300 mb-1">Ask your coach anything</h3>
-              <p className="text-xs text-slate-500 max-w-[260px] mb-5">
-                I know your workout history, program phase, and current prescription. Just ask.
+              <p className="text-xs text-slate-500 max-w-[280px] mb-5">
+                I know your workout history, program phase, and current prescription. I can also build workouts tailored to your profile.
               </p>
               <div className="flex flex-wrap justify-center gap-2">
                 {SUGGESTED_QUESTIONS.map((q) => (
@@ -320,6 +367,37 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
                       <div className="text-sm text-slate-200 leading-relaxed whitespace-pre-wrap bg-slate-900/60 border border-slate-800/60 rounded-2xl rounded-tl-sm px-3.5 py-2.5">
                         {m.answer}
                       </div>
+
+                      {/* Workout draft card */}
+                      {m.workout_draft && (
+                        <div className="rounded-xl border border-emerald-800/60 bg-emerald-950/40 p-3 space-y-2">
+                          <div className="text-xs font-semibold text-emerald-300 mb-1">
+                            {m.workout_draft.name || "Generated Workout"}
+                          </div>
+                          {m.workout_draft.groups?.map((group: any, gi: number) => (
+                            <div key={gi} className="space-y-1">
+                              {group.name && (
+                                <div className="text-[11px] text-emerald-400/80 font-medium">{group.name}</div>
+                              )}
+                              {group.exercises?.map((ex: any, ei: number) => (
+                                <div key={ei} className="flex items-center justify-between text-[11px]">
+                                  <span className="text-slate-400 truncate">{ex.name}</span>
+                                  <span className="text-slate-500 ml-2 shrink-0">
+                                    {ex.sets_target && ex.reps_target ? `${ex.sets_target}×${ex.reps_target}` : ""}
+                                    {ex.start_weight ? ` @ ${formatWeight(ex.start_weight, units)}` : ""}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
+                          ))}
+                          <button
+                            onClick={() => handleUseWorkout(m.workout_draft)}
+                            className="mt-2 w-full rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold py-2 transition-colors active:scale-[0.98]"
+                          >
+                            Use this workout
+                          </button>
+                        </div>
+                      )}
 
                       {/* Referenced workout cards */}
                       {m.referenced_sessions && m.referenced_sessions.length > 0 && (
@@ -387,7 +465,7 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
               void handleCoachQuestion();
             }
           }}
-          placeholder="Ask about your training..."
+          placeholder="Ask about your training or request a workout..."
           disabled={coachLoading}
           className="flex-1 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-60"
         />

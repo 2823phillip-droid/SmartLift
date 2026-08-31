@@ -411,11 +411,17 @@ export const api = {
   getCoachState: () => request("/coach/state"),
   getCoachHealth: () => request("/coach/health"),
 
-  coachChat: (data: { question: string; template_id?: number; session_id?: number }) =>
+  coachChat: (data: { question: string; template_id?: number; session_id?: number; conversation_id?: number }) =>
     request("/coach/chat", {
       method: "POST",
       body: JSON.stringify(data),
     }),
+
+  listAiCoachConversations: () => request("/ai-coach/conversations"),
+  createAiCoachConversation: () =>
+    request("/ai-coach/conversations", { method: "POST" }),
+  getAiCoachMessages: (conversationId: number) =>
+    request(`/ai-coach/conversations/${conversationId}/messages`),
 
   nextPrescription: (data: {
     start_weight: number;

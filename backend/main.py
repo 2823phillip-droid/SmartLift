@@ -2304,6 +2304,21 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
     if not api_key:
         return CoachChatResponse(message="Coach is not configured. Add NOUS_API_KEY to backend .env.", source="offline")
 
+    # Conversation history
+    conversation = None
+    chat_history: list[dict] = []
+    if payload.conversation_id:
+        conversation = db.query(AiCoachConversation).filter(
+            AiCoachConversation.id == payload.conversation_id,
+            AiCoachConversation.user_id == current_user.id,
+        ).first()
+        if conversation:
+            past = db.query(AiCoachMessage).filter(
+                AiCoachMessage.conversation_id == conversation.id,
+            ).order_by(AiCoachMessage.timestamp.asc()).limit(20).all()
+            for m in past:
+                chat_history.append({"role": "user" if m.role.value == "pre_workout" else "assistant", "content": m.content})
+
     # Gather context: last 20 completed sessions for this template (or any template if not specified)
     sessions_q = (
         db.query(WorkoutSession)
@@ -2341,7 +2356,6 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
             })
         duration_seconds = (s.ended_at - s.started_at).total_seconds() if s.ended_at and s.started_at else 0
         duration_min = round(duration_seconds / 60) if duration_seconds > 0 else 0
-        # Sanity cap so broken timestamps don't pollute coach context
         if duration_min > 360:
             duration_min = 360
         session_summaries.append({
@@ -2382,6 +2396,72 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
             fitness_profile = json.loads(raw)
     except Exception:
         fitness_profile = {}
+
+    # User identity
+    user_name = None
+    if current_user.first_name:
+        user_name = current_user.first_name.split()[0]
+
+    # Computed insights
+    insights: dict[str, Any] = {}
+    try:
+        # Days since last session
+        last_session = (
+            db.query(WorkoutSession.started_at)
+            .filter(WorkoutSession.user_id == current_user.id, WorkoutSession.ended_at.is_not(None))
+            .order_by(WorkoutSession.started_at.desc())
+            .first()
+        )
+        if last_session and last_session.started_at:
+            now = datetime.now(timezone.utc)
+            last_dt = last_session.started_at
+            if last_dt.tzinfo is None:
+                last_dt = last_dt.replace(tzinfo=timezone.utc)
+            insights["days_since_last_session"] = max(0, (now - last_dt).days)
+
+        # Current streak (consecutive days with sessions in last 30 days)
+        from datetime import timedelta
+        thirty_days_ago = now - timedelta(days=30)
+        recent_dates = sorted([
+            s.started_at.date()
+            for s in db.query(WorkoutSession.started_at)
+            .filter(WorkoutSession.user_id == current_user.id, WorkoutSession.ended_at.is_not(None), WorkoutSession.started_at >= thirty_days_ago)
+            .all()
+            if s.started_at
+        ])
+        streak = 0
+        if recent_dates:
+            streak = 1
+            for i in range(1, len(recent_dates)):
+                if (recent_dates[i] - recent_dates[i-1]).days == 1:
+                    streak += 1
+                else:
+                    streak = 1
+        insights["current_streak"] = streak
+
+        # Volume trend: last 4 sessions avg vs previous 4 sessions avg
+        if len(session_summaries) >= 4:
+            recent_vols = [sum(e.get("volume", 0) for e in s["exercises"]) for s in session_summaries[:4]]
+            older_vols = [sum(e.get("volume", 0) for e in s["exercises"]) for s in session_summaries[4:8]] if len(session_summaries) >= 8 else []
+            recent_avg = sum(recent_vols) / len(recent_vols) if recent_vols else 0
+            older_avg = sum(older_vols) / len(older_vols) if older_vols else 0
+            if older_avg > 0:
+                insights["volume_trend_pct"] = round((recent_avg - older_avg) / older_avg * 100, 1)
+            else:
+                insights["volume_trend_pct"] = 0
+
+        # Most trained muscle groups
+        muscle_counts: dict[str, int] = {}
+        for s in session_summaries:
+            for ex in s["exercises"]:
+                mg = exercise_library.get(ex["name"], {}).get("muscle_group")
+                if mg:
+                    muscle_counts[mg] = muscle_counts.get(mg, 0) + 1
+        if muscle_counts:
+            top_muscles = sorted(muscle_counts.items(), key=lambda x: x[1], reverse=True)[:3]
+            insights["top_muscle_groups"] = [m[0] for m in top_muscles]
+    except Exception:
+        pass
 
     # Current coach state from persisted settings + computed load
     coach_state_data: dict[str, Any] = {}
@@ -2499,7 +2579,7 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
         except Exception:
             prescription = None
 
-    # Convert weights in LLM context to user's preferred unit so the LLM doesn't have to guess
+    # Convert weights in LLM context to user's preferred unit
     units_preference = "imperial"
     try:
         raw_profile = current_user.fitness_profile
@@ -2547,14 +2627,68 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
     llm_prescription = _convert_prescription(prescription)
     unit_label = "lbs" if units_preference == "imperial" else "kg"
 
+    # Build user identity block
+    identity_block = ""
+    if user_name:
+        identity_block = f"The user's name is {user_name}. Address them by name naturally in your response."
+
+    # Build insights block
+    insights_lines = []
+    if insights.get("days_since_last_session") is not None:
+        insights_lines.append(f"- Days since last session: {insights['days_since_last_session']}")
+    if insights.get("current_streak"):
+        insights_lines.append(f"- Current workout streak: {insights['current_streak']} sessions")
+    if insights.get("volume_trend_pct") is not None:
+        direction = "up" if insights["volume_trend_pct"] > 0 else "down" if insights["volume_trend_pct"] < 0 else "flat"
+        insights_lines.append(f"- Volume trend: {direction} {abs(insights['volume_trend_pct'])}% vs previous period")
+    if insights.get("top_muscle_groups"):
+        insights_lines.append(f"- Most trained muscle groups: {', '.join(insights['top_muscle_groups'])}")
+    insights_block = "\n".join(insights_lines) if insights_lines else "No computed insights available yet."
+
     system_prompt = f"""You are Askeo Coach — a knowledgeable, motivating training coach.
+{identity_block}
+
 You ONLY answer questions about fitness, strength training, workout programming, recovery, nutrition as it relates to training, exercise form, and the user's training history.
 If the user asks about anything outside fitness (politics, general knowledge, personal advice unrelated to training, jokes, stories, etc.), politely decline and redirect them to a fitness-related topic.
+
 Use the provided JSON context ONLY. Do not invent data. If context is missing, say so.
-Be concise and actionable. Prefer bullet points for trends and tips.
-Tone: direct, encouraging, no fluff.
-IMPORTANT: Do not lead your response with a workout history recap. Only reference specific sessions, weights, or exercises when the user explicitly asks about them or when it's essential to answer their question. If the question is general (e.g., "should I do cardio"), answer it directly without summarizing recent workouts.
-START by checking the user_profile block for units_preference, then follow it for every weight and distance you mention. If units_preference is imperial, all weights in this context are already in lbs — do not convert them again. If metric, they are in kg. Never mix units in the same response unless the user asks for a conversion."""
+
+PERSONALITY:
+- Be substantive and thoughtful, not robotic. Responses should feel like a real coach talking to you.
+- Ask follow-up questions when it helps the user think deeper about their training.
+- Reference patterns and trends you see in their data. Be specific.
+- If something looks off (plateau, declining volume, long gap since last session), mention it naturally.
+- Help the user reflect: "How did that feel?" "What's your goal for this week?"
+
+IMPORTANT RULES:
+- Do not lead your response with a workout history recap. Only reference specific sessions, weights, or exercises when the user explicitly asks about them or when it's essential to answer their question.
+- START by checking the user_profile block for units_preference, then follow it for every weight and distance you mention. If units_preference is imperial, all weights in this context are already in lbs — do not convert them again. If metric, they are in kg. Never mix units in the same response unless the user asks for a conversion.
+
+COMPUTED INSIGHTS (use these to add value):
+{insights_block}
+
+WORKOUT GENERATION:
+If the user asks you to build, create, or generate a workout, plan, or program, call the generate_workout tool with any overrides they requested (focus, goal, days_per_week, etc.). The tool will return a structured workout draft. Present the draft clearly to the user and explain why you chose those exercises."""
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "generate_workout",
+                "description": "Generate a personalized workout plan based on the user's saved fitness profile, with optional overrides. Use this when the user asks you to build, create, or generate a workout, plan, or program.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "focus": {"type": "string", "description": "Focus area or muscle group to emphasize (e.g., 'upper', 'lower', 'push', 'pull', 'core')"},
+                        "days_per_week": {"type": "integer", "description": "Override days per week"},
+                        "minutes_per_session": {"type": "integer", "description": "Override session duration in minutes"},
+                        "goal": {"type": "string", "description": "Override primary goal (e.g., 'strength', 'hypertrophy', 'endurance', 'weight_loss')"},
+                        "notes": {"type": "string", "description": "Additional context for the generation"},
+                    },
+                },
+            },
+        }
+    ]
 
     # Guard: block clearly off-topic questions before hitting the LLM (save cost)
     fitness_keywords = [
@@ -2575,7 +2709,6 @@ START by checking the user_profile block for units_preference, then follow it fo
         "profile", "settings", "units", "imperial", "metric", "pounds", "lbs", "kg", "kilogram",
     ]
     question_lower = payload.question.lower()
-    # Allow short/ambiguous questions; only block clearly off-topic long questions
     if len(payload.question) > 20:
         words = set(question_lower.split())
         if not words & set(fitness_keywords):
@@ -2583,6 +2716,7 @@ START by checking the user_profile block for units_preference, then follow it fo
                 message="I'm here to help with your training, workouts, and fitness goals. Ask me about your program, a specific session, recovery, or how to hit your next PR.",
                 source="fallback",
                 referenced_sessions=[],
+                conversation_id=payload.conversation_id,
             )
 
     context = {
@@ -2595,26 +2729,36 @@ START by checking the user_profile block for units_preference, then follow it fo
     }
 
     message = None
+    workout_draft = None
     llm_status = "error"
     llm_error = None
     prompt_tokens = None
     completion_tokens = None
+
     for attempt in range(1):
         try:
             logger.info("[coach_chat] Nous request model=NousResearch/Hermes-4-70B key_prefix=%s", api_key[:12] if api_key else "NONE")
+            messages = [{"role": "system", "content": system_prompt}]
+            messages.extend(chat_history)
+            messages.append({"role": "user", "content": json.dumps(context)})
+
+            request_body = {
+                "model": "NousResearch/Hermes-4-70B",
+                "messages": messages,
+                "max_tokens": 1200,
+                "temperature": 0.7,
+            }
+            # Only include tools if the question looks like a workout generation request
+            workout_keywords = {"build", "create", "generate", "make", "design", "plan", "write", "new workout", "workout plan", "program"}
+            if words & workout_keywords or any(k in question_lower for k in ["build me", "create a", "generate a", "make me a", "write me a", "design a"]):
+                request_body["tools"] = tools
+                request_body["tool_choice"] = {"type": "function", "function": {"name": "generate_workout"}}
+
             resp = httpx.post(
                 "https://inference-api.nousresearch.com/v1/chat/completions",
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-                json={
-                    "model": "NousResearch/Hermes-4-70B",
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": json.dumps(context)},
-                    ],
-                    "max_tokens": 600,
-                    "temperature": 0.7,
-                },
-                timeout=15,
+                json=request_body,
+                timeout=20,
             )
             logger.info("[coach_chat] Nous response status=%s body=%s", resp.status_code, resp.text[:200])
             if resp.status_code == 429:
@@ -2623,7 +2767,31 @@ START by checking the user_profile block for units_preference, then follow it fo
                 break
             resp.raise_for_status()
             data = resp.json()
-            message = data["choices"][0]["message"]["content"]
+            choice = data["choices"][0]["message"]
+
+            # Handle tool call for workout generation
+            if choice.get("tool_calls"):
+                tool_call = choice["tool_calls"][0]
+                if tool_call["function"]["name"] == "generate_workout":
+                    try:
+                        args = json.loads(tool_call["function"]["arguments"])
+                        profile_answers = dict(fitness_profile)
+                        profile_answers.update({k: v for k, v in args.items() if v is not None})
+                        draft, _ = build_full_draft(db, profile_answers, current_user.id)
+                        workout_draft = draft
+                        focus_text = ""
+                        if args.get("focus"):
+                            focus_text = f" with a focus on {args['focus']}"
+                        base_msg = f"I built a workout based on your profile{focus_text}. Here's what I came up with:"
+                        message = args.get("notes") and base_msg or "I built a workout based on your current profile. Here's what I came up with:"
+                    except Exception as tool_err:
+                        logger.error("[coach_chat] generate_workout tool error: %s", tool_err)
+                        message = "I tried to generate that workout but ran into an issue. Could you try again, or let me know if you want to adjust your profile first?"
+                else:
+                    message = choice.get("content") or "I can help with that. Could you tell me more about what you're looking for?"
+            else:
+                message = choice.get("content") or ""
+
             llm_status = "success"
             prompt_tokens = data.get("usage", {}).get("prompt_tokens")
             completion_tokens = data.get("usage", {}).get("completion_tokens")
@@ -2681,9 +2849,55 @@ START by checking the user_profile block for units_preference, then follow it fo
         return CoachChatResponse(message=message, source="fallback", referenced_sessions=[
             {"id": s["id"], "template_name": s.get("template_name"), "date": s.get("date"), "exercises": s.get("exercises", [])[:3]}
             for s in session_summaries[:3]
-        ])
+        ], conversation_id=payload.conversation_id)
 
-    return CoachChatResponse(message=message, source="llm", referenced_sessions=[])
+    # Save to conversation history if conversation_id provided
+    conv_id = payload.conversation_id
+    if conversation is None and payload.conversation_id is None:
+        # Auto-create a conversation for AI trainer chat
+        try:
+            new_conv = AiCoachConversation(user_id=current_user.id, title=payload.question[:60])
+            db.add(new_conv)
+            db.commit()
+            db.refresh(new_conv)
+            conv_id = new_conv.id
+        except Exception:
+            conv_id = None
+
+    if conv_id:
+        try:
+            conv = db.query(AiCoachConversation).filter(
+                AiCoachConversation.id == conv_id,
+                AiCoachConversation.user_id == current_user.id,
+            ).first()
+            if conv:
+                # Auto-title from first user message
+                if not conv.title:
+                    conv.title = payload.question[:60]
+                db.add(AiCoachMessage(
+                    conversation_id=conv.id,
+                    role=CoachRole.pre_workout,
+                    content=payload.question,
+                ))
+                db.add(AiCoachMessage(
+                    conversation_id=conv.id,
+                    role=CoachRole.post_workout,
+                    content=message,
+                    message_type="workout_draft" if workout_draft else "text",
+                    extra_data=workout_draft,
+                ))
+                conv.updated_at = datetime.now(timezone.utc)
+                db.commit()
+        except Exception:
+            db.rollback()
+
+    return CoachChatResponse(
+        message=message,
+        source="llm",
+        referenced_sessions=[],
+        conversation_id=conv_id,
+        workout_draft=workout_draft,
+    )
 
 
 def get_admin_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)) -> User:
