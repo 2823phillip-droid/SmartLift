@@ -2382,18 +2382,20 @@ Tailor recommendations to their fitness profile, current phase, and training age
 
     # Guard: block clearly off-topic questions before hitting the LLM (save cost)
     fitness_keywords = [
-        "workout", "exercise", "lift", "weight", "rep", "set", "gym", "training", "train",
+        "workout", "exercise", "lift", "weight", "rep", "set", "gym", "training", "trained",
         "strength", "muscle", "cardio", "run", "squat", "bench", "deadlift", "press", "row",
         "recovery", "rest", "deload", "program", "phase", "block", "progression", "load",
-        "RPE", "RIR", "effort", "form", "volume", "frequency", "routine", "plan", "goal",
-        "fitness", "health", "nutrition", "diet", "protein", "calories", "sleep", "sore",
+        "effort", "form", "volume", "frequency", "routine", "plan", "goal",
+        "fitness", "nutrition", "protein", "calories", "sleep", "sore",
         "injury", "pain", "warmup", "stretch", "mobility", "flexibility", "endurance",
-        "cardio", "hiit", "bootcamp", "crossfit", "olympic", "powerlift", "bodybuild",
+        "hiit", "bootcamp", "crossfit", "olympic", "powerlift", "bodybuild",
         "weightlifting", "barbell", "dumbbell", "kettlebell", "machine", "cable", "pullup",
         "pushup", "plank", "burpee", "lunge", "hip", "knee", "shoulder", "back", "chest",
         "arm", "leg", "core", "ab", "glute", "calf", "quad", "hamstring", "lat", "trap",
         "bicep", "tricep", "forearm", "neck", "ankle", "wrist", "elbow",
-        "how", "what", "why", "should", "can", "my", "me", "I", "progress", "focus", "recover",
+        "progress", "focus", "recover", "PR", "personal record", "oneRM", "1RM",
+        "preworkout", "pre-workout", "postworkout", "post-workout", "supplement",
+        "bulk", "cut", "lean", "mass", "definition", "tone",
     ]
     question_lower = payload.question.lower()
     # Allow short/ambiguous questions; only block clearly off-topic long questions
