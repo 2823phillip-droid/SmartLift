@@ -81,6 +81,7 @@ export default function HomeScreen() {
   const [open, setOpen] = useState(false);
   const [addingName, setAddingName] = useState<string | null>(null);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [timeframe, setTimeframe] = useState<Timeframe>("all");
   const [streak, setStreak] = useState<number | null>(null);
   const [totalVolume, setTotalVolume] = useState<number | null>(null);
@@ -121,33 +122,28 @@ export default function HomeScreen() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    setStatsLoading(true);
     Promise.all([
       withRetry(() => api.getTotalVolume(), { retries: 3, baseDelayMs: 500 }),
       withRetry(() => api.getStreak(), { retries: 3, baseDelayMs: 500 }),
       withRetry(() => api.getCoachState(), { retries: 3, baseDelayMs: 500 }),
     ]).then(([vol, s, coach]) => {
+      if (cancelled) return;
       setTotalVolume((vol as any)?.total_volume ?? null);
       setStreak((s as any)?.streak ?? null);
       setLoadPct((coach as any)?.coach_load_pct ?? null);
       setDeloadMode((coach as any)?.coach_deload_mode ?? null);
-      setLastError(null);
+      setStatsLoading(false);
     }).catch((err) => {
-      setTotalVolume(null);
-      setStreak(null);
-      setLoadPct(null);
-      setDeloadMode(null);
-      const serialized =
-        typeof err === "object" && err !== null
-          ? JSON.stringify({
-              name: err.name,
-              message: err.message,
-              stack: String(err.stack).slice(0, 200),
-              url: (err as any).url || undefined,
-              status: (err as any).status || undefined,
-            }).slice(0, 300)
-          : String(err).slice(0, 300);
-      setLastError(serialized);
+      if (cancelled) return;
+      setStatsLoading(false);
+      const msg = (err as Error)?.message || String(err);
+      if (!/load failed|network error|cors|failed to fetch|AUTH_TIMEOUT/i.test(msg)) {
+        setLastError(msg.slice(0, 300));
+      }
     });
+    return () => { cancelled = true; };
   }, []);
 
   const addedNames = useMemo(() => new Set(widgets.map((w) => w.name)), [widgets]);
@@ -230,15 +226,15 @@ export default function HomeScreen() {
       <div className="grid grid-cols-3 gap-3">
         <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
           <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1">Streak</div>
-          <div className="text-xl font-bold">{streak !== null ? `${streak} day${streak === 1 ? '' : 's'}` : '--'}</div>
+          <div className="text-xl font-bold">{streak !== null ? `${streak} day${streak === 1 ? '' : 's'}` : (statsLoading ? '...' : '--')}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
           <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1">Total volume</div>
-          <div className="text-xl font-bold">{totalVolume !== null ? formatWeight(totalVolume, getUnitsPreference()) : '--'}</div>
+          <div className="text-xl font-bold">{totalVolume !== null ? formatWeight(totalVolume, getUnitsPreference()) : (statsLoading ? '...' : '--')}</div>
         </div>
         <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4">
           <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500 mb-1">Load</div>
-          <div className="text-xl font-bold">{loadPct !== null ? `${loadPct}%` : '--'}</div>
+          <div className="text-xl font-bold">{loadPct !== null ? `${loadPct}%` : (statsLoading ? '...' : '--')}</div>
           <div className="mt-2 h-1.5 rounded-full bg-slate-800 overflow-hidden">
             <div
               className={`h-full rounded-full transition-all ${
@@ -259,7 +255,7 @@ export default function HomeScreen() {
         </div>
       </div>
 
-      {lastError && (
+      {lastError && !statsLoading && (
         <div className="rounded-xl border border-rose-800 bg-rose-950/40 p-3 text-xs text-rose-300">
           STATS_DIAG: {lastError}
         </div>
