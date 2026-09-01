@@ -340,7 +340,7 @@ export const api = {
   getExerciseProgress: (exerciseId: number) =>
     request(`/exercises/${exerciseId}/progress`),
   getExerciseNameProgress: (name: string) =>
-    request(`/exercise-names/${encodeURIComponent(name)}/progress`),
+    request(`/exercise-names/${encodeURIComponent(name)}/progress?t=${Date.now()}`),
   getExerciseNames: () => request("/exercise-names"),
   getExerciseNameLastSession: (name: string) =>
     request(`/exercise-names/${encodeURIComponent(name)}/last-session`),
