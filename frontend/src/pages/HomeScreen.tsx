@@ -96,6 +96,30 @@ export default function HomeScreen() {
     saveWidgets(widgets);
   }, [widgets]);
 
+  const refreshWidgets = async (names: string[]) => {
+    const results = await Promise.all(
+      names.map((name) =>
+        withRetry(() => api.getExerciseNameProgress(name), { retries: 3, baseDelayMs: 500 }).catch(
+          () => null
+        )
+      )
+    );
+    setWidgets((prev) =>
+      prev.map((w, idx) => {
+        const fresh = results[idx];
+        if (!fresh || fresh.points.length === 0) return w;
+        return { name: fresh.name, points: fresh.points, seeded: fresh.seeded };
+      })
+    );
+  };
+
+  useEffect(() => {
+    const names = widgets.map((w) => w.name);
+    if (names.length > 0) {
+      refreshWidgets(names);
+    }
+  }, []);
+
   useEffect(() => {
     Promise.all([
       withRetry(() => api.getTotalVolume(), { retries: 3, baseDelayMs: 500 }),
