@@ -44,7 +44,8 @@ export function computeLoad(history: SetRecord[], windowDays: number = 21): numb
     totalScore += sessionScore;
   }
 
-  return Math.min(100, Math.floor(totalScore));
+  const numSessions = Object.keys(sessions).length;
+  return Math.min(100, Math.floor(totalScore / Math.max(numSessions, 8)));
 }
 
 export interface RuleInput {
@@ -629,11 +630,11 @@ function detectStalls(history: SetRecord[]): boolean {
 }
 
 function shouldForceDeload(history: SetRecord[], week: number, cycleWeeks: number, loadPct: number = 0, deloadMode: string = "ai_driven"): boolean {
-  if (loadPct >= 100) return true;
   if (deloadMode === "calendar" && cycleWeeks > 0 && week > 0) {
     return week % cycleWeeks === 0;
   }
-  return detectStalls(history);
+  // AI-driven: require both sustained load AND a visible plateau/stall pattern
+  return loadPct >= 70 && detectStalls(history);
 }
 
 function progressionFromHistory(history: SetRecord[], fallback: CoachPhase): CoachPhase {
