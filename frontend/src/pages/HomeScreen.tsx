@@ -101,7 +101,10 @@ export default function HomeScreen() {
     const results = await Promise.all(
       names.map((name) =>
         withRetry(() => api.getExerciseNameProgress(name), { retries: 3, baseDelayMs: 500 }).catch(
-          () => null
+          (err) => {
+            setLastError(`Widget refresh failed for ${name}: ${(err as Error)?.message || String(err)}`.slice(0, 200));
+            return null;
+          }
         )
       )
     );
