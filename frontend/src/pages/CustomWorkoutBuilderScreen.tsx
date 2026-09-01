@@ -3,7 +3,6 @@ import { api, withRetry } from "../api";
 import { log } from "../utils/logger";
 import { toTitle } from "../utils/format";
 import type { ExerciseLibraryItem } from "../types";
-import { getUnitsPreference, lbsToKg } from "../utils/units";
 import {
   DndContext,
   closestCenter,
