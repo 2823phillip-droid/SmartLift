@@ -133,6 +133,14 @@
 - [ ] UI: small mic button in `ActiveWorkoutScreen`; hold to talk, release to send; no always-on listening
 - [ ] Value prop: avoid phone pickup/manual logging mid-set; talk to coach like a real trainer would
 
+### AI Trainer UI Redesign
+- [ ] Redesign `AiTrainerScreen.tsx` to modern split-pane layout inspired by Claude/ChatGPT advanced mode
+- [ ] Desktop/tablet: left pane (~40%) for conversation, right pane (~60%) for context
+- [ ] Right pane surfaces referenced workouts, current prescription, draft previews, and session cards based on AI context
+- [ ] Mobile: single pane with tab or swipeable bottom sheet to toggle between Chat and Context
+- [ ] Inline cards in chat for referenced workouts/drafts; right pane shows detailed view
+- [ ] Typography, spacing, and bubble design updated to feel modern and intelligent, not legacy chatbot
+
 ### AI profile engine
 - [ ] Collect user progress signals: adherence, completion rate, RPE/RIR trends, stall frequency, recovery indicators, workout consistency
 - [ ] Extract session feedback from AI coach chat: when user comments on how a workout felt vs last time, capture RPE, form quality, comparison, soreness, enjoyment, equipment issues as structured session metadata
