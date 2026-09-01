@@ -43,8 +43,6 @@ export default function ProgressWidget({ widget, onRemove, units }: { widget: Wi
   const delta = prevWeight !== undefined ? latest?.weight != null ? latest.weight - prevWeight : null : null;
   const showDelta = !widget.seeded && delta !== null && delta !== 0;
   const unitsPref = units ?? getUnitsPreference();
-  const firstDate = visible[0]?.date;
-  const lastDate = latest?.date;
 
   const chartData = visible.map((p) => ({
     date: p.date,
@@ -65,9 +63,6 @@ export default function ProgressWidget({ widget, onRemove, units }: { widget: Wi
       <div className="pr-10">
         <div className="text-[10px] font-semibold uppercase tracking-widest text-slate-500">Trend</div>
         <div className="text-sm font-semibold text-slate-200 mt-1">{widget.name}</div>
-        <div className="text-[10px] text-slate-600 mt-0.5">
-          points: {visible.length} | {firstDate ? `${fmtShortDate(firstDate)} → ${fmtShortDate(lastDate || firstDate)}` : 'no dates'}
-        </div>
       </div>
       <div className="flex items-baseline gap-2 mt-2">
         <span className="text-xl font-bold">{latest?.weight != null ? fmtWeight(latest.weight, unitsPref) : "--"}</span>
