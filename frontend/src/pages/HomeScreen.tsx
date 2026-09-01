@@ -63,6 +63,14 @@ const TIMEFRAME_MS: Record<Timeframe, number> = {
   all: Infinity,
 };
 
+function fmtShortDate(iso: string) {
+  const d = new Date(iso);
+  if (d.getFullYear() === new Date().getFullYear()) {
+    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  }
+  return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+}
+
 function filterPoints(points: { date: string; weight: number; reps: number }[], timeframe: Timeframe) {
   if (timeframe === "all") return points;
   const cutoff = Date.now() - TIMEFRAME_MS[timeframe];
@@ -98,6 +106,7 @@ export default function HomeScreen() {
   }, [widgets]);
 
   const refreshWidgets = async (names: string[]) => {
+    setWidgetRefreshRunning(true);
     const results = await Promise.all(
       names.map((name) =>
         withRetry(() => api.getExerciseNameProgress(name), { retries: 3, baseDelayMs: 500 }).catch(
@@ -115,6 +124,7 @@ export default function HomeScreen() {
         return { name: fresh.name, points: fresh.points, seeded: fresh.seeded };
       })
     );
+    setWidgetRefreshRunning(false);
   };
 
   useEffect(() => {
@@ -182,6 +192,7 @@ export default function HomeScreen() {
   );
 
   const [isDragActive, setIsDragActive] = useState(false);
+  const [widgetRefreshRunning, setWidgetRefreshRunning] = useState(false);
 
   function handleDragStart() {
     setIsDragActive(true);
@@ -286,13 +297,34 @@ export default function HomeScreen() {
       <div className="space-y-3">
         <div className="flex items-center justify-between">
           <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold px-1">Goals</div>
-          <button
-            onClick={loadPicker}
-            className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-indigo-800 bg-indigo-950/40 text-indigo-200 hover:border-indigo-500/60 transition-colors"
-          >
-            + Add Widget
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => refreshWidgets(widgets.map((w) => w.name))}
+              disabled={widgetRefreshRunning || widgets.length === 0}
+              className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-slate-800 bg-slate-900/60 text-slate-300 hover:text-slate-200 transition-colors disabled:opacity-60"
+            >
+              {widgetRefreshRunning ? "Refreshing..." : "Refresh"}
+            </button>
+            <button
+              onClick={loadPicker}
+              className="text-xs font-semibold px-3 py-1.5 rounded-xl border border-indigo-800 bg-indigo-950/40 text-indigo-200 hover:border-indigo-500/60 transition-colors"
+            >
+              + Add Widget
+            </button>
+          </div>
         </div>
+
+        {widgets.length > 0 && (
+          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-[11px] text-slate-500 space-y-1">
+            <div className="text-slate-400 font-semibold">Widget debug</div>
+            {widgets.map((w) => (
+              <div key={w.name} className="flex items-center justify-between">
+                <span className="text-slate-300 truncate mr-2">{w.name}</span>
+                <span className="text-slate-500">{w.points.length} point{w.points.length === 1 ? '' : 's'}{w.points[0] ? ` · ${fmtShortDate(w.points[0].date)} → ${fmtShortDate(w.points[w.points.length - 1].date)}` : ''}</span>
+              </div>
+            ))}
+          </div>
+        )}
 
         {widgets.length === 0 && !open && (
           <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/20 p-6 text-center">
