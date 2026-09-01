@@ -81,10 +81,14 @@ async function request(path: string, options: RequestInit = {}) {
       if (typeof window !== "undefined") localStorage.setItem("askeo_token", refreshed.token);
       headers["Authorization"] = `Bearer ${refreshed.token}`;
       return await makeRequest(base);
-    } catch {
-      setAuthToken(null);
-      if (typeof window !== "undefined") {
-        localStorage.removeItem("askeo_token");
+    } catch (err: any) {
+      const status = err?.status;
+      const isAuthFailure = status === 401 || status === 403;
+      if (isAuthFailure) {
+        setAuthToken(null);
+        if (typeof window !== "undefined") {
+          localStorage.removeItem("askeo_token");
+        }
       }
       throw err;
     }
