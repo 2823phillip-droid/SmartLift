@@ -63,14 +63,6 @@ const TIMEFRAME_MS: Record<Timeframe, number> = {
   all: Infinity,
 };
 
-function fmtShortDate(iso: string) {
-  const d = new Date(iso);
-  if (d.getFullYear() === new Date().getFullYear()) {
-    return d.toLocaleDateString(undefined, { month: "short", day: "numeric" });
-  }
-  return d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
-}
-
 function filterPoints(points: { date: string; weight: number; reps: number }[], timeframe: Timeframe) {
   if (timeframe === "all") return points;
   const cutoff = Date.now() - TIMEFRAME_MS[timeframe];
@@ -313,18 +305,6 @@ export default function HomeScreen() {
             </button>
           </div>
         </div>
-
-        {widgets.length > 0 && (
-          <div className="rounded-xl border border-slate-800 bg-slate-900/40 p-3 text-[11px] text-slate-500 space-y-1">
-            <div className="text-slate-400 font-semibold">Widget debug</div>
-            {widgets.map((w) => (
-              <div key={w.name} className="flex items-center justify-between">
-                <span className="text-slate-300 truncate mr-2">{w.name}</span>
-                <span className="text-slate-500">{w.points.length} point{w.points.length === 1 ? '' : 's'}{w.points[0] ? ` · ${fmtShortDate(w.points[0].date)} → ${fmtShortDate(w.points[w.points.length - 1].date)}` : ''}</span>
-              </div>
-            ))}
-          </div>
-        )}
 
         {widgets.length === 0 && !open && (
           <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/20 p-6 text-center">
