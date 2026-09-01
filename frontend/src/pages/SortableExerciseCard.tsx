@@ -1,7 +1,7 @@
 import { useSortable } from "@dnd-kit/sortable";
 import { GripVertical } from "lucide-react";
 import type { ExerciseEntry, SetLog } from "../types";
-import { formatWeight, getUnitsPreference } from "../utils/units";
+import { formatWeight, getUnitsPreference, weightInputPlaceholder } from "../utils/units";
 import { resolveMediaUrl } from "../api";
 import type { Prescription } from "../rules";
 
@@ -285,7 +285,7 @@ export function SortableExerciseCard({
                               (next as HTMLInputElement | undefined)?.focus();
                             }
                           }}
-                          placeholder="Weight"
+                          placeholder={`Weight (${weightInputPlaceholder(getUnitsPreference())})`}
                           className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-slate-50 focus:border-indigo-500 focus:outline-none"
                         />
                         <div className="text-[10px] text-slate-500 text-center mt-1 uppercase tracking-wider">Weight</div>

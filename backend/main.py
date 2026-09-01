@@ -2663,12 +2663,12 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
     if units_preference not in {"imperial", "metric"}:
         units_preference = "imperial"
 
-    def _to_display_weight(kg_value: float | None) -> float | None:
-        if kg_value is None:
+    def _to_display_weight(lbs_value: float | None) -> float | None:
+        if lbs_value is None:
             return None
-        if units_preference == "imperial":
-            return round(kg_value / 0.45359237, 1)
-        return round(kg_value, 1)
+        if units_preference == "metric":
+            return round(lbs_value * 0.45359237, 1)
+        return round(lbs_value, 1)
 
     def _convert_session_summary(summary: dict) -> dict:
         out = dict(summary)
@@ -2679,7 +2679,7 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
             converted["top_weight"] = _to_display_weight(tw)
             vol = ex.get("volume")
             if vol is not None and tw is not None:
-                converted["volume"] = round(vol / 0.45359237) if units_preference == "imperial" else round(vol)
+                converted["volume"] = round(vol) if units_preference == "imperial" else round(vol * 0.45359237)
             converted_exercises.append(converted)
         out["exercises"] = converted_exercises
         return out
