@@ -152,7 +152,7 @@ export default function App() {
     if (stored) {
       setAuthToken(stored);
     }
-    const AUTH_TIMEOUT_MS = 6000;
+    const AUTH_TIMEOUT_MS = 30000;
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => reject(new Error("AUTH_TIMEOUT")), AUTH_TIMEOUT_MS);
     });
@@ -181,9 +181,13 @@ export default function App() {
           } else {
             setView("home");
           }
-        } catch {
-          setAuthToken(null);
-          if (typeof window !== "undefined") localStorage.removeItem("askeo_token");
+        } catch (err: any) {
+          const status = err?.status;
+          const isAuthFailure = status === 401 || status === 403;
+          if (isAuthFailure) {
+            setAuthToken(null);
+            if (typeof window !== "undefined") localStorage.removeItem("askeo_token");
+          }
           setView("login");
         } finally {
           if (!cancelled) setCheckingAuth(false);
@@ -193,8 +197,7 @@ export default function App() {
     ]).catch(() => {
       if (!cancelled) {
         setCheckingAuth(false);
-        setAuthToken(null);
-        if (typeof window !== "undefined") localStorage.removeItem("askeo_token");
+        // Don't destroy the stored token on timeout — network may be temporarily unavailable.
         setView("login");
       }
     });
