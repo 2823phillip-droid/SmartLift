@@ -517,9 +517,7 @@ export default function HistoryScreen({
                                       editingLog.sessionId,
                                       editingLog.log,
                                       {
-                                        actual_weight: getUnitsPreference() === "imperial"
-                                          ? lbsToKg((editingLog.log as any).actual_weight)
-                                          : (editingLog.log as any).actual_weight,
+                                        actual_weight: (editingLog.log as any).actual_weight,
                                         actual_reps: (editingLog.log as any).actual_reps,
                                         effort: (editingLog.log as any).effort,
                                         notes: (editingLog.log as any).notes,
