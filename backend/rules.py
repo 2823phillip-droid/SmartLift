@@ -63,7 +63,8 @@ def compute_load(history: List[SetRecord], window_days: int = 21) -> int:
         session_score = (effort / 4) * 50 + min(sets / 8, 1.0) * 50
         total_score += session_score
 
-    return min(100, int(total_score))
+    num_sessions = len(sessions)
+    return min(100, int(total_score / max(num_sessions, 8)))
 
 
 @dataclass(frozen=True)
@@ -664,11 +665,10 @@ def _detect_stalls(history: List[SetRecord], hard_effort_threshold: int) -> bool
 
 
 def _should_force_deload(history: List[SetRecord], week: int, periodization_cycle_weeks: int, load_pct: int = 0, deload_mode: str = "ai_driven") -> bool:
-    if load_pct >= 100:
-        return True
     if deload_mode == "calendar" and periodization_cycle_weeks > 0 and week > 0:
         return (week % periodization_cycle_weeks) == 0
-    return _detect_stalls(history, hard_effort_threshold=4)
+    # AI-driven: require both sustained load AND a visible plateau/stall pattern
+    return load_pct >= 70 and _detect_stalls(history, hard_effort_threshold=4)
 
 
 def _progression_from_history(history: List[SetRecord], default_type: str) -> str:
