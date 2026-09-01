@@ -125,8 +125,20 @@
 - [ ] If AI profile does not show verifiable improvement over deterministic baseline, default deterministic behavior remains the user-facing path
 - [ ] User can reset AI profile to default or disable AI personalization at any time
 
+### Live Workout Voice Coach
+- [ ] Add optional push-to-talk voice input during active workouts for hands-free logging and coaching
+- [ ] Scope during live workout: weight/reps/sets adjustments, RPE/form feedback, exercise swaps — same constraints as chat `modify_workout`
+- [ ] Optional TTS voice output so AI can speak confirmations and coaching cues without looking at screen
+- [ ] Text remains primary input and fallback; voice is additive only
+- [ ] UI: small mic button in `ActiveWorkoutScreen`; hold to talk, release to send; no always-on listening
+- [ ] Value prop: avoid phone pickup/manual logging mid-set; talk to coach like a real trainer would
+
 ### AI profile engine
 - [ ] Collect user progress signals: adherence, completion rate, RPE/RIR trends, stall frequency, recovery indicators, workout consistency
+- [ ] Extract session feedback from AI coach chat: when user comments on how a workout felt vs last time, capture RPE, form quality, comparison, soreness, enjoyment, equipment issues as structured session metadata
+- [ ] Chat extraction flow: AI recognizes feedback intent → confirms summary to user → optionally writes to completed workout session metadata
+- [ ] Reuse extracted chat metadata in future `generate_workout` / `modify_workout` calls as progression signals
+- [ ] Skip redundant post-workout questionnaire when equivalent feedback already captured in chat
 - [ ] Design deterministic feature extraction from workout history so AI input is stable and reproducible
 - [ ] Choose local or backend AI profile generation:
   - Option A: On-device lightweight model/profile generator runs offline after each workout
