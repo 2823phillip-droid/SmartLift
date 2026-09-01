@@ -3,7 +3,7 @@ import { Capacitor } from "@capacitor/core";
 import { Browser } from "@capacitor/browser";
 import { api, resolveMediaUrl } from "../api";
 import { log } from "../utils/logger";
-import { getUnitsPreference, lbsToKg, kgToLbs } from "../utils/units";
+import { getUnitsPreference, lbsToKg } from "../utils/units";
 import { toTitle } from "../utils/format";
 import type { ExerciseLibraryItem, WorkoutTemplate } from "../types";
 import {

@@ -60,7 +60,6 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
   const [coachSource, setCoachSource] = useState<string>("offline");
   const [exerciseMap, setExerciseMap] = useState<Record<number, string>>({});
   const [conversationId, setConversationId] = useState<number | null>(null);
-  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
 
   const units = getUnitsPreference();
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -244,7 +243,7 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
     }
   };
 
-  const handleUseWorkout = async (draft: any) => {
+  const handleUseWorkout = async (_draft: any) => {
     // Workout draft is already visible above. In a future update this will
     // convert the draft into a real template the user can start.
     alert("Workout preview saved to this chat. Template creation coming soon — for now you can see the full plan above.");
