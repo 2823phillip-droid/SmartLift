@@ -79,6 +79,7 @@ export default function ActiveWorkoutScreen({
   const [pendingGroupExercises, setPendingGroupExercises] = useState<ExerciseEntry[]>([]);
 
   const restTimerRef = useRef<number | null>(null);
+  const restEndTimeRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
   const lastLoggedSetRef = useRef<Record<number, SetLog>>({});
   const loggedSetCountRef = useRef<Record<number, number>>({});
@@ -318,7 +319,9 @@ export default function ActiveWorkoutScreen({
           const match = sessionLogs.find((l: any) => l.set_index === completedCount + 1);
           console.log("[ActiveWorkoutScreen] auto-expand", target.id, target.name, "completedCount", completedCount, "match", match);
           if (match) {
-            const displayWeight = getUnitsPreference() === "imperial" ? Math.round(match.actual_weight) : Math.round(match.actual_weight);
+            const displayWeight = getUnitsPreference() === "imperial"
+            ? Math.round(match.actual_weight)
+            : Math.round(lbsToKg(match.actual_weight || 0));
             setDraftWeight(String(displayWeight));
             setDraftReps(String(match.actual_reps));
             console.log("[ActiveWorkoutScreen] auto-expand prefilled", displayWeight, "x", match.actual_reps);
@@ -329,7 +332,7 @@ export default function ActiveWorkoutScreen({
               : target.start_weight;
             const displayWeight = getUnitsPreference() === "imperial"
               ? Math.round(lastWeight)
-              : Math.round(lastWeight);
+              : Math.round(lbsToKg(lastWeight));
             setDraftWeight(String(displayWeight));
             setDraftReps(String(target.reps_target));
             console.log("[ActiveWorkoutScreen] auto-expand default", displayWeight, "x", target.reps_target);
@@ -459,7 +462,7 @@ export default function ActiveWorkoutScreen({
     }
     const lastLog = lastLoggedSetRef.current[entry.id] || logs.filter(l => l.exercise_entry_id === entry.id).pop();
     if (lastLog) {
-      const prevWeightLbs = kgToLbs(lastLog.actual_weight || 0);
+      const prevWeightLbs = lastLog.actual_weight || 0;
       const suggested = withinWorkoutProgression({
         prevWeight: prevWeightLbs,
         prevReps: lastLog.actual_reps || entry.reps_target,
@@ -473,8 +476,8 @@ export default function ActiveWorkoutScreen({
     const prescription = prescriptions[entry.id];
   if (prescription) {
       const displayWeight = getUnitsPreference() === "imperial"
-        ? Math.round(kgToLbs(prescriptions[entry.id].next_weight) * 10) / 10
-        : Math.round(prescriptions[entry.id].next_weight);
+        ? Math.round(prescriptions[entry.id].next_weight)
+        : Math.round(lbsToKg(prescriptions[entry.id].next_weight));
       return { weight: displayWeight, reps: prescription.next_reps };
     }
     const defaultWeight = getUnitsPreference() === "imperial"
@@ -541,21 +544,39 @@ export default function ActiveWorkoutScreen({
       window.clearInterval(restTimerRef.current);
       restTimerRef.current = null;
     }
+    restEndTimeRef.current = null;
   };
 
   const startRest = (seconds: number) => {
     clearRestTimer();
+    const endTime = Date.now() + seconds * 1000;
+    restEndTimeRef.current = endTime;
     setRestSeconds(seconds);
-    let remaining = seconds;
     restTimerRef.current = window.setInterval(() => {
-      remaining -= 1;
+      const remaining = Math.max(0, Math.ceil((restEndTimeRef.current! - Date.now()) / 1000));
       setRestSeconds(remaining);
       if (remaining <= 0) {
         clearRestTimer();
         setRestSeconds(null);
       }
-    }, 1000);
+    }, 250);
   };
+
+  // Recalculate rest timer when app returns to foreground (phone unlock, tab switch back)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible" && restEndTimeRef.current) {
+        const remaining = Math.max(0, Math.ceil((restEndTimeRef.current - Date.now()) / 1000));
+        setRestSeconds(remaining);
+        if (remaining <= 0) {
+          clearRestTimer();
+          setRestSeconds(null);
+        }
+      }
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
+  }, []);
 
   const expandExercise = (exercise: ExerciseEntry) => {
     setExpandedExerciseId(exercise.id);
@@ -566,8 +587,8 @@ export default function ActiveWorkoutScreen({
     const match = sessionLogs.find((l) => l.set_index === completedCount + 1);
     if (match && completedCount > 0) {
       const displayWeight = getUnitsPreference() === "imperial"
-        ? Math.round(kgToLbs(match.actual_weight) * 10) / 10
-        : Math.round(match.actual_weight);
+        ? Math.round(match.actual_weight)
+        : Math.round(lbsToKg(match.actual_weight || 0));
       setDraftWeight(String(displayWeight));
       setDraftReps(String(match.actual_reps));
       setDraftRpe(8);
@@ -579,8 +600,8 @@ export default function ActiveWorkoutScreen({
     const prescription = prescriptions[exercise.id];
     if (prescription) {
       const displayWeight = getUnitsPreference() === "imperial"
-        ? Math.round(kgToLbs(prescription.next_weight) * 10) / 10
-        : Math.round(prescription.next_weight);
+        ? Math.round(prescription.next_weight)
+        : Math.round(lbsToKg(prescription.next_weight));
       setDraftWeight(String(displayWeight));
       setDraftReps(String(prescription.next_reps));
     } else {
@@ -628,7 +649,7 @@ export default function ActiveWorkoutScreen({
     let numValue = typeof value === "string" ? parseFloat(value) : value;
     if (field === "actual_weight") {
       if (Number.isNaN(numValue) || numValue < 0) return;
-      if (getUnitsPreference() === "imperial") numValue = lbsToKg(numValue);
+      if (getUnitsPreference() === "metric") numValue = kgToLbs(numValue);
     } else if (field === "actual_reps") {
       if (Number.isNaN(numValue) || numValue < 1) return;
     } else if (field === "effort") {
@@ -666,7 +687,7 @@ export default function ActiveWorkoutScreen({
     const w = parseFloat(draftWeight);
     const r = parseInt(draftReps, 10);
     const units = getUnitsPreference();
-    const weightKg = units === "imperial" ? lbsToKg(w) : w;
+    const weightLbs = units === "imperial" ? w : kgToLbs(w);
     const suggestions = parseSetSuggestions(currentExercise);
     const existing = logs.filter((l: SetLog) => l.exercise_entry_id === currentExercise.id).length;
     const setIndex = existing + 1;
@@ -675,14 +696,14 @@ export default function ActiveWorkoutScreen({
     const nextTarget = getNextSetTarget(currentExercise);
 
     try {
-      const suggestedWeightKg = getUnitsPreference() === "imperial" ? lbsToKg(nextTarget.weight) : nextTarget.weight;
+      const suggestedWeightLbs = getUnitsPreference() === "imperial" ? nextTarget.weight : kgToLbs(nextTarget.weight);
       const log = await api.createSetLog({
         session_id: sessionId,
         exercise_entry_id: currentExercise.id,
         set_index: setIndex,
-        suggested_weight: sugg?.weight ?? suggestedWeightKg,
+        suggested_weight: sugg?.weight ?? suggestedWeightLbs,
         suggested_reps: sugg?.reps ?? nextTarget.reps,
-        actual_weight: weightKg,
+        actual_weight: weightLbs,
         actual_reps: r,
         rpe: draftRpe ?? undefined,
         form_quality: draftFormQuality,
@@ -742,7 +763,7 @@ export default function ActiveWorkoutScreen({
     setNotes("");
     setShowNotes(false);
     if (!exerciseIsDone && !workoutIsDone) {
-      const prevWeightLbs = toLbs(weightKg);
+      const prevWeightLbs = toLbs(weightLbs);
       const nextTarget = withinWorkoutProgression({
         prevWeight: prevWeightLbs,
         prevReps: r,
@@ -782,7 +803,7 @@ export default function ActiveWorkoutScreen({
     if (nextExercise) {
       const prescription = prescriptions[nextExercise.id];
       const target = prescription
-        ? { weight: Math.round(kgToLbs(prescription.next_weight) * 10) / 10, reps: prescription.next_reps }
+        ? { weight: Math.round(prescription.next_weight * 10) / 10, reps: prescription.next_reps }
         : getNextSetTarget(nextExercise);
       return {
         name: nextExercise.name,
