@@ -22,6 +22,8 @@ import TabBar, { type Tab } from "./components/TabBar";
 import DebugLogScreen from "./pages/DebugLogScreen";
 import CustomWorkoutBuilderScreen from "./pages/CustomWorkoutBuilderScreen";
 import AiTrainerScreen from "./pages/AiTrainerScreen";
+import TimerScreen from "./pages/TimerScreen";
+import RemindersScreen from "./pages/RemindersScreen";
 
 type View =
   | "home"
@@ -42,7 +44,9 @@ type View =
   | "debug_log"
   | "questionnaire"
   | "transition_history"
-  | "custom_builder";
+  | "custom_builder"
+  | "timer"
+  | "reminders";
 
 const tabRootToView: Record<Tab, View> = {
   home: "home",
@@ -72,6 +76,8 @@ const viewToTab: Record<View, Tab | null> = {
   questionnaire: null,
   transition_history: "workouts",
   custom_builder: "workouts",
+  timer: "home",
+  reminders: "home",
 };
 
 export default function App() {
@@ -315,6 +321,8 @@ export default function App() {
       case "active_workout":
       case "post_workout":
       case "transition_history":
+      case "timer":
+      case "reminders":
       default:
         return "home";
     }
@@ -398,7 +406,7 @@ export default function App() {
         ) : (
           <div className="view-enter-active">
             <ErrorBoundary>
-              {view === "home" && <HomeScreen />}
+              {view === "home" && <HomeScreen onNavigate={setView} />}
               {view === "build_workout" && (
                 <BuildWorkoutScreen
                 onBack={goBack}
@@ -594,6 +602,8 @@ export default function App() {
                 user={user}
               />
             )}
+            {view === "timer" && <TimerScreen onBack={goBack} />}
+            {view === "reminders" && <RemindersScreen onBack={goBack} />}
           </ErrorBoundary>
         </div>
       )}

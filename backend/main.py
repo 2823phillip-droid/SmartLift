@@ -41,7 +41,7 @@ from models import (
     WorkoutLibrary, WorkoutLibraryExercise, BodyWeightLog, AITrainerAdjustment, CoachUsageLog,
     AiCoachConversation, AiCoachMessage
 )
-from rules import compute_prescription, RuleInput, SetRecord, Prescription, WorkloadStatus, ProgressionType, compute_coach_state, CoachState
+from rules import compute_prescription, RuleInput, SetRecord, Prescription, WorkloadStatus, ProgressionType, compute_coach_state, CoachState, evaluate_phase_effectiveness, PhaseRecommendation
 from services.generation import build_full_draft
 from exercise_whitelist import _canonical_name
 
@@ -2181,6 +2181,48 @@ def get_coach_state(db: Session = Depends(get_db), current_user: User = Depends(
     )
 
 
+class PhaseRecommendationOut(BaseModel):
+    current_phase: str
+    recommended_phase: str
+    reason: str
+    confidence: str
+    should_switch: bool
+
+
+@app.get("/api/coach/phase-recommendation", response_model=PhaseRecommendationOut)
+def get_phase_recommendation(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    # Load current phase setting
+    phase_setting = db.query(AppSetting).filter(AppSetting.key == "coach_phase", AppSetting.user_id == current_user.id).first()
+    current_phase = phase_setting.value if phase_setting and phase_setting.value else "linear"
+
+    # Load recent set history
+    raw_sets = (
+        db.query(SetLog.actual_weight, SetLog.actual_reps, SetLog.effort, SetLog.rir, SetLog.completed_at, SetLog.is_seeded)
+        .filter(SetLog.user_id == current_user.id, SetLog.is_seeded == False)
+        .all()
+    )
+    history = [
+        SetRecord(
+            actual_weight=s.actual_weight or 0,
+            actual_reps=s.actual_reps or 0,
+            effort=s.effort,
+            rir=s.rir,
+            completed_at=s.completed_at,
+            is_seeded=False,
+        )
+        for s in raw_sets
+    ]
+
+    rec = evaluate_phase_effectiveness(history, current_phase)
+    return PhaseRecommendationOut(
+        current_phase=rec.current_phase,
+        recommended_phase=rec.recommended_phase,
+        reason=rec.reason,
+        confidence=rec.confidence,
+        should_switch=rec.should_switch,
+    )
+
+
 class CoachChatRequest(BaseModel):
     question: str
     template_id: Optional[int] = None
@@ -2619,6 +2661,19 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
             "deload_mode": out.get("coach_deload_mode"),
             "load_pct": load_pct,
         }
+
+        # Phase monitor recommendation
+        try:
+            phase_rec = evaluate_phase_effectiveness(history, coach_state_data.get("phase") or "linear")
+            coach_state_data["phase_recommendation"] = {
+                "current_phase": phase_rec.current_phase,
+                "recommended_phase": phase_rec.recommended_phase,
+                "reason": phase_rec.reason,
+                "confidence": phase_rec.confidence,
+                "should_switch": phase_rec.should_switch,
+            }
+        except Exception:
+            pass
     except Exception:
         pass
 
@@ -2778,8 +2833,11 @@ WORKOUT GENERATION:
 If the user asks you to build, create, or generate a workout, plan, or program, call the generate_workout tool with any overrides they requested (focus, goal, days_per_week, etc.). The tool will return a structured workout draft. Present the draft clearly to the user and explain why you chose those exercises.
 
 WORKOUT MODIFICATIONS:
-If the user asks you to modify, adjust, change, drop, swap, increase, or decrease something in their current workout or prescription, call the modify_workout tool. Pass the current_prescription from the context and a list of changes they requested. The tool will return a modified workout draft with the applied changes. Present the modified draft and clearly explain what you changed and why."""
+If the user asks you to modify, adjust, change, drop, swap, increase, or decrease something in their current workout or prescription, call the modify_workout tool. Pass the current_prescription from the context and a list of changes they requested. The tool will return a modified workout draft with the applied changes. Present the modified draft and clearly explain what you changed and why.
 
+PROGRESSION MODEL SWITCHING:
+If the user asks about switching progression models, phases, blocks, or training styles, or if the phase_recommendation in the context indicates should_switch=true, present the recommendation to the user conversationally. Explain what the current model is, what the recommended model is, and why you're recommending it. Ask the user if they want to switch. If they agree, call the switch_phase tool with the recommended phase.
+"""
     tools = [
         {
             "type": "function",
@@ -2826,6 +2884,24 @@ If the user asks you to modify, adjust, change, drop, swap, increase, or decreas
                         }
                     },
                     "required": ["current_prescription", "changes"]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "switch_phase",
+                "description": "Switch the user's progression model to a new phase. Use this when the user agrees to change their training phase based on the phase_recommendation.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "phase": {
+                            "type": "string",
+                            "enum": ["linear", "double", "percentage", "autoregulated"],
+                            "description": "The progression phase to switch to"
+                        },
+                    },
+                    "required": ["phase"]
                 }
             }
         }
@@ -2964,6 +3040,38 @@ If the user asks you to modify, adjust, change, drop, swap, increase, or decreas
                     except Exception as tool_err:
                         logger.error("[coach_chat] modify_workout tool error: %s", tool_err)
                         message = "I tried to modify your workout but ran into an issue. Could you try again?"
+                elif tool_call["function"]["name"] == "switch_phase":
+                    try:
+                        args = json.loads(tool_call["function"]["arguments"])
+                        new_phase = args.get("phase")
+                        if new_phase not in {"linear", "double", "percentage", "autoregulated"}:
+                            message = f"'{new_phase}' isn't a valid progression model. Valid options are: linear, double, percentage, autoregulated."
+                        else:
+                            keys = {
+                                "coach_phase": new_phase,
+                                "coach_week_in_block": "1",
+                                "coach_force_deload": "false",
+                                "coach_periodization_cycle_weeks": "4",
+                                "coach_deload_mode": "ai_driven",
+                            }
+                            for key, value in keys.items():
+                                s = db.query(AppSetting).filter(AppSetting.key == key, AppSetting.user_id == current_user.id).first()
+                                if s:
+                                    s.value = value
+                                else:
+                                    s = AppSetting(key=key, value=value, user_id=current_user.id)
+                                    db.add(s)
+                            db.commit()
+                            logger.info(json.dumps({
+                                "type": "coach",
+                                "event": "switch_phase_tool",
+                                "user_id": current_user.id,
+                                "new_phase": new_phase,
+                            }))
+                            message = f"Done — I've switched your progression model to {new_phase}. We'll start fresh with this new approach in your next workout."
+                    except Exception as tool_err:
+                        logger.error("[coach_chat] switch_phase tool error: %s", tool_err)
+                        message = "I tried to switch your phase but ran into an issue. You can also change it manually in Settings."
                 else:
                     message = choice.get("content") or "I can help with that. Could you tell me more about what you're looking for?"
             else:

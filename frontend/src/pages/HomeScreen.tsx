@@ -75,7 +75,31 @@ export type Widget = {
   seeded?: boolean;
 };
 
-export default function HomeScreen() {
+type View =
+  | "home"
+  | "workouts"
+  | "build_workout"
+  | "templates"
+  | "template_editor"
+  | "pre_workout"
+  | "active_workout"
+  | "post_workout"
+  | "history"
+  | "settings"
+  | "library"
+  | "ai_trainer"
+  | "profile"
+  | "login"
+  | "signup"
+  | "debug_log"
+  | "questionnaire"
+  | "transition_history"
+  | "custom_builder"
+  | "timer"
+  | "reminders";
+
+export default function HomeScreen({ onNavigate }: { onNavigate?: (view: View) => void } = {}) {
+  const navigate = onNavigate || (() => {});
   const [widgets, setWidgets] = useState<Widget[]>(loadWidgets);
   const [allExercises, setAllExercises] = useState<string[]>([]);
   const [open, setOpen] = useState(false);
@@ -87,6 +111,7 @@ export default function HomeScreen() {
   const [totalVolume, setTotalVolume] = useState<number | null>(null);
   const [loadPct, setLoadPct] = useState<number | null>(null);
   const [deloadMode, setDeloadMode] = useState<string | null>(null);
+  const [phaseRec, setPhaseRec] = useState<{ current_phase: string; recommended_phase: string; reason: string; confidence: string; should_switch: boolean } | null>(null);
 
   const filteredWidgets = useMemo(
     () => widgets.map((w) => ({ ...w, points: filterPoints(w.points, timeframe) })),
@@ -133,12 +158,14 @@ export default function HomeScreen() {
       withRetry(() => api.getTotalVolume(), { retries: 3, baseDelayMs: 500 }),
       withRetry(() => api.getStreak(), { retries: 3, baseDelayMs: 500 }),
       withRetry(() => api.getCoachState(), { retries: 3, baseDelayMs: 500 }),
-    ]).then(([vol, s, coach]) => {
+      withRetry(() => api.getPhaseRecommendation(), { retries: 3, baseDelayMs: 500 }),
+    ]).then(([vol, s, coach, rec]) => {
       if (cancelled) return;
       setTotalVolume((vol as any)?.total_volume ?? null);
       setStreak((s as any)?.streak ?? null);
       setLoadPct((coach as any)?.coach_load_pct ?? null);
       setDeloadMode((coach as any)?.coach_deload_mode ?? null);
+      setPhaseRec(rec || null);
       setStatsLoading(false);
     }).catch((err) => {
       if (cancelled) return;
@@ -267,7 +294,51 @@ export default function HomeScreen() {
         </div>
       )}
 
+      {phaseRec && phaseRec.should_switch && (
+        <div className="rounded-2xl border border-indigo-800 bg-indigo-950/40 p-5 space-y-3">
+          <div className="text-xs text-indigo-400 font-semibold uppercase tracking-widest">Coach Recommendation</div>
+          <div className="text-sm text-slate-200">
+            Consider switching from <span className="font-semibold capitalize">{phaseRec.current_phase}</span> to{" "}
+            <span className="font-semibold capitalize text-indigo-300">{phaseRec.recommended_phase}</span> progression.
+          </div>
+          <div className="text-xs text-slate-400 leading-relaxed">{phaseRec.reason}</div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => {
+                navigate("ai_trainer");
+              }}
+              className="flex-1 rounded-xl border border-indigo-700 bg-indigo-950/40 px-3 py-2.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-900/40 active:scale-[0.98] transition-all"
+            >
+              Discuss with Coach
+            </button>
+            <button
+              onClick={() => setPhaseRec(null)}
+              className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 active:scale-[0.98] transition-all"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
       <BodyWeightWidget timeframe={timeframe} />
+
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={() => navigate("timer")}
+          className="rounded-2xl border border-slate-700 bg-slate-900 p-4 text-left hover:border-indigo-500/60 active:scale-[0.98] transition-all"
+        >
+          <div className="text-sm font-semibold text-slate-200">Timer</div>
+          <div className="text-[11px] text-slate-500 mt-1">Countdown / stretching</div>
+        </button>
+        <button
+          onClick={() => navigate("reminders")}
+          className="rounded-2xl border border-slate-700 bg-slate-900 p-4 text-left hover:border-indigo-500/60 active:scale-[0.98] transition-all"
+        >
+          <div className="text-sm font-semibold text-slate-200">Reminders</div>
+          <div className="text-[11px] text-slate-500 mt-1">Supplements & to-dos</div>
+        </button>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {TIMEFRAMES.map((t) => (

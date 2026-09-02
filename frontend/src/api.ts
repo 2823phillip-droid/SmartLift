@@ -477,6 +477,8 @@ export const api = {
 
   listProgressionTransitions: () => request("/progression/transitions"),
 
+  getPhaseRecommendation: () => request("/coach/phase-recommendation"),
+
   aiNextSuggestion: (data: {
     session_id: number;
     context: string;
