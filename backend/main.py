@@ -1934,6 +1934,16 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
     else:
         db.add(AppSetting(key="coach_load_pct", value=load_val, user_id=current_user.id))
 
+    # Persist the computed phase so subsequent calls use the current phase
+    # instead of a stale stored value.
+    phase_setting = db.query(AppSetting).filter(
+        AppSetting.key == "coach_phase", AppSetting.user_id == current_user.id
+    ).first()
+    if phase_setting:
+        phase_setting.value = coach_state.phase  # type: ignore[assignment]
+    else:
+        db.add(AppSetting(key="coach_phase", value=coach_state.phase, user_id=current_user.id))
+
     if payload.exercise_entry_id is not None:
         state = db.query(AlgorithmState).filter(
             AlgorithmState.user_id == current_user.id,
@@ -2099,8 +2109,26 @@ def get_coach_state(db: Session = Depends(get_db), current_user: User = Depends(
     for s in db.query(AppSetting).filter(AppSetting.key.in_(keys), AppSetting.user_id == current_user.id).all():
         out[s.key] = s.value
 
-    # Derive actual elapsed weeks from completed session dates rather than a stored counter.
-    # This prevents the UI from showing an artificially advanced week after testing.
+    # Derive block-relative week from the most recent progression transition so
+    # phase blocks reset when the user changes modes instead of using total elapsed
+    # weeks which would cause premature rotation for existing users.
+    now = datetime.now(timezone.utc)
+    transition_week: Optional[int] = None
+    transition = (
+        db.query(ProgressionTransition)
+        .filter(ProgressionTransition.user_id == current_user.id)
+        .order_by(ProgressionTransition.created_at.desc())
+        .first()
+    )
+    if transition:
+        oldest_transition = transition.created_at
+        if oldest_transition.tzinfo is None:
+            oldest_transition = oldest_transition.replace(tzinfo=timezone.utc)
+        elapsed_days = max(0, (now - oldest_transition).days)
+        transition_week = elapsed_days // 7 + 1
+
+    # Also compute total elapsed weeks from oldest completed workout for calendar-mode
+    # deload calculations (used in compute_coach_state for date-derived logic).
     computed_week: Optional[int] = None
     sessions = (
         db.query(WorkoutSession.started_at)
@@ -2112,9 +2140,11 @@ def get_coach_state(db: Session = Depends(get_db), current_user: User = Depends(
         oldest = sessions[0].started_at
         if oldest.tzinfo is None:
             oldest = oldest.replace(tzinfo=timezone.utc)
-        now = datetime.now(timezone.utc)
         elapsed_days = max(0, (now - oldest).days)
         computed_week = elapsed_days // 7 + 1
+
+    # Use transition-relative week if available, otherwise fall back to total elapsed weeks.
+    block_week = transition_week if transition_week is not None else computed_week
 
     # Compute load from recent set history
     load_pct = 0
@@ -2142,7 +2172,7 @@ def get_coach_state(db: Session = Depends(get_db), current_user: User = Depends(
 
     return CoachStateResponseOut(
         coach_phase=out.get("coach_phase"),
-        coach_week_in_block=computed_week if computed_week is not None else (int(out["coach_week_in_block"]) if out.get("coach_week_in_block") else None),
+        coach_week_in_block=block_week if block_week is not None else (int(out["coach_week_in_block"]) if out.get("coach_week_in_block") else None),
         coach_force_deload=out.get("coach_force_deload") == "true" if out.get("coach_force_deload") else None,
         coach_periodization_cycle_weeks=int(out["coach_periodization_cycle_weeks"]) if out.get("coach_periodization_cycle_weeks") else None,
         coach_custom_phase_order=json.loads(out["coach_custom_phase_order"]) if out.get("coach_custom_phase_order") else None,
