@@ -370,16 +370,8 @@ def _percentage_rule(rule: RuleInput, top_set) -> Prescription:
 
     one_rm = rule.ai_calibrated_1rm or rule.estimated_1rm
     if one_rm is None or one_rm <= 0:
-        msg = "Missing 1RM. Falling back to base weight."
-        return Prescription(
-            next_weight=max(5.0, float(rule.start_weight)),
-            next_reps=int(rule.reps_target),
-            next_sets=int(rule.sets_target),
-            rest_seconds=rest,
-            coaching_message=msg,
-            workload_status=WorkloadStatus.moderate,
-            prescription_type=ProgressionType.percentage.value,
-        )
+        msg = "Missing 1RM. Falling back to linear progression for this session."
+        return _linear_rule(rule, top_set)
 
     base = float(one_rm * rule.percentage_of_1rm)
     if top_set is None:
