@@ -329,9 +329,12 @@ export default function ActiveWorkoutScreen({
             console.log("[ActiveWorkoutScreen] auto-expand prefilled", displayWeight, "x", match.actual_reps);
           } else {
             const lastSession = sessionResolved[target.id] || [];
-            const lastWeight = lastSession.length > 0
-              ? Math.max(...lastSession.map((s: any) => s.actual_weight || 0))
-              : target.start_weight;
+            const firstSet = lastSession.find((l: any) => l.set_index === 1) || lastSession[0];
+            const lastWeight = firstSet
+              ? firstSet.actual_weight
+              : (lastSession.length > 0
+                ? Math.max(...lastSession.map((s: any) => s.actual_weight || 0))
+                : target.start_weight);
 
             // Compute prescription inline so the draft reflects the coaching algorithm
             // instead of blindly showing the last session's top set weight.
@@ -566,6 +569,24 @@ export default function ActiveWorkoutScreen({
     restEndTimeRef.current = null;
   };
 
+  const playRestEndChime = () => {
+    try {
+      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.frequency.value = 880;
+      osc.type = "sine";
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.8);
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.8);
+    } catch {
+      // no-op if audio is blocked
+    }
+  };
+
   const startRest = (seconds: number) => {
     clearRestTimer();
     const endTime = Date.now() + seconds * 1000;
@@ -577,6 +598,7 @@ export default function ActiveWorkoutScreen({
       if (remaining <= 0) {
         clearRestTimer();
         setRestSeconds(null);
+        playRestEndChime();
       }
     }, 250);
   };
@@ -590,6 +612,7 @@ export default function ActiveWorkoutScreen({
         if (remaining <= 0) {
           clearRestTimer();
           setRestSeconds(null);
+          playRestEndChime();
         }
       }
     };
@@ -604,12 +627,25 @@ export default function ActiveWorkoutScreen({
     const sessionLogs = lastSessionByExercise[exercise.id] || [];
     console.log("[ActiveWorkoutScreen] expandExercise", exercise.id, exercise.name, "completedCount", completedCount, "sessionLogs", sessionLogs);
     const match = sessionLogs.find((l) => l.set_index === completedCount + 1);
-    if (match && completedCount > 0) {
+    if (match) {
       const displayWeight = getUnitsPreference() === "imperial"
         ? Math.round(match.actual_weight)
         : Math.round(lbsToKg(match.actual_weight || 0));
       setDraftWeight(String(displayWeight));
       setDraftReps(String(match.actual_reps));
+      setDraftRpe(8);
+      setDraftFormQuality(0);
+      setNotes("");
+      setShowNotes(false);
+      return;
+    }
+    const firstSet = sessionLogs.find((l: any) => l.set_index === 1) || sessionLogs[0];
+    if (firstSet) {
+      const displayWeight = getUnitsPreference() === "imperial"
+        ? Math.round(firstSet.actual_weight)
+        : Math.round(lbsToKg(firstSet.actual_weight || 0));
+      setDraftWeight(String(displayWeight));
+      setDraftReps(String(firstSet.actual_reps));
       setDraftRpe(8);
       setDraftFormQuality(0);
       setNotes("");
@@ -809,6 +845,19 @@ export default function ActiveWorkoutScreen({
     const nextSetIndex = existing + 1;
 
     if (nextSetIndex <= resolveDisplayTarget(currentExercise)) {
+      // Prefer the live draft values so the rest timer matches what the user sees
+      // when they expand the exercise. Fall back to computed target if the draft
+      // hasn't been populated yet.
+      const w = parseFloat(draftWeight);
+      const r = parseInt(draftReps, 10);
+      if (!Number.isNaN(w) && w > 0 && !Number.isNaN(r) && r > 0) {
+        return {
+          name: currentExercise.name,
+          set: nextSetIndex,
+          weight: Math.round(w * 10) / 10,
+          reps: r,
+        };
+      }
       const target = getNextSetTarget(currentExercise);
       return {
         name: currentExercise.name,
@@ -820,10 +869,7 @@ export default function ActiveWorkoutScreen({
 
     const nextExercise = exercises.find(e => e.id !== currentExercise.id && (exerciseCompletedCount[e.id] || 0) < resolveDisplayTarget(e));
     if (nextExercise) {
-      const prescription = prescriptions[nextExercise.id];
-      const target = prescription
-        ? { weight: Math.round(prescription.next_weight * 10) / 10, reps: prescription.next_reps }
-        : getNextSetTarget(nextExercise);
+      const target = getNextSetTarget(nextExercise);
       return {
         name: nextExercise.name,
         set: 1,

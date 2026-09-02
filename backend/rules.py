@@ -826,3 +826,141 @@ def compute_coach_state(
         ),
     )
     return state
+
+
+@dataclass
+class PhaseRecommendation:
+    current_phase: str
+    recommended_phase: str
+    reason: str
+    confidence: str  # "high", "medium", "low"
+    should_switch: bool
+
+
+def evaluate_phase_effectiveness(history: List[SetRecord], current_phase: str) -> PhaseRecommendation:
+    """Analyze recent set history and recommend whether to keep or change progression model."""
+    real = _recent_real_sets(history, limit=20)
+    if not real:
+        return PhaseRecommendation(
+            current_phase=current_phase,
+            recommended_phase=current_phase,
+            reason="No training history yet. Keep current model.",
+            confidence="low",
+            should_switch=False,
+        )
+
+    # Count patterns
+    hard_sets = [s for s in real if (s.effort or 0) >= 4 and (s.rir is None or s.rir <= 0)]
+    grinds = [s for s in real if s.rir is not None and s.rir <= 0]
+    successes = [s for s in real if s.rir is not None and s.rir >= 1 and (s.effort is None or s.effort <= 3)]
+    missed_reps = [s for s in real if s.actual_reps is not None and s.rir is not None and s.rir <= 0 and (s.effort or 0) >= 4]
+
+    # Phase-specific evaluation
+    if current_phase == "linear":
+        if len(hard_sets) >= 3 and len(missed_reps) >= 2:
+            return PhaseRecommendation(
+                current_phase="linear",
+                recommended_phase="double",
+                reason=f"You've had {len(hard_sets)} hard sets with missed reps. Double Progression keeps the weight but increases the rep target to push through plateaus without adding more stress.",
+                confidence="high",
+                should_switch=True,
+            )
+        if len(grinds) >= 4:
+            return PhaseRecommendation(
+                current_phase="linear",
+                recommended_phase="percentage",
+                reason=f"You've been grinding on {len(grinds)} sets. Percentage-based training adjusts load dynamically based on your 1RM, which can help break through stubborn plateaus.",
+                confidence="high",
+                should_switch=True,
+            )
+        if len(successes) >= 8:
+            return PhaseRecommendation(
+                current_phase="linear",
+                recommended_phase="linear",
+                reason="You're consistently hitting your targets with good form. Keep linear progression going.",
+                confidence="high",
+                should_switch=False,
+            )
+        return PhaseRecommendation(
+            current_phase="linear",
+            recommended_phase="linear",
+            reason="Linear progression is still appropriate. Keep building volume and consistency.",
+            confidence="medium",
+            should_switch=False,
+        )
+
+    if current_phase == "double":
+        if len(hard_sets) >= 3 and len(missed_reps) >= 2:
+            return PhaseRecommendation(
+                current_phase="double",
+                recommended_phase="percentage",
+                reason=f"Double progression is still showing {len(hard_sets)} hard sets. Percentage-based training will modulate intensity based on your current 1RM to reduce fatigue while maintaining volume.",
+                confidence="high",
+                should_switch=True,
+            )
+        if len(successes) >= 6:
+            return PhaseRecommendation(
+                current_phase="double",
+                recommended_phase="linear",
+                reason=f"You've broken through the plateau with {len(successes)} strong sets. You can return to linear progression with the new weight you've built.",
+                confidence="medium",
+                should_switch=True,
+            )
+        return PhaseRecommendation(
+            current_phase="double",
+            recommended_phase="double",
+            reason="Double progression is working. Keep pushing the rep targets.",
+            confidence="medium",
+            should_switch=False,
+        )
+
+    if current_phase == "percentage":
+        if len(successes) >= 6 and len(hard_sets) <= 1:
+            return PhaseRecommendation(
+                current_phase="percentage",
+                recommended_phase="linear",
+                reason=f"You're cruising with {len(successes)} strong sets. You can switch back to linear progression with your updated 1RM estimate.",
+                confidence="medium",
+                should_switch=True,
+            )
+        if len(grinds) >= 3:
+            return PhaseRecommendation(
+                current_phase="percentage",
+                recommended_phase="autoregulated",
+                reason=f"Percentage-based training is still grinding on {len(grinds)} sets. Autoregulated training will auto-adjust based on daily readiness and RPE.",
+                confidence="high",
+                should_switch=True,
+            )
+        return PhaseRecommendation(
+            current_phase="percentage",
+            recommended_phase="percentage",
+            reason="Percentage-based training is appropriate. Continue with current percentages.",
+            confidence="medium",
+            should_switch=False,
+        )
+
+    if current_phase == "autoregulated":
+        if len(successes) >= 6:
+            return PhaseRecommendation(
+                current_phase="autoregulated",
+                recommended_phase="linear",
+                reason=f"You're feeling strong with {len(successes)} great sets. Time to reset with a structured linear block.",
+                confidence="medium",
+                should_switch=True,
+            )
+        return PhaseRecommendation(
+            current_phase="autoregulated",
+            recommended_phase="autoregulated",
+            reason="Autoregulated training is matching your current readiness. Stay flexible.",
+            confidence="medium",
+            should_switch=False,
+        )
+
+    # Deload or unknown
+    return PhaseRecommendation(
+        current_phase=current_phase,
+        recommended_phase="linear",
+        reason="After recovery, restart with linear progression.",
+        confidence="medium",
+        should_switch=False,
+    )
