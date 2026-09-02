@@ -320,16 +320,7 @@ function percentageRule(rule: RuleInput, topSet: SetRecord | null): Prescription
 
   const oneRm = rule.ai_calibrated_1rm ?? rule.estimated_1rm;
   if (!oneRm || oneRm <= 0) {
-    return buildPrescription({
-      next_weight: rule.start_weight,
-      next_reps: rule.reps_target,
-      next_sets: rule.sets_target,
-      rest_seconds: rest,
-      coaching_message: "Missing 1RM. Falling back to base weight.",
-      workload_status: "moderate",
-      prescription_type: rule.progression_type,
-      is_deload: false,
-    });
+    return linearRule(rule, topSet);
   }
 
   const base = Number(oneRm) * Number(rule.percentage_of_1rm || 0.8);
