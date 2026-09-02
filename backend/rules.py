@@ -372,7 +372,7 @@ def _percentage_rule(rule: RuleInput, top_set) -> Prescription:
     if one_rm is None or one_rm <= 0:
         msg = "Missing 1RM. Falling back to base weight."
         return Prescription(
-            next_weight=float(rule.start_weight),
+            next_weight=max(5.0, float(rule.start_weight)),
             next_reps=int(rule.reps_target),
             next_sets=int(rule.sets_target),
             rest_seconds=rest,
@@ -754,8 +754,7 @@ def compute_coach_state(
     """Compute deterministic coach state from workout history and cadence rules."""
     phase = current_phase or _progression_from_history(history, default_progression)
 
-    # Derive actual elapsed weeks from real history dates, not from a stored counter.
-    # This prevents the week from advancing faster than calendar time.
+    # Derive actual elapsed weeks from real history dates for calendar-mode deload.
     actual_week: Optional[int] = None
     if history:
         real_sets = [s for s in history if s.completed_at is not None and not s.is_seeded]
@@ -765,18 +764,23 @@ def compute_coach_state(
             elapsed_days = max(0, (now - oldest).days)
             actual_week = elapsed_days // 7 + 1
 
-    week = actual_week if actual_week is not None else (current_week_in_block or 1)
+    # Block-relative week for phase duration checks (resets on transition).
+    # The frontend supplies this from get_coach_state which derives it from
+    # the most recent ProgressionTransition, not from total training age.
+    block_week = current_week_in_block or 1
     duration = _block_duration(phase)
 
     # Compute load from recent training stress
     load_pct = compute_load(history)
 
-    deload_due = force_deload or _should_force_deload(history, week, periodization_cycle_weeks, load_pct, deload_mode)
+    # Calendar deload uses total elapsed weeks; block rotation uses block-relative weeks.
+    calendar_week = actual_week if actual_week is not None else block_week
+    deload_due = force_deload or _should_force_deload(history, calendar_week, periodization_cycle_weeks, load_pct, deload_mode)
 
     next_deload_date: Optional[str] = None
     try:
         from datetime import date, timedelta as _timedelta
-        days_until = _weeks_until_next_deload(phase, week, periodization_cycle_weeks, custom_phase_order)
+        days_until = _weeks_until_next_deload(phase, calendar_week, periodization_cycle_weeks, custom_phase_order)
         if days_until == 0:
             next_deload_date = date.today().isoformat()
         else:
@@ -787,22 +791,20 @@ def compute_coach_state(
     if deload_due and phase != "deload":
         new_phase = "deload"
         reason = "to_deload"
-        week = 1
+        block_week = 1
         duration = _block_duration(new_phase)
     elif phase == "deload":
         new_phase = "linear" if current_phase == "deload" else phase
         reason = "from_deload"
-        # week already reflects date-derived elapsed time from the block above
         duration = _block_duration(new_phase)
-    elif week >= duration and not force_deload:
+    elif block_week >= duration and not force_deload:
         new_phase = _next_phase_after(phase, deload_due, custom_phase_order)
         reason = "best_fit"
-        week = 1
+        block_week = 1
         duration = _block_duration(new_phase)
     else:
         new_phase = phase
         reason = "continue"
-        # week already reflects date-derived elapsed time from the block above
 
     # Reset load when transitioning out of deload
     if previous_phase == "deload" and new_phase != "deload":
@@ -811,25 +813,24 @@ def compute_coach_state(
     state = CoachState(
         phase=new_phase,
         progression_type=new_phase,
-        week_in_block=week,
+        week_in_block=block_week,
         block_duration_weeks=duration,
-        transition_in_weeks=max(1, duration - week),
+        transition_in_weeks=max(1, duration - block_week),
         is_deload=new_phase == "deload",
         explanation=_build_explanation(
             CoachState(
                 phase=new_phase,
                 progression_type=new_phase,
-                week_in_block=week,
+                week_in_block=block_week,
                 block_duration_weeks=duration,
-                transition_in_weeks=max(1, duration - week),
+                transition_in_weeks=max(1, duration - block_week),
                 is_deload=new_phase == "deload",
                 explanation="",
                 next_deload_date=next_deload_date,
                 load_pct=load_pct,
+                deload_mode=deload_mode,
             ),
             reason,
         ),
-        next_deload_date=next_deload_date,
-        load_pct=load_pct,
     )
     return state

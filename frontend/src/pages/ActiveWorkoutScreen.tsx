@@ -184,7 +184,9 @@ export default function ActiveWorkoutScreen({
         } catch (err: any) {
           const msg = err?.message || "Backend prescription failed";
           console.error("[ActiveWorkoutScreen] backend prescription failed", err);
-          setPrescriptionError(msg);
+          if (!/load failed|network error|cors|failed to fetch|AUTH_TIMEOUT/i.test(msg)) {
+            setPrescriptionError(msg);
+          }
         }
       }
       if (!cancelled) {
@@ -330,12 +332,29 @@ export default function ActiveWorkoutScreen({
             const lastWeight = lastSession.length > 0
               ? Math.max(...lastSession.map((s: any) => s.actual_weight || 0))
               : target.start_weight;
+
+            // Compute prescription inline so the draft reflects the coaching algorithm
+            // instead of blindly showing the last session's top set weight.
+            const phase = coachState?.coach_phase === "deload"
+              ? "linear"
+              : (coachState?.coach_phase || "linear");
+            const history = buildPrescriptionHistory(target);
+            const prescription = computePrescription({
+              start_weight: toLbs(lastWeight),
+              reps_target: target.reps_target,
+              sets_target: displaySetsTarget[target.id] ?? target.sets_target,
+              rest_seconds: target.rest_seconds,
+              progression_type: phase,
+              history,
+              week: coachState?.coach_week_in_block ?? 1,
+              periodization_cycle_weeks: 4,
+            });
             const displayWeight = getUnitsPreference() === "imperial"
-              ? Math.round(lastWeight)
-              : Math.round(lbsToKg(lastWeight));
+              ? Math.round(prescription.next_weight)
+              : Math.round(lbsToKg(prescription.next_weight));
             setDraftWeight(String(displayWeight));
-            setDraftReps(String(target.reps_target));
-            console.log("[ActiveWorkoutScreen] auto-expand default", displayWeight, "x", target.reps_target);
+            setDraftReps(String(prescription.next_reps));
+            console.log("[ActiveWorkoutScreen] auto-expand prescription", displayWeight, "x", prescription.next_reps);
           }
           setDraftRpe(8);
           setDraftFormQuality(0);
