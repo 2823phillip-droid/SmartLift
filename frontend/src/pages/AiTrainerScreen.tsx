@@ -10,11 +10,11 @@ type SessionRecap = {
     sets: number;
     topWeight: number;
     topReps: number;
-    avgEffort: number;
+    avgEffort: number | null;
     volume: number;
   }>;
   totalVolume: number;
-  avgEffort: number;
+  avgEffort: number | null;
   durationMin: number | null;
 };
 
@@ -33,7 +33,6 @@ type CoachMessage = {
 
 type CoachState = {
   phase?: string;
-  week_in_block?: number;
   load_pct?: number;
 };
 
@@ -85,7 +84,6 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
         if (cs) {
           setCoachState({
             phase: cs.coach_phase,
-            week_in_block: cs.coach_week_in_block,
             load_pct: cs.coach_load_pct,
           });
         }
@@ -167,18 +165,19 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
         sets.sort((a, b) => a.set_index - b.set_index);
         const topSet = sets.reduce((a, b) => (b.actual_weight || 0) > (a.actual_weight || 0) ? b : a, sets[0]);
         const exVolume = sets.reduce((a, b) => a + (b.actual_weight || 0) * (b.actual_reps || 0), 0);
-        const avgEffort = sets.length ? sets.reduce((a, b) => a + (b.effort || 3), 0) / sets.length : 3;
+        const efforts = sets.filter((s) => s.effort != null).map((s) => s.effort as number);
+        const avgEffort = efforts.length ? efforts.reduce((a, b) => a + b, 0) / efforts.length : null;
 
         totalVolume += exVolume;
-        totalEffort += sets.reduce((a, b) => a + (b.effort || 3), 0);
-        effortCount += sets.length;
+        totalEffort += efforts.reduce((a, b) => a + b, 0);
+        effortCount += efforts.length;
 
         exercises.push({
           name: exerciseMap[Number(eid)] || `Exercise ${eid}`,
           sets: sets.length,
           topWeight: topSet.actual_weight || 0,
           topReps: topSet.actual_reps || 0,
-          avgEffort: Math.round(avgEffort * 10) / 10,
+          avgEffort: avgEffort != null ? Math.round(avgEffort * 10) / 10 : null,
           volume: Math.round(exVolume),
         });
       }
@@ -195,7 +194,7 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
           logs: logsTyped,
           exercises,
           totalVolume: Math.round(totalVolume),
-          avgEffort: effortCount ? Math.round((totalEffort / effortCount) * 10) / 10 : 0,
+          avgEffort: effortCount ? Math.round((totalEffort / effortCount) * 10) / 10 : null,
           durationMin,
         },
       }));
@@ -319,7 +318,7 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
             Program: <span className={phaseColor(coachState.phase)}>{coachState.phase || "unknown"}</span>
           </div>
           <div className="text-[10px] text-slate-600">
-            Week {coachState.week_in_block ?? "?"} · Load {coachState.load_pct ?? 0}%
+            Load {coachState.load_pct ?? 0}%
           </div>
         </div>
       </div>

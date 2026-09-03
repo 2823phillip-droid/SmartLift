@@ -617,4 +617,4 @@ export default function App() {
 
 // Admin login on first launch / reinstall:
 // email: phillip@askeo.fit
-// password: AskeoAdmin2026!
+// password: AskeoAdmin2026!// test marker Thu Sep  3 04:16:53 AM UTC 2026

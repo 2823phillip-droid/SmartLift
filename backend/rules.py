@@ -108,9 +108,7 @@ class RuleInput:
     pct_increment_success: float = 2.5
     pct_decrement_fail: float = 5.0
 
-    # Periodization / deload
-    week: int = 1
-    periodization_cycle_weeks: int = 4
+    # Deload
     force_deload: bool = False
     deload_volume_factor: float = 0.6
     deload_intensity_factor: float = 0.7
@@ -158,15 +156,9 @@ def _today() -> date:
     return datetime.now(timezone.utc).date()
 
 
-def _is_deload_week(rule: RuleInput, week: Optional[int] = None) -> bool:
-    """Deload is either forced or scheduled by simple weekly periodization."""
-    if rule.force_deload:
-        return True
-    cycle = rule.periodization_cycle_weeks or 0
-    if cycle > 0:
-        w = week if week is not None else (rule.week or 1)
-        return (w % cycle) == 0
-    return False
+def _is_deload_week(rule: RuleInput) -> bool:
+    """Deload is now AI-driven only; forced deloads are manual overrides."""
+    return rule.force_deload
 
 
 def _recent_real_sets(history: List[SetRecord], limit: int = 20) -> List[SetRecord]:
@@ -189,9 +181,11 @@ def _last_session_top_set(history: List[SetRecord]):
     latest_sets = [s for s in real if s.completed_at and s.completed_at.date() == latest_date]
     if not latest_sets:
         return None
-    # top set = highest weight, then highest reps
-    latest_sets.sort(key=lambda s: (s.actual_weight, s.actual_reps), reverse=True)
-    return latest_sets[0]
+    # top set = highest weight, then highest reps; prefer sets with effort logged
+    with_effort = [s for s in latest_sets if s.effort is not None]
+    candidates = with_effort if with_effort else latest_sets
+    candidates.sort(key=lambda s: (s.actual_weight, s.actual_reps), reverse=True)
+    return candidates[0]
 
 
 def _effective_increment(base: float, rule: RuleInput) -> float:
@@ -225,15 +219,18 @@ def _format_history_line(weight, reps, effort, rir_val):
 
 
 def _coaching_message_for_prescription(rule, weight, reps, effort, rir_val, next_weight, increment, status):
+    effort_display = effort if effort is not None else "?"
     base = (
-        f"Last session you did {_format_history_line(weight, reps, effort, rir_val)}. "
-        f"Next workout we'll start at {int(round(next_weight))} lbs and shoot for {int(rule.reps_target)} reps."
+        f"Last session you did {weight} lbs x {reps} reps, effort {effort_display}. "
+        f"In this session we'll start at {int(round(next_weight))} lbs and shoot for {int(rule.reps_target)} reps."
     )
     if status == WorkloadStatus.deload:
         return "Deload week selected. Reduced volume/intensity to recover."
     if status == WorkloadStatus.easy:
         return f"{base} That was easy, so add {increment} lbs next session."
     if status == WorkloadStatus.moderate:
+        if effort is None:
+            return f"{base} Keep this weight until it feels easy, then add {increment} lbs."
         return f"{base} Keep this weight until it feels easy, then add {increment} lbs."
     return f"{base} Keep this weight until you can hit the full rep target cleanly."
 
@@ -259,34 +256,21 @@ def _linear_rule(rule: RuleInput, top_set) -> Prescription:
 
     weight = float(top_set.actual_weight)
     reps = int(top_set.actual_reps)
-    effort = int(top_set.effort) if top_set.effort is not None else 3
-    rir_val = int(top_set.rir) if top_set.rir is not None else None
+    effort = top_set.effort
 
-    if reps >= rule.reps_target and effort <= rule.easy_effort_threshold:
-        msg = _coaching_message_for_prescription(rule, weight, reps, effort, rir_val, weight + increment, increment, WorkloadStatus.easy)
-        next_weight = weight + increment
-        next_reps = rule.reps_target
+    # True linear: weight goes up every session.
+    # Reps target is for coaching message only, not a gate.
+    next_weight = weight + increment
+    next_reps = rule.reps_target
+    if effort is None:
+        status = WorkloadStatus.moderate
+        msg = _coaching_message_for_prescription(rule, weight, reps, effort, None, next_weight, increment, status)
+    elif effort <= 3:
         status = WorkloadStatus.easy
-    elif reps >= rule.reps_target and effort <= 3 and (rir_val is None or rir_val >= 1):
-        msg = _coaching_message_for_prescription(rule, weight, reps, effort, rir_val, weight + increment, increment, WorkloadStatus.moderate)
-        next_weight = weight + increment
-        next_reps = rule.reps_target
-        status = WorkloadStatus.moderate
-    elif reps >= rule.reps_target and effort >= rule.hard_effort_threshold and (rir_val is None or rir_val <= 1):
-        msg = _coaching_message_for_prescription(rule, weight, reps, effort, rir_val, weight, increment, WorkloadStatus.hard)
-        next_weight = weight
-        next_reps = rule.reps_target
-        status = WorkloadStatus.hard
-    elif reps >= rule.reps_target:
-        msg = _coaching_message_for_prescription(rule, weight, reps, effort, rir_val, weight + increment, increment, WorkloadStatus.moderate)
-        next_weight = weight + increment
-        next_reps = rule.reps_target
-        status = WorkloadStatus.moderate
+        msg = _coaching_message_for_prescription(rule, weight, reps, effort, None, next_weight, increment, status)
     else:
-        msg = _coaching_message_for_prescription(rule, weight, reps, effort, rir_val, weight, increment, WorkloadStatus.hard)
-        next_weight = weight
-        next_reps = rule.reps_target
-        status = WorkloadStatus.hard
+        status = WorkloadStatus.moderate
+        msg = _coaching_message_for_prescription(rule, weight, reps, effort, None, next_weight, increment, status)
 
     return Prescription(
         next_weight=next_weight,
@@ -320,11 +304,11 @@ def _double_rule(rule: RuleInput, top_set) -> Prescription:
 
     weight = float(top_set.actual_weight)
     reps = int(top_set.actual_reps)
-    effort = int(top_set.effort) if top_set.effort is not None else 3
+    effort = top_set.effort
 
     real = _recent_real_sets(rule.history, limit=rule.double_success_threshold * rule.sets_target)
     latest_success_count = 0
-    if len(real) >= rule.double_success_threshold and reps >= rule.reps_target and effort <= rule.hard_effort_threshold:
+    if effort is not None and len(real) >= rule.double_success_threshold and reps >= rule.reps_target and effort <= rule.hard_effort_threshold:
         latest_success_count = 1
         # count how many of the most recent preceding sessions also met success
         dates = sorted(
@@ -344,7 +328,7 @@ def _double_rule(rule: RuleInput, top_set) -> Prescription:
         msg = f"Double progression triggered after {latest_success_count} strong sessions. Up {increment} lbs."
         next_weight = weight + increment
         next_reps = rule.reps_target
-        status = WorkloadStatus.easy if effort <= rule.easy_effort_threshold else WorkloadStatus.moderate
+        status = WorkloadStatus.easy if effort is not None and effort <= rule.easy_effort_threshold else WorkloadStatus.moderate
     else:
         msg = f"Build volume first ({latest_success_count}/{rule.double_success_threshold} solid sessions). Keep weight."
         next_weight = weight
@@ -388,9 +372,9 @@ def _percentage_rule(rule: RuleInput, top_set) -> Prescription:
 
     weight = float(top_set.actual_weight)
     reps = int(top_set.actual_reps)
-    effort = int(top_set.effort) if top_set.effort is not None else 3
+    effort = top_set.effort
 
-    if reps >= rule.reps_target and effort <= rule.easy_effort_threshold:
+    if effort is not None and reps >= rule.reps_target and effort <= rule.easy_effort_threshold:
         next_weight = weight + _effective_increment(rule.pct_increment_success, rule)
         msg = f"Great session. Advanced load to {next_weight:.1f} lbs."
         status = WorkloadStatus.easy
@@ -438,24 +422,27 @@ def _autoregulated_rule(rule: RuleInput, top_set) -> Prescription:
 
     last_weight = float(top_set.actual_weight)
     last_reps = int(top_set.actual_reps)
-    effort = int(top_set.effort) if top_set.effort is not None else 3
+    effort = top_set.effort
     rir = int(top_set.rir) if top_set.rir is not None else (rule.reps_target - last_reps)
 
-    if effort <= 2 and rir >= 2:
+    if effort is not None and effort <= 2 and rir >= 2:
         next_weight = last_weight + _effective_increment(rule.linear_increment, rule)
         msg = f"Easy set (effort {effort}, RIR ~{rir}). Bumping to {next_weight:.1f} lbs."
         status = WorkloadStatus.easy
-    elif effort <= 3 and rir >= 1:
+    elif effort is not None and effort <= 3 and rir >= 1:
         next_weight = last_weight + _effective_increment(rule.linear_increment * 0.5, rule)
         msg = f"Moderate effort (effort {effort}, RIR ~{rir}). Micro-load to {next_weight:.1f} lbs."
         status = WorkloadStatus.moderate
-    elif effort >= rule.hard_effort_threshold or rir <= 0:
+    elif effort is not None and (effort >= rule.hard_effort_threshold or rir <= 0):
         next_weight = last_weight - _effective_increment(rule.linear_increment * 0.5, rule)
         msg = f"Tough set (effort {effort}, RIR ~{rir}). Dropping to {next_weight:.1f} lbs for recovery."
         status = WorkloadStatus.hard
     else:
         next_weight = last_weight
-        msg = f"Matching last load (effort {effort}, RIR ~{rir})."
+        if effort is None:
+            msg = f"Matching last load (effort ?, RIR ~{rir})."
+        else:
+            msg = f"Matching last load (effort {effort}, RIR ~{rir})."
         status = WorkloadStatus.moderate
 
     return Prescription(
@@ -481,23 +468,12 @@ def compute_prescription(rule: RuleInput) -> Prescription:
     """
     top_set = _last_session_top_set(rule.history)
 
-    # Derive actual elapsed weeks from real history dates, matching compute_coach_state.
-    actual_week: Optional[int] = None
-    if rule.history:
-        dates = [s.completed_at for s in rule.history if s.completed_at is not None and not s.is_seeded]
-        if dates:
-            oldest = min(dates)
-            now = datetime.utcnow()
-            elapsed_days = max(0, (now - oldest).days)
-            actual_week = elapsed_days // 7 + 1
-    week = actual_week if actual_week is not None else (rule.week or 1)
-
-    if _is_deload_week(rule, week):
+    if _is_deload_week(rule):
         base_prescription = _next_prescription_by_type(rule, top_set)
         weight = _round_weight(float(base_prescription.next_weight * rule.deload_intensity_factor))
         reps = max(1, int(base_prescription.next_reps * rule.deload_volume_factor))
         sets = max(1, int(base_prescription.next_sets * rule.deload_volume_factor))
-        msg = "Deload week selected. Reduced volume/intensity to recover."
+        msg = "Deload selected. Reduced volume/intensity to recover."
         return Prescription(
             next_weight=weight,
             next_reps=reps,
@@ -554,8 +530,6 @@ def apply_ai_profile(rule: RuleInput) -> RuleInput:
         percentage_of_1rm=rule.percentage_of_1rm,
         pct_increment_success=rule.pct_increment_success,
         pct_decrement_fail=rule.pct_decrement_fail,
-        week=rule.week,
-        periodization_cycle_weeks=rule.periodization_cycle_weeks,
         force_deload=rule.force_deload,
         deload_volume_factor=rule.deload_volume_factor,
         deload_intensity_factor=rule.deload_intensity_factor,
@@ -634,9 +608,6 @@ DEFAULT_BLOCK_DURATIONS["deload"] = 1
 class CoachState:
     phase: str
     progression_type: str
-    week_in_block: int
-    block_duration_weeks: int
-    transition_in_weeks: int
     is_deload: bool
     explanation: str
     next_deload_date: Optional[str] = None
@@ -644,8 +615,8 @@ class CoachState:
     deload_mode: str = "ai_driven"
 
 
-def _candidate_types() -> List[str]:
-    return ["linear", "double", "percentage", "autoregulated"]
+def _candidate_types(custom_phase_order: Optional[List[str]] = None) -> List[str]:
+    return list(custom_phase_order or ["linear", "double", "percentage", "autoregulated"])
 
 
 def _detect_stalls(history: List[SetRecord], hard_effort_threshold: int) -> bool:
@@ -656,61 +627,27 @@ def _detect_stalls(history: List[SetRecord], hard_effort_threshold: int) -> bool
     return len(hard_sets) >= 3
 
 
-def _should_force_deload(history: List[SetRecord], week: int, periodization_cycle_weeks: int, load_pct: int = 0, deload_mode: str = "ai_driven") -> bool:
-    if deload_mode == "calendar" and periodization_cycle_weeks > 0 and week > 0:
-        return (week % periodization_cycle_weeks) == 0
-    # AI-driven: require both sustained load AND a visible plateau/stall pattern
-    return load_pct >= 70 and _detect_stalls(history, hard_effort_threshold=4)
-
-
 def _progression_from_history(history: List[SetRecord], default_type: str) -> str:
     real = _recent_real_sets(history, limit=20)
     if not real:
         return default_type or "linear"
-    # if user repeatedly hits target reps above middle effort, prefer double
     successes = [s for s in real if s.rir is not None and s.rir >= 1 and (s.effort is None or s.effort <= 3)]
     if len(successes) >= 5:
         return "double"
-    # if history shows grind (rpe high / rir low / missed reps), autoregulate
     grinds = [s for s in real if s.rir is not None and s.rir <= 0]
     if len(grinds) >= 3:
         return "autoregulated"
-    # default path
     return "linear"
-
-
-def _candidate_types(custom_phase_order: Optional[List[str]] = None) -> List[str]:
-    return list(custom_phase_order or ["linear", "double", "percentage", "autoregulated"])
-
-
-def _next_phase_after(current: str, deload_due: bool, custom_phase_order: Optional[List[str]] = None) -> str:
-    if current == "deload":
-        return "linear"
-    if deload_due:
-        return "deload"
-    types = _candidate_types(custom_phase_order)
-    idx = types.index(current) if current in types else 0
-    return types[(idx + 1) % len(types)]  # cycle wraps
-
-
-def _block_duration(phase: str, default_durations=DEFAULT_BLOCK_DURATIONS) -> int:
-    return int(default_durations.get(phase, 4))
 
 
 def _build_explanation(state: CoachState, reason: str) -> str:
     phase_desc = COACH_PHASE_DESCRIPTIONS.get(state.progression_type, "")
     transition_reason = COACH_TRANSITION_REASONS.get(reason, "")
-    parts = [
-        (
-            f"This week covers Week {state.week_in_block} of a {state.block_duration_weeks}-week "
-            f"{COACH_PHASE_LABELS.get(state.progression_type, state.progression_type)} block."
-        )
-        if state.is_deload is False
-        else (
-            f"This is Week {state.week_in_block} of deload. We'll reduce load so you can recover "
-            f"without losing frequency."
-        )
-    ]
+    parts = []
+    if state.is_deload:
+        parts.append("Deload week. Reduced load so you can recover without losing frequency.")
+    else:
+        parts.append(f"You're in {COACH_PHASE_LABELS.get(state.progression_type, state.progression_type)}.")
     if phase_desc:
         parts.append(phase_desc)
     if transition_reason:
@@ -718,85 +655,37 @@ def _build_explanation(state: CoachState, reason: str) -> str:
     return " ".join(parts)
 
 
-def _weeks_until_next_deload(
-    phase: str,
-    week: int,
-    periodization_cycle_weeks: int,
-    custom_phase_order: Optional[List[str]] = None,
-) -> int:
-    if periodization_cycle_weeks <= 0:
-        return 4
-    remainder = week % periodization_cycle_weeks
-    if remainder == 0:
-        return 0
-    return periodization_cycle_weeks - remainder
-
-
 def compute_coach_state(
     history: List[SetRecord],
     current_phase: Optional[str] = None,
-    current_week_in_block: Optional[int] = None,
     force_deload: bool = False,
-    periodization_cycle_weeks: int = 4,
     default_progression: str = "linear",
     custom_phase_order: Optional[List[str]] = None,
     previous_phase: Optional[str] = None,
     deload_mode: str = "ai_driven",
 ) -> CoachState:
-    """Compute deterministic coach state from workout history and cadence rules."""
+    """Compute coach state from workout history. AI-driven deload only."""
     phase = current_phase or _progression_from_history(history, default_progression)
 
-    # Derive actual elapsed weeks from real history dates for calendar-mode deload.
-    actual_week: Optional[int] = None
-    if history:
-        real_sets = [s for s in history if s.completed_at is not None and not s.is_seeded]
-        if real_sets:
-            oldest = min(s.completed_at for s in real_sets)
-            now = datetime.utcnow()
-            elapsed_days = max(0, (now - oldest).days)
-            actual_week = elapsed_days // 7 + 1
-
-    # Block-relative week for phase duration checks (resets on transition).
-    # The frontend supplies this from get_coach_state which derives it from
-    # the most recent ProgressionTransition, not from total training age.
-    block_week = current_week_in_block or 1
-    duration = _block_duration(phase)
-
-    # Compute load from recent training stress
     load_pct = compute_load(history)
 
-    # Calendar deload uses total elapsed weeks; block rotation uses block-relative weeks.
-    calendar_week = actual_week if actual_week is not None else block_week
-    deload_due = force_deload or _should_force_deload(history, calendar_week, periodization_cycle_weeks, load_pct, deload_mode)
-
-    next_deload_date: Optional[str] = None
-    try:
-        from datetime import date, timedelta as _timedelta
-        days_until = _weeks_until_next_deload(phase, calendar_week, periodization_cycle_weeks, custom_phase_order)
-        if days_until == 0:
-            next_deload_date = date.today().isoformat()
-        else:
-            next_deload_date = (date.today() + _timedelta(weeks=days_until)).isoformat()
-    except Exception:
-        pass
+    # AI-driven deload: load >= 70% plus visible stall pattern
+    deload_due = force_deload or (load_pct >= 70 and _detect_stalls(history, hard_effort_threshold=4))
 
     if deload_due and phase != "deload":
         new_phase = "deload"
         reason = "to_deload"
-        block_week = 1
-        duration = _block_duration(new_phase)
     elif phase == "deload":
         new_phase = "linear" if current_phase == "deload" else phase
         reason = "from_deload"
-        duration = _block_duration(new_phase)
-    elif block_week >= duration and not force_deload:
-        new_phase = _next_phase_after(phase, deload_due, custom_phase_order)
-        reason = "best_fit"
-        block_week = 1
-        duration = _block_duration(new_phase)
     else:
-        new_phase = phase
-        reason = "continue"
+        rec = evaluate_phase_effectiveness(history, phase)
+        if rec.should_switch:
+            new_phase = rec.recommended_phase
+            reason = "best_fit"
+        else:
+            new_phase = phase
+            reason = "continue"
 
     # Reset load when transitioning out of deload
     if previous_phase == "deload" and new_phase != "deload":
@@ -805,26 +694,22 @@ def compute_coach_state(
     state = CoachState(
         phase=new_phase,
         progression_type=new_phase,
-        week_in_block=block_week,
-        block_duration_weeks=duration,
-        transition_in_weeks=max(1, duration - block_week),
         is_deload=new_phase == "deload",
         explanation=_build_explanation(
             CoachState(
                 phase=new_phase,
                 progression_type=new_phase,
-                week_in_block=block_week,
-                block_duration_weeks=duration,
-                transition_in_weeks=max(1, duration - block_week),
                 is_deload=new_phase == "deload",
                 explanation="",
-                next_deload_date=next_deload_date,
                 load_pct=load_pct,
                 deload_mode=deload_mode,
             ),
             reason,
         ),
+        load_pct=load_pct,
+        deload_mode=deload_mode,
     )
+    return state
     return state
 
 
@@ -843,10 +728,21 @@ def evaluate_phase_effectiveness(history: List[SetRecord], current_phase: str) -
     if not real:
         return PhaseRecommendation(
             current_phase=current_phase,
-            recommended_phase=current_phase,
-            reason="No training history yet. Keep current model.",
+            recommended_phase="linear",
+            reason="No training history yet. Starting with linear progression.",
             confidence="low",
-            should_switch=False,
+            should_switch=True,
+        )
+
+    # Beginner guard: with very limited history, default to linear regardless of
+    # stored phase. Percentage and autoregulated need more data to be meaningful.
+    if len(real) < 10 and current_phase not in ("linear", "deload"):
+        return PhaseRecommendation(
+            current_phase=current_phase,
+            recommended_phase="linear",
+            reason=f"Only {len(real)} sets logged so far. Linear progression is the best starting point until we have enough data for more advanced models.",
+            confidence="low",
+            should_switch=True,
         )
 
     # Count patterns
@@ -866,6 +762,14 @@ def evaluate_phase_effectiveness(history: List[SetRecord], current_phase: str) -
                 should_switch=True,
             )
         if len(grinds) >= 4:
+            if len(real) < 10:
+                return PhaseRecommendation(
+                    current_phase="linear",
+                    recommended_phase="linear",
+                    reason=f"You've been grinding on {len(grinds)} sets, but we don't have enough history yet to estimate your 1RM accurately. Stick with linear progression until we have at least 10 solid sets.",
+                    confidence="medium",
+                    should_switch=False,
+                )
             return PhaseRecommendation(
                 current_phase="linear",
                 recommended_phase="percentage",
@@ -891,6 +795,14 @@ def evaluate_phase_effectiveness(history: List[SetRecord], current_phase: str) -
 
     if current_phase == "double":
         if len(hard_sets) >= 3 and len(missed_reps) >= 2:
+            if len(real) < 10:
+                return PhaseRecommendation(
+                    current_phase="double",
+                    recommended_phase="linear",
+                    reason=f"Double progression is still showing {len(hard_sets)} hard sets, but we don't have enough history yet for percentage-based training. Switch back to linear progression until we have at least 10 solid sets.",
+                    confidence="medium",
+                    should_switch=True,
+                )
             return PhaseRecommendation(
                 current_phase="double",
                 recommended_phase="percentage",
