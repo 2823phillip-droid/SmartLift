@@ -156,7 +156,7 @@ export default function PreWorkoutScreen({
           vibe = "You pushed hard last session. Today is about matching that intensity.";
         } else if (easyCount > exercisesRecap.length / 2) {
           vibe = "Last time felt manageable — there's room to push harder today.";
-        } else if (avgEffort >= 3.5) {
+        } else if (avgEffort != null && avgEffort >= 3.5) {
           vibe = "Solid effort last time. Let's match or beat it.";
         } else {
           vibe = "Decent session last time. Let's build on it.";

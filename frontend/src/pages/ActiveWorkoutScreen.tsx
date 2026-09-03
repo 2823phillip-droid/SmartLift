@@ -58,7 +58,7 @@ export default function ActiveWorkoutScreen({
   const [showNotes, setShowNotes] = useState(false);
   const [addSetExerciseId, setAddSetExerciseId] = useState<number | null>(null);
   const [displaySetsTarget, setDisplaySetsTarget] = useState<Record<number, number>>({});
-  const [lastSessionByExercise, setLastSessionByExercise] = useState<Record<number, {set_index: number; actual_weight: number; actual_reps: number; started_at?: string}[]>>({});
+  const [lastSessionByExercise, setLastSessionByExercise] = useState<Record<number, {set_index: number; actual_weight: number; actual_reps: number; started_at?: string; effort?: number}[]>>({});
   const [originalExercises, setOriginalExercises] = useState<ExerciseEntry[]>([]);
   const [isDragActive, setIsDragActive] = useState(false);
   const [isLogging, setIsLogging] = useState(false);
@@ -98,7 +98,7 @@ export default function ActiveWorkoutScreen({
         history.push({
           actual_weight: toLbs(s.actual_weight),
           actual_reps: s.actual_reps,
-          effort: s.effort ?? null,
+          effort: s.effort,
           completed_at: sessionDate,
         });
       }
@@ -110,7 +110,7 @@ export default function ActiveWorkoutScreen({
         history.push({
           actual_weight: toLbs(Number(l.actual_weight || 0)),
           actual_reps: Number(l.actual_reps || 0),
-          effort: l.effort ?? null,
+          effort: l.effort,
           completed_at: new Date().toISOString(),
         });
       }
@@ -130,7 +130,7 @@ export default function ActiveWorkoutScreen({
       history.push({
         actual_weight: toLbs(s.actual_weight),
         actual_reps: s.actual_reps,
-        effort: s.effort ?? null,
+        effort: s.effort,
         completed_at: sessionDate,
       });
     }
