@@ -825,9 +825,9 @@ def _user_from_token(token: str, db: Session) -> User | None:
             user.token_hash = None
             user.token_expires_at = None
             db.add(user)
-        db.commit()
-        db.refresh(user)
-        return None
+            db.commit()
+            db.refresh(user)
+            return None
     return user
 
 @app.get("/api/auth/me", response_model=UserOut)
