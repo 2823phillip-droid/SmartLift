@@ -4,6 +4,7 @@ import type { ExerciseEntry, SetLog } from "../types";
 import { formatWeight, getUnitsPreference, weightInputPlaceholder } from "../utils/units";
 import { resolveMediaUrl } from "../api";
 import type { Prescription } from "../rules";
+import { inferRepsTarget } from "../rules";
 
 export interface SortableExerciseCardProps {
   exercise: ExerciseEntry;
@@ -153,7 +154,7 @@ export function SortableExerciseCard({
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-semibold text-slate-200 truncate">{exercise.name}</div>
                   <div className="text-[11px] text-slate-500 mt-0.5">
-                    {completed}/{displayTarget} sets · {formatWeight(exercise.start_weight, getUnitsPreference())} × {exercise.reps_target} reps target
+                    {completed}/{displayTarget} sets · {formatWeight(exercise.start_weight, getUnitsPreference())} × {inferRepsTarget(exercise.name)} reps target
                   </div>
                 </div>
               </div>
@@ -254,7 +255,7 @@ export function SortableExerciseCard({
                       suggestion.workload_status === "hard" ? "text-rose-400" :
                       "text-indigo-400"
                     }`}>
-                      {suggestion.is_deload ? "Deload Week" : "Next Session Target"}
+                      {suggestion.is_deload ? "Deload Week" : "Session Target"}
                     </div>
                     <div className="text-xs text-slate-300 mt-1 leading-relaxed">{suggestion.coaching_message}</div>
                   </div>

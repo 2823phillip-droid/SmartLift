@@ -32,7 +32,6 @@ export default function PostWorkoutScreen({
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [coachPhase, setCoachPhase] = useState<string | null>(null);
-  const [coachWeek, setCoachWeek] = useState<number | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -75,7 +74,6 @@ export default function PostWorkoutScreen({
       api.getCoachState().then((coachState) => {
         if (coachState) {
           if (coachState.coach_phase) setCoachPhase(coachState.coach_phase);
-          if (coachState.coach_week_in_block) setCoachWeek(coachState.coach_week_in_block);
         }
       }).catch((err) => {
         console.error("[PostWorkoutScreen] coach state load failed", err);
@@ -331,8 +329,7 @@ export default function PostWorkoutScreen({
         <div className={`rounded-2xl border p-4 space-y-1 ${coachPhase === "deload" ? "border-amber-800 bg-amber-950/30" : "border-indigo-800 bg-indigo-950/30"}`}>
           <div className={`text-[10px] font-semibold uppercase tracking-wider ${coachPhase === "deload" ? "text-amber-400" : "text-indigo-400"}`}>Coach Summary</div>
           <div className="text-sm font-semibold text-slate-200">Phase: {coachPhase}</div>
-          {coachWeek !== null && <div className="text-xs text-slate-400">Week {coachWeek} in block</div>}
-          <p className="text-xs text-slate-400">Next workout will continue from this phase unless you override it.</p>
+          <p className="text-xs text-slate-400">This session will continue from this phase unless you override it.</p>
         </div>
       )}
 

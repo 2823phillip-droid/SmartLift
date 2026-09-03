@@ -122,7 +122,6 @@ export default function TransitionHistoryScreen({ onBack }: { onBack: () => void
                 </div>
                 <div className="text-right shrink-0">
                   <div className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">
-                    Week {t.week_in_block}
                   </div>
                   <div className="text-[10px] text-slate-600 mt-1">
                     {formatDate(t.created_at)}

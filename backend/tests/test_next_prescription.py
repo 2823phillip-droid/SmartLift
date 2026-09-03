@@ -289,13 +289,39 @@ def test_logs_progression_transition_on_phase_change(client, test_session, user,
     )
     assert db_state.progression_type == "linear"
 
-    # Second call – week=4 triggers transition to "double" (linear block duration = 4)
+    # Second call – history with 3 hard missed sets triggers phase monitor
+    # recommendation to switch from linear to double.
     payload2 = {
         "exercise_entry_id": exercise_entry,
         "week": 4,
         "current_phase": "linear",
         "current_week_in_block": 4,
-        "history": [],
+        "history": [
+            {
+                "actual_weight": 100.0,
+                "actual_reps": 5,
+                "effort": 4,
+                "rir": 0,
+                "is_seeded": False,
+                "completed_at": datetime.utcnow().isoformat(),
+            },
+            {
+                "actual_weight": 100.0,
+                "actual_reps": 5,
+                "effort": 4,
+                "rir": 0,
+                "is_seeded": False,
+                "completed_at": datetime.utcnow().isoformat(),
+            },
+            {
+                "actual_weight": 100.0,
+                "actual_reps": 5,
+                "effort": 4,
+                "rir": 0,
+                "is_seeded": False,
+                "completed_at": datetime.utcnow().isoformat(),
+            },
+        ],
         "periodization_cycle_weeks": 0,
     }
     resp2 = _call_next_prescription(client, test_session, user_id, headers, **payload2)

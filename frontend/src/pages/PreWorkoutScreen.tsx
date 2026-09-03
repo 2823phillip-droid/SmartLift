@@ -9,9 +9,9 @@ interface RecapExercise {
   setsTarget: number;
   topWeight: number;
   topReps: number;
-  topEffort: number;
+  topEffort: number | null;
   topRir: number | null;
-  avgEffort: number;
+  avgEffort: number | null;
   volume: number;
   hitTarget: boolean;
   feltHard: boolean;
@@ -34,7 +34,7 @@ export default function PreWorkoutScreen({
     duration: string | null;
     totalSets: number;
     totalVolume: number;
-    avgEffort: number;
+    avgEffort: number | null;
     exercises: RecapExercise[];
     vibe: string;
     hasHistory: boolean;
@@ -72,7 +72,7 @@ export default function PreWorkoutScreen({
             duration: null,
             totalSets: 0,
             totalVolume: 0,
-            avgEffort: 0,
+            avgEffort: null,
             exercises: [],
             vibe,
             hasHistory: false,
@@ -114,18 +114,19 @@ export default function PreWorkoutScreen({
           const eid = Number(entryId);
           sets.sort((a, b) => a.set_index - b.set_index);
           const topSet = sets.reduce((a, b) => (b.actual_weight || 0) > (a.actual_weight || 0) ? b : a, sets[0]);
-          const rawAvgEffort = sets.length
-            ? sets.reduce((a, b) => a + (b.effort || 3), 0) / sets.length
-            : 3;
+          const efforts = sets.filter((s) => s.effort != null).map((s) => s.effort as number);
+          const rawAvgEffort = efforts.length
+            ? efforts.reduce((a, b) => a + b, 0) / efforts.length
+            : null;
           const exVolume = sets.reduce((a, b) => a + (b.actual_weight || 0) * (b.actual_reps || 0), 0);
           const repsTarget = targetMap[eid] || 8;
           const hitTarget = topSet.actual_reps != null && topSet.actual_reps >= repsTarget;
-          const feltHard = (topSet.effort || 3) >= 4 || (topSet.rir != null && topSet.rir <= 1);
-          const feltEasy = (topSet.effort || 3) <= 2 && (topSet.rir == null || topSet.rir >= 3);
+          const feltHard = (topSet.effort != null && topSet.effort >= 4) || (topSet.rir != null && topSet.rir <= 1);
+          const feltEasy = (topSet.effort != null && topSet.effort <= 2) && (topSet.rir == null || topSet.rir >= 3);
 
           totalVolume += toDisplayWeight(exVolume);
-          totalEffort += sets.reduce((a, b) => a + (b.effort || 3), 0);
-          effortCount += sets.length;
+          totalEffort += efforts.reduce((a, b) => a + b, 0);
+          effortCount += efforts.length;
           if (feltHard) hardCount++;
           if (feltEasy) easyCount++;
 
@@ -135,9 +136,9 @@ export default function PreWorkoutScreen({
             setsTarget: sets.length,
             topWeight: toDisplayWeight(topSet.actual_weight || 0),
             topReps: topSet.actual_reps || 0,
-            topEffort: topSet.effort || 3,
+            topEffort: topSet.effort ?? null,
             topRir: topSet.rir ?? null,
-            avgEffort: Math.round(rawAvgEffort * 10) / 10,
+            avgEffort: rawAvgEffort != null ? Math.round(rawAvgEffort * 10) / 10 : null,
             volume: Math.round(toDisplayWeight(exVolume)),
             hitTarget,
             feltHard,
@@ -145,7 +146,7 @@ export default function PreWorkoutScreen({
           });
         }
 
-        const avgEffort = effortCount ? Math.round((totalEffort / effortCount) * 10) / 10 : 0;
+        const avgEffort = effortCount ? Math.round((totalEffort / effortCount) * 10) / 10 : null;
         const daysAgo = Math.floor((Date.now() - new Date(last.started_at).getTime()) / 86400000);
 
         let vibe = "";
@@ -183,7 +184,7 @@ export default function PreWorkoutScreen({
           duration: null,
           totalSets: 0,
           totalVolume: 0,
-          avgEffort: 0,
+          avgEffort: null,
           exercises: [],
           vibe: "Could not load last session recap right now.",
           hasHistory: false,
@@ -260,7 +261,7 @@ export default function PreWorkoutScreen({
               {" · "}
               <span className="text-indigo-100 font-semibold">{recap.totalSets} sets</span>
               {" · "}
-              avg effort <span className="text-indigo-100 font-semibold">{recap.avgEffort}/5</span>
+              avg effort <span className="text-indigo-100 font-semibold">{recap.avgEffort != null ? `${recap.avgEffort}/5` : "not logged"}</span>
               {" · "}
               <span className="text-indigo-100 font-semibold">{recap.totalVolume.toLocaleString()} lbs</span> total volume
             </p>
@@ -277,7 +278,7 @@ export default function PreWorkoutScreen({
                       {ex.topWeight > 0 ? `${Math.round(ex.topWeight)} lbs × ${ex.topReps}` : "bodyweight"}
                     </div>
                     <div className="text-indigo-400 mt-0.5">
-                      effort {ex.avgEffort}
+                      effort {ex.avgEffort != null ? `${ex.avgEffort}/5` : "not logged"}
                       {ex.topRir != null && <span> · RIR {ex.topRir}</span>}
                       {ex.feltHard && <span className="text-rose-300 ml-1">· felt hard</span>}
                       {ex.feltEasy && <span className="text-emerald-300 ml-1">· felt easy</span>}

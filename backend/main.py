@@ -1651,7 +1651,7 @@ def list_distinct_exercise_names(db: Session = Depends(get_db), current_user: Us
     ]
 
 
-@app.get("/api/exercise-names/{name}/progress", response_model=ExerciseNameProgressResponse)
+@app.get("/api/exercise-names/progress", response_model=ExerciseNameProgressResponse)
 def get_exercise_name_progress(name: str, limit: int = 5000, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     entries = db.query(ExerciseEntry).filter(ExerciseEntry.name == name).all()
     entry_ids = [e.id for e in entries]
@@ -1682,7 +1682,7 @@ def get_exercise_name_progress(name: str, limit: int = 5000, db: Session = Depen
     return ExerciseNameProgressResponse(name=name, points=points, seeded=seeded)
 
 
-@app.get("/api/exercise-names/{name}/last-session")
+@app.get("/api/exercise-names/last-session")
 def get_exercise_name_last_session(name: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     entries = db.query(ExerciseEntry).filter(ExerciseEntry.name == name).all()
     entry_ids = [e.id for e in entries]
@@ -1819,8 +1819,6 @@ class RuleRequestIn(BaseModel):
     percentage_of_1rm: float = 0.8
     pct_increment_success: float = 2.5
     pct_decrement_fail: float = 5.0
-    week: int = 1
-    periodization_cycle_weeks: int = 4
     force_deload: bool = False
     deload_volume_factor: float = 0.6
     deload_intensity_factor: float = 0.7
@@ -1835,7 +1833,6 @@ class RuleRequestIn(BaseModel):
 
     # Coach tracking ---
     current_phase: Optional[str] = None
-    current_week_in_block: Optional[int] = None
     custom_phase_order: Optional[List[str]] = None
     deload_mode: str = "ai_driven"
     exercise_entry_id: Optional[int] = None
@@ -1844,9 +1841,6 @@ class RuleRequestIn(BaseModel):
 class CoachStateResponse(BaseModel):
     phase: str
     progression_type: str
-    week_in_block: int
-    block_duration_weeks: int
-    transition_in_weeks: int
     is_deload: bool
     explanation: str
     next_deload_date: Optional[str] = None
@@ -1887,8 +1881,6 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         percentage_of_1rm=payload.percentage_of_1rm,
         pct_increment_success=payload.pct_increment_success,
         pct_decrement_fail=payload.pct_decrement_fail,
-        week=payload.week,
-        periodization_cycle_weeks=payload.periodization_cycle_weeks,
         force_deload=payload.force_deload,
         deload_volume_factor=payload.deload_volume_factor,
         deload_intensity_factor=payload.deload_intensity_factor,
@@ -1914,9 +1906,7 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
     coach_state = compute_coach_state(
         history=history,
         current_phase=payload.current_phase,
-        current_week_in_block=payload.current_week_in_block,
         force_deload=payload.force_deload,
-        periodization_cycle_weeks=payload.periodization_cycle_weeks,
         default_progression=payload.progression_type.value,
         custom_phase_order=payload.custom_phase_order,
         previous_phase=previous_phase,
@@ -1934,16 +1924,10 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
     else:
         db.add(AppSetting(key="coach_load_pct", value=load_val, user_id=current_user.id))
 
-    # Persist the computed phase so subsequent calls use the current phase
-    # instead of a stale stored value.
-    phase_setting = db.query(AppSetting).filter(
-        AppSetting.key == "coach_phase", AppSetting.user_id == current_user.id
-    ).first()
-    if phase_setting:
-        phase_setting.value = coach_state.phase  # type: ignore[assignment]
-    else:
-        db.add(AppSetting(key="coach_phase", value=coach_state.phase, user_id=current_user.id))
-
+    # NOTE: do NOT persist coach_phase here. The user may have manually overridden
+    # it via Settings, and the phase monitor's recommendation is only advisory.
+    # get_phase_recommendation surfaces that advice; next_prescription uses the
+    # frontend-supplied current_phase for the actual rule computation.
     if payload.exercise_entry_id is not None:
         state = db.query(AlgorithmState).filter(
             AlgorithmState.user_id == current_user.id,
@@ -1956,8 +1940,10 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         state.last_suggested_weight = result.next_weight
         state.last_suggested_reps = result.next_reps
         if history:
-            state.last_effort_avg = round(sum(s.effort or 3 for s in history[-10:]) / min(len(history), 10), 2)
-        state.progression_type = coach_state.phase
+            efforts = [s.effort for s in history[-10:] if s.effort is not None]
+            state.last_effort_avg = round(sum(efforts) / len(efforts), 2) if efforts else None
+        # NOTE: do NOT overwrite progression_type here; it should follow the
+        # user's current coach_phase, not the transient computed recommendation.
         db.commit()
 
         if previous_phase and previous_phase != coach_state.phase:
@@ -1966,7 +1952,6 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
                 exercise_entry_id=payload.exercise_entry_id,
                 from_phase=previous_phase,
                 to_phase=coach_state.phase,
-                week_in_block=coach_state.week_in_block,
                 reason="best_fit",
             )
             db.add(transition)
@@ -2015,7 +2000,6 @@ class ProgressionTransitionOut(ApiBaseModel):
     exercise_entry_id: int
     from_phase: str
     to_phase: str
-    week_in_block: int
     reason: Optional[str]
     created_at: Optional[datetime]
 
@@ -2052,9 +2036,7 @@ def progression_transitions(db: Session = Depends(get_db), current_user: User = 
 
 class CoachOverrideRequest(BaseModel):
     phase: str = "linear"
-    week_in_block: int = 1
     force_deload: bool = False
-    periodization_cycle_weeks: int = 4
     custom_phase_order: Optional[List[str]] = None
     deload_mode: str = "ai_driven"
 
@@ -2063,9 +2045,7 @@ class CoachOverrideRequest(BaseModel):
 def coach_override(payload: CoachOverrideRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     keys = {
         "coach_phase": payload.phase,
-        "coach_week_in_block": str(payload.week_in_block),
         "coach_force_deload": str(payload.force_deload).lower(),
-        "coach_periodization_cycle_weeks": str(payload.periodization_cycle_weeks),
         "coach_deload_mode": payload.deload_mode,
     }
     if payload.custom_phase_order is not None:
@@ -2085,7 +2065,6 @@ def coach_override(payload: CoachOverrideRequest, db: Session = Depends(get_db),
         "event": "override",
         "user_id": current_user.id,
         "phase": payload.phase,
-        "week_in_block": payload.week_in_block,
         "force_deload": payload.force_deload,
         "custom_phase_order": payload.custom_phase_order,
     }))
@@ -2094,9 +2073,7 @@ def coach_override(payload: CoachOverrideRequest, db: Session = Depends(get_db),
 
 class CoachStateResponseOut(BaseModel):
     coach_phase: Optional[str] = None
-    coach_week_in_block: Optional[int] = None
     coach_force_deload: Optional[bool] = None
-    coach_periodization_cycle_weeks: Optional[int] = None
     coach_custom_phase_order: Optional[List[str]] = None
     coach_deload_mode: Optional[str] = None
     coach_load_pct: Optional[int] = None
@@ -2104,47 +2081,10 @@ class CoachStateResponseOut(BaseModel):
 
 @app.get("/api/coach/state", response_model=CoachStateResponseOut)
 def get_coach_state(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    keys = ["coach_phase", "coach_week_in_block", "coach_force_deload", "coach_periodization_cycle_weeks", "coach_custom_phase_order", "coach_deload_mode", "coach_load_pct"]
+    keys = ["coach_phase", "coach_force_deload", "coach_custom_phase_order", "coach_deload_mode", "coach_load_pct"]
     out: dict[str, str] = {}
     for s in db.query(AppSetting).filter(AppSetting.key.in_(keys), AppSetting.user_id == current_user.id).all():
         out[s.key] = s.value
-
-    # Derive block-relative week from the most recent progression transition so
-    # phase blocks reset when the user changes modes instead of using total elapsed
-    # weeks which would cause premature rotation for existing users.
-    now = datetime.now(timezone.utc)
-    transition_week: Optional[int] = None
-    transition = (
-        db.query(ProgressionTransition)
-        .filter(ProgressionTransition.user_id == current_user.id)
-        .order_by(ProgressionTransition.created_at.desc())
-        .first()
-    )
-    if transition:
-        oldest_transition = transition.created_at
-        if oldest_transition.tzinfo is None:
-            oldest_transition = oldest_transition.replace(tzinfo=timezone.utc)
-        elapsed_days = max(0, (now - oldest_transition).days)
-        transition_week = elapsed_days // 7 + 1
-
-    # Also compute total elapsed weeks from oldest completed workout for calendar-mode
-    # deload calculations (used in compute_coach_state for date-derived logic).
-    computed_week: Optional[int] = None
-    sessions = (
-        db.query(WorkoutSession.started_at)
-        .filter(WorkoutSession.user_id == current_user.id, WorkoutSession.ended_at.is_not(None))
-        .order_by(WorkoutSession.started_at.asc())
-        .all()
-    )
-    if sessions:
-        oldest = sessions[0].started_at
-        if oldest.tzinfo is None:
-            oldest = oldest.replace(tzinfo=timezone.utc)
-        elapsed_days = max(0, (now - oldest).days)
-        computed_week = elapsed_days // 7 + 1
-
-    # Use transition-relative week if available, otherwise fall back to total elapsed weeks.
-    block_week = transition_week if transition_week is not None else computed_week
 
     # Compute load from recent set history
     load_pct = 0
@@ -2172,9 +2112,7 @@ def get_coach_state(db: Session = Depends(get_db), current_user: User = Depends(
 
     return CoachStateResponseOut(
         coach_phase=out.get("coach_phase"),
-        coach_week_in_block=block_week if block_week is not None else (int(out["coach_week_in_block"]) if out.get("coach_week_in_block") else None),
         coach_force_deload=out.get("coach_force_deload") == "true" if out.get("coach_force_deload") else None,
-        coach_periodization_cycle_weeks=int(out["coach_periodization_cycle_weeks"]) if out.get("coach_periodization_cycle_weeks") else None,
         coach_custom_phase_order=json.loads(out["coach_custom_phase_order"]) if out.get("coach_custom_phase_order") else None,
         coach_deload_mode=out.get("coach_deload_mode"),
         coach_load_pct=load_pct,
@@ -2493,7 +2431,7 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
                 "sets": len(sets),
                 "top_weight": top.actual_weight,
                 "top_reps": top.actual_reps,
-                "avg_effort": round(sum((l.effort or 3) for l in sets) / len(sets), 1),
+                "avg_effort": round(sum(l.effort for l in sets if l.effort is not None) / len(sets), 1) if any(l.effort is not None for l in sets) else None,
                 "avg_rir": round(sum((l.rir or 0) for l in sets) / len(sets), 1) if any(l.rir is not None for l in sets) else None,
                 "volume": round(sum((l.actual_weight or 0) * (l.actual_reps or 0) for l in sets)),
             })
@@ -2610,8 +2548,8 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
     coach_state_data: dict[str, Any] = {}
     try:
         state_keys = [
-            "coach_phase", "coach_week_in_block", "coach_force_deload",
-            "coach_periodization_cycle_weeks", "coach_custom_phase_order",
+            "coach_phase", "coach_force_deload",
+            "coach_custom_phase_order",
             "coach_deload_mode", "coach_load_pct",
         ]
         out: dict[str, str] = {}
@@ -2637,26 +2575,9 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
         ]
         load_pct = compute_load(history)
 
-        sessions = (
-            db.query(WorkoutSession.started_at)
-            .filter(WorkoutSession.user_id == current_user.id, WorkoutSession.ended_at.is_not(None))
-            .order_by(WorkoutSession.started_at.asc())
-            .all()
-        )
-        computed_week = None
-        if sessions:
-            oldest = sessions[0].started_at
-            if oldest.tzinfo is None:
-                oldest = oldest.replace(tzinfo=timezone.utc)
-            now = datetime.now(timezone.utc)
-            elapsed_days = max(0, (now - oldest).days)
-            computed_week = elapsed_days // 7 + 1
-
         coach_state_data = {
             "phase": out.get("coach_phase"),
-            "week_in_block": computed_week if computed_week is not None else (int(out["coach_week_in_block"]) if out.get("coach_week_in_block") else None),
             "force_deload": out.get("coach_force_deload") == "true" if out.get("coach_force_deload") else None,
-            "periodization_cycle_weeks": int(out["coach_periodization_cycle_weeks"]) if out.get("coach_periodization_cycle_weeks") else None,
             "custom_phase_order": json.loads(out["coach_custom_phase_order"]) if out.get("coach_custom_phase_order") else None,
             "deload_mode": out.get("coach_deload_mode"),
             "load_pct": load_pct,
@@ -3049,9 +2970,7 @@ If the user asks about switching progression models, phases, blocks, or training
                         else:
                             keys = {
                                 "coach_phase": new_phase,
-                                "coach_week_in_block": "1",
                                 "coach_force_deload": "false",
-                                "coach_periodization_cycle_weeks": "4",
                                 "coach_deload_mode": "ai_driven",
                             }
                             for key, value in keys.items():
@@ -3117,7 +3036,7 @@ If the user asks about switching progression models, phases, blocks, or training
                         if ex["top_weight"] != cur["top_weight"] or ex["top_reps"] != cur["top_reps"]:
                             lines.append(f"- Trend: {ex['name']} went from {ex['top_weight']}×{ex['top_reps']} to {cur['top_weight']}×{cur['top_reps']}.")
         if coach_state_data:
-            lines.append(f"Program state: {coach_state_data.get('phase') or 'unknown phase'}, week {coach_state_data.get('week_in_block') or '?'}, load {coach_state_data.get('load_pct', 0)}%")
+            lines.append(f"Program state: {coach_state_data.get('phase') or 'unknown phase'}, load {coach_state_data.get('load_pct', 0)}%")
         if prescription:
             if isinstance(prescription, list):
                 lines.append("Up next:")

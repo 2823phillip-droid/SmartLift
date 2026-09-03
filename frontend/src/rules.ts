@@ -20,6 +20,27 @@ export interface SetRecord {
   completed_at?: string;
 }
 
+const COMPOUND_KEYWORDS = [
+  "squat", "deadlift", "bench", "press", "row", "pull-up", "pullup", "dip",
+  "lunge", "clean", "snatch", "front squat", "back squat", "romanian deadlift",
+  "incline press", "decline press", "overhead press", "military press",
+  "barbell", "dumbbell row", "bent over row", "seated row", "lat pulldown",
+];
+
+const ISOLATION_KEYWORDS = [
+  "curl", "extension", "raise", "fly", "crunch", "lateral", "kickback",
+  "pec deck", "pec fly", "bicep", "tricep", "deltoid", "rear delt",
+  "face pull", "external rotation", "internal rotation", "wrist curl",
+  "calf raise", "abduction", "adduction", "plank",
+];
+
+export function inferRepsTarget(exerciseName: string): number {
+  const name = exerciseName.toLowerCase();
+  if (COMPOUND_KEYWORDS.some((k) => name.includes(k))) return 8;
+  if (ISOLATION_KEYWORDS.some((k) => name.includes(k))) return 12;
+  return 10;
+}
+
 export function computeLoad(history: SetRecord[], windowDays: number = 21): number {
   const now = new Date();
   const cutoff = new Date(now.getTime() - windowDays * 86400000);
@@ -172,73 +193,30 @@ function linearRule(rule: RuleInput, topSet: SetRecord | null): Prescription {
 
   const weight = topSet.actual_weight;
   const reps = topSet.actual_reps;
-  const effort = topSet.effort ?? 3;
-  const rir = topSet.rir ?? null;
+  const effort = topSet.effort;
 
-  if (reps >= rule.reps_target && effort <= (rule.easy_effort_threshold ?? 2)) {
-    const nextWeight = weight + inc;
-    const msg = `Last session you did ${weight} lbs x ${reps} reps, effort ${effort}. Next workout we'll start at ${Math.round(nextWeight)} lbs and shoot for ${rule.reps_target} reps. That was easy, so add ${inc} lbs next session.`;
-    return buildPrescription({
-      next_weight: nextWeight,
-      next_reps: rule.reps_target,
-      next_sets: rule.sets_target,
-      rest_seconds: rest,
-      coaching_message: msg,
-      workload_status: "easy",
-      prescription_type: rule.progression_type,
-      is_deload: false,
-    });
+  // True linear: weight goes up every session.
+  // Reps target is for coaching message only, not a gate.
+  const nextWeight = weight + inc;
+  let status: WorkloadStatus;
+  let msg: string;
+  if (effort == null) {
+    status = "moderate";
+    msg = `Last session you did ${weight} lbs x ${reps} reps, effort ?. In this session we'll start at ${Math.round(nextWeight)} lbs and shoot for ${rule.reps_target} reps. Keep this weight until it feels easy, then add ${inc} lbs.`;
+  } else if (effort <= 3) {
+    status = "easy";
+    msg = `Last session you did ${weight} lbs x ${reps} reps. In this session we'll start at ${Math.round(nextWeight)} lbs and shoot for ${rule.reps_target} reps. That was easy, so add ${inc} lbs next session.`;
+  } else {
+    status = "moderate";
+    msg = `Last session you did ${weight} lbs x ${reps} reps. In this session we'll start at ${Math.round(nextWeight)} lbs and shoot for ${rule.reps_target} reps. Keep this weight until it feels easy, then add ${inc} lbs.`;
   }
-  if (reps >= rule.reps_target && effort <= 3 && (rir === null || rir >= 1)) {
-    const nextWeight = weight + inc;
-    const msg = `Last session you did ${weight} lbs x ${reps} reps, effort ${effort}. Next workout we'll start at ${Math.round(nextWeight)} lbs and shoot for ${rule.reps_target} reps. Keep this weight until it feels easy, then add ${inc} lbs.`;
-    return buildPrescription({
-      next_weight: nextWeight,
-      next_reps: rule.reps_target,
-      next_sets: rule.sets_target,
-      rest_seconds: rest,
-      coaching_message: msg,
-      workload_status: "moderate",
-      prescription_type: rule.progression_type,
-      is_deload: false,
-    });
-  }
-  if (reps >= rule.reps_target && effort >= (rule.hard_effort_threshold ?? 4) && (rir === null || rir <= 1)) {
-    const msg = `Last session you did ${weight} lbs x ${reps} reps, effort ${effort}. Next workout we'll start at ${Math.round(weight)} lbs and shoot for ${rule.reps_target} reps. Keep this weight until you can hit the full rep target cleanly.`;
-    return buildPrescription({
-      next_weight: weight,
-      next_reps: rule.reps_target,
-      next_sets: rule.sets_target,
-      rest_seconds: rest,
-      coaching_message: msg,
-      workload_status: "hard",
-      prescription_type: rule.progression_type,
-      is_deload: false,
-    });
-  }
-  if (reps >= rule.reps_target) {
-    const nextWeight = weight + inc;
-    const msg = `Last session you did ${weight} lbs x ${reps} reps, effort ${effort}. Next workout we'll start at ${Math.round(nextWeight)} lbs and shoot for ${rule.reps_target} reps. Keep this weight until it feels easy, then add ${inc} lbs.`;
-    return buildPrescription({
-      next_weight: nextWeight,
-      next_reps: rule.reps_target,
-      next_sets: rule.sets_target,
-      rest_seconds: rest,
-      coaching_message: msg,
-      workload_status: "moderate",
-      prescription_type: rule.progression_type,
-      is_deload: false,
-    });
-  }
-
-  const msg = `Last session you did ${weight} lbs x ${reps} reps, effort ${effort}. Next workout we'll start at ${Math.round(weight)} lbs and shoot for ${rule.reps_target} reps. Keep this weight until you can hit the full rep target cleanly.`;
   return buildPrescription({
-    next_weight: weight,
+    next_weight: nextWeight,
     next_reps: rule.reps_target,
     next_sets: rule.sets_target,
     rest_seconds: rest,
     coaching_message: msg,
-    workload_status: "hard",
+    workload_status: status,
     prescription_type: rule.progression_type,
     is_deload: false,
   });
@@ -264,7 +242,7 @@ function doubleRule(rule: RuleInput, topSet: SetRecord | null): Prescription {
 
   const weight = topSet.actual_weight;
   const reps = topSet.actual_reps;
-  const effort = topSet.effort ?? 3;
+  const effort = topSet.effort;
   const threshold = Number(rule.double_success_threshold) || 2;
   const real = recentRealSets(rule.history);
   const byDate: Record<string, SetRecord[]> = {};
@@ -286,7 +264,7 @@ function doubleRule(rule: RuleInput, topSet: SetRecord | null): Prescription {
     }
   }
 
-  if (consecutive >= threshold) {
+  if (effort != null && consecutive >= threshold) {
     const nextWeight = weight + inc;
     const msg = `Last session you did ${weight} lbs x ${reps} reps, effort ${effort}. Next workout we'll start at ${Math.round(nextWeight)} lbs and shoot for ${rule.reps_target} reps. Double progression triggered after ${consecutive} strong sessions. Up ${inc} lbs next session.`;
     return buildPrescription({
@@ -301,7 +279,7 @@ function doubleRule(rule: RuleInput, topSet: SetRecord | null): Prescription {
     });
   }
 
-  const msg = `Last session you did ${weight} lbs x ${reps} reps, effort ${effort}. Next workout we'll start at ${Math.round(weight)} lbs and shoot for ${rule.reps_target} reps. Build volume first (${consecutive}/${threshold} solid sessions). Keep weight until it feels easy.`;
+  const msg = `Last session you did ${weight} lbs x ${reps} reps${effort != null ? `, effort ${effort}` : ", effort ?"}. Next workout we'll start at ${Math.round(weight)} lbs and shoot for ${rule.reps_target} reps. Build volume first (${consecutive}/${threshold} solid sessions). Keep weight until it feels easy.`;
   return buildPrescription({
     next_weight: weight,
     next_reps: rule.reps_target,
@@ -340,10 +318,10 @@ function percentageRule(rule: RuleInput, topSet: SetRecord | null): Prescription
 
   const weight = topSet.actual_weight;
   const reps = topSet.actual_reps;
-  const effort = topSet.effort ?? 3;
+  const effort = topSet.effort;
   const upInc = effectiveIncrement(Number(rule.pct_increment_success) || 2.5, rule);
 
-  if (reps >= rule.reps_target && effort <= (rule.easy_effort_threshold ?? 2)) {
+  if (effort != null && reps >= rule.reps_target && effort <= (rule.easy_effort_threshold ?? 2)) {
     const nextWeight = weight + upInc;
     const msg = `Last session you did ${weight} lbs x ${reps} reps, effort ${effort}. Next workout we'll start at ${Math.round(nextWeight)} lbs and shoot for ${rule.reps_target} reps. Great session. Advanced load to ${Math.round(nextWeight)} lbs next session.`;
     return buildPrescription({
@@ -359,7 +337,7 @@ function percentageRule(rule: RuleInput, topSet: SetRecord | null): Prescription
   }
   if (reps >= rule.reps_target) {
     const nextWeight = weight + upInc * 0.5;
-    const msg = `Last session you did ${weight} lbs x ${reps} reps, effort ${effort}. Next workout we'll start at ${Math.round(nextWeight)} lbs and shoot for ${rule.reps_target} reps. Solid session. Small bump next session.`;
+    const msg = `Last session you did ${weight} lbs x ${reps} reps${effort != null ? `, effort ${effort}` : ", effort ?"}. Next workout we'll start at ${Math.round(nextWeight)} lbs and shoot for ${rule.reps_target} reps. Solid session. Small bump next session.`;
     return buildPrescription({
       next_weight: nextWeight,
       next_reps: rule.reps_target,
@@ -373,7 +351,7 @@ function percentageRule(rule: RuleInput, topSet: SetRecord | null): Prescription
   }
 
   const nextWeight = Math.max(base, weight - (rule.pct_decrement_fail || 5));
-  const msg = `Last session you did ${weight} lbs x ${reps} reps, effort ${effort}. Next workout we'll start at ${Math.round(nextWeight)} lbs and shoot for ${rule.reps_target} reps. Missed reps. Dropped to ${Math.round(nextWeight)} lbs to rebuild.`;
+  const msg = `Last session you did ${weight} lbs x ${reps} reps${effort != null ? `, effort ${effort}` : ", effort ?"}. Next workout we'll start at ${Math.round(nextWeight)} lbs and shoot for ${rule.reps_target} reps. Missed reps. Dropped to ${Math.round(nextWeight)} lbs to rebuild.`;
   return buildPrescription({
     next_weight: nextWeight,
     next_reps: rule.reps_target,
@@ -409,11 +387,11 @@ function autoregulatedRule(rule: RuleInput, topSet: SetRecord | null): Prescript
 
   const lastWeight = topSet.actual_weight;
   const lastReps = topSet.actual_reps;
-  const effort = Number(topSet.effort) || 3;
+  const effort = topSet.effort;
   const rir = Number(topSet.rir) ?? reps - lastReps;
   const inc = effectiveIncrement((Number(rule.linear_increment) || 5) * 0.5, rule);
 
-  if (effort <= 2 && rir >= 2) {
+  if (effort != null && effort <= 2 && rir >= 2) {
     const nextWeight = lastWeight + (Number(rule.linear_increment) || 5);
     const msg = `Last session you did ${lastWeight} lbs x ${lastReps} reps, effort ${effort}, RIR ${rir}. Next workout we'll start at ${Math.round(nextWeight)} lbs and shoot for ${reps} reps. Easy set. Bumping to ${Math.round(nextWeight)} lbs next session.`;
     return buildPrescription({
@@ -427,7 +405,7 @@ function autoregulatedRule(rule: RuleInput, topSet: SetRecord | null): Prescript
       is_deload: false,
     });
   }
-  if (effort <= 3 && rir >= 1) {
+  if (effort != null && effort <= 3 && rir >= 1) {
     const nextWeight = lastWeight + ((Number(rule.linear_increment) || 5) * 0.5);
     const msg = `Last session you did ${lastWeight} lbs x ${lastReps} reps, effort ${effort}, RIR ${rir}. Next workout we'll start at ${Math.round(nextWeight)} lbs and shoot for ${reps} reps. Moderate effort. Micro-load next session.`;
     return buildPrescription({
@@ -441,7 +419,7 @@ function autoregulatedRule(rule: RuleInput, topSet: SetRecord | null): Prescript
       is_deload: false,
     });
   }
-  if (effort >= (rule.hard_effort_threshold ?? 4) || rir <= 0) {
+  if (effort != null && (effort >= (rule.hard_effort_threshold ?? 4) || rir <= 0)) {
     const nextWeight = lastWeight - inc;
     const msg = `Last session you did ${lastWeight} lbs x ${lastReps} reps, effort ${effort}, RIR ${rir}. Next workout we'll start at ${Math.round(nextWeight)} lbs and shoot for ${reps} reps. Tough set. Dropping to ${Math.round(nextWeight)} lbs for recovery.`;
     return buildPrescription({
@@ -456,7 +434,7 @@ function autoregulatedRule(rule: RuleInput, topSet: SetRecord | null): Prescript
     });
   }
 
-  const msg = `Last session you did ${lastWeight} lbs x ${lastReps} reps, effort ${effort}, RIR ${rir}. Next workout we'll start at ${Math.round(lastWeight)} lbs and shoot for ${reps} reps. Matching last load today.`;
+  const msg = `Last session you did ${lastWeight} lbs x ${lastReps} reps, effort ${effort ?? "?"}, RIR ${rir}. Next workout we'll start at ${Math.round(lastWeight)} lbs and shoot for ${reps} reps. Matching last load today.`;
   return buildPrescription({
     next_weight: lastWeight,
     next_reps: reps,

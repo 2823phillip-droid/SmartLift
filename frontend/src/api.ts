@@ -29,7 +29,8 @@ export function setAuthToken(next: string | null) {
 async function request(path: string, options: RequestInit = {}) {
   const FLY_DEFAULT = "https://askeo.fit/api";
   let base = apiBase || import.meta.env.VITE_API_BASE || FLY_DEFAULT;
-  let url = `${base}${path}`;
+  const pathPart = path.startsWith("/") ? path.slice(1) : path;
+  let url = `${base}/${pathPart}`;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -265,7 +266,6 @@ export interface ProgressionTransition {
   exercise_entry_id: number;
   from_phase: string;
   to_phase: string;
-  week_in_block: number;
   reason?: string;
   created_at?: string;
 }
@@ -344,10 +344,10 @@ export const api = {
   getExerciseProgress: (exerciseId: number) =>
     request(`/exercises/${exerciseId}/progress`),
   getExerciseNameProgress: (name: string) =>
-    request(`/exercise-names/${encodeURIComponent(name)}/progress?t=${Date.now()}`),
+    request(`/exercise-names/progress?name=${encodeURIComponent(name)}&t=${Date.now()}`),
   getExerciseNames: () => request("/exercise-names"),
   getExerciseNameLastSession: (name: string) =>
-    request(`/exercise-names/${encodeURIComponent(name)}/last-session`),
+    request(`/exercise-names/last-session?name=${encodeURIComponent(name)}`),
   getTotalVolume: () => request("/stats/total-volume"),
   getStreak: () => request("/stats/streak"),
 
@@ -407,7 +407,7 @@ export const api = {
   getCoachMessages: (sessionId: number) =>
     request(`/sessions/${sessionId}/coach-messages`),
 
-  coachOverride: (data: { phase: string; week_in_block: number; force_deload?: boolean; periodization_cycle_weeks?: number; custom_phase_order?: string[]; deload_mode?: string }) =>
+  coachOverride: (data: { phase: string; force_deload?: boolean; custom_phase_order?: string[]; deload_mode?: string }) =>
     request("/coach/override", {
       method: "POST",
       body: JSON.stringify(data),
@@ -449,8 +449,6 @@ export const api = {
     percentage_of_1rm?: number;
     pct_increment_success?: number;
     pct_decrement_fail?: number;
-    week?: number;
-    periodization_cycle_weeks?: number;
     force_deload?: boolean;
     deload_volume_factor?: number;
     deload_intensity_factor?: number;
@@ -463,7 +461,6 @@ export const api = {
     ai_stress_fatigue_adjustment?: number | null;
     ai_calibrated_1rm?: number | null;
     current_phase?: string | null;
-    current_week_in_block?: number | null;
     custom_phase_order?: string[] | null;
     exercise_entry_id?: number | null;
   }) =>

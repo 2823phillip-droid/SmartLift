@@ -16,7 +16,7 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { api, withRetry } from "../api";
 import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
 import { SortableExerciseCard } from "./SortableExerciseCard";
-import { computePrescription, type CoachPhase, type Prescription, type SetRecord, computeCoachState, withinWorkoutProgression } from "../rules";
+import { computePrescription, type CoachPhase, type Prescription, type SetRecord, computeCoachState, withinWorkoutProgression, inferRepsTarget } from "../rules";
 import { getUnitsPreference, lbsToKg, kgToLbs, formatWeight } from "../utils/units";
 import { resolveMediaUrl } from "../api";
 
@@ -63,7 +63,6 @@ export default function ActiveWorkoutScreen({
   const [isDragActive, setIsDragActive] = useState(false);
   const [isLogging, setIsLogging] = useState(false);
   const [coachPhase, setCoachPhase] = useState<CoachPhase>("linear");
-  const [coachWeek, setCoachWeek] = useState<number>(1);
   const [coachLoadPct, setCoachLoadPct] = useState<number | null>(null);
   const [, setCoachLoaded] = useState(false);
 
@@ -99,7 +98,7 @@ export default function ActiveWorkoutScreen({
         history.push({
           actual_weight: toLbs(s.actual_weight),
           actual_reps: s.actual_reps,
-          effort: 3,
+          effort: s.effort ?? null,
           completed_at: sessionDate,
         });
       }
@@ -111,7 +110,7 @@ export default function ActiveWorkoutScreen({
         history.push({
           actual_weight: toLbs(Number(l.actual_weight || 0)),
           actual_reps: Number(l.actual_reps || 0),
-          effort: l.effort ?? 3,
+          effort: l.effort ?? null,
           completed_at: new Date().toISOString(),
         });
       }
@@ -131,7 +130,7 @@ export default function ActiveWorkoutScreen({
       history.push({
         actual_weight: toLbs(s.actual_weight),
         actual_reps: s.actual_reps,
-        effort: 3,
+        effort: s.effort ?? null,
         completed_at: sessionDate,
       });
     }
@@ -150,9 +149,8 @@ export default function ActiveWorkoutScreen({
       const coach = computeCoachState({
         history: globalHistory,
         current_phase: coachPhase,
-        current_week_in_block: coachWeek,
         default_progression: "linear",
-        periodization_cycle_weeks: 4,
+        force_deload: false,
       });
       const map: Record<number, any> = {};
       let lastCoach: any = null;
@@ -165,16 +163,13 @@ export default function ActiveWorkoutScreen({
           console.log("[ActiveWorkoutScreen] backend prescription", exercise.id, exercise.name, "lastWeight", lastWeight, "history", lastSession.length);
           const res = await api.nextPrescription({
             start_weight: lastWeight,
-            reps_target: exercise.reps_target,
+            reps_target: inferRepsTarget(exercise.name),
             sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
             rest_seconds: exercise.rest_seconds,
             progression_type: coach.phase === "deload" ? "linear" : coach.phase,
             history: buildPrescriptionHistory(exercise),
-            week: coachWeek,
-            current_week_in_block: coachWeek,
-            force_deload: coach.is_deload,
-            periodization_cycle_weeks: coach.block_duration_weeks,
-            exercise_entry_id: exercise.id,
+                force_deload: coach.is_deload,
+                        exercise_entry_id: exercise.id,
           });
           console.log("[ActiveWorkoutScreen] backend prescription result", exercise.id, res);
           if (!cancelled) {
@@ -192,13 +187,14 @@ export default function ActiveWorkoutScreen({
       if (!cancelled) {
         setBackendPrescriptions(map);
         setBackendCoach(lastCoach);
+        if (lastCoach?.phase) setCoachPhase(lastCoach.phase);
       }
     };
     load();
     return () => {
       cancelled = true;
     };
-  }, [exercises, logs, lastSessionByExercise, displaySetsTarget, coachPhase, coachWeek, workoutMode]);
+  }, [exercises, logs, lastSessionByExercise, displaySetsTarget, coachPhase, workoutMode]);
 
   const localSuggestions = useMemo(() => {
     if ((workoutMode || "manual") !== "ai_trainer") return { prescriptions: {} as Record<number, Prescription>, coach: null as any };
@@ -209,9 +205,8 @@ export default function ActiveWorkoutScreen({
     const coach = computeCoachState({
       history,
       current_phase: coachPhase,
-      current_week_in_block: coachWeek,
       default_progression: "linear",
-      periodization_cycle_weeks: 4,
+      force_deload: false,
     });
 
     const map: Record<number, Prescription> = {};
@@ -224,17 +219,16 @@ export default function ActiveWorkoutScreen({
       console.log("[ActiveWorkoutScreen] localSuggestions exercise", exercise.id, exercise.name, "lastWeight", lastWeight, "exHistory length", exHistory.length);
       map[exercise.id] = computePrescription({
         start_weight: lastWeight,
-        reps_target: exercise.reps_target,
+        reps_target: inferRepsTarget(exercise.name),
         sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
         rest_seconds: exercise.rest_seconds,
         progression_type: coach.phase === "deload" ? "linear" : coach.phase,
         history: exHistory,
-        week: coachWeek,
-        periodization_cycle_weeks: 4,
+        force_deload: false,
       });
     }
     return { prescriptions: map, coach };
-  }, [exercises, logs, lastSessionByExercise, displaySetsTarget, coachPhase, coachWeek]);
+  }, [exercises, logs, lastSessionByExercise, displaySetsTarget, coachPhase]);
 
   const useBackend = (workoutMode || "manual") === "ai_trainer";
   const suggestions = useBackend && Object.keys(backendPrescriptions).length > 0
@@ -277,7 +271,6 @@ export default function ActiveWorkoutScreen({
         }
         if ((workoutMode || "manual") === "ai_trainer" && coachState) {
           if (coachState.coach_phase) setCoachPhase(coachState.coach_phase);
-          if (coachState.coach_week_in_block) setCoachWeek(coachState.coach_week_in_block);
           if ((coachState as any)?.coach_load_pct !== undefined) setCoachLoadPct((coachState as any).coach_load_pct);
           setCoachLoaded(true);
         }
@@ -318,7 +311,9 @@ export default function ActiveWorkoutScreen({
           ) || exercisesData[0];
           const completedCount = setLogsData.filter((l: SetLog) => l.exercise_entry_id === target.id).length;
           const sessionLogs = sessionResolved[target.id] || [];
-          const match = sessionLogs.find((l: any) => l.set_index === completedCount + 1);
+          const match = completedCount > 0
+            ? sessionLogs.find((l: any) => l.set_index === completedCount + 1)
+            : null;
           console.log("[ActiveWorkoutScreen] auto-expand", target.id, target.name, "completedCount", completedCount, "match", match);
           if (match) {
             const displayWeight = getUnitsPreference() === "imperial"
@@ -344,13 +339,12 @@ export default function ActiveWorkoutScreen({
             const history = buildPrescriptionHistory(target);
             const prescription = computePrescription({
               start_weight: toLbs(lastWeight),
-              reps_target: target.reps_target,
+              reps_target: inferRepsTarget(target.name),
               sets_target: displaySetsTarget[target.id] ?? target.sets_target,
               rest_seconds: target.rest_seconds,
               progression_type: phase,
               history,
-              week: coachState?.coach_week_in_block ?? 1,
-              periodization_cycle_weeks: 4,
+              force_deload: false,
             });
             const displayWeight = getUnitsPreference() === "imperial"
               ? Math.round(prescription.next_weight)
@@ -487,10 +481,10 @@ export default function ActiveWorkoutScreen({
       const prevWeightLbs = lastLog.actual_weight || 0;
       const suggested = withinWorkoutProgression({
         prevWeight: prevWeightLbs,
-        prevReps: lastLog.actual_reps || entry.reps_target,
+        prevReps: lastLog.actual_reps || inferRepsTarget(entry.name),
         prevRpe: lastLog.rpe ?? null,
         prevFormQuality: lastLog.form_quality ?? null,
-        repsTarget: entry.reps_target,
+        repsTarget: inferRepsTarget(entry.name),
         increment: 5,
       });
       return { weight: Math.round(suggested.weight * 10) / 10, reps: suggested.reps };
@@ -505,7 +499,7 @@ export default function ActiveWorkoutScreen({
     const defaultWeight = getUnitsPreference() === "imperial"
       ? entry.start_weight
       : lbsToKg(entry.start_weight);
-    return { weight: Math.round(defaultWeight), reps: entry.reps_target || 10 };
+    return { weight: Math.round(defaultWeight), reps: inferRepsTarget(entry.name) };
   };
 
   const exerciseCompletedCount = useMemo(() => {
@@ -664,7 +658,7 @@ export default function ActiveWorkoutScreen({
         ? exercise.start_weight
         : lbsToKg(exercise.start_weight);
       setDraftWeight(String(Math.round(defaultWeight)));
-      setDraftReps(String(exercise.reps_target));
+      setDraftReps(String(inferRepsTarget(exercise.name)));
     }
     setDraftRpe(8);
     setDraftFormQuality(0);
@@ -950,12 +944,9 @@ export default function ActiveWorkoutScreen({
     }
     if ((workoutMode || "manual") === "ai_trainer") {
       try {
-        const nextWeek = (backendCoach?.week_in_block || coachWeek || 1) + 1;
         await api.coachOverride({
           phase: backendCoach?.phase || coachPhase || "linear",
-          week_in_block: nextWeek,
           force_deload: false,
-          periodization_cycle_weeks: backendCoach?.block_duration_weeks || 4,
           deload_mode: backendCoach?.deload_mode || "ai_driven",
         });
       } catch (err: any) {
@@ -992,11 +983,10 @@ export default function ActiveWorkoutScreen({
   const isTrainer = (workoutMode || "manual") === "ai_trainer";
   const canLog = Boolean(draftWeight) && Boolean(draftReps);
 
-  const persistCoach = async (phase: CoachPhase, week_in_block: number, force_deload = false) => {
+  const persistCoach = async (phase: CoachPhase, force_deload = false) => {
     setCoachPhase(phase);
-    setCoachWeek(week_in_block);
     try {
-      await api.coachOverride({ phase, week_in_block, force_deload, periodization_cycle_weeks: 4 });
+      await api.coachOverride({ phase, force_deload });
     } catch (err: any) {
       setPrescriptionError(err?.message || "Failed to save coach state");
     }
@@ -1004,18 +994,18 @@ export default function ActiveWorkoutScreen({
 
   const forceDeload = () => {
     const current = coachPhase || "linear";
-    void persistCoach(current as CoachPhase, coachWeek, true);
+    void persistCoach(current as CoachPhase, true);
   };
   const skipBlock = () => {
     setCoachPhase((prev: CoachPhase) => {
       const types: CoachPhase[] = ["linear", "double", "percentage", "autoregulated"];
       const idx = types.indexOf(prev as any);
-      void persistCoach(types[(idx + 1) % types.length], 1, false);
+      void persistCoach(types[(idx + 1) % types.length], false);
       return types[(idx + 1) % types.length];
     });
   };
   const resetCoach = () => {
-    void persistCoach("linear", 1, false);
+    void persistCoach("linear", false);
   };
 
   return (
