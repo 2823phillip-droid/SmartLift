@@ -816,10 +816,15 @@ def _user_from_token(token: str, db: Session) -> User | None:
     user = db.query(User).filter(User.token_hash == token_hash).first()
     if not user:
         return None
-    if user.token_expires_at and datetime.now(timezone.utc).replace(tzinfo=None) > user.token_expires_at:
-        user.token_hash = None
-        user.token_expires_at = None
-        db.add(user)
+    if user.token_expires_at:
+        expires = user.token_expires_at
+        now = datetime.now(timezone.utc)
+        if expires.tzinfo is None:
+            expires = expires.replace(tzinfo=timezone.utc)
+        if now > expires:
+            user.token_hash = None
+            user.token_expires_at = None
+            db.add(user)
         db.commit()
         db.refresh(user)
         return None
