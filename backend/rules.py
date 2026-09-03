@@ -39,7 +39,7 @@ class WorkloadStatus(str, Enum):
 
 def compute_load(history: List[SetRecord], window_days: int = 21) -> int:
     """Return 0-100 accumulated training load from recent history."""
-    now = datetime.utcnow()
+    now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=window_days)
     recent = [
         s for s in history
@@ -609,7 +609,7 @@ class CoachState:
     phase: str
     progression_type: str
     is_deload: bool
-    explanation: str
+    explanation: str = ""
     next_deload_date: Optional[str] = None
     load_pct: int = 0
     deload_mode: str = "ai_driven"
