@@ -1,96 +1,74 @@
-#!/bin/bash
-set -e
+#!/usr/bin/env bash
+set -euo pipefail
 
-REPO="$HOME/workout-logger"
-cd "$REPO"
+APP="smartlift-api"
+MAC="phillipwalters@192.168.1.112"
+REPO=~/workout-logger
+BACKUP_DIR="$REPO/backups"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
 
-echo ""
-echo "Running pre-flight sync check..."
-./scripts/sync-check.sh
-echo ""
+echo "==> Pre-flight checks"
+ssh -o StrictHostKeyChecking=no "$MAC" "cd $REPO && git status --porcelain"
+ssh -o StrictHostKeyChecking=no "$MAC" "cd $REPO/backend && python3 -m pytest tests/ -q"
 
-# Determine what needs action from sync-check output
-NEEDS_PULL=false
-NEEDS_PUSH=false
-NEEDS_BACKEND=false
-NEEDS_BUILD=false
+echo "==> Backing up Postgres"
+mkdir -p "$BACKUP_DIR"
+ssh -o StrictHostKeyChecking=no "$MAC" bash -s <<'REMOTE'
+set -euo pipefail
+export PATH="$PATH:/opt/homebrew/bin:/opt/homebrew/Cellar/node/26.7.0/bin:/opt/homebrew/opt/libpq/bin:$HOME/.fly/bin"
+source ~/.zshrc >/dev/null 2>&1 || true
 
-if git rev-parse HEAD != git rev-parse origin/master 2>/dev/null; then
-    AHEAD_BEHIND=$(git rev-list --left-right --count origin/master...HEAD 2>/dev/null || echo "0 0")
-    BEHIND=$(echo "$AHEAD_BEHIND" | awk "{print \$1}")
-    AHEAD=$(echo "$AHEAD_BEHIND" | awk "{print \$2}")
-    if [ "$BEHIND" -gt 0 ] && [ "$AHEAD" -eq 0 ]; then
-        NEEDS_PULL=true
-    elif [ "$AHEAD" -gt 0 ]; then
-        NEEDS_PUSH=true
-    else
-        NEEDS_PULL=true
-        NEEDS_PUSH=true
-    fi
+DB_URL=$(fly ssh console -C 'printenv DATABASE_URL' --app smartlift-api)
+nohup fly proxy 5432:5432 pgbouncer.9g6y30wgzj9rv5ml.flympg.net -a smartlift-api > /tmp/fly_proxy.log 2>&1 &
+echo $! > /tmp/fly_proxy.pid
+sleep 3
+
+USER=$(echo "$DB_URL" | awk -F/ '{print $3}' | awk -F: '{print $1}')
+PASS=$(echo "$DB_URL" | awk -F/ '{print $3}' | awk -F: '{print $2}' | awk -F@ '{print $1}')
+DB=$(echo "$DB_URL" | awk -F/ '{print $4}' | awk -F? '{print $1}')
+export PGPASSWORD="$PASS"
+pg_dump -h 127.0.0.1 -U "$USER" -d "$DB" > "$BACKUP_DIR/db-$TIMESTAMP.sql" || true
+head -n 5 "$BACKUP_DIR/db-$TIMESTAMP.sql" || true
+
+kill "$(cat /tmp/fly_proxy.pid)" >/dev/null 2>&1 || true
+REMOTE
+
+echo "==> Pushing code"
+ssh -o StrictHostKeyChecking=no "$MAC" "cd $REPO && git add -A && git commit -m 'deploy: $TIMESTAMP' || true && git push origin master"
+
+PREV_COMMIT=$(ssh -o StrictHostKeyChecking=no "$MAC" "cd $REPO && git rev-parse HEAD")
+echo "Previous commit: $PREV_COMMIT"
+
+echo "==> Deploying backend"
+if ! ssh -o StrictHostKeyChecking=no "$MAC" "export PATH=\"\\$PATH:/opt/homebrew/bin:/opt/homebrew/Cellar/node/26.7.0/bin:\\$HOME/.fly/bin\"; source ~/.zshrc >/dev/null 2>&1 || true; cd $REPO/backend && ~/.fly/bin/fly deploy --app $APP"; then
+  echo "Deploy failed, rolling back..."
+  ssh -o StrictHostKeyChecking=no "$MAC" "cd $REPO && git checkout $PREV_COMMIT && cd backend && ~/.fly/bin/fly deploy --app $APP"
+  exit 1
 fi
 
-# Check backend
-if [ "$NEEDS_PULL" = "false" ]; then
-    export PATH="$HOME/.fly/bin:$PATH"
-    DEPLOYED_AT=$(fly status -a smartlift-api 2>&1 | grep -oE "[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z" | head -1 || echo "")
-    LOCAL_DATE=$(git log -1 --format="%ci" HEAD 2>/dev/null || echo "")
-    if [ -n "$DEPLOYED_AT" ] && [ -n "$LOCAL_DATE" ]; then
-        DEPLOY_DATE=$(echo "$DEPLOYED_AT" | cut -d"T" -f1)
-        LOCAL_DATE_ONLY=$(echo "$LOCAL_DATE" | awk "{print \$1}")
-        if git diff --name-only origin/master HEAD | grep -q "^backend/"; then
-            if [ "$DEPLOY_DATE" \< "$LOCAL_DATE_ONLY" ]; then
-                NEEDS_BACKEND=true
-            fi
-        fi
-    fi
+echo "==> Waiting for health"
+for i in $(seq 1 30); do
+  if curl -sk "https://${APP}.fly.dev/healthz" | grep -q '"status":"ok"'; then
+    echo "Health OK"
+    break
+  fi
+  if [ "$i" -eq 30 ]; then
+    echo "Health check failed"
+    ssh -o StrictHostKeyChecking=no "$MAC" "cd $REPO && git checkout $PREV_COMMIT && cd backend && ~/.fly/bin/fly deploy --app $APP"
+    exit 1
+  fi
+  sleep 5
+done
+
+echo "==> Smoke test"
+if ! curl -sk "https://${APP}.fly.dev/api/coach/health" | grep -q '"llm_available":true'; then
+  echo "Coach health failed"
+  ssh -o StrictHostKeyChecking=no "$MAC" "cd $REPO && git checkout $PREV_COMMIT && cd backend && ~/.fly/bin/fly deploy --app $APP"
+  exit 1
 fi
 
-# Check frontend
-DIST_BUNDLE=$(ls frontend/dist/assets/index-*.js 2>/dev/null | head -1 || echo "")
-IOS_BUNDLE=$(ls frontend/ios/App/App/public/assets/index-*.js 2>/dev/null | head -1 || echo "")
-if [ -z "$DIST_BUNDLE" ]; then
-    NEEDS_BUILD=true
-elif [ -n "$IOS_BUNDLE" ] && [ "$(basename "$DIST_BUNDLE")" != "$(basename "$IOS_BUNDLE")" ]; then
-    NEEDS_BUILD=true
-fi
+echo "==> Syncing iOS"
+ssh -o StrictHostKeyChecking=no "$MAC" "export PATH=\"\\$PATH:/opt/homebrew/bin:/opt/homebrew/Cellar/node/26.7.0/bin\" && cd $REPO && git pull origin master && npm run build && npx cap sync ios"
 
-# Act
-CHANGED=false
+echo "==> Deploy complete"
 
-if [ "$NEEDS_PULL" = "true" ]; then
-    echo "Pulling latest from GitHub..."
-    git pull origin master
-    CHANGED=true
-fi
-
-if [ "$NEEDS_BACKEND" = "true" ]; then
-    echo "Deploying backend to Fly..."
-    export PATH="$HOME/.fly/bin:$PATH"
-    cd "$REPO"
-    fly deploy -a smartlift-api
-    CHANGED=true
-fi
-
-if [ "$NEEDS_BUILD" = "true" ]; then
-    echo "Building frontend..."
-    export PATH=$PATH:/opt/homebrew/bin
-    cd "$REPO/frontend"
-    npm run build
-    echo "Syncing to iOS..."
-    cd "$REPO"
-    npx cap sync ios
-    CHANGED=true
-fi
-
-echo ""
-echo "========================================"
-echo "  DEPLOY COMPLETE"
-echo "========================================"
-if [ "$CHANGED" = "true" ]; then
-    echo "  Changes applied. Open Xcode and press Run."
-else
-    echo "  Nothing to do — all systems synced."
-    echo "  Open Xcode and press Run when ready."
-fi
-echo "========================================"
-echo ""

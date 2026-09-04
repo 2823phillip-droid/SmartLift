@@ -2858,8 +2858,8 @@ If the user asks about switching progression models, phases, blocks, or training
         "modify", "change", "swap", "drop", "increase", "decrease", "adjust", "lower", "reduce", "replace", "switch",
     ]
     question_lower = payload.question.lower()
+    words = set(question_lower.split())
     if len(payload.question) > 20:
-        words = set(question_lower.split())
         if not words & set(fitness_keywords):
             return CoachChatResponse(
                 message="I'm here to help with your training, workouts, and fitness goals. Ask me about your program, a specific session, recovery, or how to hit your next PR.",
