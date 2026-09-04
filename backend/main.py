@@ -43,6 +43,8 @@ from models import (
 )
 from rules import compute_prescription, RuleInput, SetRecord, Prescription, WorkloadStatus, ProgressionType, compute_coach_state, CoachState, evaluate_phase_effectiveness, PhaseRecommendation
 from services.generation import build_full_draft
+COACH_MODEL = os.getenv("COACH_MODEL", "deepseek/deepseek-chat")
+
 from exercise_whitelist import _canonical_name
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -2201,9 +2203,12 @@ def coach_health(current_user: User = Depends(get_current_user_dep)):
         )
         logger.info("[coach_health] Nous status=%s body=%s", resp.status_code, resp.text[:200])
         if resp.status_code == 200:
-            return CoachHealthResponse(llm_available=True, model="NousResearch/Hermes-4-70B", status="connected")
+            available = {m.get("id") for m in resp.json().get("data", []) if isinstance(m, dict)}
+            if COACH_MODEL in available:
+                return CoachHealthResponse(llm_available=True, model=COACH_MODEL, status="connected")
+            return CoachHealthResponse(llm_available=False, model=COACH_MODEL, status="model_unavailable")
         elif resp.status_code == 429:
-            return CoachHealthResponse(llm_available=True, model="NousResearch/Hermes-4-70B", status="degraded")
+            return CoachHealthResponse(llm_available=True, model=COACH_MODEL, status="degraded")
         return CoachHealthResponse(llm_available=False, status="offline")
     except Exception as e:
         logger.error("[coach_health] Nous error: %s", e)
@@ -2881,13 +2886,13 @@ If the user asks about switching progression models, phases, blocks, or training
 
     for attempt in range(1):
         try:
-            logger.info("[coach_chat] Nous request model=NousResearch/Hermes-4-70B key_prefix=%s", api_key[:12] if api_key else "NONE")
+            logger.info("[coach_chat] Nous request model=%s key_prefix=%s", COACH_MODEL, api_key[:12] if api_key else "NONE")
             messages = [{"role": "system", "content": system_prompt}]
             messages.extend(chat_history)
             messages.append({"role": "user", "content": json.dumps(context)})
 
             request_body = {
-                "model": "NousResearch/Hermes-4-70B",
+                "model": COACH_MODEL,
                 "messages": messages,
                 "max_tokens": 1200,
                 "temperature": 0.7,
@@ -3013,7 +3018,7 @@ If the user asks about switching progression models, phases, blocks, or training
     try:
         db.add(CoachUsageLog(
             user_id=current_user.id,
-            model="NousResearch/Hermes-4-70B",
+            model=COACH_MODEL,
             prompt_tokens=prompt_tokens,
             completion_tokens=completion_tokens,
             estimated_cost_usd=_estimate_coach_cost(prompt_tokens, completion_tokens),
