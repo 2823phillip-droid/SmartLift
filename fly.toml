@@ -31,3 +31,8 @@ primary_region = "iad"
 [mounts]
   source="exercisedb_gifs"
   destination="/app/exercisedb_gifs"
+  source="workout_db"
+  destination="/app/data"
+
+[env]
+  DATABASE_URL="sqlite:////app/data/workout.db"
