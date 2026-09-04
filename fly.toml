@@ -25,14 +25,12 @@ primary_region = "iad"
     grace_period = "15s"
 
 [env]
-  # Do NOT hardcode DATABASE_URL here. Set it via `fly secrets set DATABASE_URL=...`
-  # after attaching a managed Postgres cluster.
+  DATABASE_URL = "sqlite:////app/data/workout.db"
 
-[mounts]
-  source="exercisedb_gifs"
-  destination="/app/exercisedb_gifs"
-  source="workout_db"
-  destination="/app/data"
+[[mounts]]
+  source = "exercisedb_gifs"
+  destination = "/app/exercisedb_gifs"
 
-[env]
-  DATABASE_URL="sqlite:////app/data/workout.db"
+[[mounts]]
+  source = "workout_db"
+  destination = "/app/data"
