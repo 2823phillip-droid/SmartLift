@@ -39,7 +39,7 @@ class WorkloadStatus(str, Enum):
 
 def compute_load(history: List[SetRecord], window_days: int = 21) -> int:
     """Return 0-100 accumulated training load from recent history."""
-    now = datetime.now(timezone.utc)
+    now = datetime.utcnow()
     cutoff = now - timedelta(days=window_days)
     recent = [
         s for s in history
@@ -153,7 +153,7 @@ class Prescription:
 # ---------------------------------------------------------------------------
 
 def _today() -> date:
-    return datetime.now(timezone.utc).date()
+    return datetime.utcnow().date()
 
 
 def _is_deload_week(rule: RuleInput) -> bool:
