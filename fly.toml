@@ -25,12 +25,8 @@ primary_region = "iad"
     grace_period = "15s"
 
 [env]
-  DATABASE_URL = "sqlite:////app/data/workout.db"
+  DATABASE_URL = "sqlite:////app/exercisedb_gifs/workout.db"
 
 [[mounts]]
   source = "exercisedb_gifs"
   destination = "/app/exercisedb_gifs"
-
-[[mounts]]
-  source = "workout_db"
-  destination = "/app/data"
