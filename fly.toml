@@ -24,9 +24,8 @@ primary_region = "iad"
     timeout = "5s"
     grace_period = "15s"
 
-[env]
-  DATABASE_URL = "sqlite:////app/exercisedb_gifs/workout.db"
-
 [[mounts]]
   source = "exercisedb_gifs"
   destination = "/app/exercisedb_gifs"
+
+# NOTE: DATABASE_URL is injected by Fly Postgres secret; do NOT override in fly.toml

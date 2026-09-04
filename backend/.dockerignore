@@ -1,2 +1,6 @@
 # Don't include ExerciseDB GIFs in Docker image — use Fly volume instead
 exercisedb_gifs/
+# Exclude stray SQLite databases from Docker image
+*.db
+*.sqlite
+*.sqlite3
