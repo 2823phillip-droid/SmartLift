@@ -142,7 +142,13 @@ export default function HistoryScreen({
   };
 
   const handleDeleteSetLog = async (sessionId: number, logId: number) => {
-    await api.deleteSetLog(sessionId, logId);
+    try {
+      await api.deleteSetLog(sessionId, logId);
+    } catch (err) {
+      console.error("Failed to delete set log", err);
+      alert("Could not delete set. Please try again.");
+      return;
+    }
     setDetails((prev) => {
       const detail = prev[sessionId];
       if (!detail) return prev;
@@ -158,7 +164,14 @@ export default function HistoryScreen({
   };
 
   const handleSaveSetLog = async (sessionId: number, log: SetLog, data: SetLogUpdate) => {
-    const updated = await api.updateSetLog(sessionId, log.id, data);
+    let updated: SetLog;
+    try {
+      updated = await api.updateSetLog(sessionId, log.id, data);
+    } catch (err) {
+      console.error("Failed to save set log", err);
+      alert("Could not save changes. Please try again.");
+      return;
+    }
     setDetails((prev) => {
       const detail = prev[sessionId];
       if (!detail) return prev;

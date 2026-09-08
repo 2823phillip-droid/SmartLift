@@ -716,13 +716,19 @@ export default function ActiveWorkoutScreen({
     } else if (field === "actual_reps") {
       if (Number.isNaN(numValue) || numValue < 1) return;
     } else if (field === "effort") {
-      if (Number.isNaN(numValue) || numValue < 1 || numValue > 5) return;
+      if (Number.isNaN(numValue) || numValue < 1 || numValue > 10) return;
     } else if (field === "rpe") {
       if (Number.isNaN(numValue) || numValue < 1 || numValue > 10) return;
     } else if (field === "form_quality") {
       if (Number.isNaN(numValue) || numValue < 0 || numValue > 2) return;
     }
-    await api.updateSetLog(sessionId, log.id, { [field]: numValue });
+    try {
+      await api.updateSetLog(sessionId, log.id, { [field]: numValue });
+    } catch (err) {
+      console.error("Failed to update set", err);
+      alert("Could not save changes. Please try again.");
+      return;
+    }
     const updated = { ...log, [field]: numValue };
     setLogs((prev) => prev.map((l) => (l.id === log.id ? updated : l)));
     lastLoggedSetRef.current[log.exercise_entry_id] = updated;
@@ -731,7 +737,14 @@ export default function ActiveWorkoutScreen({
   const handleDeleteSet = async (log: SetLog) => {
     const displayWeight = formatWeight(log.actual_weight ?? 0, getUnitsPreference());
     if (!confirm(`Delete Set ${log.set_index} (${displayWeight} × ${log.actual_reps} reps)?`)) return;
-    await api.deleteSetLog(sessionId, log.id);
+    try {
+      await api.deleteSetLog(sessionId, log.id);
+    } catch (err) {
+      console.error("Failed to delete set", err);
+      alert("Could not delete set. Please try again.");
+      return;
+    }
+    setLogs((prev) => prev.filter((l) => l.id !== log.id));
     const remaining = logs.filter((l) => l.id !== log.id && l.exercise_entry_id === log.exercise_entry_id);
     loggedSetCountRef.current[log.exercise_entry_id] = remaining.length;
     if (remaining.length > 0) {
