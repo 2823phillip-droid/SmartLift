@@ -388,7 +388,7 @@ function autoregulatedRule(rule: RuleInput, topSet: SetRecord | null): Prescript
   const lastWeight = topSet.actual_weight;
   const lastReps = topSet.actual_reps;
   const effort = topSet.effort;
-  const rir = Number(topSet.rir) ?? reps - lastReps;
+  const rir = topSet.rir != null ? Number(topSet.rir) : reps - lastReps;
   const inc = effectiveIncrement((Number(rule.linear_increment) || 5) * 0.5, rule);
 
   if (effort != null && effort <= 2 && rir >= 2) {
