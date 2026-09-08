@@ -552,7 +552,7 @@ export default function HistoryScreen({
                             <div className="flex-1 min-w-0">
                               <div className="text-xs text-slate-500 font-semibold">{exerciseName}</div>
                               <div className="text-xs text-slate-400">
-                                Set {log.set_index} · {formatWeight(log.actual_weight ?? 0, getUnitsPreference())} × {log.actual_reps ?? "—"} · E{log.effort ?? "—"}/5
+                                Set {log.set_index} · {formatWeight(log.actual_weight ?? 0, getUnitsPreference())} × {log.actual_reps ?? "—"} · {log.effort != null ? `E${log.effort}/10` : "effort not logged"}
                               </div>
                             </div>
                             <button

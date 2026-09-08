@@ -353,7 +353,7 @@ export default function PostWorkoutScreen({
             <div key={log.id} className="rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-slate-500 font-semibold">Set {log.set_index}</span>
-                <span className="text-xs text-slate-500">{log.effort}/5</span>
+                <span className="text-xs text-slate-500">{log.effort != null ? `E${log.effort}/10` : "effort not logged"}</span>
               </div>
               <div className="text-sm font-semibold mt-0.5">
                 {`${formatWeight(log.actual_weight ?? 0, getUnitsPreference())}`} × {log.actual_reps} reps

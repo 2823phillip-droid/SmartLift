@@ -90,7 +90,7 @@ export default function LoginScreen({ onLogin, onSwitch }: { onLogin: (user: { i
         });
       }
 
-      const authRes = await api.google(idToken);
+      const authRes = await withRetry(() => api.google(idToken), { retries: 2, baseDelayMs: 400 });
       setAuthToken(authRes.token);
       onLogin(authRes.user);
     } catch (err) {

@@ -463,6 +463,7 @@ export const api = {
     current_phase?: string | null;
     custom_phase_order?: string[] | null;
     exercise_entry_id?: number | null;
+    exercise_name?: string | null;
   }) =>
     request("/rules/next-prescription", {
       method: "POST",
