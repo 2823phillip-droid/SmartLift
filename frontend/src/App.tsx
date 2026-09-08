@@ -171,7 +171,7 @@ export default function App() {
           return;
         }
         try {
-          const refreshed = await api.refreshToken();
+          const refreshed = await withRetry(() => api.refreshToken(), { retries: 2, baseDelayMs: 400 });
           if (refreshed?.token) {
             setAuthToken(refreshed.token);
             if (typeof window !== "undefined") localStorage.setItem("askeo_token", refreshed.token);

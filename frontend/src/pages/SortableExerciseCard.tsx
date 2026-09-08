@@ -29,6 +29,8 @@ export interface SortableExerciseCardProps {
   onDraftWeightChange: (val: string) => void;
   onDraftRepsChange: (val: string) => void;
   onDraftRpeChange: (val: number) => void;
+  draftEffort: number | null;
+  onDraftEffortChange: (val: number) => void;
   draftFormQuality: number;
   onDraftFormQualityChange: (val: number) => void;
   showNotes: boolean;
@@ -67,6 +69,8 @@ export function SortableExerciseCard({
   onDraftWeightChange,
   onDraftRepsChange,
   onDraftRpeChange,
+  draftEffort,
+  onDraftEffortChange,
   draftFormQuality,
   onDraftFormQualityChange,
   showNotes,
@@ -219,6 +223,7 @@ export function SortableExerciseCard({
                         <div className="flex items-center gap-2">
                           <span className="text-xs text-slate-300 font-semibold">
                             {`${formatWeight(log.actual_weight ?? 0, getUnitsPreference())}`} × {log.actual_reps} reps
+                            {log.effort != null && ` · E${log.effort}/10`}
                           </span>
                           <div className="flex items-center gap-1">
                             <button
@@ -334,6 +339,28 @@ export function SortableExerciseCard({
                         ))}
                       </div>
                       <p className="text-[10px] text-slate-500">How hard was this set? 1 = trivial, 10 = failure.</p>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <label className="text-xs text-slate-500 uppercase tracking-widest font-semibold">
+                        Effort {draftEffort !== null ? `${draftEffort}/10` : "—"}
+                      </label>
+                      <div className="grid grid-cols-5 gap-1.5">
+                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                          <button
+                            key={n}
+                            onClick={() => onDraftEffortChange(n)}
+                            className={`py-2.5 text-sm font-bold rounded-xl border transition-all ${
+                              draftEffort === n
+                                ? "bg-emerald-600 border-emerald-500 text-white shadow-md shadow-emerald-900/20 scale-[1.02]"
+                                : "border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300"
+                            }`}
+                          >
+                            {n}
+                          </button>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-slate-500">How hard was this set? 1 = easy, 10 = max effort.</p>
                     </div>
 
                     <div className="space-y-1.5">

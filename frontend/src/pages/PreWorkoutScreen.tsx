@@ -261,7 +261,7 @@ export default function PreWorkoutScreen({
               {" · "}
               <span className="text-indigo-100 font-semibold">{recap.totalSets} sets</span>
               {" · "}
-              avg effort <span className="text-indigo-100 font-semibold">{recap.avgEffort != null ? `${recap.avgEffort}/5` : "not logged"}</span>
+              avg effort <span className="text-indigo-100 font-semibold">{recap.avgEffort != null ? `E${recap.avgEffort}/10` : "not logged"}</span>
               {" · "}
               <span className="text-indigo-100 font-semibold">{recap.totalVolume.toLocaleString()} lbs</span> total volume
             </p>
@@ -278,7 +278,7 @@ export default function PreWorkoutScreen({
                       {ex.topWeight > 0 ? `${Math.round(ex.topWeight)} lbs × ${ex.topReps}` : "bodyweight"}
                     </div>
                     <div className="text-indigo-400 mt-0.5">
-                      effort {ex.avgEffort != null ? `${ex.avgEffort}/5` : "not logged"}
+                      effort {ex.avgEffort != null ? `E${ex.avgEffort}/10` : "not logged"}
                       {ex.topRir != null && <span> · RIR {ex.topRir}</span>}
                       {ex.feltHard && <span className="text-rose-300 ml-1">· felt hard</span>}
                       {ex.feltEasy && <span className="text-emerald-300 ml-1">· felt easy</span>}

@@ -53,6 +53,7 @@ export default function ActiveWorkoutScreen({
   const [draftWeight, setDraftWeight] = useState("");
   const [draftReps, setDraftReps] = useState("");
   const [draftRpe, setDraftRpe] = useState<number | null>(null);
+  const [draftEffort, setDraftEffort] = useState<number | null>(null);
   const [draftFormQuality, setDraftFormQuality] = useState<number>(0);
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
@@ -168,8 +169,9 @@ export default function ActiveWorkoutScreen({
             rest_seconds: exercise.rest_seconds,
             progression_type: coach.phase === "deload" ? "linear" : coach.phase,
             history: buildPrescriptionHistory(exercise),
-                force_deload: coach.is_deload,
-                        exercise_entry_id: exercise.id,
+            force_deload: coach.is_deload,
+            exercise_entry_id: exercise.id,
+            exercise_name: exercise.name,
           });
           console.log("[ActiveWorkoutScreen] backend prescription result", exercise.id, res);
           if (!cancelled) {
@@ -225,6 +227,7 @@ export default function ActiveWorkoutScreen({
         progression_type: coach.phase === "deload" ? "linear" : coach.phase,
         history: exHistory,
         force_deload: false,
+        exerciseName: exercise.name,
       });
     }
     return { prescriptions: map, coach };
@@ -345,6 +348,7 @@ export default function ActiveWorkoutScreen({
               progression_type: phase,
               history,
               force_deload: false,
+              exerciseName: target.name,
             });
             const displayWeight = getUnitsPreference() === "imperial"
               ? Math.round(prescription.next_weight)
@@ -354,6 +358,7 @@ export default function ActiveWorkoutScreen({
             console.log("[ActiveWorkoutScreen] auto-expand prescription", displayWeight, "x", prescription.next_reps);
           }
           setDraftRpe(8);
+          setDraftEffort(null);
           setDraftFormQuality(0);
           setNotes("");
           setShowNotes(false);
@@ -620,6 +625,24 @@ export default function ActiveWorkoutScreen({
     const completedCount = exerciseCompletedCount[exercise.id] || 0;
     const sessionLogs = lastSessionByExercise[exercise.id] || [];
     console.log("[ActiveWorkoutScreen] expandExercise", exercise.id, exercise.name, "completedCount", completedCount, "sessionLogs", sessionLogs);
+
+    // 1) Prefer live prescription values when available (they already account for
+    //    assisted inversion, rounding, and prescription precedence).
+    const prescription = prescriptions[exercise.id];
+    if (prescription) {
+      const displayWeight = getUnitsPreference() === "imperial"
+        ? Math.round(prescription.next_weight)
+        : Math.round(lbsToKg(prescription.next_weight));
+      setDraftWeight(String(displayWeight));
+      setDraftReps(String(prescription.next_reps));
+      setDraftRpe(8);
+      setDraftFormQuality(0);
+      setNotes("");
+      setShowNotes(false);
+      return;
+    }
+
+    // 2) Fallback: match last session by set index, then first session set, then start_weight.
     const match = sessionLogs.find((l) => l.set_index === completedCount + 1);
     if (match) {
       const displayWeight = getUnitsPreference() === "imperial"
@@ -646,20 +669,11 @@ export default function ActiveWorkoutScreen({
       setShowNotes(false);
       return;
     }
-    const prescription = prescriptions[exercise.id];
-    if (prescription) {
-      const displayWeight = getUnitsPreference() === "imperial"
-        ? Math.round(prescription.next_weight)
-        : Math.round(lbsToKg(prescription.next_weight));
-      setDraftWeight(String(displayWeight));
-      setDraftReps(String(prescription.next_reps));
-    } else {
-      const defaultWeight = getUnitsPreference() === "imperial"
-        ? exercise.start_weight
-        : lbsToKg(exercise.start_weight);
-      setDraftWeight(String(Math.round(defaultWeight)));
-      setDraftReps(String(inferRepsTarget(exercise.name)));
-    }
+    const defaultWeight = getUnitsPreference() === "imperial"
+      ? exercise.start_weight
+      : lbsToKg(exercise.start_weight);
+    setDraftWeight(String(Math.round(defaultWeight)));
+    setDraftReps(String(inferRepsTarget(exercise.name)));
     setDraftRpe(8);
     setDraftFormQuality(0);
     setNotes("");
@@ -754,6 +768,7 @@ export default function ActiveWorkoutScreen({
         suggested_reps: sugg?.reps ?? nextTarget.reps,
         actual_weight: weightLbs,
         actual_reps: r,
+        effort: draftEffort ?? undefined,
         rpe: draftRpe ?? undefined,
         form_quality: draftFormQuality,
         notes: notes || undefined,
@@ -1283,6 +1298,8 @@ export default function ActiveWorkoutScreen({
                   onDraftWeightChange={setDraftWeight}
                   onDraftRepsChange={setDraftReps}
                   onDraftRpeChange={setDraftRpe}
+                  draftEffort={draftEffort}
+                  onDraftEffortChange={setDraftEffort}
                   draftFormQuality={draftFormQuality}
                   onDraftFormQualityChange={setDraftFormQuality}
                   showNotes={showNotes}

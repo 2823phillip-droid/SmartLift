@@ -220,9 +220,11 @@ def _format_history_line(weight, reps, effort, rir_val):
 
 def _coaching_message_for_prescription(rule, weight, reps, effort, rir_val, next_weight, increment, status):
     effort_display = effort if effort is not None else "?"
+    display_weight = int(round(weight))
+    display_next = int(round(next_weight))
     base = (
-        f"Last session you did {weight} lbs x {reps} reps, effort {effort_display}. "
-        f"In this session we'll start at {int(round(next_weight))} lbs and shoot for {int(rule.reps_target)} reps."
+        f"Last session you did {display_weight} lbs x {reps} reps, effort {effort_display}. "
+        f"In this session we'll start at {display_next} lbs and shoot for {int(rule.reps_target)} reps."
     )
     if status == WorkloadStatus.deload:
         return "Deload week selected. Reduced volume/intensity to recover."

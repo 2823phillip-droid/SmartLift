@@ -1843,6 +1843,7 @@ class RuleRequestIn(BaseModel):
     custom_phase_order: Optional[List[str]] = None
     deload_mode: str = "ai_driven"
     exercise_entry_id: Optional[int] = None
+    exercise_name: Optional[str] = None
 
 
 class CoachStateResponse(BaseModel):

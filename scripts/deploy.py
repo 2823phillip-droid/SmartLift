@@ -10,8 +10,10 @@ SSH_BASE = ["ssh", "-o", "StrictHostKeyChecking=no", MAC]
 def run_remote(cmd, check=True, workdir=None):
     if workdir:
         cmd = f"cd {workdir} && {cmd}"
-    print(f"+ {cmd}")
-    r = subprocess.run(SSH_BASE + [cmd], capture_output=True, text=True)
+    # Ensure fly and other tools are on PATH for non-interactive shells
+    full_cmd = f"export PATH=\"$PATH:/opt/homebrew/bin:/opt/homebrew/Cellar/node/26.7.0/bin:$HOME/.fly/bin\" && {cmd}"
+    print(f"+ {full_cmd}")
+    r = subprocess.run(SSH_BASE + [full_cmd], capture_output=True, text=True)
     if r.stdout:
         print(r.stdout, end="")
     if r.stderr:
@@ -26,7 +28,8 @@ def main():
     run_remote("git status --porcelain", workdir=REPO_MAC)
     # Run tests from Linux copy to avoid broken Mac venv symlinks
     print("==> Pre-flight: pytest on Linux")
-    subprocess.run([sys.executable, "-m", "pytest", "backend/tests/", "-q"], check=True)
+    venv_python = os.path.join(os.path.dirname(__file__), "..", ".venv", "bin", "python")
+    subprocess.run([venv_python, "-m", "pytest", "tests/", "-q"], check=True, cwd="backend")
 
     print("==> Backing up Postgres via Fly proxy")
     db_url_raw = run_remote("fly ssh console -C 'printenv DATABASE_URL'", workdir=REPO_MAC).stdout.strip()
@@ -64,7 +67,7 @@ def main():
     print(f"Previous commit: {prev}")
 
     print("==> Deploying backend")
-    deploy_cmd = f"cd {REPO_MAC}/backend && ~/.fly/bin/fly deploy --app {APP}"
+    deploy_cmd = f"cd {REPO_MAC} && ~/.fly/bin/fly deploy --app {APP}"
     deploy = subprocess.run(SSH_BASE + [deploy_cmd], capture_output=True, text=True)
     print(deploy.stdout, end="")
     if deploy.stderr:
