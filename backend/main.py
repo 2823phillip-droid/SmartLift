@@ -3289,6 +3289,125 @@ def admin_tasks(db: Session = Depends(get_db), current_user: User = Depends(get_
     return items
 
 
+DEBUG_SECRET = os.getenv("DEBUG_SECRET")
+
+class DebugSetLogItem(BaseModel):
+    set_index: int
+    suggested_weight: Optional[float] = None
+    suggested_reps: Optional[int] = None
+    actual_weight: Optional[float] = None
+    actual_reps: Optional[int] = None
+    effort: Optional[int] = None
+    rir: Optional[int] = None
+    rpe: Optional[int] = None
+    form_quality: Optional[int] = None
+    completed_at: Optional[str] = None
+
+
+class DebugExerciseItem(BaseModel):
+    exercise_entry_id: int
+    name: str
+    sets_target: int
+    reps_target: int
+    start_weight: float
+    per_set_data: Optional[str] = None
+    sets: List[DebugSetLogItem]
+
+
+class DebugCardioItem(BaseModel):
+    cardio_type: str
+    duration_minutes: int
+    distance_miles: Optional[float] = None
+    calories: Optional[int] = None
+    avg_heart_rate: Optional[int] = None
+    completed_at: Optional[str] = None
+
+
+class DebugSessionItem(BaseModel):
+    session_id: int
+    user_id: int
+    template_id: Optional[int] = None
+    started_at: str
+    ended_at: Optional[str] = None
+    status: str
+    exercises: List[DebugExerciseItem]
+    cardio: List[DebugCardioItem]
+
+
+class DebugRecentResponse(BaseModel):
+    sessions: List[DebugSessionItem]
+
+
+def _debug_auth(request: Request):
+    if not DEBUG_SECRET:
+        raise HTTPException(status_code=404, detail="Not found")
+    secret = request.headers.get("X-Debug-Secret")
+    if secret != DEBUG_SECRET:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    return True
+
+
+@app.get("/api/debug/recent-workouts", response_model=DebugRecentResponse)
+def debug_recent_workouts(limit: int = 10, db: Session = Depends(get_db), _: bool = Depends(_debug_auth)):
+    sessions = (
+        db.query(WorkoutSession)
+        .order_by(WorkoutSession.started_at.desc())
+        .limit(max(1, min(limit, 50)))
+        .all()
+    )
+    result = []
+    for s in sessions:
+        ex_map: dict[int, list[SetLog]] = {}
+        for sl in s.set_logs:
+            ex_map.setdefault(sl.exercise_entry_id, []).append(sl)
+        exercises = []
+        for ee in s.template.exercises if s.template else []:
+            sets = []
+            for sl in sorted(ex_map.get(ee.id, []), key=lambda x: x.set_index):
+                sets.append(DebugSetLogItem(
+                    set_index=sl.set_index,
+                    suggested_weight=sl.suggested_weight,
+                    suggested_reps=sl.suggested_reps,
+                    actual_weight=sl.actual_weight,
+                    actual_reps=sl.actual_reps,
+                    effort=sl.effort,
+                    rir=sl.rir,
+                    rpe=sl.rpe,
+                    form_quality=sl.form_quality,
+                    completed_at=sl.completed_at.isoformat() if sl.completed_at else None,
+                ))
+            exercises.append(DebugExerciseItem(
+                exercise_entry_id=ee.id,
+                name=ee.name,
+                sets_target=ee.sets_target,
+                reps_target=ee.reps_target,
+                start_weight=ee.start_weight,
+                per_set_data=ee.per_set_data,
+                sets=sets,
+            ))
+        cardio = []
+        for cl in s.cardio_logs:
+            cardio.append(DebugCardioItem(
+                cardio_type=cl.cardio_type,
+                duration_minutes=cl.duration_minutes,
+                distance_miles=cl.distance_miles,
+                calories=cl.calories,
+                avg_heart_rate=cl.avg_heart_rate,
+                completed_at=cl.completed_at.isoformat() if cl.completed_at else None,
+            ))
+        result.append(DebugSessionItem(
+            session_id=s.id,
+            user_id=s.user_id or 0,
+            template_id=s.template_id,
+            started_at=s.started_at.isoformat() if s.started_at else "",
+            ended_at=s.ended_at.isoformat() if s.ended_at else None,
+            status=s.status.value if hasattr(s.status, "value") else str(s.status),
+            exercises=exercises,
+            cardio=cardio,
+        ))
+    return DebugRecentResponse(sessions=result)
+
+
 @app.get("/dashboard")
 def dashboard():
     dashboard_path = os.path.join(os.path.dirname(__file__), "dashboard.html")

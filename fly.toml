@@ -29,3 +29,6 @@ primary_region = "iad"
   destination = "/app/exercisedb_gifs"
 
 # NOTE: DATABASE_URL is injected by Fly Postgres secret; do NOT override in fly.toml
+
+[env]
+  DEBUG_SECRET = "5a3c12789b7e33485b0004dd8393f3cea342a837d7223c54"

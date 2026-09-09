@@ -25,6 +25,47 @@ import { formatWeight, getUnitsPreference } from "../utils/units";
 
 const WIDGETS_KEY = "askeo.widgets";
 
+const DAILY_QUOTES = [
+  "Your lift, upgraded.",
+  "Discipline is doing what needs to be done, even if you don't feel like it.",
+  "The only bad workout is the one that didn't happen.",
+  "Strength doesn't come from what you can do. It comes from overcoming the things you once thought you couldn't.",
+  "Small daily improvements are the key to staggering long-term results.",
+  "Don't stop when you're tired. Stop when you're done.",
+  "Your body can stand almost anything. It's your mind that you have to convince.",
+  "Progress, not perfection.",
+  "The pain you feel today will be the strength you feel tomorrow.",
+  "Fall in love with the process and the results will come.",
+  "Motivation gets you started. Habit keeps you going.",
+  "You don't have to be extreme, you just have to be consistent.",
+  "Every rep counts. Every session matters.",
+  "Be stronger than your excuses.",
+  "What seems impossible today will one day be your warm-up.",
+  "The only way to define your limits is by going beyond them.",
+  "Success starts with self-discipline.",
+  "Train insane or remain the same.",
+  "Your only limit is you.",
+  "Don't wish for it. Work for it.",
+  "Great things never came from comfort zones.",
+  "Wake up with determination. Go to bed with satisfaction.",
+  "The harder you work for something, the greater you'll feel when you achieve it.",
+  "Doubt kills more dreams than failure ever will.",
+  "You are what you repeatedly do. Excellence is not an event, it's a habit.",
+];
+
+function getDailyQuote(): string {
+  const today = new Date();
+  const y = today.getFullYear();
+  const m = String(today.getMonth() + 1).padStart(2, "0");
+  const d = String(today.getDate()).padStart(2, "0");
+  const key = `${y}-${m}-${d}`;
+  let hash = 0;
+  for (let i = 0; i < key.length; i++) {
+    hash = ((hash << 5) - hash + key.charCodeAt(i)) | 0;
+  }
+  return DAILY_QUOTES[Math.abs(hash) % DAILY_QUOTES.length];
+}
+
 function loadWidgets(): Widget[] {
   try {
     const raw = localStorage.getItem(WIDGETS_KEY);
@@ -251,7 +292,7 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (view: View) =
     <div className="space-y-6">
       <div className="rounded-3xl border border-indigo-800/60 bg-gradient-to-br from-indigo-950 to-slate-950 p-6 relative overflow-hidden">
         <div className="text-[10px] font-semibold uppercase tracking-widest text-indigo-400 mb-2">Askeo</div>
-        <h2 className="text-3xl font-bold tracking-tight mb-1">Your lift, upgraded.</h2>
+        <h2 className="text-3xl font-bold tracking-tight mb-1">{getDailyQuote()}</h2>
         <p className="text-slate-400 text-sm">Track progress at a glance. Add widgets below.</p>
       </div>
 
