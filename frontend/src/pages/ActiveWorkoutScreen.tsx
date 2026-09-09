@@ -53,7 +53,6 @@ export default function ActiveWorkoutScreen({
   const [draftWeight, setDraftWeight] = useState("");
   const [draftReps, setDraftReps] = useState("");
   const [draftRpe, setDraftRpe] = useState<number | null>(null);
-  const [draftEffort, setDraftEffort] = useState<number | null>(null);
   const [draftFormQuality, setDraftFormQuality] = useState<number>(0);
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
@@ -357,7 +356,6 @@ export default function ActiveWorkoutScreen({
             setDraftReps(String(prescription.next_reps));
             console.log("[ActiveWorkoutScreen] auto-expand prescription", displayWeight, "x", prescription.next_reps);
           }
-          setDraftRpe(8);
           setDraftEffort(null);
           setDraftFormQuality(0);
           setNotes("");

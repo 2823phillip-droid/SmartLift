@@ -99,8 +99,6 @@ export interface SetLog {
   actual_weight_right?: number;
   actual_reps?: number;
   effort?: number;
-  rir?: number;
-  rpe?: number;
   form_quality?: number;
   notes?: string;
 }
