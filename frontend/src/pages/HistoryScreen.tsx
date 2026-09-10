@@ -493,20 +493,20 @@ export default function HistoryScreen({
                                   />
                                 </div>
                                 <div>
-                                  <div className="text-[10px] text-slate-500">Effort /5</div>
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    max={5}
-                                    defaultValue={log.effort ?? ""}
-                                    onChange={(e) =>
-                                      ((editingLog as any).log = {
-                                        ...editingLog.log,
-                                        effort: e.target.value === "" ? null : Number(e.target.value),
-                                      })
-                                    }
-                                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-sm text-slate-200"
-                                  />
+                                  <div className="text-[10px] text-slate-500">Effort /10</div>
+                                                                  <input
+                                                                    type="number"
+                                                                    min={1}
+                                                                    max={10}
+                                                                    defaultValue={log.effort ?? ""}
+                                                                    onChange={(e) =>
+                                                                      ((editingLog as any).log = {
+                                                                        ...editingLog.log,
+                                                                        effort: e.target.value === "" ? null : Number(e.target.value),
+                                                                      })
+                                                                    }
+                                                                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-sm text-slate-200"
+                                                                  />
                                 </div>
                                 <div>
                                   <div className="text-[10px] text-slate-500">Notes</div>
