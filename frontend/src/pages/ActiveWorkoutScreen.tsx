@@ -52,7 +52,7 @@ export default function ActiveWorkoutScreen({
   const [expandedExerciseId, setExpandedExerciseId] = useState<number | null>(null);
   const [draftWeight, setDraftWeight] = useState("");
   const [draftReps, setDraftReps] = useState("");
-  const [draftRpe, setDraftRpe] = useState<number | null>(null);
+  const [draftEffort, setDraftEffort] = useState<number | null>(null);
   const [draftFormQuality, setDraftFormQuality] = useState<number>(0);
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
@@ -472,37 +472,24 @@ export default function ActiveWorkoutScreen({
 
   const getNextSetTarget = (entry?: ExerciseEntry): { weight: number; reps: number } => {
     if (!entry) return { weight: 0, reps: 0 };
-    const suggestions = parseSetSuggestions(entry);
     const existing = logs.filter((l: SetLog) => l.exercise_entry_id === entry.id).length;
     const nextSetIndex = existing + 1;
-    const sugg = suggestions[nextSetIndex - 1];
-    if (sugg) {
-      return { weight: sugg.weight, reps: sugg.reps };
-    }
-    const lastLog = lastLoggedSetRef.current[entry.id] || logs.filter(l => l.exercise_entry_id === entry.id).pop();
-    if (lastLog) {
-      const prevWeightLbs = lastLog.actual_weight || 0;
-      const suggested = withinWorkoutProgression({
-        prevWeight: prevWeightLbs,
-        prevReps: lastLog.actual_reps || inferRepsTarget(entry.name),
-        prevRpe: lastLog.rpe ?? null,
-        prevFormQuality: lastLog.form_quality ?? null,
-        repsTarget: inferRepsTarget(entry.name),
-        increment: 5,
-      });
-      return { weight: Math.round(suggested.weight * 10) / 10, reps: suggested.reps };
-    }
     const prescription = prescriptions[entry.id];
-  if (prescription) {
-      const displayWeight = getUnitsPreference() === "imperial"
-        ? Math.round(prescriptions[entry.id].next_weight)
-        : Math.round(lbsToKg(prescriptions[entry.id].next_weight));
-      return { weight: displayWeight, reps: prescription.next_reps };
-    }
-    const defaultWeight = getUnitsPreference() === "imperial"
-      ? entry.start_weight
-      : lbsToKg(entry.start_weight);
-    return { weight: Math.round(defaultWeight), reps: inferRepsTarget(entry.name) };
+    const seedWeight = prescription
+      ? (getUnitsPreference() === "imperial" ? prescription.next_weight : kgToLbs(prescription.next_weight))
+      : (getUnitsPreference() === "imperial" ? entry.start_weight : lbsToKg(entry.start_weight));
+    const lastLog = lastLoggedSetRef.current[entry.id] || logs.filter(l => l.exercise_entry_id === entry.id).pop();
+    const suggested = withinWorkoutProgression({
+      seedWeight,
+      setNumber: nextSetIndex,
+      prevReps: lastLog ? (lastLog.actual_reps || inferRepsTarget(entry.name)) : inferRepsTarget(entry.name),
+      prevEffort: lastLog ? (lastLog.effort ?? null) : null,
+      prevFormQuality: lastLog ? (lastLog.form_quality ?? null) : null,
+      repsTarget: inferRepsTarget(entry.name),
+      increment: 5,
+      exerciseName: entry.name,
+    });
+    return { weight: Math.round(suggested.weight * 10) / 10, reps: suggested.reps };
   };
 
   const exerciseCompletedCount = useMemo(() => {
@@ -633,7 +620,7 @@ export default function ActiveWorkoutScreen({
         : Math.round(lbsToKg(prescription.next_weight));
       setDraftWeight(String(displayWeight));
       setDraftReps(String(prescription.next_reps));
-      setDraftRpe(8);
+      setDraftEffort(null);
       setDraftFormQuality(0);
       setNotes("");
       setShowNotes(false);
@@ -648,7 +635,7 @@ export default function ActiveWorkoutScreen({
         : Math.round(lbsToKg(match.actual_weight || 0));
       setDraftWeight(String(displayWeight));
       setDraftReps(String(match.actual_reps));
-      setDraftRpe(8);
+      setDraftEffort(null);
       setDraftFormQuality(0);
       setNotes("");
       setShowNotes(false);
@@ -661,7 +648,7 @@ export default function ActiveWorkoutScreen({
         : Math.round(lbsToKg(firstSet.actual_weight || 0));
       setDraftWeight(String(displayWeight));
       setDraftReps(String(firstSet.actual_reps));
-      setDraftRpe(8);
+      setDraftEffort(null);
       setDraftFormQuality(0);
       setNotes("");
       setShowNotes(false);
@@ -672,7 +659,7 @@ export default function ActiveWorkoutScreen({
       : lbsToKg(exercise.start_weight);
     setDraftWeight(String(Math.round(defaultWeight)));
     setDraftReps(String(inferRepsTarget(exercise.name)));
-    setDraftRpe(8);
+    setDraftEffort(null);
     setDraftFormQuality(0);
     setNotes("");
     setShowNotes(false);
@@ -706,7 +693,7 @@ export default function ActiveWorkoutScreen({
     }
   };
 
-  const handleEditSet = async (log: SetLog, field: "actual_weight" | "actual_reps" | "effort" | "rpe" | "form_quality", value: number | string) => {
+  const handleEditSet = async (log: SetLog, field: "actual_weight" | "actual_reps" | "effort" | "form_quality", value: number | string) => {
     let numValue = typeof value === "string" ? parseFloat(value) : value;
     if (field === "actual_weight") {
       if (Number.isNaN(numValue) || numValue < 0) return;
@@ -714,8 +701,6 @@ export default function ActiveWorkoutScreen({
     } else if (field === "actual_reps") {
       if (Number.isNaN(numValue) || numValue < 1) return;
     } else if (field === "effort") {
-      if (Number.isNaN(numValue) || numValue < 1 || numValue > 10) return;
-    } else if (field === "rpe") {
       if (Number.isNaN(numValue) || numValue < 1 || numValue > 10) return;
     } else if (field === "form_quality") {
       if (Number.isNaN(numValue) || numValue < 0 || numValue > 2) return;
@@ -780,7 +765,6 @@ export default function ActiveWorkoutScreen({
         actual_weight: weightLbs,
         actual_reps: r,
         effort: draftEffort ?? undefined,
-        rpe: draftRpe ?? undefined,
         form_quality: draftFormQuality,
         notes: notes || undefined,
       });
@@ -791,7 +775,7 @@ export default function ActiveWorkoutScreen({
       await api.createCoachMessage({
         session_id: sessionId,
         role: "in_workout",
-        content: `Set ${setIndex} done at ${w} lbs x ${r}, RPE ${draftRpe ?? "?"}. ${draftFormQuality === 2 ? "Form broke — dropping weight next set." : draftFormQuality === 1 ? "Form struggled — holding weight." : "Clean set — pushing next set."}`,
+        content: `Set ${setIndex} done at ${w} lbs x ${r}, effort ${draftEffort ?? "?"}. ${draftFormQuality === 2 ? "Form broke — dropping weight next set." : draftFormQuality === 1 ? "Form struggled — holding weight." : "Clean set — pushing next set."}`,
       });
     } catch (err) {
       console.error("Failed to log set", err);
@@ -836,13 +820,19 @@ export default function ActiveWorkoutScreen({
     }
 
     setNotes("");
-    setShowNotes(false);
     if (!exerciseIsDone && !workoutIsDone) {
       const prevWeightLbs = toLbs(weightLbs);
+      // Compute next draft from the prescription seed + set number so the
+      // ramp stays on the prescribed track and doesn't chase manual edits.
+      const seedFromPrescription = prescriptions[currentExercise.id];
+      const seedWeight = seedFromPrescription
+        ? (getUnitsPreference() === "imperial" ? seedFromPrescription.next_weight : kgToLbs(seedFromPrescription.next_weight))
+        : prevWeightLbs;
       const nextTarget = withinWorkoutProgression({
-        prevWeight: prevWeightLbs,
+        seedWeight,
+        setNumber: currentExerciseCompleted + 1,
         prevReps: r,
-        prevRpe: draftRpe ?? null,
+        prevEffort: null,
         prevFormQuality: draftFormQuality,
         repsTarget: currentExercise.reps_target,
         increment: 5,
@@ -865,19 +855,8 @@ export default function ActiveWorkoutScreen({
     const nextSetIndex = existing + 1;
 
     if (nextSetIndex <= resolveDisplayTarget(currentExercise)) {
-      // Prefer the live draft values so the rest timer matches what the user sees
-      // when they expand the exercise. Fall back to computed target if the draft
-      // hasn't been populated yet.
-      const w = parseFloat(draftWeight);
-      const r = parseInt(draftReps, 10);
-      if (!Number.isNaN(w) && w > 0 && !Number.isNaN(r) && r > 0) {
-        return {
-          name: currentExercise.name,
-          set: nextSetIndex,
-          weight: Math.round(w * 10) / 10,
-          reps: r,
-        };
-      }
+      // Always read from the computed target so the rest timer agrees with
+      // the session target, the coach message, and the set input.
       const target = getNextSetTarget(currentExercise);
       return {
         name: currentExercise.name,
@@ -1305,11 +1284,9 @@ export default function ActiveWorkoutScreen({
                   }}
                   draftWeight={draftWeight}
                   draftReps={draftReps}
-                  draftRpe={draftRpe}
+                  draftEffort={draftEffort}
                   onDraftWeightChange={setDraftWeight}
                   onDraftRepsChange={setDraftReps}
-                  onDraftRpeChange={setDraftRpe}
-                  draftEffort={draftEffort}
                   onDraftEffortChange={setDraftEffort}
                   draftFormQuality={draftFormQuality}
                   onDraftFormQualityChange={setDraftFormQuality}

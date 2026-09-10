@@ -10,7 +10,6 @@ interface RecapExercise {
   topWeight: number;
   topReps: number;
   topEffort: number | null;
-  topRir: number | null;
   avgEffort: number | null;
   volume: number;
   hitTarget: boolean;
@@ -121,8 +120,8 @@ export default function PreWorkoutScreen({
           const exVolume = sets.reduce((a, b) => a + (b.actual_weight || 0) * (b.actual_reps || 0), 0);
           const repsTarget = targetMap[eid] || 8;
           const hitTarget = topSet.actual_reps != null && topSet.actual_reps >= repsTarget;
-          const feltHard = (topSet.effort != null && topSet.effort >= 4) || (topSet.rir != null && topSet.rir <= 1);
-          const feltEasy = (topSet.effort != null && topSet.effort <= 2) && (topSet.rir == null || topSet.rir >= 3);
+          const feltHard = (topSet.effort != null && topSet.effort >= 4);
+          const feltEasy = (topSet.effort != null && topSet.effort <= 2);
 
           totalVolume += toDisplayWeight(exVolume);
           totalEffort += efforts.reduce((a, b) => a + b, 0);
@@ -137,7 +136,6 @@ export default function PreWorkoutScreen({
             topWeight: toDisplayWeight(topSet.actual_weight || 0),
             topReps: topSet.actual_reps || 0,
             topEffort: topSet.effort ?? null,
-            topRir: topSet.rir ?? null,
             avgEffort: rawAvgEffort != null ? Math.round(rawAvgEffort * 10) / 10 : null,
             volume: Math.round(toDisplayWeight(exVolume)),
             hitTarget,
@@ -279,7 +277,6 @@ export default function PreWorkoutScreen({
                     </div>
                     <div className="text-indigo-400 mt-0.5">
                       effort {ex.avgEffort != null ? `E${ex.avgEffort}/10` : "not logged"}
-                      {ex.topRir != null && <span> · RIR {ex.topRir}</span>}
                       {ex.feltHard && <span className="text-rose-300 ml-1">· felt hard</span>}
                       {ex.feltEasy && <span className="text-emerald-300 ml-1">· felt easy</span>}
                     </div>

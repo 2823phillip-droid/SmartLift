@@ -11,10 +11,10 @@ export type ProgressionType = "linear" | "double" | "percentage" | "autoregulate
 export type WorkloadStatus = "easy" | "moderate" | "hard" | "deload";
 
 export interface SetRecord {
+  set_index?: number;
   actual_weight: number;
   actual_reps: number;
   effort?: number;
-  rpe?: number;
   rir?: number;
   is_seeded?: boolean;
   completed_at?: string;
@@ -144,7 +144,9 @@ function lastSessionTopSet(history: SetRecord[]): SetRecord | null {
   }
   const latestDay = Object.keys(byDate).sort().reverse()[0];
   const daySets = byDate[latestDay];
-  daySets.sort((a, b) => (b.actual_weight || 0) - (a.actual_weight || 0) || (b.actual_reps || 0) - (a.actual_reps || 0));
+  // progression seed = first set of the last session, so we start from
+  // where the user actually began, not where they finished.
+  daySets.sort((a, b) => (a.set_index || 0) - (b.set_index || 0));
   return daySets[0] ?? null;
 }
 
@@ -537,29 +539,33 @@ export function applyAiProfile(rule: RuleInput): RuleInput {
 }
 
 export function withinWorkoutProgression(opts: {
-  prevWeight: number;
+  seedWeight: number;
+  setNumber: number;
   prevReps: number;
-  prevRpe: number | null | undefined;
+  prevEffort: number | null | undefined;
   prevFormQuality: number | null | undefined;
   repsTarget: number;
   increment?: number;
   exerciseName?: string;
 }): { weight: number; reps: number } {
   const inc = opts.increment ?? 5;
+  const base = opts.seedWeight + (opts.setNumber - 1) * inc;
   const reps = opts.prevReps;
-  const rpe = opts.prevRpe;
+  const effort = opts.prevEffort;
   const form = opts.prevFormQuality;
   const assisted = isAssisted(opts.exerciseName || "");
 
   if (form === 2) {
-    const delta = assisted ? inc : -inc;
-    return { weight: Math.max(0, opts.prevWeight + delta), reps: opts.repsTarget };
+    // Form broke — drop back one step from where we would have gone,
+    // but never below the seed.
+    const drop = assisted ? -inc : inc;
+    return { weight: Math.max(opts.seedWeight, base + drop), reps: opts.repsTarget };
   }
-  if (form === 1 || reps < opts.repsTarget || (rpe != null && rpe >= 10)) {
-    return { weight: opts.prevWeight, reps: opts.repsTarget };
+  if (form === 1 || reps < opts.repsTarget || (effort != null && effort >= 4)) {
+    // Hold at the current set's target instead of advancing.
+    return { weight: base, reps: opts.repsTarget };
   }
-  const delta = assisted ? -inc : inc;
-  return { weight: opts.prevWeight + delta, reps: opts.repsTarget };
+  return { weight: base, reps: opts.repsTarget };
 }
 
 /* ---------------------------------------------------------------------------
@@ -570,7 +576,7 @@ const COACH_PHASE_LABELS: Record<string, string> = {
   linear: "Linear Progression",
   double: "Double Progression",
   percentage: "Percentage-based",
-  autoregulated: "Autoregulated / RPE",
+  autoregulated: "Autoregulated / Effort",
   deload: "Deload",
 };
 
@@ -582,7 +588,7 @@ const COACH_PHASE_DESCRIPTIONS: Record<string, string> = {
   percentage:
     "We're training from an estimated 1RM. This gives your body a precise strength stimulus with clear targets. It's useful when you want to peak or test strength.",
   autoregulated:
-    "You'll report how hard each set felt. We use RPE/RIR to adjust load daily so you don't grind through fatigue. This teaches your body to self-regulate intensity and protects recovery.",
+    "You'll report how hard each set felt. We use effort to adjust load daily so you don't grind through fatigue. This teaches your body to self-regulate intensity and protects recovery.",
   deload:
     "We're intentionally backing off—less weight, fewer sets, easier effort. This isn't 'slacking.' Recovery is when fitness actually improves. We'll resume normal loading next block.",
 };
