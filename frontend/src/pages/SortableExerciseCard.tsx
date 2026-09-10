@@ -1,4 +1,5 @@
 import { useSortable } from "@dnd-kit/sortable";
+import { useState } from "react";
 import { GripVertical } from "lucide-react";
 import type { ExerciseEntry, SetLog } from "../types";
 import { formatWeight, getUnitsPreference, weightInputPlaceholder } from "../utils/units";
@@ -81,6 +82,40 @@ export function SortableExerciseCard({
   suggestion,
   isTrainer,
 }: SortableExerciseCardProps) {
+  const [editingSetId, setEditingSetId] = useState<number | null>(null);
+  const [editWeight, setEditWeight] = useState<string>("");
+  const [editReps, setEditReps] = useState<string>("");
+  const [editEffort, setEditEffort] = useState<number | null>(null);
+
+  const startEditSet = (log: SetLog) => {
+    setEditingSetId(log.id);
+    setEditWeight(String(log.actual_weight ?? 0));
+    setEditReps(String(log.actual_reps ?? 0));
+    setEditEffort(log.effort ?? null);
+  };
+
+  const cancelEditSet = () => {
+    setEditingSetId(null);
+    setEditWeight("");
+    setEditReps("");
+    setEditEffort(null);
+  };
+
+  const commitEditSet = async () => {
+    if (editingSetId == null) return;
+    const log = exerciseLogs.find((l) => l.id === editingSetId);
+    if (!log) return;
+    const w = editWeight === "" ? null : Number(editWeight);
+    const r = editReps === "" ? null : Number(editReps);
+    if (w !== null && (Number.isNaN(w) || w < 0)) return;
+    if (r !== null && (Number.isNaN(r) || r < 1)) return;
+    if (editEffort !== null && (Number.isNaN(editEffort) || editEffort < 1 || editEffort > 10)) return;
+    if (w != null && w !== (log.actual_weight ?? 0)) await onEditSet(log, "actual_weight", w);
+    if (r != null && r !== (log.actual_reps ?? 0)) await onEditSet(log, "actual_reps", r);
+    if (editEffort !== null && editEffort !== (log.effort ?? null)) await onEditSet(log, "effort", editEffort);
+    cancelEditSet();
+  };
+
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: exercise.id });
   const style = {
     transform: transform ? `translate3d(${transform.x}px, ${transform.y}px, 0)` : undefined,
@@ -213,33 +248,100 @@ export function SortableExerciseCard({
                 {exerciseLogs.length > 0 && (
                   <div className="space-y-1.5">
                     <div className="text-[10px] text-slate-500 uppercase tracking-widest font-semibold">Completed Sets</div>
-                    {exerciseLogs.map((log) => (
-                      <div key={log.id} className="flex items-center justify-between rounded-xl bg-slate-950/50 border border-slate-800 px-2.5 py-1.5">
-                        <span className="text-xs text-slate-500 font-semibold">Set {log.set_index}</span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs text-slate-300 font-semibold">
-                            {`${formatWeight(log.actual_weight ?? 0, getUnitsPreference())}`} × {log.actual_reps} reps
-                            {log.effort != null && ` · E${log.effort}/10`}
-                          </span>
-                          <div className="flex items-center gap-1">
+                    {exerciseLogs.map((log) =>
+                      editingSetId === log.id ? (
+                        <div key={log.id} className="rounded-xl border border-indigo-800/60 bg-indigo-950/20 px-3 py-2.5 space-y-2">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-slate-200 font-semibold">Set {log.set_index} · Edit</span>
                             <button
-                              onClick={(e) => { e.stopPropagation(); onEditSet(log, "actual_weight", log.actual_weight ?? 0); }}
+                              onClick={(e) => { e.stopPropagation(); cancelEditSet(); }}
+                              className="text-[10px] text-slate-500 hover:text-slate-300"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                          <div className="grid grid-cols-3 gap-2">
+                            <div>
+                              <div className="text-[10px] text-slate-500">Weight</div>
+                              <input
+                                type="number"
+                                inputMode="decimal"
+                                value={editWeight}
+                                onChange={(e) => setEditWeight(e.target.value)}
+                                className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <div className="text-[10px] text-slate-500">Reps</div>
+                              <input
+                                type="number"
+                                inputMode="numeric"
+                                value={editReps}
+                                onChange={(e) => setEditReps(e.target.value)}
+                                className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-1.5 text-sm text-slate-200 focus:border-indigo-500 focus:outline-none"
+                              />
+                            </div>
+                            <div className="flex items-end pb-1">
+                              <button
+                                onClick={async (e) => { e.stopPropagation(); await commitEditSet(); }}
+                                className="w-full rounded-lg bg-indigo-600 text-white text-[11px] font-semibold py-1.5 hover:bg-indigo-500 transition-colors"
+                              >
+                                Save
+                              </button>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 pt-1">
+                            <div className="text-[10px] text-slate-500">Effort</div>
+                            <div className="flex gap-1">
+                              {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
+                                <button
+                                  key={n}
+                                  onClick={(e) => { e.stopPropagation(); setEditEffort(n); }}
+                                  className={`w-7 h-7 rounded-md text-[10px] font-bold border transition-colors ${
+                                    editEffort === n
+                                      ? "bg-emerald-600 border-emerald-500 text-white"
+                                      : "border-slate-700 text-slate-400 hover:border-slate-600"
+                                  }`}
+                                >
+                                  {n}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onDeleteSet(log); }}
+                            className="text-[10px] text-rose-400 hover:text-rose-300 transition-colors"
+                          >
+                            Delete set
+                          </button>
+                        </div>
+                      ) : (
+                        <div key={log.id} className="flex items-center justify-between rounded-xl bg-slate-950/50 border border-slate-800 px-2.5 py-1.5">
+                          <span className="text-xs text-slate-500 font-semibold">Set {log.set_index}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs text-slate-300 font-semibold">
+                              {`${formatWeight(log.actual_weight ?? 0, getUnitsPreference())}`} × {log.actual_reps} reps
+                              {log.effort != null && ` · E${log.effort}/10`}
+                            </span>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); startEditSet(log); }}
                               className="text-[10px] text-slate-500 hover:text-indigo-400 transition-colors px-1"
-                              title="Edit weight"
+                              title="Edit set"
                             >
                               <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+                              Edit
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); onDeleteSet(log); }}
                               className="text-[10px] text-slate-500 hover:text-rose-400 transition-colors px-1"
                               title="Delete set"
                             >
-                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2.5 0 002.5-2.5L11.5 3H5.5a2.5 0 00-2.5 2.5L1 10.5V19a2 2 0 002 2h12a2 2 0 002-2V10.5L19 7z" /></svg>
                             </button>
                           </div>
                         </div>
-                      </div>
-                    ))}
+                      )
+                    )}
                   </div>
                 )}
 
