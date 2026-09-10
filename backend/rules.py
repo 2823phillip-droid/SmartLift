@@ -168,7 +168,7 @@ def _recent_real_sets(history: List[SetRecord], limit: int = 20) -> List[SetReco
 
 
 def _last_session_top_set(history: List[SetRecord]):
-    """Return the top-set record from the most recent completed session.
+    """Return the first-set record from the most recent completed session.
     Returns None if no history.
     """
     real = _recent_real_sets(history, limit=20)
@@ -181,11 +181,10 @@ def _last_session_top_set(history: List[SetRecord]):
     latest_sets = [s for s in real if s.completed_at and s.completed_at.date() == latest_date]
     if not latest_sets:
         return None
-    # top set = highest weight, then highest reps; prefer sets with effort logged
-    with_effort = [s for s in latest_sets if s.effort is not None]
-    candidates = with_effort if with_effort else latest_sets
-    candidates.sort(key=lambda s: (s.actual_weight, s.actual_reps), reverse=True)
-    return candidates[0]
+    # progression seed = first set of the last session, so we start from
+    # where the user actually began, not where they finished.
+    latest_sets.sort(key=lambda s: s.set_index or 0)
+    return latest_sets[0]
 
 
 def _effective_increment(base: float, rule: RuleInput) -> float:
