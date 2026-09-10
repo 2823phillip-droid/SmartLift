@@ -14,18 +14,21 @@
 
 ## Domain & DNS
 - Public domain: askeo.fit (Namecheap)
-- A record: @ → 66.241.124.80 (Fly.io) — ⚠️ shared IP, can rotate. Run `fly ips allocate-v4 -a smartlift-api` ($2/mo) for dedicated static IP, then update this record.
+- A record: @ → 66.241.124.80 (Fly.io) — shared ingress IP, can rotate.
 - AAAA record: @ → 2a09:8280:1::158:fa7:0 (Fly IPv6)
 - Nameservers: Namecheap default (dns1/dns2.registrar-servers.com)
 - SSL cert: managed by Fly (check with `fly certs list -a smartlift-api`)
 - Roadmap: https://askeo.fit/roadmap
-- Health check: https://askeo.fit/healthz
+- Health endpoint is `/healthz` (not `/api/healthz`). Production URL: `https://askeo.fit/healthz`.
 - NOTE: Fly internal app name is `smartlift-api` — do NOT rename. Users only see askeo.fit.
 
 ## Deploy
-- Frontend build + sync: build `frontend/dist/` on Linux, rsync to `macbook:~/workout-logger/frontend/ios/App/App/public/`, then `npx cap sync ios`
-- Backend deploy: use interactive shell on Linux because `FLY_API_TOKEN` is in `~/.bashrc`: `bash -ic 'cd /home/phillip2823/workout-logger && python3 -m py_compile backend/main.py && fly deploy -a smartlift-api --no-cache'`
-- Frontend sync validation: see `memory/deploy.md`
+- Frontend build + sync: build `frontend/dist/` on Linux, rsync to `macbook:~/workout-logger/frontend/ios/App/App/public/`, then `npx cap sync ios` on MacBook. Frontend bundle is consumed by Xcode/Capacitor from `frontend/ios/`; the Fly app does NOT serve it.
+- Backend deploy: `fly` CLI lives only on the MacBook. Run from Linux VM via SSH:
+  - Prefer: `ssh -o BatchMode=yes macbook "cd ~/workout-logger/backend && /Users/phillipwalters/.fly/bin/fly deploy --remote-only"`
+  - Or interactive: `bash -ic 'cd ~/workout-logger/backend && fly deploy -a smartlift-api'`
+  - Run `python3 -m py_compile backend/main.py` first (on Linux) to catch syntax errors before deploy.
+- Health verification: `curl -s https://askeo.fit/healthz` must return `{"status":"ok"}`. The health route is `/healthz`, NOT `/api/healthz`.
 - Remote git: https://github.com/2823phillip-droid/Askeo.git
 - Workout-logger git remote: https://github.com/phillip28237/Askeo.git
 

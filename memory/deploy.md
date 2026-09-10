@@ -24,9 +24,11 @@ related: PROJECT.md, Askeo.md, debugging.md
 4. Verify: `ssh macbook "ls -la ~/workout-logger/frontend/ios/App/App/public/assets/index-*.js"` shows new timestamp
 
 ### Step 4 — Backend deploy
-- `cd /home/phillip2823/workout-logger && python3 -m py_compile backend/main.py`
-- `fly deploy -a smartlift-api`
-- Verify: `curl -s https://smartlift-api.fly.dev/healthz` returns `{"status":"ok"}`
+- `cd /home/phillip2823/workout-logger && python3 -m py_compile backend/main.py && cd backend && fly deploy -a smartlift-api`
+- **Important**: `fly` CLI only exists on the MacBook (phillipwalters@192.168.1.112), not on this Linux VM. Run deploy via SSH to macbook. For non-interactive SSH shells, `fly` needs the full path `/Users/phillipwalters/.fly/bin/fly` or a `bash -ic` wrapper.
+- **Recommended deploy command** (run from Linux VM): `ssh -o BatchMode=yes phillipwalters@192.168.1.112 "cd ~/workout-logger/backend && /Users/phillipwalters/.fly/bin/fly deploy --remote-only"` — but prefer `bash -ic 'cd ~/workout-logger/backend && fly deploy -a smartlift-api'` when possible so the shell init loads env consistently.
+- Verify: `curl -s https://smartlift-api.fly.dev/healthz` returns `{"status":"ok"}` — **but the real production health URL is `https://askeo.fit/healthz`** since askeo.fit CNAMEs to the Fly app.
+- Note: `/api/healthz` does NOT exist. The backend health route is mounted at `/healthz`, not `/api/healthz`. Do not waste time debugging the wrong path.
 
 ### Step 5 — Handoff to user
 - Tell user to build/run from Xcode
