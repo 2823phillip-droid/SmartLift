@@ -25,11 +25,9 @@ export interface SortableExerciseCardProps {
   onRestChange: (val: string) => void;
   draftWeight: string;
   draftReps: string;
-  draftRpe: number | null;
+  draftEffort: number | null;
   onDraftWeightChange: (val: string) => void;
   onDraftRepsChange: (val: string) => void;
-  onDraftRpeChange: (val: number) => void;
-  draftEffort: number | null;
   onDraftEffortChange: (val: number) => void;
   draftFormQuality: number;
   onDraftFormQualityChange: (val: number) => void;
@@ -40,7 +38,7 @@ export interface SortableExerciseCardProps {
   canLog: boolean;
   onLogSet: () => Promise<boolean>;
   isLogging: boolean;
-  onEditSet: (log: SetLog, field: "actual_weight" | "actual_reps" | "effort" | "rpe" | "form_quality", value: number | string) => void;
+  onEditSet: (log: SetLog, field: "actual_weight" | "actual_reps" | "effort" | "form_quality", value: number | string) => void;
   onDeleteSet: (log: SetLog) => void;
   suggestion?: Prescription;
   isTrainer: boolean;
@@ -65,11 +63,9 @@ export function SortableExerciseCard({
   onRestChange,
   draftWeight,
   draftReps,
-  draftRpe,
+  draftEffort,
   onDraftWeightChange,
   onDraftRepsChange,
-  onDraftRpeChange,
-  draftEffort,
   onDraftEffortChange,
   draftFormQuality,
   onDraftFormQualityChange,
@@ -317,28 +313,6 @@ export function SortableExerciseCard({
                         />
                         <div className="text-[10px] text-slate-500 text-center mt-1 uppercase tracking-wider">Reps</div>
                       </div>
-                    </div>
-
-                    <div className="space-y-1.5">
-                      <label className="text-xs text-slate-500 uppercase tracking-widest font-semibold">
-                        RPE {draftRpe !== null ? draftRpe : "—"}
-                      </label>
-                      <div className="grid grid-cols-5 gap-1.5">
-                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((n) => (
-                          <button
-                            key={n}
-                            onClick={() => onDraftRpeChange(n)}
-                            className={`py-2.5 text-sm font-bold rounded-xl border transition-all ${
-                              draftRpe === n
-                                ? "bg-indigo-600 border-indigo-500 text-white shadow-md shadow-indigo-900/20 scale-[1.02]"
-                                : "border-slate-700 text-slate-400 hover:border-slate-600 hover:text-slate-300"
-                            }`}
-                          >
-                            {n}
-                          </button>
-                        ))}
-                      </div>
-                      <p className="text-[10px] text-slate-500">How hard was this set? 1 = trivial, 10 = failure.</p>
                     </div>
 
                     <div className="space-y-1.5">

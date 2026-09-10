@@ -1689,10 +1689,24 @@ def get_exercise_name_progress(name: str, limit: int = 5000, db: Session = Depen
     return ExerciseNameProgressResponse(name=name, points=points, seeded=seeded)
 
 
+def _normalize_exercise_name(name: str) -> str:
+    """Strip parenthetical variants, slash variants, and extra whitespace
+    so that 'Barbell Full Squat (Side Pov)' matches 'Barbell Full Squat'."""
+    import re
+    # Remove parenthetical suffixes: "Foo (Bar)" -> "Foo"
+    n = re.sub(r"\s*\([^)]*\)", "", name)
+    # Remove slash-separated variants: "Foo/Bar" -> "Foo"
+    n = re.sub(r"\/.*", "", n)
+    # Collapse whitespace
+    n = re.sub(r"\s+", " ", n).strip()
+    return n.lower()
+
 @app.get("/api/exercise-names/last-session")
 def get_exercise_name_last_session(name: str, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    entries = db.query(ExerciseEntry).filter(ExerciseEntry.name == name).all()
-    entry_ids = [e.id for e in entries]
+    normalized = _normalize_exercise_name(name)
+    entries = db.query(ExerciseEntry).all()
+    user_entries = [e for e in entries if _normalize_exercise_name(e.name) == normalized]
+    entry_ids = [e.id for e in user_entries]
     if not entry_ids:
         raise HTTPException(status_code=404, detail="Exercise not found")
     sessions = (

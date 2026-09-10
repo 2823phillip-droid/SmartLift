@@ -391,7 +391,6 @@ export const api = {
     actual_reps?: number | null;
     effort?: number | null;
     rir?: number | null;
-    rpe?: number | null;
     form_quality?: number | null;
     notes?: string | null;
   }) =>
@@ -437,7 +436,6 @@ export const api = {
       actual_weight: number;
       actual_reps: number;
       effort?: number | null;
-      rpe?: number | null;
       rir?: number | null;
       is_seeded?: boolean;
       completed_at?: string | null;
