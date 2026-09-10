@@ -6,6 +6,15 @@ Format: DATE | FILE | TYPE | SUMMARY
 
 ---
 
+## 2026-09-10
+|| File | Type | Summary |
+||---|---|---|
+|| memory/deploy.md | updated | Documented that `fly` CLI lives only on MacBook; deploy from Linux VM via SSH to macbook; corrected health URL to `/healthz` (not `/api/healthz`); added real deploy command forms |
+|| PROJECT.md | updated | Backend deploy section rewritten: `fly` only on MacBook, deploy via SSH from Linux VM, health URL `/healthz` not `/api/healthz`; frontend bundle is consumed by Xcode/Capacitor from `frontend/ios/`, not served by Fly app |
+|| memory/changelog.md | updated | Added 2026-09-10 entry for deploy.md + PROJECT.md updates |
+
+---
+
 ## 2026-08-06
 | File | Type | Summary |
 |---|---|---|
