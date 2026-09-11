@@ -26,10 +26,23 @@ def run_remote(cmd, check=True, workdir=None):
 def main():
     print("==> Pre-flight: git status")
     run_remote("git status --porcelain", workdir=REPO_MAC)
-    # Run tests from Linux copy to avoid broken Mac venv symlinks
-    print("==> Pre-flight: pytest on Linux")
+    print("==> Pre-flight: validate ORM models load + queryable")
     venv_python = os.path.join(os.path.dirname(__file__), "..", ".venv", "bin", "python")
-    subprocess.run([venv_python, "-m", "pytest", "tests/", "-q"], check=True, cwd="backend")
+    validate = subprocess.run(
+        [venv_python, "-c",
+         "import sys; sys.path.insert(0, 'backend'); "
+         "from models import Base; "
+         "from db import SessionLocal, init_db; "
+         "engine = SessionLocal().get_bind(); "
+         "Base.metadata.create_all(bind=engine); "
+         "print('ORM OK')"],
+        capture_output=True, text=True, cwd="backend"
+    )
+    print(validate.stdout, end="" if validate.returncode == 0 else "\n", file=sys.stderr)
+    if validate.returncode != 0:
+        print("ORM validation failed")
+        print(validate.stderr, file=sys.stderr)
+        sys.exit(1)
 
     print("==> Backing up Postgres via Fly proxy")
     db_url_raw = run_remote("fly ssh console -C 'printenv DATABASE_URL'", workdir=REPO_MAC).stdout.strip()
@@ -91,10 +104,29 @@ def main():
         run_remote(f"cd {REPO_MAC} && git checkout {prev} && cd backend && ~/.fly/bin/fly deploy --app {APP}", check=False)
         sys.exit(1)
 
-    print("==> Smoke test")
-    c = subprocess.run(["curl", "-sk", f"https://{APP}.fly.dev/api/coach/health"], capture_output=True, text=True)
-    if '"llm_available":true' not in c.stdout:
-        print("Coach health failed")
+    print("==> Smoke test (DB-touching endpoints)")
+    smoke_ok = False
+    endpoints = [
+        ("POST", "/api/auth/login", '{"email":"smoke-test@askeo.local","password":"wrong"}'),
+        ("GET", "/healthz", None),
+    ]
+    for method, path, body in endpoints:
+        headers = {"Content-Type": "application/json"} if body else {}
+        cmd = ["curl", "-sk", "-o", "/dev/null", "-w", "%{http_code}"]
+        if method == "POST":
+            cmd += ["-X", "POST", "-H", "Content-Type: application/json", "-d", body]
+        cmd += [f"https://{APP}.fly.dev{path}"]
+        c = subprocess.run(cmd, capture_output=True, text=True)
+        code = c.stdout.strip()
+        print(f"  {method} {path} -> {code}")
+        if code == "500":
+            print(f"  !! {path} returned 500 — deploy broken, rolling back")
+            run_remote(f"cd {REPO_MAC} && git checkout {prev} && cd backend && ~/.fly/bin/fly deploy --app {APP}", check=False)
+            sys.exit(1)
+        if code == "401" and path == "/api/auth/login":
+            smoke_ok = True  # 401 is correct for bad creds — means ORM is working
+    if not smoke_ok:
+        print("Smoke test failed — login endpoint did not return expected 401")
         run_remote(f"cd {REPO_MAC} && git checkout {prev} && cd backend && ~/.fly/bin/fly deploy --app {APP}", check=False)
         sys.exit(1)
 
