@@ -164,7 +164,7 @@ Next (business build-out):
 
 - MacBook SSH: `macbook` (configured in ~/.ssh/config)
 - Production backend: `https://askeo.fit/api`
-- Git remote (workout-logger): `https://github.com/phillip28237/Askeo.git`
+- Git remote (workout-logger): `https://github.com/2823phillip-droid/SmartLift.git`
 
 ## License
 

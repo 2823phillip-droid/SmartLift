@@ -30,8 +30,7 @@
   - Or interactive: `bash -ic 'cd ~/workout-logger/backend && fly deploy -a smartlift-api'`
   - Run `python3 -m py_compile backend/main.py` first (on Linux) to catch syntax errors before deploy.
 - Health verification: `curl -s https://askeo.fit/healthz` must return `{"status":"ok"}`. The health route is `/healthz`, NOT `/api/healthz`.
-- Remote git: https://github.com/2823phillip-droid/Askeo.git
-- Workout-logger git remote: https://github.com/phillip28237/Askeo.git
+- Remote git: https://github.com/2823phillip-droid/SmartLift.git
 
 ## Auth
 - Admin: phillip@askeo.fit / AskeoAdmin2026!

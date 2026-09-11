@@ -210,6 +210,11 @@ async def timeout_middleware(request, call_next):
         }))
         return JSONResponse(status_code=504, content={"detail": "gateway_timeout"})
 
+
+@app.get("/")
+async def root():
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse(url="/home")
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
@@ -232,9 +237,26 @@ async def roadmap():
 
 @app.get("/todo")
 async def todo():
-    with open("TODO.md", "r") as f:
-        md = f.read()
-    return PlainTextResponse(content=md, media_type="text/markdown")
+    with open("todo.html", "r") as f:
+        html = f.read()
+    served_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    html = html.replace(
+        '<div class="deploy-ts" id="deploy-ts"></div>',
+        f'<div class="deploy-ts" id="deploy-ts">Served: {served_at}</div>',
+    )
+    return HTMLResponse(content=html, media_type="text/html")
+
+
+@app.get("/home")
+async def home():
+    with open("home.html", "r") as f:
+        html = f.read()
+    served_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
+    html = html.replace(
+        '<div class="deploy-ts" id="deploy-ts"></div>',
+        f'<div class="deploy-ts" id="deploy-ts">Served: {served_at}</div>',
+    )
+    return HTMLResponse(content=html, media_type="text/html")
 
 @app.get("/architecture")
 async def architecture():

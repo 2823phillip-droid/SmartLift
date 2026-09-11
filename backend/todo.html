@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Askeo — Running Backlog</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-2: #334155;
+    --border: #475569;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #6366f1;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --emerald: #10b981;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 900px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.6rem; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--muted); margin-bottom: 1.5rem; font-size: 0.9rem; }
+
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  .section-header {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.85rem;
+    flex-wrap: wrap;
+  }
+  .section-title {
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .section-meta {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-left: auto;
+  }
+
+  .subsection {
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+  }
+  .subsection-title {
+    font-size: 0.82rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin-bottom: 0.5rem;
+  }
+
+  ul { list-style: none; }
+  li {
+    padding: 0.3rem 0;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  li:last-child { border-bottom: none; }
+
+  .check {
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.75rem;
+    font-weight: 700;
+    margin-top: 1px;
+  }
+  .check-done { background: rgba(34,197,94,0.15); color: var(--green); }
+  .check-done::after { content: "✓"; }
+  .check-open { background: rgba(99,102,241,0.12); color: var(--accent); }
+  .check-open::after { content: "○"; }
+
+  .item-text { flex: 1; }
+  .item-text.done { color: var(--muted); text-decoration: line-through; text-decoration-color: rgba(148,163,184,0.4); }
+
+  .inline-code {
+    background: var(--surface-2);
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-family: "SF Mono", "Fira Code", monospace;
+    font-size: 0.82rem;
+    color: #e2e8f0;
+  }
+
+  .phase-divider {
+    margin: 1.5rem 0 0.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+  }
+  .phase-label {
+    display: inline-block;
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.2rem 0.55rem;
+    border-radius: 999px;
+    margin-bottom: 0.5rem;
+  }
+  .phase-active { background: var(--accent); color: white; }
+  .phase-waiting { background: var(--surface-2); color: var(--muted); }
+  .phase-blocked { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  .phase-title-large {
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 0.3rem;
+  }
+  .phase-desc {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 0.85rem;
+  }
+
+  .cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.85rem;
+  }
+  @media (max-width: 600px) { .cols { grid-template-columns: 1fr; } }
+
+  .col {
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 0.85rem;
+  }
+  .col-header {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+  }
+  .col-agent { color: var(--blue); }
+  .col-user { color: var(--emerald); }
+  .col-done { color: var(--green); }
+  .col-waiting { color: var(--amber); }
+
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.5rem 0;
+  }
+
+  .bullet-list {
+    margin-top: 0.5rem;
+  }
+  .bullet-list li {
+    font-size: 0.85rem;
+    color: var(--muted);
+    border-bottom: none;
+    padding: 0.2rem 0;
+  }
+  .bullet-list li::before {
+    content: "•";
+    color: var(--muted);
+    margin-right: 0.4rem;
+  }
+
+  .note-box {
+    background: rgba(99,102,241,0.08);
+    border: 1px solid rgba(99,102,241,0.2);
+    border-radius: 8px;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.82rem;
+    color: #c7d2fe;
+    margin-top: 0.75rem;
+  }
+  .note-box strong { color: var(--accent); }
+
+  .deploy-ts {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-top: 1rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<h1>Askeo — Running Backlog</h1>
+<p class="subtitle">Capture layer: bugs, ideas, small tasks, things to address. Not the roadmap — that's at <a href="/roadmap" style="color:var(--accent)">/roadmap</a>.</p>
+
+<!-- ===== CURRENT ===== -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-title">Current — what's happening now</span>
+    <span class="section-meta">last updated: 2026-09-10</span>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">Bug fixes (just shipped)</div>
+    <ul>
+      <li><span class="check check-done"></span><span class="item-text done">Inline set editor in live workout (SortableExerciseCard.tsx) — tap "Edit" on completed set to edit weight/reps/effort inline</span></li>
+      <li><span class="check check-done"></span><span class="item-text done">History screen effort field: was capped at /5, now /10</span></li>
+      <li><span class="check check-done"></span><span class="item-text done">Backend parity deploy (343d9e7) — frontend and backend agree on progression seed</span></li>
+    </ul>
+  </div>
+
+  <div class="subsection">
+    <div class="subsection-title">Current bugs to fix</div>
+    <ul>
+      <li><span class="check check-open"></span><span class="item-text">Migrate existing <span class="inline-code">ExerciseEntry.start_weight</span> values from lbs to kg on backend (seeded data stored in lbs, frontend assumes kg → shows 254 instead of 115)</span></li>
+      <li><span class="check check-open"></span><span class="item-text">Audit all frontend weight display paths for consistent kg/lbs conversion (start_weight, draft prefill, <span class="inline-code">getNextSetTarget()</span>, coach prescription inputs, recap screens)</span></li>
+      <li><span class="check check-open"></span><span class="item-text">Backend should enforce canonical unit for <span class="inline-code">start_weight</span> and <span class="inline-code">actual_weight</span> (document whether kg or lbs is source of truth; migrate legacy data)</span></li>
+      <li><span class="check check-open"></span><span class="item-text">Coach Recap on Ready screen: fix session lookup so it finds last completed session of same template (currently returns empty even when completed session exists)</span></li>
+      <li><span class="check check-open"></span><span class="item-text">Coach Recap weight display: convert backend <span class="inline-code">actual_weight</span> from kg to lbs in PreWorkoutScreen before displaying (PostWorkoutScreen already does this correctly)</span></li>
+      <li><span class="check check-open"></span><span class="item-text">Coach message wording: change "This workout" to "Next workout" in all coaching messages (backend <span class="inline-code">rules.py:198</span> and frontend <span class="inline-code">rules.ts</span> multiple locations)</span></li>
+      <li><span class="check check-open"></span><span class="item-text">Auto-update draft weight after logging a set to match coach prescription in ai_trainer mode (currently stays at logged weight instead of moving to recommended next weight)</span></li>
+      <li><span class="check check-open"></span><span class="item-text">Prevent reps_target=0 from propagating through template editor (<span class="inline-code">TemplateEditorScreen.tsx:288</span> uses <span class="inline-code">?? 10</span> but <span class="inline-code">??</span> doesn't catch explicit 0; <span class="inline-code">addSet</span> initializes <span class="inline-code">{reps: 0}</span>)</span></li>
+    </ul>
+  </div>
+</div>
+
+<!-- ===== PHASE 1 ===== -->
+<div class="phase-divider">
+  <span class="phase-label phase-active">Active</span>
+</div>
+<div class="section">
+  <div class="section-header">
+    <span class="phase-title-large">Phase 1 — Linear Progression: backend complete, validation pending user data</span>
+  </div>
+  <p class="phase-desc">Basic progression engine wired up. Needs your workout data to validate defaults.</p>
+
+  <div class="cols">
+    <div class="col">
+      <div class="col-header col-done">✓ Backend done</div>
+      <ul class="bullet-list">
+        <li>Wire frontend → backend prescription API (<span class="inline-code">POST /api/rules/next-prescription</span>)</li>
+        <li>Persist <span class="inline-code">AlgorithmState</span> per exercise server-side</li>
+        <li>Log <span class="inline-code">ProgressionTransition</span> on phase change</li>
+        <li>Add read endpoints: <span class="inline-code">GET /api/rules/algorithm-state/{id}</span>, <span class="inline-code">GET /api/rules/transitions</span></li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="col-header col-done">✓ Frontend done</div>
+      <ul class="bullet-list">
+        <li><span class="inline-code">api.ts</span> helpers for prescription, algorithm state, transitions</li>
+        <li><span class="inline-code">ActiveWorkoutScreen.tsx</span> calls backend in <span class="inline-code">ai_trainer</span> mode with local fallback</li>
+        <li>Surface backend prescription errors to user in UI (via <span class="inline-code">localStorage['askeo_error_log']</span>)</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="cols" style="margin-top:0.85rem;">
+    <div class="col">
+      <div class="col-header col-waiting">○ Waiting — needs your data</div>
+      <ul class="bullet-list">
+        <li>Validate linear progression against real user data with RIR (blocked on user logging 2–3 sessions)</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="col-header col-waiting">○ Agent — remaining</div>
+      <ul class="bullet-list">
+        <li>Add transition history view in app</li>
+        <li>pytest coverage for <span class="inline-code">/api/rules/next-prescription</span> side effects</li>
+        <li>Confirm <span class="inline-code">AlgorithmState</span> + <span class="inline-code">ProgressionTransition</span> rows created on phase change</li>
+        <li>End-to-end test: identical inputs → identical outputs unless RPE/RIR changes</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note-box">
+    <strong>What we're measuring:</strong> completion rate, RIR per set, effort per set, whether weight was increased automatically. This data tells us if the linear progression defaults are right for you.
+  </div>
+</div>
+
+<!-- ===== PHASE 2 ===== -->
+<div class="phase-divider">
+  <span class="phase-label phase-waiting">Waiting</span>
+</div>
+<div class="section">
+  <div class="section-header">
+    <span class="phase-title-large">Phase 2 — Rule Engine: Deterministic coaching scripts</span>
+  </div>
+  <p class="phase-desc">Multiple progression types (double, linear, percentage, autoregulation, deload). Backend + frontend implementations.</p>
+
+  <div class="cols">
+    <div class="col">
+      <div class="col-header col-agent">Agent will build</div>
+      <ul class="bullet-list">
+        <li>Define canonical rule specification in one place: inputs, outputs, progression types, safety boundaries</li>
+        <li>Define standard fitness model schema consumed by all rule implementations</li>
+        <li>Determinism requirement: identical inputs → identical outputs unless user state changes</li>
+        <li>Additive-only gate: rules remain deterministic even as AI profile is layered on top in Phase 4</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="col-header col-agent">Backend</div>
+      <ul class="bullet-list">
+        <li>Implement canonical rule module in Python (FastAPI/Starlette)</li>
+        <li>Double progression: when all sets hit top rep band for target reps, increase weight next session; if miss, repeat</li>
+        <li>Linear progression: fixed increment per successful session; stall rule after N failures</li>
+        <li>Percentage / 1RM-based: compute working weight from stored or estimated 1RM; advance/regress based on completion quality</li>
+        <li>Periodization: weekly/mesocycle plan block hooks; scheduled deload week triggers reduced volume/intensity</li>
+        <li>Autoregulation (RPE/RIR): derive effective load and next-session prescriptions from reported RPE/RIR; allow micro-load/step back</li>
+        <li>Deloading: automatic deload trigger + manual deload with preserved rhythm</li>
+        <li>Backend computes next planned workout prescription from history + assigned rule script</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="cols" style="margin-top:0.85rem;">
+    <div class="col">
+      <div class="col-header col-agent">Frontend / on-device</div>
+      <ul class="bullet-list">
+        <li>Port canonical rules to TypeScript for use inside the app</li>
+        <li>Active workout autoregulation runs locally with no network dependency</li>
+        <li>After each set completion, run autoregulation locally and update next set UI immediately</li>
+        <li>Capture RPE/RIR inputs inline during workout before moving to next set</li>
+        <li>Offline-first behavior: queue completed workout payload when offline, resume sync on reconnect</li>
+        <li>Preserve completed sets and local outputs through background/suspend without dependence on in-memory only state</li>
+        <li>No external network calls inside autoregulation during active workout</li>
+        <li>Deload/manual override path available locally if autoregulation suggests aggressive load</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="col-header col-agent">Frontend UX</div>
+      <ul class="bullet-list">
+        <li>Settings/defaults: user selects preferred rule script per exercise group or per workout</li>
+        <li>Exercise detail shows current rule-derived prescription: weight, reps, sets, rest, progression step, estimated 1RM</li>
+        <li>During active workout: show next prescribed set (adaptive to completed sets if autoregulated)</li>
+        <li>Post-workout: capture RPE and RIR inputs before completion so backend can compute next prescription</li>
+        <li>Template editor exposes rule-engine placement: default/static values vs dynamic prescriptions</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="cols" style="margin-top:0.85rem;">
+    <div class="col">
+      <div class="col-header col-waiting">○ Data model prerequisites</div>
+      <ul class="bullet-list">
+        <li>Capture required session data for rule engine: exercise_order, sets_target, reps_target, weight_target, rest_seconds, datetime_completed, rpe, rir</li>
+        <li>Confirm existing <span class="inline-code">workout_end_summary</span> / active workout POST payload carries enough state for progression rules to compute next workout</li>
+        <li>Define schema for <span class="inline-code">rule_script</span> / <span class="inline-code">rule_assignment</span> in Postgres (or extend <span class="inline-code">settings</span> payload) so a user/workout can be assigned a deterministic script</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="col-header col-waiting">○ Verification</div>
+      <ul class="bullet-list">
+        <li>Unit tests for each rule type against synthetic session history</li>
+        <li>End-to-end test: user with known history receives correct next-session prescription</li>
+        <li>Confirm deterministic behavior: same input sequence always yields same next prescription unless RPE/RIR changes it</li>
+        <li>Verify backend and frontend implementations produce identical outputs on identical inputs</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ===== PHASE 4 ===== -->
+<div class="phase-divider">
+  <span class="phase-label phase-waiting">Waiting</span>
+</div>
+<div class="section">
+  <div class="section-header">
+    <span class="phase-title-large">Phase 4 — AI Personalization Layer</span>
+  </div>
+  <p class="phase-desc">AI doesn't replace scripts — it builds a user profile that modulates schema variables before scripts run. Voice coach, UI redesign, profile engine.</p>
+
+  <div class="cols">
+    <div class="col">
+      <div class="col-header col-done">✓ Trainer-generated workout flow</div>
+      <ul class="bullet-list">
+        <li>Backend: <span class="inline-code">POST /api/trainer/generate</span> accepts questionnaire answers and returns a populated workout draft</li>
+        <li>Frontend: step-through questionnaire, one question per screen, progress indicator</li>
+        <li>Frontend: options shown as single-select tabs or multi-select chips; minimize typing</li>
+        <li>Section 1 — Training profile: Goal, Equipment, Primary Style, Additional Activities, Modality Mix, Location, Training History, Progression Method, Days/week, Minutes, Experience, Split Style, Limitations</li>
+        <li>Frontend: preface each section with "This is why we ask" context</li>
+        <li>Frontend: questionnaire shown on first login and available anytime from AI Trainer tab</li>
+        <li>Frontend: user picks "Trainer builds it" or "I'll build it myself"</li>
+        <li>Frontend: accepted generated workout persists as draft; user can tweak before saving</li>
+        <li>Frontend: re-run questionnaire available from AI Trainer tab to generate new workout</li>
+        <li>Backend: slot-based template system with 10 day templates</li>
+        <li>Backend: body_part_split rotation (chest/tris → back/bis → legs → shoulders → arms)</li>
+        <li>Backend: explicit progression_type overrides experience-based default</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="col-header col-waiting">○ Remaining — trainer flow</div>
+      <ul class="bullet-list">
+        <li>Nutrition questionnaire and meal plan generation — separate future flow</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="cols" style="margin-top:0.85rem;">
+    <div class="col">
+      <div class="col-header col-agent">Core model</div>
+      <ul class="bullet-list">
+        <li>Define standard fitness model schema shared by all users; Phase 2 deterministic scripts consume this schema</li>
+        <li>AI layer does not replace scripts; it builds a user-specific profile/key that modulates schema variables before scripts run</li>
+        <li>Scripts remain the constant execution layer; AI output is input normalization and profile calibration only</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="col-header col-agent">Additive-only gate</div>
+      <ul class="bullet-list">
+        <li>AI personalization is opt-in and additive only</li>
+        <li>If AI profile does not show verifiable improvement over deterministic baseline, default deterministic behavior remains the user-facing path</li>
+        <li>User can reset AI profile to default or disable AI personalization at any time</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="cols" style="margin-top:0.85rem;">
+    <div class="col">
+      <div class="col-header col-agent">Live Workout Voice Coach</div>
+      <ul class="bullet-list">
+        <li>Add optional push-to-talk voice input during active workouts for hands-free logging and coaching</li>
+        <li>Scope during live workout: weight/reps/sets adjustments, RPE/form feedback, exercise swaps — same constraints as chat <span class="inline-code">modify_workout</span></li>
+        <li>Optional TTS voice output so AI can speak confirmations and coaching cues without looking at screen</li>
+        <li>Text remains primary input and fallback; voice is additive only</li>
+        <li>UI: small mic button in <span class="inline-code">ActiveWorkoutScreen</span>; hold to talk, release to send; no always-on listening</li>
+        <li>Value prop: avoid phone pickup/manual logging mid-set; talk to coach like a real trainer would</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="col-header col-agent">AI Trainer UI Redesign</div>
+      <ul class="bullet-list">
+        <li>Redesign <span class="inline-code">AiTrainerScreen.tsx</span> to modern split-pane layout inspired by Claude/ChatGPT advanced mode</li>
+        <li>Desktop/tablet: left pane (~40%) for conversation, right pane (~60%) for context</li>
+        <li>Right pane surfaces referenced workouts, current prescription, draft previews, and session cards based on AI context</li>
+        <li>Mobile: single pane with tab or swipeable bottom sheet to toggle between Chat and Context</li>
+        <li>Inline cards in chat for referenced workouts/drafts; right pane shows detailed view</li>
+        <li>Typography, spacing, and bubble design updated to feel modern and intelligent, not legacy chatbot</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="cols" style="margin-top:0.85rem;">
+    <div class="col">
+      <div class="col-header col-agent">AI profile engine</div>
+      <ul class="bullet-list">
+        <li>Collect user progress signals: adherence, completion rate, RPE/RIR trends, stall frequency, recovery indicators, workout consistency</li>
+        <li>Extract session feedback from AI coach chat: when user comments on how a workout felt vs last time, capture RPE, form quality, comparison, soreness, enjoyment, equipment issues as structured session metadata</li>
+        <li>Chat extraction flow: AI recognizes feedback intent → confirms summary to user → optionally writes to completed workout session metadata</li>
+        <li>Reuse extracted chat metadata in future <span class="inline-code">generate_workout</span> / <span class="inline-code">modify_workout</span> calls as progression signals</li>
+        <li>Skip redundant post-workout questionnaire when equivalent feedback already captured in chat</li>
+        <li>Design deterministic feature extraction from workout history so AI input is stable and reproducible</li>
+        <li>Choose local or backend AI profile generation:
+          <ul>
+            <li>Option A: On-device lightweight model/profile generator runs offline after each workout</li>
+            <li>Option B: Backend analyzes history and pushes updated profile key; frontend applies it locally</li>
+          </ul>
+        </li>
+        <li>Profile outputs: calibrated starting 1RM estimate, progression sensitivity, volume tolerance, recovery multiplier, preferred RIR target, stress/fatigue adjustment</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="col-header col-agent">Integration + data & privacy</div>
+      <ul class="bullet-list">
+        <li>Planned workout → AI profile applied to schema → Phase 2 deterministic script computes prescription → on-device autoregulation runs during workout</li>
+        <li>Active workout autoregulation uses both the user's AI profile and live session feedback</li>
+        <li>Post-workout sync updates history, which may trigger AI profile recalculation on next run</li>
+        <li>Store AI profile per user in Postgres; version it so changes are auditable and reversible</li>
+        <li>No PII leaves device beyond workout history needed for backend profile generation; if local-only, profile never leaves device</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="cols" style="margin-top:0.85rem;">
+    <div class="col">
+      <div class="col-header col-waiting">○ Verification</div>
+      <ul class="bullet-list">
+        <li>Baseline: deterministic script without AI profile produces expected prescription</li>
+        <li>With AI profile: same script produces differentiated prescription based solely on profile differences</li>
+        <li>Profile stability: repeated runs on same history yield same profile unless new data changes it</li>
+        <li>User-facing: show which variables were adjusted by AI and why, with option to override manually</li>
+      </ul>
+    </div>
+    <div class="col"></div>
+  </div>
+</div>
+
+<hr>
+
+<div class="note-box" style="margin-top:0;">
+  <strong>Two layers, not one.</strong> This page is the running capture list — bugs, ideas, and tasks land here. The <a href="/roadmap" style="color:var(--accent)">roadmap</a> is the vision: phases, sequence, what done looks like. When something in this backlog proves itself important enough to schedule, it moves into the roadmap. Everything else stays here until it's done or deprioritized.
+</div>
+
+<div class="deploy-ts" id="deploy-ts"></div>
+
+<script>
+document.getElementById('deploy-ts').textContent = 'Served: ' + new Date().toISOString().replace('T', ' ').substring(0, 16) + ' UTC';
+</script>
+
+</body>
+</html>
