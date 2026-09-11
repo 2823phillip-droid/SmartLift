@@ -73,7 +73,7 @@
 
 ## Backups / Recovery
 - Original exercises JSON preserved at `backend/dist/exercises-hasan.json`
-- Git remotes: `origin` → `2823phillip-droid/Askeo.git`; `workout-logger` remote → `phillip28237/Askeo.git`
+- Git remotes: `origin` → `2823phillip-droid/SmartLift.git`
 - Local save tag exists: `fly-deploy-save-2026-07-29` (not pushed to GitHub, not required for deployment)
 
 ## Frontend Hints
