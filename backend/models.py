@@ -38,6 +38,7 @@ class User(Base):
     workout_libraries = relationship("WorkoutLibrary", back_populates="user", cascade="all, delete-orphan")
     workout_library_exercises = relationship("WorkoutLibraryExercise", back_populates="user", cascade="all, delete-orphan")
     ai_coach_conversations = relationship("AiCoachConversation", back_populates="user", cascade="all, delete-orphan")
+    reminders = relationship("Reminder", back_populates="user")
 
 class RoutineType(str, enum.Enum):
     strength = "strength"
@@ -353,3 +354,16 @@ class CoachUsageLog(Base):
     error_message = Column(Text, nullable=True)
 
     user = relationship("User")
+
+
+class Reminder(Base):
+    __tablename__ = "reminders"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    text = Column(String, nullable=False)
+    scheduled_for = Column(DateTime, nullable=False)
+    triggered = Column(Integer, default=0, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    triggered_at = Column(DateTime, nullable=True)
+
+    user = relationship("User", back_populates="reminders")
