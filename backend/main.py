@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException, Header, Request
-from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
 from sqlalchemy.orm import Session
@@ -228,6 +228,13 @@ async def roadmap():
         f'<div class="legend-item" style="margin-left:auto;color:var(--muted)" id="deploy-ts">Deployed: {served_at}</div>',
     )
     return HTMLResponse(content=html, media_type="text/html")
+
+
+@app.get("/todo")
+async def todo():
+    with open("TODO.md", "r") as f:
+        md = f.read()
+    return PlainTextResponse(content=md, media_type="text/markdown")
 
 @app.get("/architecture")
 async def architecture():

@@ -7,7 +7,7 @@
 - Frontend: Capacitor + Vite + TypeScript
 - iOS deploy: `npm run build && npx cap sync ios`
 - Backend deploy: `fly deploy -a smartlift-api --no-cache`
-- Machine ID: 80e9614f60d108
+- Machine ID: 2862102a31e718
 
 ## iOS
 - Bundle ID: `com.phillipwalters.workoutlogger`
@@ -25,9 +25,10 @@
 
 ## Key Endpoints
 - `/healthz` — health check
+- `/todo` — text/markdown version of TODO.md (current priorities)
+- `/roadmap` — visual project roadmap
 - `/architecture` — system architecture document
 - `/flowchart` — questionnaire flow mapping
-- `/roadmap` — visual project roadmap
 - `/api/auth/login`, `/api/auth/signup` — auth (JWT)
 - `/api/auth/google` — Google OAuth login (iOS + web)
 - `/api/exercise-library` — list exercises (optionally query `?q=`)

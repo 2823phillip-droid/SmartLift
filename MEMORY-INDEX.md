@@ -1,15 +1,28 @@
 # Askeo Project Knowledge System
+last_updated: 2026-09-10
 
 This file explains where every type of project knowledge lives and when to use it.
 
+## Current state (as of this update)
+- Backend: deployed to Fly (`smartlift-api`, machine 2862102a31e718, v213), healthy at `https://askeo.fit/healthz`
+- Frontend: built (`index-DbEsCaNh.js`, 874971 bytes), synced to MacBook, cap sync ios done
+- Active work: inline set editor + history effort fix + backend parity deploy (shipped 2026-09-10)
+- Next: user testing on device, then continue with Phase 1/2 work
+- Git: 4 commits ahead of origin/master on `master` (ba90450, 343d9e7, 7071008, cc0eb53) — all pushed
+
 ## Bootstrap order
-1. `MEMORY-INDEX.md` — this file; the knowledge map
-2. `TODO.md` — phased roadmap. Read this to understand current priorities
-3. `CONTEXT.md` — what we're working on right now, what shipped last, what's next
-4. `PERSONA.md` — role definitions and task ownership rules
-5. `Askeo.md` — stack, endpoints, users, gotchas, iOS bundle ID
-6. `PROJECT.md` — deploy commands, network facts, auth credentials
-7. `memory/<topic>.md` — domain-specific lessons (see catalog below)
+Read in this order at the start of any session:
+
+1. `CONTEXT.md` — what's happening right now, what shipped, what's next
+2. `PROJECT.md` — deploy commands, network facts, auth credentials (the things you cannot afford to get wrong)
+3. `TODO.md` — full priority list and phased roadmap
+4. `memory/<task>.md` — whatever's relevant to the task at hand
+
+Reference materials (read when relevant, not mandatory at startup):
+- `PERSONA.md` — role definitions and task ownership
+- `Askeo.md` — stack, endpoints, users, gotchas, iOS bundle ID
+- `memory/README.md` — catalog of all durable lesson files
+- `memory/changelog.md` — history of knowledge-base changes
 
 ## Top-level files (stable references)
 - `PERSONA.md` — role definition for agents working in this repo
@@ -76,7 +89,7 @@ Consequence:
 ```
 
 ## Usage rules
-1. Start every session by reading: `TODO.md`, then `CONTEXT.md`, then `PERSONA.md`, then `Askeo.md`/`PROJECT.md`, then the relevant `memory/<topic>.md` files.
+1. Start every session by reading: `CONTEXT.md`, then `PROJECT.md`, then `TODO.md`, then the relevant `memory/<topic>.md` files.
 2. Use `Askeo.md` for stack/endpoint reference and `PROJECT.md` for deploy/network facts.
 3. Record lessons in `memory/<topic>.md`, not in Hermes memory.
 4. Hermes memory should only store lightweight pointers to this knowledge system, not duplicate its content.
@@ -117,10 +130,11 @@ Update the registry whenever a project moves, is renamed, or is archived.
 ## Global registry
 Hermes maintains a project registry at `~/.hermes/projects.md` that maps all projects to their paths and entry points.
 
-## Pre-Build Sync Check
+## Pre-Build Check
 
-Before building from Xcode or testing, run:
-\`\`\`bash
-./scripts/sync-check.sh
-\`\`\`
-This verifies git sync across all machines and Fly backend deploy state. Backend deploy: \`cd backend && fly deploy\`.
+Before building from Xcode or testing, verify the deploy pipeline is current:
+1. Git: `git status` — no uncommitted changes that should be pushed
+2. Backend: `curl -s https://askeo.fit/healthz` → `{"status":"ok"}`
+3. Frontend bundle: check `frontend/ios/App/App/public/assets/index-*.js` on MacBook matches latest `frontend/dist/` build
+
+Do not use `scripts/sync-check.sh` — it is not maintained for this environment.

@@ -19,6 +19,7 @@
 - Nameservers: Namecheap default (dns1/dns2.registrar-servers.com)
 - SSL cert: managed by Fly (check with `fly certs list -a smartlift-api`)
 - Roadmap: https://askeo.fit/roadmap
+- Todo: https://askeo.fit/todo
 - Health endpoint is `/healthz` (not `/api/healthz`). Production URL: `https://askeo.fit/healthz`.
 - NOTE: Fly internal app name is `smartlift-api` — do NOT rename. Users only see askeo.fit.
 

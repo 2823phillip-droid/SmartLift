@@ -1,4 +1,22 @@
 # TODO
+last_updated: 2026-09-10
+
+## Current — what's happening now
+
+### Bug fixes (just shipped)
+- [x] Inline set editor in live workout (SortableExerciseCard.tsx) — tap "Edit" on completed set to edit weight/reps/effort inline
+- [x] History screen effort field: was capped at /5, now /10
+- [x] Backend parity deploy (343d9e7) — frontend and backend agree on progression seed
+
+### Current bugs to fix
+- [ ] Migrate existing `ExerciseEntry.start_weight` values from lbs to kg on backend (seeded data stored in lbs, frontend assumes kg → shows 254 instead of 115)
+- [ ] Audit all frontend weight display paths for consistent kg/lbs conversion (start_weight, draft prefill, `getNextSetTarget()`, coach prescription inputs, recap screens)
+- [ ] Backend should enforce canonical unit for `start_weight` and `actual_weight` (document whether kg or lbs is source of truth; migrate legacy data)
+- [ ] Coach Recap on Ready screen: fix session lookup so it finds last completed session of same template (currently returns empty even when completed session exists)
+- [ ] Coach Recap weight display: convert backend `actual_weight` from kg to lbs in PreWorkoutScreen before displaying (PostWorkoutScreen already does this correctly)
+- [ ] Coach message wording: change "This workout" to "Next workout" in all coaching messages (backend `rules.py:198` and frontend `rules.ts` multiple locations)
+- [ ] Auto-update draft weight after logging a set to match coach prescription in ai_trainer mode (currently stays at logged weight instead of moving to recommended next weight)
+- [ ] Prevent reps_target=0 from propagating through template editor (`TemplateEditorScreen.tsx:288` uses `?? 10` but `??` doesn't catch explicit 0; `addSet` initializes `{reps: 0}`)
 
 ## Phase 1 — Linear Progression: backend complete, validation pending user data
 
@@ -12,7 +30,7 @@
 ### Frontend integration
 - [x] `api.ts` helpers for prescription, algorithm state, transitions
 - [x] `ActiveWorkoutScreen.tsx` calls backend in `ai_trainer` mode with local fallback
-- [ ] Surface backend prescription errors to user in UI
+- [x] Surface backend prescription errors to user in UI (done via `request()` error capture → `localStorage['askeo_error_log']`)
 - [ ] Add transition history view in app
 
 ### Verification
@@ -70,36 +88,16 @@
 - [ ] Confirm existing `workout_end_summary` / active workout POST payload carries enough state for progression rules to compute next workout
 - [ ] Define schema for `rule_script` / `rule_assignment` in Postgres (or extend `settings` payload) so a user/workout can be assigned a deterministic script
 
-### Coaching UX extensions (recommended follow-ups)
-- [ ] Per-template default progression + muscle-group rules editor: let template authors set a default progression type and override per muscle-group rule in template editor
-- [ ] Exercise-level RPE/RIR targets override in template: allow template to specify preferred RPE/RIR targets that feed into autoregulation during active workout
-- [ ] Deload auto-skip for movements flagged with deload override=false: respect per-exercise deload preference so certain exercises skip deload when selected
-- [ ] Visual timer badge on exercises when next deload is within 7 days: show countdown badge on exercise cards so user knows deload is approaching
-- [ ] Editable Coach settings per user (block durations, deload thresholds, progression order) — implemented 2026-07-29
-- [ ] Backend `POST /api/coach/override` + `GET /api/coach/state` endpoints — implemented 2026-07-29
-- [ ] Force control buttons wired to backend overrides so changes persist across devices — implemented 2026-07-29
-- [ ] Coach settings UI in SettingsScreen (`CoachSettingsSection`) — implemented 2026-07-29
-- [ ] Persist Coach state via existing `settings` save on workout end so it survives app reinstalls — implemented 2026-07-29
-- [ ] **Coach Recap on Ready screen: fix session lookup so it finds last completed session of same template** (currently returns empty even when completed session exists)
-- [ ] **Coach Recap weight display: convert backend `actual_weight` from kg to lbs in PreWorkoutScreen before displaying** (PostWorkoutScreen already does this correctly)
-- [ ] **Coach message wording: change "This workout" to "Next workout" in all coaching messages** (backend `rules.py:198` and frontend `rules.ts` multiple locations)
-- [ ] **Auto-update draft weight after logging a set to match coach prescription in ai_trainer mode** (currently stays at logged weight instead of moving to recommended next weight)
-- [ ] **Prevent reps_target=0 from propagating through template editor** (`TemplateEditorScreen.tsx:288` uses `?? 10` but `??` doesn't catch explicit 0; `addSet` initializes `{reps: 0}`)
-
 ### Verification
 - [ ] Unit tests for each rule type against synthetic session history
 - [ ] End-to-end test: user with known history receives correct next-session prescription
 - [ ] Confirm deterministic behavior: same input sequence always yields same next prescription unless RPE/RIR changes it
 - [ ] Verify backend and frontend implementations produce identical outputs on identical inputs
 
-### Data integrity / unit bugs (global)
-- [ ] **Migrate existing `ExerciseEntry.start_weight` values from lbs to kg on backend** (seeded data stored in lbs, frontend assumes kg → shows 254 instead of 115)
-- [ ] **Audit all frontend weight display paths for consistent kg/lbs conversion** (start_weight, draft prefill, `getNextSetTarget()`, coach prescription inputs, recap screens)
-- [ ] **Backend should enforce canonical unit for `start_weight` and `actual_weight`** (document whether kg or lbs is source of truth; migrate legacy data)
-
 ---
 
 ## Phase 4 — AI Personalization Layer
+
 ### Trainer-generated workout flow
 - [x] Backend: `POST /api/trainer/generate` accepts questionnaire answers and returns a populated workout draft
 - [x] Frontend: step-through questionnaire, one question per screen, progress indicator
