@@ -1,6 +1,6 @@
 # Deploy: Frontend + Backend
 
-last_updated: 2026-08-07
+last_updated: 2026-09-10
 created: 2026-07-31
 tags: [deploy, frontend, backend, fly, cap-sync, verification]
 related: PROJECT.md, Askeo.md, debugging.md
@@ -24,11 +24,12 @@ related: PROJECT.md, Askeo.md, debugging.md
 4. Verify: `ssh macbook "ls -la ~/workout-logger/frontend/ios/App/App/public/assets/index-*.js"` shows new timestamp
 
 ### Step 4 — Backend deploy
-- `cd /home/phillip2823/workout-logger && python3 -m py_compile backend/main.py && cd backend && fly deploy -a smartlift-api`
-- **Important**: `fly` CLI only exists on the MacBook (phillipwalters@192.168.1.112), not on this Linux VM. Run deploy via SSH to macbook. For non-interactive SSH shells, `fly` needs the full path `/Users/phillipwalters/.fly/bin/fly` or a `bash -ic` wrapper.
-- **Recommended deploy command** (run from Linux VM): `ssh -o BatchMode=yes phillipwalters@192.168.1.112 "cd ~/workout-logger/backend && /Users/phillipwalters/.fly/bin/fly deploy --remote-only"` — but prefer `bash -ic 'cd ~/workout-logger/backend && fly deploy -a smartlift-api'` when possible so the shell init loads env consistently.
-- Verify: `curl -s https://smartlift-api.fly.dev/healthz` returns `{"status":"ok"}` — **but the real production health URL is `https://askeo.fit/healthz`** since askeo.fit CNAMEs to the Fly app.
-- Note: `/api/healthz` does NOT exist. The backend health route is mounted at `/healthz`, not `/api/healthz`. Do not waste time debugging the wrong path.
+- `fly` CLI lives only on the MacBook (phillipwalters@192.168.1.112), not on this Linux VM. Run the deploy from the Linux VM via SSH to `macbook`:
+  - Non-interactive: `ssh -o BatchMode=yes macbook "cd ~/workout-logger && /Users/phillipwalters/.fly/bin/fly deploy --remote-only"`
+  - Interactive: `ssh macbook "cd ~/workout-logger/backend && /Users/phillipwalters/.fly/bin/fly deploy -a smartlift-api"`
+  - Run `python3 -m py_compile backend/main.py` on Linux first to catch syntax errors before deploy.
+- Verify: `curl -s https://askeo.fit/healthz` returns `{"status":"ok"}`. The health route is `/healthz`, NOT `/api/healthz`.
+- Note: the shared ingress IP (`66.241.124.80`) can rotate; always verify `askeo.fit` resolves before relying on a hardcoded IP. IPv6 (`2a09:8280:1::158:fa7:0`) is dedicated and safe.
 
 ### Step 5 — Handoff to user
 - Tell user to build/run from Xcode
@@ -54,5 +55,7 @@ related: PROJECT.md, Askeo.md, debugging.md
 - **iOS shows old questionnaire/UI after deploy** → missed `npm run build` + `npx cap sync ios`; the web bundle in Xcode project is stale
 
 ## Change log
+- 2026-09-10 — Rewrote Step 4: documented SSH-to-MacBook deploy as primary command, corrected health URL to `/healthz`, added IPv6 dedicated-IP note
+- 2026-09-10 — Updated frontmatter `last_updated` to 2026-09-10
 - 2026-08-07 — Added explicit end-of-session routine with frontend build + cap sync step
 - 2026-07-31 — Created from today's troubleshooting session

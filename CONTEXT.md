@@ -1,31 +1,23 @@
 # Active Context
+last_updated: 2026-09-10
 
 Updated when work in progress changes.
 
 ## Current Task
-Phase 4 continued — custom workout builder implemented and deployed to iOS. Backend is live on Fly. User is testing the new questionnaire and custom builder on iOS device.
+Inline set editor + history effort fix + backend parity deploy. The inline edit icon during live workouts was a dead button (tapped but did nothing). Now tapping "Edit" on a completed set opens inline weight/reps/effort fields with Save/Cancel. History screen effort field was capped at /5; fixed to /10. Backend parity commit (343d9e7) deployed to Fly so frontend and backend agree on progression seed.
 
 ## Completed
-- Questionnaire redesign: shared questions + `build_mode` branch (template/custom)
-- Frontend questionnaire config: added `build_mode`, custom mode skips `focus` question
-- Custom workout builder: `CustomWorkoutBuilderScreen` with split selection, day tabs, exercise picker, manual reorder
-- Builder saves to backend templates + exercises, routes to Workouts tab
-- CrossFit removed from questionnaire, backend routing, and WORKOUT_STRUCTURES.md spec
-- Removed "Custom" placeholder option from questionnaire (replaced with actual builder)
-- Muscle group filter fixed to be case-insensitive against DB lowercase values
-- Frontend builds successfully with Vite
-- Deploy pipeline working: build on Linux → rsync `dist/` to MacBook `dist/` → `npx cap sync ios` from MacBook project root → Xcode run on device
-- SSH alias `macbook` used for all MacBook operations; raw IP references removed from docs
-- Memory migration: Hermes MEMORY.md trimmed to 1-line pointer, project knowledge consolidated into workout-logger/memory/*.md
-- Save-sync-deploy skill patched: correct frontend flow (build → rsync → cap sync → Xcode)
-- Session history added to MEMORY-INDEX.md
-- ADR-015 recorded: agent owns all deploy/sync/device operations
+- Inline set editor in SortableExerciseCard.tsx: `editingSetId`, `editWeight`, `editReps`, `editEffort` state + startEditSet/cancelEditSet/commitEditSet functions
+- Edit icon now opens inline editor for completed sets during live workout
+- HistoryScreen.tsx effort field: max={5} → max={10}, label "Effort /5" → "Effort /10"
+- Backend `SetLogUpdate` already had `effort` field — no backend change needed for edit fix
+- Backend parity commit 343d9e7 deployed to Fly (machine 2862102a31e718, v213)
+- Frontend build: index-DbEsCaNh.js (874971 bytes), dist rsynced to MacBook, cap sync ios done
+- Docs update: deploy.md, PROJECT.md, changelog.md updated with deploy realities
 
 ## Next Actions
-- User: test questionnaire on iOS device, test custom builder end-to-end
-- Agent: validate template generation against real DB exercise library
-- Agent: build AI coach layer (chat interface + week_schedule builder)
-- Agent: add periodization logic to AI coach for split/progression recommendations
+- User tests on device in the morning
+- After testing: address any bugs found, then continue with Phase 1/2 work
 
 ## Notes
 - Knowledge hierarchy documented in `MEMORY-INDEX.md`; always read it before starting work.
@@ -33,3 +25,5 @@ Phase 4 continued — custom workout builder implemented and deployed to iOS. Ba
 - Never fall back to local backend; production is `https://askeo.fit/api`.
 - Always use `macbook` SSH alias, never raw IP.
 - When building for iOS: sync Linux `dist/` to MacBook `dist/` first, then run `cap sync ios` from project root.
+- Health endpoint is `/healthz` (NOT `/api/healthz`).
+- `fly` CLI only exists on MacBook; deploy from Linux via SSH.
