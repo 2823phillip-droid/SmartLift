@@ -16,7 +16,7 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { api, withRetry } from "../api";
 import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
 import { SortableExerciseCard } from "./SortableExerciseCard";
-import { computePrescription, type CoachPhase, type Prescription, type SetRecord, computeCoachState, withinWorkoutProgression, inferRepsTarget } from "../rules";
+import { computePrescription, computeProgression, type CoachPhase, type Prescription, type SetRecord, computeCoachState } from "../rules";
 import { getUnitsPreference, lbsToKg, kgToLbs, formatWeight } from "../utils/units";
 import { resolveMediaUrl } from "../api";
 
@@ -163,7 +163,7 @@ export default function ActiveWorkoutScreen({
           console.log("[ActiveWorkoutScreen] backend prescription", exercise.id, exercise.name, "lastWeight", lastWeight, "history", lastSession.length);
           const res = await api.nextPrescription({
             start_weight: lastWeight,
-            reps_target: inferRepsTarget(exercise.name),
+            reps_target: exercise.is_compound ? 6 : 8,
             sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
             rest_seconds: exercise.rest_seconds,
             progression_type: coach.phase === "deload" ? "linear" : coach.phase,
@@ -171,6 +171,7 @@ export default function ActiveWorkoutScreen({
             force_deload: coach.is_deload,
             exercise_entry_id: exercise.id,
             exercise_name: exercise.name,
+            is_compound: exercise.is_compound ?? true,
           });
           console.log("[ActiveWorkoutScreen] backend prescription result", exercise.id, res);
           if (!cancelled) {
@@ -220,7 +221,7 @@ export default function ActiveWorkoutScreen({
       console.log("[ActiveWorkoutScreen] localSuggestions exercise", exercise.id, exercise.name, "lastWeight", lastWeight, "exHistory length", exHistory.length);
       map[exercise.id] = computePrescription({
         start_weight: lastWeight,
-        reps_target: inferRepsTarget(exercise.name),
+        reps_target: exercise.is_compound ? 6 : 8,
         sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
         rest_seconds: exercise.rest_seconds,
         progression_type: coach.phase === "deload" ? "linear" : coach.phase,
@@ -317,6 +318,18 @@ export default function ActiveWorkoutScreen({
             ? sessionLogs.find((l: any) => l.set_index === completedCount + 1)
             : null;
           console.log("[ActiveWorkoutScreen] auto-expand", target.id, target.name, "completedCount", completedCount, "match", match);
+          // Prefer the backend prescription when available — it already has the
+          // correct weight accounting for history, assisted inversion, and rounding.
+          const backendPrescription = prescriptions[target.id];
+          if (backendPrescription) {
+            const displayWeight = getUnitsPreference() === "imperial"
+              ? Math.round(backendPrescription.next_weight)
+              : Math.round(lbsToKg(backendPrescription.next_weight));
+            setDraftWeight(String(displayWeight));
+            setDraftReps(String(backendPrescription.next_reps));
+            console.log("[ActiveWorkoutScreen] auto-expand backend", displayWeight, "x", backendPrescription.next_reps);
+            return;
+          }
           if (match) {
             const displayWeight = getUnitsPreference() === "imperial"
             ? Math.round(match.actual_weight)
@@ -341,7 +354,7 @@ export default function ActiveWorkoutScreen({
             const history = buildPrescriptionHistory(target);
             const prescription = computePrescription({
               start_weight: toLbs(lastWeight),
-              reps_target: inferRepsTarget(target.name),
+              reps_target: target.is_compound ? 6 : 8,
               sets_target: displaySetsTarget[target.id] ?? target.sets_target,
               rest_seconds: target.rest_seconds,
               progression_type: phase,
@@ -472,24 +485,35 @@ export default function ActiveWorkoutScreen({
 
   const getNextSetTarget = (entry?: ExerciseEntry): { weight: number; reps: number } => {
     if (!entry) return { weight: 0, reps: 0 };
-    const existing = logs.filter((l: SetLog) => l.exercise_entry_id === entry.id).length;
-    const nextSetIndex = existing + 1;
-    const prescription = prescriptions[entry.id];
-    const seedWeight = prescription
-      ? (getUnitsPreference() === "imperial" ? prescription.next_weight : kgToLbs(prescription.next_weight))
-      : (getUnitsPreference() === "imperial" ? entry.start_weight : lbsToKg(entry.start_weight));
     const lastLog = lastLoggedSetRef.current[entry.id] || logs.filter(l => l.exercise_entry_id === entry.id).pop();
-    const suggested = withinWorkoutProgression({
-      seedWeight,
-      setNumber: nextSetIndex,
-      prevReps: lastLog ? (lastLog.actual_reps || inferRepsTarget(entry.name)) : inferRepsTarget(entry.name),
-      prevEffort: lastLog ? (lastLog.effort ?? null) : null,
-      prevFormQuality: lastLog ? (lastLog.form_quality ?? null) : null,
-      repsTarget: inferRepsTarget(entry.name),
-      increment: 5,
-      exerciseName: entry.name,
+    const seedWeight = getUnitsPreference() === "imperial" ? entry.start_weight : lbsToKg(entry.start_weight);
+    if (!lastLog) {
+      return { weight: Math.round(seedWeight * 10) / 10, reps: entry.is_compound ? 6 : 8 };
+    }
+    const prevSet: SetRecord = {
+      actual_weight: getUnitsPreference() === "imperial" ? lastLog.actual_weight! : lbsToKg(lastLog.actual_weight!),
+      actual_reps: lastLog.actual_reps || (entry.is_compound ? 6 : 8),
+      effort: lastLog.effort ?? undefined,
+      form_quality: lastLog.form_quality ?? undefined,
+    };
+    const result = computeProgression({
+      previous_set: prevSet,
+      exercise: { name: entry.name, is_compound: entry.is_compound ?? true },
+      settings: {
+        increment: 5,
+        effort_hold_threshold: 9,
+        rep_floor_compound: 6,
+        rep_floor_isolation: 8,
+        form_clean: 0,
+        form_struggled: 1,
+        form_broke: 2,
+      },
+      model: "linear",
     });
-    return { weight: Math.round(suggested.weight * 10) / 10, reps: suggested.reps };
+    const displayWeight = getUnitsPreference() === "imperial"
+      ? Math.round(result.next_weight)
+      : Math.round(kgToLbs(result.next_weight));
+    return { weight: Math.round(displayWeight * 10) / 10, reps: result.next_reps };
   };
 
   const exerciseCompletedCount = useMemo(() => {
@@ -658,7 +682,7 @@ export default function ActiveWorkoutScreen({
       ? exercise.start_weight
       : lbsToKg(exercise.start_weight);
     setDraftWeight(String(Math.round(defaultWeight)));
-    setDraftReps(String(inferRepsTarget(exercise.name)));
+    setDraftReps(String(exercise.is_compound ? 6 : 8));
     setDraftEffort(null);
     setDraftFormQuality(0);
     setNotes("");
@@ -821,24 +845,31 @@ export default function ActiveWorkoutScreen({
 
     setNotes("");
     if (!exerciseIsDone && !workoutIsDone) {
+      // Compute next draft from the previous set using the progression contract
+      // so the ramp follows actual results, not a pre-computed ladder.
       const prevWeightLbs = toLbs(weightLbs);
-      // Compute next draft from the prescription seed + set number so the
-      // ramp stays on the prescribed track and doesn't chase manual edits.
-      const seedFromPrescription = prescriptions[currentExercise.id];
-      const seedWeight = seedFromPrescription
-        ? (getUnitsPreference() === "imperial" ? seedFromPrescription.next_weight : kgToLbs(seedFromPrescription.next_weight))
-        : prevWeightLbs;
-      const nextTarget = withinWorkoutProgression({
-        seedWeight,
-        setNumber: currentExerciseCompleted + 1,
-        prevReps: r,
-        prevEffort: null,
-        prevFormQuality: draftFormQuality,
-        repsTarget: currentExercise.reps_target,
-        increment: 5,
+      const prevSet: SetRecord = {
+        actual_weight: prevWeightLbs,
+        actual_reps: r,
+        effort: draftEffort ?? undefined,
+        form_quality: draftFormQuality ?? undefined,
+      };
+      const result = computeProgression({
+        previous_set: prevSet,
+        exercise: { name: currentExercise.name, is_compound: currentExercise.is_compound ?? true },
+        settings: {
+          increment: 5,
+          effort_hold_threshold: 9,
+          rep_floor_compound: 6,
+          rep_floor_isolation: 8,
+          form_clean: 0,
+          form_struggled: 1,
+          form_broke: 2,
+        },
+        model: "linear",
       });
-      setDraftWeight(String(Math.round(nextTarget.weight * 10) / 10));
-      setDraftReps(String(nextTarget.reps));
+      setDraftWeight(String(Math.round(result.next_weight * 10) / 10));
+      setDraftReps(String(result.next_reps));
     }
     if (rest > 0) {
       startRest(rest);
