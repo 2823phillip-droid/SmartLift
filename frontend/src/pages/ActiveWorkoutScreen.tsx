@@ -138,6 +138,10 @@ export default function ActiveWorkoutScreen({
   };
 
   const lastSessionFetchedRef = useRef(false);
+  const backendPrescriptionsRef = useRef<Record<number, Prescription>>({});
+  useEffect(() => {
+    backendPrescriptionsRef.current = backendPrescriptions;
+  }, [backendPrescriptions]);
 
   useEffect(() => {
     if ((workoutMode || "manual") !== "ai_trainer") return;
@@ -290,14 +294,14 @@ export default function ActiveWorkoutScreen({
         const lastSessionResults = await Promise.allSettled(
           uniqueNames.map((name: string) => api.getExerciseNameLastSession(name))
         );
-        const sessionResolved: Record<number, {set_index: number; actual_weight: number; actual_reps: number}[]> = {};
+        const sessionResolved: Record<number, {set_index: number; actual_weight: number; actual_reps: number; effort?: number; started_at?: string}[]> = {};
         for (const exercise of exercisesData) {
           const idx = uniqueNames.indexOf(exercise.name);
           const result = idx >= 0 ? lastSessionResults[idx] : undefined;
           if (result && result.status === "fulfilled") {
             const data = result.value as any;
             const logs = Array.isArray(data?.logs) ? data.logs : [];
-            if (logs.length > 0) sessionResolved[exercise.id] = logs.map((l: any) => ({ set_index: Number(l.set_index), actual_weight: Number(l.actual_weight || 0), actual_reps: Number(l.actual_reps || 0), started_at: data?.started_at }));
+            if (logs.length > 0) sessionResolved[exercise.id] = logs.map((l: any) => ({ set_index: Number(l.set_index), actual_weight: Number(l.actual_weight || 0), actual_reps: Number(l.actual_reps || 0), effort: l.effort ?? undefined, started_at: data?.started_at }));
             else sessionResolved[exercise.id] = [];
           } else {
             sessionResolved[exercise.id] = [];
@@ -320,7 +324,7 @@ export default function ActiveWorkoutScreen({
           console.log("[ActiveWorkoutScreen] auto-expand", target.id, target.name, "completedCount", completedCount, "match", match);
           // Prefer the backend prescription when available — it already has the
           // correct weight accounting for history, assisted inversion, and rounding.
-          const backendPrescription = prescriptions[target.id];
+          const backendPrescription = backendPrescriptionsRef.current[target.id];
           if (backendPrescription) {
             const displayWeight = getUnitsPreference() === "imperial"
               ? Math.round(backendPrescription.next_weight)
@@ -778,6 +782,30 @@ export default function ActiveWorkoutScreen({
     const isExtraSet = addSetExerciseId === currentExercise.id;
     const nextTarget = getNextSetTarget(currentExercise);
 
+    // Compute the progression result once — used for both the coach message
+    // sent to the backend and the next-set draft shown in the UI.
+    const prevWeightLbs = toLbs(weightLbs);
+    const prevSet: SetRecord = {
+      actual_weight: prevWeightLbs,
+      actual_reps: r,
+      effort: draftEffort ?? undefined,
+      form_quality: draftFormQuality ?? undefined,
+    };
+    const progressionResult = computeProgression({
+      previous_set: prevSet,
+      exercise: { name: currentExercise.name, is_compound: currentExercise.is_compound ?? true },
+      settings: {
+        increment: 5,
+        effort_hold_threshold: 9,
+        rep_floor_compound: 6,
+        rep_floor_isolation: 8,
+        form_clean: 0,
+        form_struggled: 1,
+        form_broke: 2,
+      },
+      model: "linear",
+    });
+
     try {
       const suggestedWeightLbs = getUnitsPreference() === "imperial" ? nextTarget.weight : kgToLbs(nextTarget.weight);
       const log = await api.createSetLog({
@@ -799,7 +827,7 @@ export default function ActiveWorkoutScreen({
       await api.createCoachMessage({
         session_id: sessionId,
         role: "in_workout",
-        content: `Set ${setIndex} done at ${w} lbs x ${r}, effort ${draftEffort ?? "?"}. ${draftFormQuality === 2 ? "Form broke — dropping weight next set." : draftFormQuality === 1 ? "Form struggled — holding weight." : "Clean set — pushing next set."}`,
+        content: progressionResult.coaching_message,
       });
     } catch (err) {
       console.error("Failed to log set", err);
@@ -845,31 +873,8 @@ export default function ActiveWorkoutScreen({
 
     setNotes("");
     if (!exerciseIsDone && !workoutIsDone) {
-      // Compute next draft from the previous set using the progression contract
-      // so the ramp follows actual results, not a pre-computed ladder.
-      const prevWeightLbs = toLbs(weightLbs);
-      const prevSet: SetRecord = {
-        actual_weight: prevWeightLbs,
-        actual_reps: r,
-        effort: draftEffort ?? undefined,
-        form_quality: draftFormQuality ?? undefined,
-      };
-      const result = computeProgression({
-        previous_set: prevSet,
-        exercise: { name: currentExercise.name, is_compound: currentExercise.is_compound ?? true },
-        settings: {
-          increment: 5,
-          effort_hold_threshold: 9,
-          rep_floor_compound: 6,
-          rep_floor_isolation: 8,
-          form_clean: 0,
-          form_struggled: 1,
-          form_broke: 2,
-        },
-        model: "linear",
-      });
-      setDraftWeight(String(Math.round(result.next_weight * 10) / 10));
-      setDraftReps(String(result.next_reps));
+      setDraftWeight(String(Math.round(progressionResult.next_weight * 10) / 10));
+      setDraftReps(String(progressionResult.next_reps));
     }
     if (rest > 0) {
       startRest(rest);

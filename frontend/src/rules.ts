@@ -327,6 +327,19 @@ function linearRule(rule: RuleInput, topSet: SetRecord | null): Prescription {
     form_broke: 2,
   };
 
+  if (!topSet) {
+    return buildPrescription({
+      next_weight: rule.start_weight || 0,
+      next_reps: rule.reps_target,
+      next_sets: Number(rule.sets_target) || 3,
+      rest_seconds: rest,
+      coaching_message: "First set — enter your weight.",
+      workload_status: "moderate",
+      prescription_type: rule.progression_type,
+      is_deload: false,
+    });
+  }
+
   const result = computeProgression({
     previous_set: topSet ?? undefined,
     exercise: exerciseMeta,

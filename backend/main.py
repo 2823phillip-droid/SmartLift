@@ -13,6 +13,15 @@ import os
 import logging
 import time
 import traceback
+from models import (
+    Base,
+    User,
+    SetLog,
+    WorkoutSession,
+    WorkoutTemplate,
+    AppSetting,
+    Reminder,
+)
 import secrets
 import hashlib
 import httpx
@@ -426,6 +435,7 @@ class ExerciseLibraryOut(BaseModel):
     video_url: Optional[str] = None
     image_url: Optional[str] = None
     gif_url: Optional[str] = None
+    is_compound: bool = True
 
     @field_validator("name", mode="before")
     @classmethod
@@ -468,6 +478,7 @@ class ExerciseEntryOut(BaseModel):
     deload_override: Optional[bool] = None
     gif_url: Optional[str] = None
     group_id: Optional[str] = None
+    is_compound: Optional[bool] = None
 
     @field_validator("name", mode="before")
     @classmethod
@@ -1328,6 +1339,7 @@ def list_exercises(db: Session = Depends(get_db), current_user: User = Depends(g
             progression_type=getattr(e, "progression_type", None),
             deload_override=getattr(e, "deload_override", None),
             group_id=e.group_id,
+            is_compound=getattr(e.exercise_library, "is_compound", True) if e.exercise_library else True,
             gif_url=_normalize_gif_url(getattr(getattr(e, "exercise_library", None), "gif_url", None)),
         )
         for e in entries
@@ -1352,6 +1364,7 @@ def list_template_exercises(template_id: int, db: Session = Depends(get_db), cur
             progression_type=getattr(e, "progression_type", None),
             deload_override=getattr(e, "deload_override", None),
             group_id=e.group_id,
+            is_compound=getattr(e.exercise_library, "is_compound", True) if e.exercise_library else True,
             gif_url=_normalize_gif_url(getattr(getattr(e, "exercise_library", None), "gif_url", None)),
         )
         for e in entries
@@ -1760,6 +1773,7 @@ def get_exercise_name_last_session(name: str, db: Session = Depends(get_db), cur
                         "set_index": log.set_index,
                         "actual_weight": float(log.actual_weight or 0),
                         "actual_reps": int(log.actual_reps or 0),
+                        "effort": log.effort,
                     }
                     for log in logs
                 ],
@@ -1887,6 +1901,7 @@ class RuleRequestIn(BaseModel):
     deload_mode: str = "ai_driven"
     exercise_entry_id: Optional[int] = None
     exercise_name: Optional[str] = None
+    is_compound: bool = True
 
 
 class CoachStateResponse(BaseModel):
@@ -1910,13 +1925,104 @@ class RuleResponseOut(BaseModel):
     is_deload: bool = False
     coach: CoachStateResponse
     linear_increment: float = 5.0
+    is_compound: bool = True
+
+
+class ReminderCreate(BaseModel):
+    text: str
+    scheduled_for: datetime
+
+    @field_validator("text")
+    @classmethod
+    def text_not_empty(cls, v: str) -> str:
+        if not v or not v.strip():
+            raise ValueError("text must not be empty")
+        return v.strip()
+
+
+class ReminderListOut(BaseModel):
+    id: int
+    text: str
+    scheduled_for: datetime
+    triggered: int
 
     class Config:
         from_attributes = True
 
 
+class DueReminderOut(BaseModel):
+    id: int
+    text: str
+    scheduled_for: datetime
+
+    class Config:
+        from_attributes = True
+
+
+@app.post("/api/reminders", response_model=ReminderListOut)
+def create_reminder(payload: ReminderCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    r = Reminder(user_id=current_user.id, text=payload.text, scheduled_for=payload.scheduled_for)
+    db.add(r)
+    db.commit()
+    db.refresh(r)
+    return ReminderListOut(id=r.id, text=r.text, scheduled_for=r.scheduled_for, triggered=r.triggered)
+
+
+@app.get("/api/reminders", response_model=list[ReminderListOut])
+def list_reminders(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    rows = db.query(Reminder).filter(Reminder.user_id == current_user.id).order_by(Reminder.scheduled_for).all()
+    return [ReminderListOut(id=r.id, text=r.text, scheduled_for=r.scheduled_for, triggered=r.triggered) for r in rows]
+
+
+@app.get("/api/reminders/due", response_model=list[DueReminderOut])
+def list_due_reminders(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    now = datetime.now(timezone.utc)
+    rows = db.query(Reminder).filter(Reminder.user_id == current_user.id, Reminder.triggered == 0, Reminder.scheduled_for <= now).order_by(Reminder.scheduled_for).all()
+    return [DueReminderOut(id=r.id, text=r.text, scheduled_for=r.scheduled_for) for r in rows]
+
+
+@app.delete("/api/reminders/{reminder_id}", response_model=ReminderListOut)
+def delete_reminder(reminder_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    r = db.query(Reminder).filter(Reminder.id == reminder_id, Reminder.user_id == current_user.id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Reminder not found")
+    db.delete(r)
+    db.commit()
+    return ReminderListOut(id=r.id, text=r.text, scheduled_for=r.scheduled_for, triggered=r.triggered)
+
+
+@app.post("/api/reminders/{reminder_id}/trigger")
+def mark_triggered(reminder_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    r = db.query(Reminder).filter(Reminder.id == reminder_id, Reminder.user_id == current_user.id).first()
+    if not r:
+        raise HTTPException(status_code=404, detail="Reminder not found")
+    r.triggered = 1
+    r.triggered_at = datetime.now(timezone.utc)
+    db.commit()
+    return {"ok": True}
+
+
 @app.post("/api/rules/next-prescription", response_model=RuleResponseOut)
 def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_current_user_dep), db: Session = Depends(get_db)):
+    # Look up is_compound from exercise_library if we have a name or entry id
+    is_compound = True  # safe default — most exercises are compounds
+    if payload.exercise_name:
+        lib = db.query(ExerciseLibrary).filter(
+            ExerciseLibrary.name == payload.exercise_name
+        ).first()
+        if lib is not None:
+            is_compound = lib.is_compound
+    elif payload.exercise_entry_id is not None:
+        entry = db.query(ExerciseEntry).filter(
+            ExerciseEntry.id == payload.exercise_entry_id
+        ).first()
+        if entry is not None and entry.exercise_library_id is not None:
+            lib = db.query(ExerciseLibrary).filter(
+                ExerciseLibrary.id == entry.exercise_library_id
+            ).first()
+            if lib is not None:
+                is_compound = lib.is_compound
+
     history = [SetRecord(**s.model_dump()) for s in payload.history]
     rule = RuleInput(
         start_weight=payload.start_weight,
@@ -1943,6 +2049,8 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         ai_preferred_rir=payload.ai_preferred_rir,
         ai_stress_fatigue_adjustment=payload.ai_stress_fatigue_adjustment,
         ai_calibrated_1rm=payload.ai_calibrated_1rm,
+        exercise_name=payload.exercise_name,
+        is_compound=is_compound,
     )
     # Read previous phase before computing new state so we can reset load on deload exit
     prev_phase_setting = (
@@ -2030,6 +2138,7 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         is_deload=result.is_deload,
         linear_increment=rule.linear_increment,
         coach=CoachStateResponse(**dataclasses.asdict(coach_state)),
+        is_compound=rule.is_compound,
     )
 
 
