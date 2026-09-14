@@ -362,6 +362,7 @@ export default function ActiveWorkoutScreen({
           setDraftWeight(String(displayWeight));
           setDraftReps(String(prescription.next_reps));
           console.log("[ActiveWorkoutScreen] auto-expand prescription", displayWeight, "x", prescription.next_reps);
+          setDraftEffort(null);
           setDraftFormQuality(0);
           setNotes("");
           setShowNotes(false);
@@ -643,38 +644,34 @@ export default function ActiveWorkoutScreen({
       return;
     }
 
-    // 2) Fallback: match last session by set index, then first session set, then start_weight.
-    const match = sessionLogs.find((l) => l.set_index === completedCount + 1);
-    if (match) {
-      const displayWeight = getUnitsPreference() === "imperial"
-        ? Math.round(match.actual_weight)
-        : Math.round(lbsToKg(match.actual_weight || 0));
-      setDraftWeight(String(displayWeight));
-      setDraftReps(String(match.actual_reps));
-      setDraftEffort(null);
-      setDraftFormQuality(0);
-      setNotes("");
-      setShowNotes(false);
-      return;
-    }
-    const firstSet = sessionLogs.find((l: any) => l.set_index === 1) || sessionLogs[0];
-    if (firstSet) {
-      const displayWeight = getUnitsPreference() === "imperial"
-        ? Math.round(firstSet.actual_weight)
-        : Math.round(lbsToKg(firstSet.actual_weight || 0));
-      setDraftWeight(String(displayWeight));
-      setDraftReps(String(firstSet.actual_reps));
-      setDraftEffort(null);
-      setDraftFormQuality(0);
-      setNotes("");
-      setShowNotes(false);
-      return;
-    }
-    const defaultWeight = getUnitsPreference() === "imperial"
-      ? exercise.start_weight
-      : lbsToKg(exercise.start_weight);
-    setDraftWeight(String(Math.round(defaultWeight)));
-    setDraftReps(String(exercise.is_compound ? 6 : 8));
+    // 2) Compute a fresh prescription from last session history.
+    const lastSession = sessionLogs.length > 0 ? sessionLogs : [];
+    const lastWeight = lastSession.length > 0
+      ? Math.max(...lastSession.map((l: any) => l.actual_weight || 0))
+      : exercise.start_weight;
+    const phase = coachPhase === "deload" ? "linear" : coachPhase;
+    const history = lastSession.map((l: any) => ({
+      actual_weight: toLbs(l.actual_weight),
+      actual_reps: l.actual_reps,
+      effort: l.effort,
+      completed_at: lastSession[0]?.started_at || new Date().toISOString(),
+    }));
+    const fallbackPrescription = computePrescription({
+      start_weight: toLbs(lastWeight),
+      reps_target: exercise.is_compound ? 6 : 8,
+      sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
+      rest_seconds: exercise.rest_seconds,
+      progression_type: phase,
+      history,
+      force_deload: false,
+      exerciseName: exercise.name,
+    });
+    const fallbackWeight = getUnitsPreference() === "imperial"
+      ? Math.round(fallbackPrescription.next_weight)
+      : Math.round(lbsToKg(fallbackPrescription.next_weight));
+    const useWeight = fallbackPrescription.next_weight > 0 ? fallbackWeight : Math.round(toLbs(lastWeight));
+    setDraftWeight(String(useWeight));
+    setDraftReps(String(fallbackPrescription.next_reps || (exercise.is_compound ? 6 : 8)));
     setDraftEffort(null);
     setDraftFormQuality(0);
     setNotes("");
