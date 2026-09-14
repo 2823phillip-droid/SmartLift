@@ -189,7 +189,7 @@ export function SortableExerciseCard({
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-semibold text-slate-200 truncate">{exercise.name}</div>
                   <div className="text-[11px] text-slate-500 mt-0.5">
-                    {completed}/{displayTarget} sets · {formatWeight(exercise.start_weight, getUnitsPreference())} × {inferRepsTarget(exercise.name)} reps target
+                    {completed}/{displayTarget} sets · {formatWeight(exercise.start_weight, getUnitsPreference())} × {inferRepsTarget(exercise.is_compound ?? true)} reps target
                   </div>
                 </div>
               </div>

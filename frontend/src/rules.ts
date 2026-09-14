@@ -56,6 +56,10 @@ function roundWeight(value: number): number {
   return Math.max(5, Math.round(value / 5) * 5);
 }
 
+function roundToTenth(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
 function linearProgression(input: ProgressionInput): ProgressionResult {
   if (!input.previous_set) {
     const repFloor = input.exercise.is_compound
