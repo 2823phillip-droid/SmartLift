@@ -439,8 +439,6 @@ export const api = {
       rir?: number | null;
       is_seeded?: boolean;
       completed_at?: string | null;
-      form_quality?: number | null;
-      set_index?: number | null;
     }>;
     linear_increment?: number;
     double_increment?: number;
@@ -464,7 +462,6 @@ export const api = {
     custom_phase_order?: string[] | null;
     exercise_entry_id?: number | null;
     exercise_name?: string | null;
-    is_compound?: boolean;
   }) =>
     request("/rules/next-prescription", {
       method: "POST",
@@ -561,4 +558,10 @@ export const api = {
       body: JSON.stringify({ token: currentToken || authToken }),
     }),
   logout: () => request("/auth/logout", { method: "POST" }),
+  getReminders: () => request("/reminders"),
+  createReminder: (data: { text: string; scheduled_for: string }) =>
+    request("/reminders", { method: "POST", body: JSON.stringify(data) }),
+  deleteReminder: (id: number) => request(`/reminders/${id}`, { method: "DELETE" }),
+  markReminderTriggered: (id: number) =>
+    request(`/reminders/${id}/trigger`, { method: "POST" }),
 };
