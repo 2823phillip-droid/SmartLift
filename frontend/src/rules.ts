@@ -56,6 +56,10 @@ function roundWeight(value: number): number {
   return Math.max(5, Math.round(value / 5) * 5);
 }
 
+function roundToTenth(value: number): number {
+  return Math.round(value * 10) / 10;
+}
+
 function linearProgression(input: ProgressionInput): ProgressionResult {
   if (!input.previous_set) {
     const repFloor = input.exercise.is_compound
@@ -75,7 +79,7 @@ function linearProgression(input: ProgressionInput): ProgressionResult {
     ? input.settings.rep_floor_compound
     : input.settings.rep_floor_isolation;
 
-  const w = Math.round(prev.actual_weight);
+  const w = roundToTenth(prev.actual_weight);
   const r = prev.actual_reps;
   const e = prev.effort;
   const eDisplay = e != null ? e : "?";
@@ -136,7 +140,7 @@ function linearProgression(input: ProgressionInput): ProgressionResult {
 }
 
 function linearMessage(prev: SetRecord, nextWeight: number): string {
-  const w = Math.round(prev.actual_weight);
+  const w = roundToTenth(prev.actual_weight);
   const r = prev.actual_reps;
   const e = prev.effort;
   const eDisplay = e != null ? e : "?";

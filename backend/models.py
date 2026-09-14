@@ -19,7 +19,7 @@ class User(Base):
     first_name = Column(String, nullable=True)
     last_name = Column(String, nullable=True)
     role = Column(Enum(UserRole), default=UserRole.user, nullable=False)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     failed_login_count = Column(Integer, nullable=False, default=0)
     locked_until = Column(DateTime, nullable=True)
     fitness_profile = Column(JSON, nullable=True)
@@ -61,8 +61,8 @@ class AiCoachConversation(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     title = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="ai_coach_conversations")
     messages = relationship("AiCoachMessage", back_populates="conversation", cascade="all, delete-orphan")
@@ -74,7 +74,7 @@ class AiCoachMessage(Base):
     conversation_id = Column(Integer, ForeignKey("ai_coach_conversations.id", ondelete="CASCADE"), nullable=False)
     role = Column(Enum(CoachRole), nullable=False)
     content = Column(Text, nullable=False)
-    timestamp = Column(DateTime, default=datetime.now(timezone.utc))
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     message_type = Column(String, default="text")  # text | workout_draft
     extra_data = Column(JSON, nullable=True)
 
@@ -89,7 +89,7 @@ class Context(Base):
     description = Column(String)
     equipment_tags = Column(String)  # JSON array string
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     default_rest_seconds = Column(Integer, default=90)
     order = Column(Integer, default=0, server_default='0')
 
@@ -104,7 +104,7 @@ class WorkoutTemplate(Base):
     name = Column(String, nullable=False)
     type = Column(Enum(RoutineType), default=RoutineType.strength)
     order = Column(Integer, default=0)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     default_rest_seconds = Column(Integer, nullable=True)
     coach_rules = Column(Text, nullable=True)  # JSON: {"muscle_group": "progression_type"}
 
@@ -124,7 +124,7 @@ class ExerciseLibrary(Base):
     video_url = Column(String, nullable=True)
     image_url = Column(String, nullable=True)
     gif_url = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # ExerciseDB fields
     exercise_db_id = Column(String, unique=True, index=True, nullable=True)
@@ -156,7 +156,7 @@ class ExerciseEntry(Base):
     progression_type = Column(String, nullable=True)
     deload_override = Column(Integer, nullable=True, default=0)
     group_id = Column(String, nullable=True, index=True)  # Dynamic Workout option groups
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="exercise_entries")
     template = relationship("WorkoutTemplate", back_populates="exercises")
@@ -168,7 +168,7 @@ class WorkoutSession(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     template_id = Column(Integer, ForeignKey("workout_templates.id", ondelete="CASCADE"), nullable=True)
-    started_at = Column(DateTime, default=datetime.now(timezone.utc))
+    started_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     ended_at = Column(DateTime, nullable=True)
     pre_workout_mood = Column(Text)
     pre_workout_tags = Column(String)  # JSON array string
@@ -199,7 +199,7 @@ class SetLog(Base):
     form_quality = Column(Integer, nullable=True)  # 0=clean, 1=struggled_held, 2=broke
     notes = Column(Text)
     is_seeded = Column(Boolean, default=False, nullable=False)
-    completed_at = Column(DateTime, default=datetime.now(timezone.utc))
+    completed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="set_logs")
     session = relationship("WorkoutSession", back_populates="set_logs")
@@ -212,7 +212,7 @@ class CoachMessage(Base):
     session_id = Column(Integer, ForeignKey("workout_sessions.id", ondelete="CASCADE"), nullable=False)
     role = Column(Enum(CoachRole), nullable=False)
     content = Column(Text, nullable=False)
-    timestamp = Column(DateTime, default=datetime.now(timezone.utc))
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="coach_messages")
     session = relationship("WorkoutSession", back_populates="coach_messages")
@@ -230,7 +230,7 @@ class CardioLog(Base):
     calories = Column(Integer, nullable=True)
     avg_heart_rate = Column(Integer, nullable=True)
     notes = Column(Text)
-    completed_at = Column(DateTime, default=datetime.now(timezone.utc))
+    completed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="cardio_logs")
     session = relationship("WorkoutSession", back_populates="cardio_logs")
@@ -246,7 +246,7 @@ class AlgorithmState(Base):
     last_suggested_reps = Column(Integer, nullable=True)
     last_effort_avg = Column(Float, nullable=True)
     progression_type = Column(String, default="linear")  # linear, double, reverse
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="algorithm_states")
     exercise_entry = relationship("ExerciseEntry")
@@ -261,7 +261,7 @@ class ProgressionTransition(Base):
     to_phase = Column(String, nullable=False)
     week_in_block = Column(Integer, default=1)
     reason = Column(String, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
 
     user = relationship("User")
     exercise_entry = relationship("ExerciseEntry")
@@ -284,7 +284,7 @@ class WorkoutLibrary(Base):
     difficulty = Column(String, nullable=False, default="intermediate")
     description = Column(String, nullable=True)
     estimated_minutes = Column(Integer, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="workout_libraries")
     exercises = relationship("WorkoutLibraryExercise", back_populates="workout", cascade="all, delete-orphan", order_by="WorkoutLibraryExercise.order")
@@ -304,7 +304,7 @@ class WorkoutLibraryExercise(Base):
     rest_seconds = Column(Integer, nullable=False, default=90)
     order = Column(Integer, default=0)
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="workout_library_exercises")
     workout = relationship("WorkoutLibrary", back_populates="exercises")
@@ -314,7 +314,7 @@ class BodyWeightLog(Base):
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     weight_lbs = Column(Float, nullable=False)
-    logged_at = Column(DateTime, default=datetime.now(timezone.utc))
+    logged_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     notes = Column(Text, nullable=True)
 
     user = relationship("User", back_populates="body_weight_logs")
@@ -336,7 +336,7 @@ class AITrainerAdjustment(Base):
     effort_avg = Column(Float, nullable=True)
     progression_type = Column(String, nullable=True)
     applied = Column(Boolean, default=False, nullable=False)
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="ai_trainer_adjustments")
 
@@ -345,7 +345,7 @@ class CoachUsageLog(Base):
     __tablename__ = "coach_usage_logs"
     id = Column(Integer, primary_key=True, index=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
-    timestamp = Column(DateTime, default=datetime.now(timezone.utc), nullable=False)
+    timestamp = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
     model = Column(String, nullable=False)
     prompt_tokens = Column(Integer, nullable=True)
     completion_tokens = Column(Integer, nullable=True)

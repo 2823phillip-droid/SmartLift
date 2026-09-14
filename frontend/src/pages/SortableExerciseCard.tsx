@@ -188,7 +188,7 @@ export function SortableExerciseCard({
                 <div className="flex-1 min-w-0">
                   <div className="text-xs font-semibold text-slate-200 truncate">{exercise.name}</div>
                   <div className="text-[11px] text-slate-500 mt-0.5">
-                    {completed}/{displayTarget} sets · {formatWeight(exercise.start_weight, getUnitsPreference())} × {exercise.is_compound ? 6 : 8} reps target
+                    {completed}/{displayTarget} sets · {formatWeight(exercise.start_weight, getUnitsPreference())} × {inferRepsTarget(exercise.is_compound ?? true)} reps target
                   </div>
                 </div>
               </div>
@@ -264,6 +264,7 @@ export function SortableExerciseCard({
                               <div className="text-[10px] text-slate-500">Weight</div>
                               <input
                                 type="number"
+                                step="0.1"
                                 inputMode="decimal"
                                 value={editWeight}
                                 onChange={(e) => setEditWeight(e.target.value)}
@@ -377,7 +378,8 @@ export function SortableExerciseCard({
                       <div>
                         <input
                           type="number"
-                          inputMode="numeric"
+                          step="0.1"
+                          inputMode="decimal"
                           enterKeyHint="next"
                           value={draftWeight}
                           onChange={(e) => onDraftWeightChange(e.target.value)}
