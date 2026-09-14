@@ -75,7 +75,7 @@ function linearProgression(input: ProgressionInput): ProgressionResult {
     ? input.settings.rep_floor_compound
     : input.settings.rep_floor_isolation;
 
-  const w = Math.round(prev.actual_weight);
+  const w = roundToTenth(prev.actual_weight);
   const r = prev.actual_reps;
   const e = prev.effort;
   const eDisplay = e != null ? e : "?";
@@ -136,7 +136,7 @@ function linearProgression(input: ProgressionInput): ProgressionResult {
 }
 
 function linearMessage(prev: SetRecord, nextWeight: number): string {
-  const w = Math.round(prev.actual_weight);
+  const w = roundToTenth(prev.actual_weight);
   const r = prev.actual_reps;
   const e = prev.effort;
   const eDisplay = e != null ? e : "?";

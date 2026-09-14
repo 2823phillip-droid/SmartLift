@@ -265,6 +265,7 @@ export function SortableExerciseCard({
                               <div className="text-[10px] text-slate-500">Weight</div>
                               <input
                                 type="number"
+                                step="0.1"
                                 inputMode="decimal"
                                 value={editWeight}
                                 onChange={(e) => setEditWeight(e.target.value)}
@@ -378,7 +379,8 @@ export function SortableExerciseCard({
                       <div>
                         <input
                           type="number"
-                          inputMode="numeric"
+                          step="0.1"
+                          inputMode="decimal"
                           enterKeyHint="next"
                           value={draftWeight}
                           onChange={(e) => onDraftWeightChange(e.target.value)}
