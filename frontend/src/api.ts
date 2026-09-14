@@ -442,6 +442,7 @@ export const api = {
       form_quality?: number | null;
       set_index?: number | null;
     }>;
+    is_compound?: boolean;
     linear_increment?: number;
     double_increment?: number;
     double_success_threshold?: number;
