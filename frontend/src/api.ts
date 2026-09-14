@@ -465,7 +465,6 @@ export const api = {
     custom_phase_order?: string[] | null;
     exercise_entry_id?: number | null;
     exercise_name?: string | null;
-    is_compound?: boolean;
   }) =>
     request("/rules/next-prescription", {
       method: "POST",

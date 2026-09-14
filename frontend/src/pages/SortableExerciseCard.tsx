@@ -6,6 +6,7 @@ import { formatWeight, getUnitsPreference, weightInputPlaceholder } from "../uti
 import { resolveMediaUrl } from "../api";
 import type { Prescription } from "../rules";
 
+import { inferRepsTarget } from "../rules";
 export interface SortableExerciseCardProps {
   exercise: ExerciseEntry;
   exerciseLogs: SetLog[];
