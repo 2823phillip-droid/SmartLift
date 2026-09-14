@@ -440,6 +440,7 @@ export const api = {
       is_seeded?: boolean;
       completed_at?: string | null;
     }>;
+    is_compound?: boolean;
     linear_increment?: number;
     double_increment?: number;
     double_success_threshold?: number;

@@ -56,6 +56,7 @@ export interface ExerciseEntry {
   slot_type?: string;
   gif_url?: string | null;
   group_id?: string | null;
+  is_compound?: boolean;
 }
 
 export interface WorkoutTemplate {
