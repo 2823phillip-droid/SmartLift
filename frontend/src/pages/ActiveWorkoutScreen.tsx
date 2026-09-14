@@ -317,11 +317,7 @@ export default function ActiveWorkoutScreen({
             setLogsData.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
           ) || exercisesData[0];
           const completedCount = setLogsData.filter((l: SetLog) => l.exercise_entry_id === target.id).length;
-          const sessionLogs = sessionResolved[target.id] || [];
-          const match = completedCount > 0
-            ? sessionLogs.find((l: any) => l.set_index === completedCount + 1)
-            : null;
-          console.log("[ActiveWorkoutScreen] auto-expand", target.id, target.name, "completedCount", completedCount, "match", match);
+          console.log("[ActiveWorkoutScreen] auto-expand", target.id, target.name, "completedCount", completedCount);
           // Prefer the backend prescription when available — it already has the
           // correct weight accounting for history, assisted inversion, and rounding.
           const backendPrescription = backendPrescriptionsRef.current[target.id];
@@ -334,46 +330,38 @@ export default function ActiveWorkoutScreen({
             console.log("[ActiveWorkoutScreen] auto-expand backend", displayWeight, "x", backendPrescription.next_reps);
             return;
           }
-          if (match) {
-            const displayWeight = getUnitsPreference() === "imperial"
-            ? Math.round(match.actual_weight)
-            : Math.round(lbsToKg(match.actual_weight || 0));
-            setDraftWeight(String(displayWeight));
-            setDraftReps(String(match.actual_reps));
-            console.log("[ActiveWorkoutScreen] auto-expand prefilled", displayWeight, "x", match.actual_reps);
-          } else {
-            const lastSession = sessionResolved[target.id] || [];
-            const firstSet = lastSession.find((l: any) => l.set_index === 1) || lastSession[0];
-            const lastWeight = firstSet
-              ? firstSet.actual_weight
-              : (lastSession.length > 0
-                ? Math.max(...lastSession.map((s: any) => s.actual_weight || 0))
-                : target.start_weight);
+          // Always compute a fresh prescription for the draft weight instead of
+          // falling back to the last session's set weight.
+          const lastSession = sessionResolved[target.id] || [];
+          const firstSet = lastSession.find((l: any) => l.set_index === 1) || lastSession[0];
+          const lastWeight = firstSet
+            ? firstSet.actual_weight
+            : (lastSession.length > 0
+              ? Math.max(...lastSession.map((s: any) => s.actual_weight || 0))
+              : target.start_weight);
 
-            // Compute prescription inline so the draft reflects the coaching algorithm
-            // instead of blindly showing the last session's top set weight.
-            const phase = coachState?.coach_phase === "deload"
-              ? "linear"
-              : (coachState?.coach_phase || "linear");
-            const history = buildPrescriptionHistory(target);
-            const prescription = computePrescription({
-              start_weight: toLbs(lastWeight),
-              reps_target: target.is_compound ? 6 : 8,
-              sets_target: displaySetsTarget[target.id] ?? target.sets_target,
-              rest_seconds: target.rest_seconds,
-              progression_type: phase,
-              history,
-              force_deload: false,
-              exerciseName: target.name,
-            });
-            const displayWeight = getUnitsPreference() === "imperial"
-              ? Math.round(prescription.next_weight)
-              : Math.round(lbsToKg(prescription.next_weight));
-            setDraftWeight(String(displayWeight));
-            setDraftReps(String(prescription.next_reps));
-            console.log("[ActiveWorkoutScreen] auto-expand prescription", displayWeight, "x", prescription.next_reps);
-          }
-          setDraftEffort(null);
+          // Compute prescription inline so the draft reflects the coaching algorithm
+          // instead of blindly showing the last session's top set weight.
+          const phase = coachState?.coach_phase === "deload"
+            ? "linear"
+            : (coachState?.coach_phase || "linear");
+          const history = buildPrescriptionHistory(target);
+          const prescription = computePrescription({
+            start_weight: toLbs(lastWeight),
+            reps_target: target.is_compound ? 6 : 8,
+            sets_target: displaySetsTarget[target.id] ?? target.sets_target,
+            rest_seconds: target.rest_seconds,
+            progression_type: phase,
+            history,
+            force_deload: false,
+            exerciseName: target.name,
+          });
+          const displayWeight = getUnitsPreference() === "imperial"
+            ? Math.round(prescription.next_weight)
+            : Math.round(lbsToKg(prescription.next_weight));
+          setDraftWeight(String(displayWeight));
+          setDraftReps(String(prescription.next_reps));
+          console.log("[ActiveWorkoutScreen] auto-expand prescription", displayWeight, "x", prescription.next_reps);
           setDraftFormQuality(0);
           setNotes("");
           setShowNotes(false);
