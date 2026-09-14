@@ -62,7 +62,7 @@ class AiCoachConversation(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
     title = Column(String, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="ai_coach_conversations")
     messages = relationship("AiCoachMessage", back_populates="conversation", cascade="all, delete-orphan")
@@ -246,7 +246,7 @@ class AlgorithmState(Base):
     last_suggested_reps = Column(Integer, nullable=True)
     last_effort_avg = Column(Float, nullable=True)
     progression_type = Column(String, default="linear")  # linear, double, reverse
-    updated_at = Column(DateTime, default=datetime.now(timezone.utc), onupdate=datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="algorithm_states")
     exercise_entry = relationship("ExerciseEntry")
