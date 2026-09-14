@@ -27,6 +27,7 @@ export interface ExerciseLibraryItem {
   substitutions?: string[];
   progressions?: string[];
   regressions?: string[];
+  is_compound?: boolean;
 }
 
 export interface SetSuggestion {
@@ -56,6 +57,7 @@ export interface ExerciseEntry {
   slot_type?: string;
   gif_url?: string | null;
   group_id?: string | null;
+  is_compound?: boolean;
 }
 
 export interface WorkoutTemplate {

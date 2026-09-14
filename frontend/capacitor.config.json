@@ -1,0 +1,23 @@
+{
+	"appId": "com.phillipwalters.workoutlogger",
+	"appName": "Askeo",
+	"webDir": "dist",
+	"plugins": {
+		"GoogleSignIn": {
+			"clientId": "257512152576-tsl8n16eq5hej5fledr6djjfpms1m8ns.apps.googleusercontent.com",
+			"scopes": [
+				"profile",
+				"email"
+			]
+		},
+		"StatusBar": {
+			"style": "DARK",
+			"overlaysWebView": true
+		}
+	},
+	"packageClassList": [
+	      "CAPBrowserPlugin",
+	      "GoogleSignInPlugin",
+	      "@capacitor/local-notifications"
+	    ]
+}

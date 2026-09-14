@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Askeo — Home</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-2: #334155;
+    --border: #475569;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #6366f1;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --emerald: #10b981;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.6;
+    padding: 2rem;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .container {
+    max-width: 720px;
+    width: 100%;
+    margin: 0 auto;
+  }
+  h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    margin-bottom: 0.25rem;
+    background: linear-gradient(135deg, var(--accent), var(--blue));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle {
+    color: var(--muted);
+    font-size: 0.95rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+  }
+  .card h2 {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+
+  .links {
+    display: grid;
+    gap: 0.5rem;
+  }
+  .link-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.75rem 1rem;
+    background: var(--surface-2);
+    border-radius: 8px;
+    text-decoration: none;
+    color: var(--text);
+    transition: background 0.15s, border-color 0.15s;
+    border: 1px solid transparent;
+  }
+  .link-row:hover {
+    background: rgba(99,102,241,0.12);
+    border-color: rgba(99,102,241,0.3);
+  }
+  .link-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.1rem;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .link-icon.blue { background: rgba(59,130,246,0.15); color: var(--blue); }
+  .link-icon.green { background: rgba(34,197,94,0.15); color: var(--green); }
+  .link-icon.amber { background: rgba(245,158,11,0.15); color: var(--amber); }
+  .link-icon.red { background: rgba(239,68,68,0.15); color: var(--red); }
+  .link-icon.purple { background: rgba(168,85,247,0.15); color: var(--purple); }
+  .link-icon.accent { background: rgba(99,102,241,0.15); color: var(--accent); }
+
+  .link-text {
+    flex: 1;
+    min-width: 0;
+  }
+  .link-title {
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  .link-desc {
+    font-size: 0.78rem;
+    color: var(--muted);
+    margin-top: 0.1rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .link-status {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 0.15rem 0.5rem;
+    border-radius: 999px;
+    flex-shrink: 0;
+  }
+  .status-live { background: rgba(34,197,94,0.12); color: var(--green); }
+  .status-auth { background: rgba(245,158,11,0.12); color: var(--amber); }
+
+  .divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 1.5rem 0;
+  }
+
+  .footer {
+    margin-top: auto;
+    padding-top: 2rem;
+    text-align: center;
+    font-size: 0.78rem;
+    color: var(--muted);
+  }
+  .footer a {
+    color: var(--accent);
+    text-decoration: none;
+  }
+  .footer a:hover { text-decoration: underline; }
+
+  .deploy-ts {
+    font-size: 0.72rem;
+    color: var(--muted);
+    margin-top: 1.5rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <h1>Askeo</h1>
+  <p class="subtitle">Workout progression system — links to every public page.</p>
+
+  <div class="card">
+    <h2>Public Pages</h2>
+    <div class="links">
+
+      <a class="link-row" href="/roadmap">
+        <span class="link-icon blue">R</span>
+        <span class="link-text">
+          <span class="link-title">Roadmap</span>
+          <span class="link-desc">Progression phases, status, what's next</span>
+        </span>
+        <span class="link-status status-live">live</span>
+      </a>
+
+      <a class="link-row" href="/todo">
+        <span class="link-icon green">T</span>
+        <span class="link-text">
+          <span class="link-title">Running Backlog</span>
+          <span class="link-desc">Bugs, tasks, small items — the capture layer</span>
+        </span>
+        <span class="link-status status-live">live</span>
+      </a>
+
+      <a class="link-row" href="/dashboard">
+        <span class="link-icon amber">D</span>
+        <span class="link-text">
+          <span class="link-title">Dashboard</span>
+          <span class="link-desc">Token costs, coach usage, admin tasks</span>
+        </span>
+        <span class="link-status status-auth">login</span>
+      </a>
+
+      <a class="link-row" href="/architecture">
+        <span class="link-icon purple">A</span>
+        <span class="link-text">
+          <span class="link-title">Architecture</span>
+          <span class="link-desc">System design, data flow, component diagram</span>
+        </span>
+        <span class="link-status status-live">live</span>
+      </a>
+
+      <a class="link-row" href="/flowchart">
+        <span class="link-icon accent">F</span>
+        <span class="link-text">
+          <span class="link-title">Flowchart</span>
+          <span class="link-desc">Workout generation and progression flow</span>
+        </span>
+        <span class="link-status status-live">live</span>
+      </a>
+
+    </div>
+  </div>
+
+  <hr class="divider">
+
+  <div class="card">
+    <h2>System Status</h2>
+    <div class="links">
+
+      <a class="link-row" href="/healthz">
+        <span class="link-icon green">H</span>
+        <span class="link-text">
+          <span class="link-title">Health Check</span>
+          <span class="link-desc">Backend alive? Returns status: ok</span>
+        </span>
+        <span class="link-status status-live">live</span>
+      </a>
+
+      <a class="link-row" href="/readyz">
+        <span class="link-icon green">R</span>
+        <span class="link-text">
+          <span class="link-title">Readiness Check</span>
+          <span class="link-desc">Backend ready to serve requests</span>
+        </span>
+        <span class="link-status status-live">live</span>
+      </a>
+
+    </div>
+  </div>
+
+  <div class="footer">
+    askeo.fit &mdash; deployed on Fly.io &middot;
+    <a href="https://github.com/2823phillip-droid/Askeo">GitHub</a>
+  </div>
+
+  <div class="deploy-ts" id="deploy-ts"></div>
+
+</div>
+
+<script>
+document.getElementById('deploy-ts').textContent = 'Served: ' + new Date().toISOString().replace('T', ' ').substring(0, 16) + ' UTC';
+</script>
+</body>
+</html>
