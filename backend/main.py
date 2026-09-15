@@ -3461,6 +3461,7 @@ def admin_tasks(db: Session = Depends(get_db), current_user: User = Depends(get_
 DEBUG_SECRET = os.getenv("DEBUG_SECRET")
 
 class DebugSetLogItem(BaseModel):
+    id: int                        # set_log primary key
     set_index: int
     suggested_weight: Optional[float] = None
     suggested_reps: Optional[int] = None
@@ -3474,6 +3475,7 @@ class DebugSetLogItem(BaseModel):
 
 
 class DebugExerciseItem(BaseModel):
+    id: int                        # exercise_entry primary key
     exercise_entry_id: int
     name: str
     sets_target: int
@@ -3534,6 +3536,7 @@ def debug_recent_workouts(limit: int = 10, db: Session = Depends(get_db), _: boo
             sets = []
             for sl in sorted(ex_map.get(ee.id, []), key=lambda x: x.set_index):
                 sets.append(DebugSetLogItem(
+                    id=sl.id,
                     set_index=sl.set_index,
                     suggested_weight=sl.suggested_weight,
                     suggested_reps=sl.suggested_reps,
@@ -3546,6 +3549,7 @@ def debug_recent_workouts(limit: int = 10, db: Session = Depends(get_db), _: boo
                     completed_at=sl.completed_at.isoformat() if sl.completed_at else None,
                 ))
             exercises.append(DebugExerciseItem(
+                id=ee.id,
                 exercise_entry_id=ee.id,
                 name=ee.name,
                 sets_target=ee.sets_target,
@@ -3575,6 +3579,24 @@ def debug_recent_workouts(limit: int = 10, db: Session = Depends(get_db), _: boo
             cardio=cardio,
         ))
     return DebugRecentResponse(sessions=result)
+
+
+@app.delete("/api/debug/set-logs/{session_id}/{log_id}")
+def debug_delete_set_log(session_id: int, log_id: int, db: Session = Depends(get_db), _: bool = Depends(_debug_auth)):
+    """Delete a specific set log for debugging. Protected by DEBUG_SECRET."""
+    log = db.query(SetLog).filter(SetLog.id == log_id, SetLog.session_id == session_id).first()
+    if not log:
+        raise HTTPException(status_code=404, detail="Set log not found")
+    exercise_name = log.exercise_entry.name if log.exercise_entry else "unknown"
+    db.delete(log)
+    db.commit()
+    logger.info(json.dumps({
+        "type": "debug_set_log_deleted",
+        "log_id": log_id,
+        "session_id": session_id,
+        "exercise_name": exercise_name,
+    }))
+    return {"ok": True, "deleted": {"log_id": log_id, "session_id": session_id, "exercise_name": exercise_name}}
 
 
 @app.get("/dashboard")
