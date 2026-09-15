@@ -1524,7 +1524,7 @@ def create_session(payload: SessionCreate, db: Session = Depends(get_db), curren
 def list_sessions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     sessions = (
         db.query(WorkoutSession)
-        .filter(WorkoutSession.user_id == current_user.id, WorkoutSession.status != SessionStatus.cancelled)
+        .filter(WorkoutSession.user_id == current_user.id)
         .order_by(WorkoutSession.started_at.desc())
         .limit(50)
         .all()
