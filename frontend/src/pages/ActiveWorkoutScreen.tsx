@@ -131,6 +131,7 @@ export default function ActiveWorkoutScreen({
         actual_weight: toLbs(s.actual_weight),
         actual_reps: s.actual_reps,
         effort: s.effort,
+        form_quality: s.form_quality,
         completed_at: sessionDate,
       });
     }

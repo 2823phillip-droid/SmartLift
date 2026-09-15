@@ -320,6 +320,33 @@ export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMod
             <p className="text-[11px] text-slate-500">Use true/false. This is a lightweight toggle now; AI provider selection can follow.</p>
           </div>
 
+          {/* Effort Scale Legend */}
+          <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M12 3h.01M9 21h6" />
+              </svg>
+              <div>
+                <div className="font-semibold text-sm">Effort Scale</div>
+                <div className="text-xs text-slate-500">How to rate how hard a set felt</div>
+              </div>
+            </div>
+            <div className="space-y-1.5 text-xs leading-relaxed">
+              <div className="flex gap-2">
+                <span className="shrink-0 font-mono font-semibold text-amber-400 w-8">1–8</span>
+                <span className="text-slate-300">You had reps in the tank. If you hit your rep target and form was clean, you can go up next time.</span>
+              </div>
+              <div className="flex gap-2">
+                <span className="shrink-0 font-mono font-semibold text-amber-400 w-8">9–10</span>
+                <span className="text-slate-300">Grind or failure. A true <span className="font-mono text-slate-400">10</span> means you failed at the weight. If you got your full reps clean, your effort was probably lower than you logged — the algorithm will treat it as an overrated effort and let you progress.</span>
+              </div>
+            </div>
+            <div className="border-t border-slate-800 pt-2 space-y-1 text-[11px] text-slate-500">
+              <div><span className="font-medium text-slate-400">Rep target</span> — compounds 6–8 reps, isolation 8–12 reps. Below the floor means the weight was too heavy.</div>
+              <div><span className="font-medium text-slate-400">Form quality</span> — <span className="font-mono text-slate-400">0</span> clean, <span className="font-mono text-slate-400">1</span> struggled, <span className="font-mono text-slate-400">2</span> broke. Form breakdown is a progression gate.</div>
+            </div>
+          </div>
+
           {/* Placeholder for future settings */}
           <p className="text-xs text-slate-600 text-center pt-2">More settings coming soon.</p>
 
