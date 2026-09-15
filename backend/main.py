@@ -228,6 +228,22 @@ async def root():
 async def healthz():
     return {"status": "ok"}
 
+
+@app.get("/api/version")
+async def version():
+    """Deploy metadata: git commit SHA baked into the Docker image at build time."""
+    import json
+    from pathlib import Path
+
+    info_path = Path("/app/build-info.json")
+    if info_path.exists():
+        try:
+            data = json.loads(info_path.read_text())
+            return {"commit": data.get("commit", "unknown"), "deployed_at": data.get("timestamp", "")}
+        except Exception:
+            pass
+    return {"commit": "unknown", "deployed_at": ""}
+
 @app.get("/readyz")
 async def readyz():
     return {"status": "ready"}

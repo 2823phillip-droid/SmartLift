@@ -19,6 +19,10 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Deploy-generated version info (overwritten on every deploy)
+backend/build-info.json
+frontend/src/build-info.ts
+
 # Android platform (abandoned — iOS only)
 android/
 

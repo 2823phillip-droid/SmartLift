@@ -505,6 +505,7 @@ export const api = {
     }),
   listSettings: () => request("/settings"),
 
+  getVersion: () => request("/version"),
   getFitnessProfile: () => request("/profile/fitness"),
   putFitnessProfile: (data: any) =>
     request("/profile/fitness", {
