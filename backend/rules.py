@@ -75,6 +75,7 @@ class SetRecord:
     effort: Optional[int] = None
     rpe: Optional[float] = None
     rir: Optional[int] = None
+    form_quality: Optional[int] = None  # 0=clean, 1=struggled, 2=broke
     is_seeded: bool = False
     completed_at: Optional[datetime] = None
 
@@ -258,17 +259,83 @@ def _linear_rule(rule: RuleInput, top_set) -> Prescription:
     weight = float(top_set.actual_weight)
     reps = int(top_set.actual_reps)
     effort = top_set.effort
+    form_quality = top_set.form_quality
+
+    # Rounded display values used in coaching messages (mirrors
+    # _coaching_message_for_prescription's local round(weight,1) + round(next_weight)).
+    display_weight = round(weight, 1)
+    display_next = round(weight + increment)  # pre-increment next weight for display in hold messages
+    display_held = round(weight)  # current weight when holding (form breakdown, at-floor effort)
+
+    # Mirrors the frontend linearProgression gates: form breakdown is checked
+    # before effort. A high-effort set that broke form stays a hold regardless.
+    if form_quality is not None and form_quality >= 2:
+        status = WorkloadStatus.hard
+        msg = (
+            f"Last session you did {display_weight} lbs x {reps} reps with form that broke. "
+            f"Holding weight. Form first — even if it means fewer reps or dropping. "
+            f"In this session we'll start at {display_held} lbs and shoot for {int(rule.reps_target)} reps."
+        )
+        return Prescription(
+            next_weight=weight,
+            next_reps=rule.reps_target,
+            next_sets=rule.sets_target,
+            rest_seconds=rest,
+            coaching_message=msg,
+            workload_status=status,
+            prescription_type=ProgressionType.linear.value,
+        )
+
+    if form_quality is not None and form_quality == 1:
+        status = WorkloadStatus.moderate
+        msg = (
+            f"Last session you did {display_weight} lbs x {reps} reps with form that struggled. "
+            f"Holding weight. Keep it clean next set, even if reps drop. "
+            f"In this session we'll start at {display_held} lbs and shoot for {int(rule.reps_target)} reps."
+        )
+        return Prescription(
+            next_weight=weight,
+            next_reps=rule.reps_target,
+            next_sets=rule.sets_target,
+            rest_seconds=rest,
+            coaching_message=msg,
+            workload_status=status,
+            prescription_type=ProgressionType.linear.value,
+        )
 
     # True linear: weight goes up every session.
     # Reps target is for coaching message only, not a gate.
     next_weight = weight + increment
     next_reps = rule.reps_target
+    # Recompute display_next after increment for the increase path
+    display_next = round(next_weight)
+
     if effort is None:
         status = WorkloadStatus.moderate
         msg = _coaching_message_for_prescription(rule, weight, reps, effort, None, next_weight, increment, status)
     elif effort <= 3:
         status = WorkloadStatus.easy
         msg = _coaching_message_for_prescription(rule, weight, reps, effort, None, next_weight, increment, status)
+    elif effort >= 9:
+        # High effort only holds progression when the user was at or near the
+        # rep floor. Above the floor with clean form = overrated effort, not a
+        # failure. Treat as an increase so the next workout doesn't stall.
+        rep_floor = 6 if rule.reps_target <= 6 else 8  # mirrors frontend rep floor logic
+        at_floor = reps <= rep_floor + 1
+        if at_floor:
+            status = WorkloadStatus.moderate
+            msg = (
+                f"Last session you did {display_weight} lbs x {reps} reps, effort {effort} logged. "
+                f"Right at your rep floor with effort {effort} — holding weight in this session. "
+                f"Start at {display_held} lbs and shoot for {int(rule.reps_target)} reps."
+            )
+        else:
+            status = WorkloadStatus.moderate
+            msg = (
+                f"Last session you did {display_weight} lbs x {reps} reps, effort {effort} logged. "
+                f"Going up to {display_next} lbs — effort overrated for a clean set above rep floor. "
+                f"In this session we'll start at {display_next} lbs and shoot for {int(rule.reps_target)} reps."
+            )
     else:
         status = WorkloadStatus.moderate
         msg = _coaching_message_for_prescription(rule, weight, reps, effort, None, next_weight, increment, status)

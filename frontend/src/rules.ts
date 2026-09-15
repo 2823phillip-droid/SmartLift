@@ -117,14 +117,30 @@ function linearProgression(input: ProgressionInput): ProgressionResult {
     };
   }
 
-  // Gate 4: reps hit, form clean — check effort
+  // Gate 4: reps hit, form clean — check effort, but only when reps are at or
+  // near the floor. When the user crushed their reps above the floor, an effort
+  // of 9-10 means they overrated the set, not that they failed. Don't hold
+  // progression for overrated effort on a dominant set.
   if (prev.effort != null && prev.effort >= input.settings.effort_hold_threshold) {
+    const atFloor = prev.actual_reps <= repFloor + 1;
+    if (atFloor) {
+      return {
+        next_weight: prev.actual_weight,
+        next_reps: repFloor,
+        decision: "hold",
+        coaching_message: `Last set: ${w} lbs × ${r} reps, effort ${eDisplay} — right at your rep floor. Holding weight.`,
+        reason: `effort_at_threshold + at_floor (${prev.effort}, ${prev.actual_reps} reps)`,
+      };
+    }
+    // Above the floor with clean form: overrated effort. Treat as an increase,
+    // but coach it as a grind so the user knows 9-10 wasn't the real story.
+    const nextWeight = roundWeight(prev.actual_weight + input.settings.increment);
     return {
-      next_weight: prev.actual_weight,
+      next_weight: nextWeight,
       next_reps: repFloor,
-      decision: "hold",
-      coaching_message: `Max effort last set (${w} lbs × ${r} reps, effort ${eDisplay}). Holding weight.`,
-      reason: `effort_at_threshold (${prev.effort})`,
+      decision: "increase",
+      coaching_message: `Last set: ${w} lbs × ${r} reps, effort ${eDisplay} logged, but ${r} reps clean above rep floor. Effort overrated — you had more in the tank. Going up to ${Math.round(nextWeight)} lbs.`,
+      reason: `effort_overrated (${prev.effort} logged, ${prev.actual_reps} reps > ${repFloor})`,
     };
   }
 
@@ -145,8 +161,8 @@ function linearMessage(prev: SetRecord, nextWeight: number): string {
   const e = prev.effort;
   const eDisplay = e != null ? e : "?";
 
-  if (e === 9) {
-    return `Last set: ${w} lbs × ${r} reps, effort 9, clean. Pushing to ${Math.round(nextWeight)} lbs.`;
+  if (e != null && e >= 9) {
+    return `Last set: ${w} lbs × ${r} reps, effort ${e} logged. Going up to ${Math.round(nextWeight)} lbs — effort overrated for a clean set above rep floor.`;
   }
   if (e != null && 7 <= e && e <= 8) {
     return `Last set: ${w} lbs × ${r} reps, effort ${e}, clean. Going up to ${Math.round(nextWeight)} lbs.`;

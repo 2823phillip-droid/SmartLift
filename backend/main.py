@@ -1865,6 +1865,7 @@ class RuleRequestSetIn(BaseModel):
     effort: Optional[int] = None
     rpe: Optional[float] = None
     rir: Optional[int] = None
+    form_quality: Optional[int] = None
     is_seeded: bool = False
     completed_at: Optional[datetime] = None
 
