@@ -1530,13 +1530,6 @@ def list_sessions(
     sessions = (
         db.query(WorkoutSession)
         .filter(WorkoutSession.user_id == current_user.id)
-        .filter(
-            # Show completed sessions always; show cancelled ones only if they have logged sets
-            WorkoutSession.status != SessionStatus.cancelled
-            | db.query(SetLog.id)
-                .filter(SetLog.session_id == WorkoutSession.id)
-                .exists()
-        )
         .order_by(WorkoutSession.started_at.desc())
         .offset(offset)
         .limit(limit)
