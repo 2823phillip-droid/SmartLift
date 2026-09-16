@@ -15,7 +15,6 @@ export default function SettingsScreen({ onBack, onModeChange, initialWorkoutMod
   const [saved, setSaved] = useState<string | null>(null);
   const [apiBaseState, setApiBaseState] = useState("");
   const [settingsError, setSettingsError] = useState<string | null>(null);
-  const [checkVersionState, setCheckVersionState] = useState<string | null>(null);
   const [checkingVersion, setCheckingVersion] = useState(false);
   const [checkMatch, setCheckMatch] = useState<boolean | null>(null);
   const [checkError, setCheckError] = useState<string | null>(null);

@@ -553,6 +553,7 @@ class SessionCreate(BaseModel):
     template_id: Optional[int] = None
     pre_workout_mood: Optional[str] = None
     pre_workout_tags: Optional[List[str]] = []
+    pre_workout_notes: Optional[str] = None
 
 
 class SessionOut(ApiBaseModel):
@@ -562,6 +563,8 @@ class SessionOut(ApiBaseModel):
     ended_at: Optional[datetime]
     pre_workout_mood: Optional[str]
     pre_workout_tags: List[str]
+    pre_workout_notes: Optional[str] = None
+    post_workout_notes: Optional[str] = None
     status: str
 
     class Config:
@@ -610,6 +613,8 @@ class SessionHistoryOut(ApiBaseModel):
     ended_at: Optional[datetime]
     pre_workout_mood: Optional[str]
     pre_workout_tags: List[str]
+    pre_workout_notes: Optional[str] = None
+    post_workout_notes: Optional[str] = None
     status: str
     template_name: Optional[str] = None
     context_name: Optional[str] = None
@@ -1499,6 +1504,7 @@ def create_session(payload: SessionCreate, db: Session = Depends(get_db), curren
         started_at=datetime.now(timezone.utc),
         pre_workout_mood=payload.pre_workout_mood,
         pre_workout_tags=json.dumps(payload.pre_workout_tags or []),
+        pre_workout_notes=payload.pre_workout_notes,
     )
     db.add(session)
     db.commit()
@@ -1517,8 +1523,40 @@ def create_session(payload: SessionCreate, db: Session = Depends(get_db), curren
         ended_at=session.ended_at,
         pre_workout_mood=session.pre_workout_mood,
         pre_workout_tags=json.loads(session.pre_workout_tags or "[]"),
+        pre_workout_notes=session.pre_workout_notes,
+        post_workout_notes=session.post_workout_notes,
         status=session.status.value,
     )
+
+
+class SessionNotesUpdate(BaseModel):
+    pre_workout_notes: Optional[str] = None
+    post_workout_notes: Optional[str] = None
+
+
+@app.patch("/api/sessions/{session_id}/notes", response_model=SessionOut)
+def update_session_notes(session_id: int, payload: SessionNotesUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    s = db.query(WorkoutSession).filter(WorkoutSession.id == session_id, WorkoutSession.user_id == current_user.id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if payload.pre_workout_notes is not None:
+        s.pre_workout_notes = payload.pre_workout_notes
+    if payload.post_workout_notes is not None:
+        s.post_workout_notes = payload.post_workout_notes
+    db.commit()
+    db.refresh(s)
+    return SessionOut(
+        id=s.id,
+        template_id=s.template_id,
+        started_at=s.started_at,
+        ended_at=s.ended_at,
+        pre_workout_mood=s.pre_workout_mood,
+        pre_workout_tags=json.loads(s.pre_workout_tags or "[]"),
+        pre_workout_notes=s.pre_workout_notes,
+        post_workout_notes=s.post_workout_notes,
+        status=s.status.value,
+    )
+
 
 @app.get("/api/sessions", response_model=List[SessionHistoryOut])
 def list_sessions(
@@ -1556,6 +1594,8 @@ def list_sessions(
                 ended_at=s.ended_at,
                 pre_workout_mood=s.pre_workout_mood,
                 pre_workout_tags=json.loads(s.pre_workout_tags or "[]"),
+                pre_workout_notes=s.pre_workout_notes,
+                post_workout_notes=s.post_workout_notes,
                 status=s.status.value,
                 template_name=template_name,
                 context_name=context_name,
@@ -1575,6 +1615,8 @@ def get_session(session_id: int, db: Session = Depends(get_db), current_user: Us
         ended_at=s.ended_at,
         pre_workout_mood=s.pre_workout_mood,
         pre_workout_tags=json.loads(s.pre_workout_tags or "[]"),
+        pre_workout_notes=s.pre_workout_notes,
+        post_workout_notes=s.post_workout_notes,
         status=s.status.value,
     )
 
@@ -1601,6 +1643,8 @@ def end_session(session_id: int, db: Session = Depends(get_db), current_user: Us
         ended_at=s.ended_at,
         pre_workout_mood=s.pre_workout_mood,
         pre_workout_tags=json.loads(s.pre_workout_tags or "[]"),
+        pre_workout_notes=s.pre_workout_notes,
+        post_workout_notes=s.post_workout_notes,
         status=s.status.value,
     )
 

@@ -172,6 +172,8 @@ class WorkoutSession(Base):
     ended_at = Column(DateTime, nullable=True)
     pre_workout_mood = Column(Text)
     pre_workout_tags = Column(String)  # JSON array string
+    pre_workout_notes = Column(Text)
+    post_workout_notes = Column(Text)
     status = Column(Enum(SessionStatus), default=SessionStatus.active)
 
     user = relationship("User", back_populates="sessions")

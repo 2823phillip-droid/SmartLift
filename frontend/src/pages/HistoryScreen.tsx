@@ -433,12 +433,70 @@ export default function HistoryScreen({
           </div>
         </button>
 
-        {isExpanded && (
+{isExpanded && (
           <div className="border-t border-slate-800/80 px-4 py-4 space-y-4">
             {loadingDetails ? (
               <div className="text-sm text-slate-500 text-center py-4">Loading...</div>
             ) : (
               <>
+                {s.pre_workout_notes && (
+                  <div className="rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2.5">
+                    <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-1">Pre-Workout Notes</div>
+                    <p className="text-sm text-slate-300 leading-relaxed">{s.pre_workout_notes}</p>
+                  </div>
+                )}
+
+                {detail?.logs && detail.logs.length > 0 && (
+                  <div className="space-y-3">
+                    <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Exercises</div>
+                    {(() => {
+                      const grouped: Record<number, typeof detail.logs> = {};
+                      detail.logs.forEach((log) => {
+                        (grouped[log.exercise_entry_id] ??= []).push(log);
+                      });
+                      const exerciseIds = Object.keys(grouped).map(Number).sort((a, b) => a - b);
+                      return exerciseIds.map((exId) => {
+                        const logs = grouped[exId];
+                        const exerciseName = exerciseMap[exId] || `Exercise ${exId}`;
+                        return (
+                          <div key={exId} className="space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <div className="text-xs font-semibold text-slate-300">{exerciseName}</div>
+                              <div className="text-[10px] text-slate-500">{logs.length} set{logs.length !== 1 ? "s" : ""}</div>
+                            </div>
+                            <div className="space-y-1">
+                              {logs.map((log) => (
+                                <div
+                                  key={log.id}
+                                  className="rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2 flex items-center justify-between"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <div className="text-xs text-slate-400">
+                                      Set {log.set_index + 1} · {formatWeight(log.actual_weight ?? 0, getUnitsPreference())} × {log.actual_reps ?? "—"}
+                                    </div>
+                                    {log.effort != null && (
+                                      <div className="text-[10px] text-slate-500">E{log.effort}/10</div>
+                                    )}
+                                    {log.notes && (
+                                      <div className="text-[10px] text-slate-600 italic truncate max-w-[200px]">"{log.notes}"</div>
+                                    )}
+                                  </div>
+                                  <button
+                                    onClick={() => setEditingLog({ sessionId: s.id, log })}
+                                    className="text-[10px] text-indigo-300 hover:text-indigo-200 shrink-0 ml-2"
+                                  >
+                                    Edit
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      });
+                    })()}
+                  </div>
+                )}
+
                 {detail?.logs && detail.logs.length > 0 && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -500,19 +558,19 @@ export default function HistoryScreen({
                                 </div>
                                 <div>
                                   <div className="text-[10px] text-slate-500">Effort /10</div>
-                                                                  <input
-                                                                    type="number"
-                                                                    min={1}
-                                                                    max={10}
-                                                                    defaultValue={log.effort ?? ""}
-                                                                    onChange={(e) =>
-                                                                      ((editingLog as any).log = {
-                                                                        ...editingLog.log,
-                                                                        effort: e.target.value === "" ? null : Number(e.target.value),
-                                                                      })
-                                                                    }
-                                                                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-sm text-slate-200"
-                                                                  />
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    max={10}
+                                    defaultValue={log.effort ?? ""}
+                                    onChange={(e) =>
+                                      ((editingLog as any).log = {
+                                        ...editingLog.log,
+                                        effort: e.target.value === "" ? null : Number(e.target.value),
+                                      })
+                                    }
+                                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-sm text-slate-200"
+                                  />
                                 </div>
                                 <div>
                                   <div className="text-[10px] text-slate-500">Notes</div>
@@ -587,6 +645,13 @@ export default function HistoryScreen({
                   </div>
                 )}
 
+                {s.post_workout_notes && (
+                  <div className="rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2.5">
+                    <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-1">Post-Workout Notes</div>
+                    <p className="text-sm text-slate-300 leading-relaxed">{s.post_workout_notes}</p>
+                  </div>
+                )}
+
                 {detail?.messages && detail.messages.length > 0 && (
                   <div className="space-y-2">
                     <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Coach Notes</div>
@@ -607,6 +672,8 @@ export default function HistoryScreen({
             )}
           </div>
         )}
+      </div>
+    );
       </div>
     );
   };
