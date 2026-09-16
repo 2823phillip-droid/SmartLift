@@ -387,6 +387,14 @@ def _run_migrations():
                 conn.execute(_text("ALTER TABLE set_logs ADD COLUMN form_quality INTEGER"))
                 conn.commit()
 
+            wcols = cols("workout_sessions")
+            if "pre_workout_notes" not in wcols:
+                conn.execute(_text("ALTER TABLE workout_sessions ADD COLUMN pre_workout_notes TEXT"))
+                conn.commit()
+            if "post_workout_notes" not in wcols:
+                conn.execute(_text("ALTER TABLE workout_sessions ADD COLUMN post_workout_notes TEXT"))
+                conn.commit()
+
             if "coach_usage_logs" not in cols("coach_usage_logs"):
                 from models import Base
                 Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["coach_usage_logs"]])
