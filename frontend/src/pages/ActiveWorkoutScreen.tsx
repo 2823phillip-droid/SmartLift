@@ -60,6 +60,7 @@ export default function ActiveWorkoutScreen({
   const [displaySetsTarget, setDisplaySetsTarget] = useState<Record<number, number>>({});
   const [lastSessionByExercise, setLastSessionByExercise] = useState<Record<number, {set_index: number; actual_weight: number; actual_reps: number; started_at?: string; effort?: number; form_quality?: number | null}[]>>({});
   const [originalExercises, setOriginalExercises] = useState<ExerciseEntry[]>([]);
+  const [isBuildingWorkout, setIsBuildingWorkout] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
   const [isLogging, setIsLogging] = useState(false);
   const [coachPhase, setCoachPhase] = useState<CoachPhase>("linear");
@@ -82,6 +83,8 @@ export default function ActiveWorkoutScreen({
   const elapsedTimerRef = useRef<number | null>(null);
   const lastLoggedSetRef = useRef<Record<number, SetLog>>({});
   const loggedSetCountRef = useRef<Record<number, number>>({});
+  const isBuildingWorkoutRef = useRef(false);
+  const expandTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const toLbs = (lbs: number): number => lbs;
 
@@ -312,64 +315,58 @@ export default function ActiveWorkoutScreen({
         lastSessionFetchedRef.current = true;
         console.log("[ActiveWorkoutScreen] lastSessionByExercise", sessionResolved);
 
-        // auto-expand first incomplete exercise AFTER last-session data is loaded
-        if (exercisesData.length) {
-          const target = exercisesData.find((e: ExerciseEntry) =>
-            setLogsData.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
-          ) || exercisesData[0];
-          const completedCount = setLogsData.filter((l: SetLog) => l.exercise_entry_id === target.id).length;
-          console.log("[ActiveWorkoutScreen] auto-expand", target.id, target.name, "completedCount", completedCount);
-          // Prefer the backend prescription when available — it already has the
-          // correct weight accounting for history, assisted inversion, and rounding.
-          const backendPrescription = backendPrescriptionsRef.current[target.id];
-          if (backendPrescription) {
-            const displayWeight = getUnitsPreference() === "imperial"
-              ? Math.round(backendPrescription.next_weight)
-              : Math.round(lbsToKg(backendPrescription.next_weight));
-            setDraftWeight(String(displayWeight));
-            setDraftReps(String(backendPrescription.next_reps));
-            console.log("[ActiveWorkoutScreen] auto-expand backend", displayWeight, "x", backendPrescription.next_reps);
-            return;
+        // Defer auto-expand until backend prescriptions arrive so the weight
+        // field always reflects the server-computed recommendation instead of
+        // a local fallback that may read stale state. Show a loading indicator
+        // while waiting, with a timeout fallback to local computation.
+        setIsBuildingWorkout(true);
+        isBuildingWorkoutRef.current = true;
+        const fallbackTimer = setTimeout(() => {
+          if (isBuildingWorkoutRef.current) {
+            // Fallback: compute locally if backend hasn't arrived in time
+            const target = exercisesData.find((e: ExerciseEntry) =>
+              setLogsData.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
+            ) || exercisesData[0];
+            if (target && exercisesData.length > 0) {
+              const sessionResolved = lastSessionByExercise;
+              const lastSession = sessionResolved[target.id] || [];
+              const firstSet = lastSession.find((l: any) => l.set_index === 1) || lastSession[0];
+              const lastWeight = firstSet
+                ? firstSet.actual_weight
+                : (lastSession.length > 0
+                  ? Math.max(...lastSession.map((s: any) => s.actual_weight || 0))
+                  : target.start_weight);
+              const phase = coachState?.coach_phase === "deload"
+                ? "linear"
+                : (coachState?.coach_phase || "linear");
+              const history = buildPrescriptionHistory(target);
+              const prescription = computePrescription({
+                start_weight: toLbs(lastWeight),
+                reps_target: target.is_compound ? 6 : 8,
+                sets_target: displaySetsTarget[target.id] ?? target.sets_target,
+                rest_seconds: target.rest_seconds,
+                progression_type: phase,
+                history,
+                force_deload: false,
+                exerciseName: target.name,
+              });
+              const displayWeight = getUnitsPreference() === "imperial"
+                ? Math.round(prescription.next_weight)
+                : Math.round(lbsToKg(prescription.next_weight));
+              setDraftWeight(String(displayWeight));
+              setDraftReps(String(prescription.next_reps));
+              console.log("[ActiveWorkoutScreen] auto-expand fallback", displayWeight, "x", prescription.next_reps);
+              setDraftEffort(null);
+              setDraftFormQuality(0);
+              setNotes("");
+              setShowNotes(false);
+              setExpandedExerciseId(target.id);
+              setIsBuildingWorkout(false);
+              isBuildingWorkoutRef.current = false;
+            }
           }
-          // Always compute a fresh prescription for the draft weight instead of
-          // falling back to the last session's set weight.
-          const lastSession = sessionResolved[target.id] || [];
-          const firstSet = lastSession.find((l: any) => l.set_index === 1) || lastSession[0];
-          const lastWeight = firstSet
-            ? firstSet.actual_weight
-            : (lastSession.length > 0
-              ? Math.max(...lastSession.map((s: any) => s.actual_weight || 0))
-              : target.start_weight);
-
-          // Compute prescription inline so the draft reflects the coaching algorithm
-          // instead of blindly showing the last session's top set weight.
-          const phase = coachState?.coach_phase === "deload"
-            ? "linear"
-            : (coachState?.coach_phase || "linear");
-          const history = buildPrescriptionHistory(target);
-          const prescription = computePrescription({
-            start_weight: toLbs(lastWeight),
-            reps_target: target.is_compound ? 6 : 8,
-            sets_target: displaySetsTarget[target.id] ?? target.sets_target,
-            rest_seconds: target.rest_seconds,
-            progression_type: phase,
-            history,
-            force_deload: false,
-            exerciseName: target.name,
-          });
-          const displayWeight = getUnitsPreference() === "imperial"
-            ? Math.round(prescription.next_weight)
-            : Math.round(lbsToKg(prescription.next_weight));
-          setDraftWeight(String(displayWeight));
-          setDraftReps(String(prescription.next_reps));
-          console.log("[ActiveWorkoutScreen] auto-expand prescription", displayWeight, "x", prescription.next_reps);
-          setDraftEffort(null);
-          setDraftFormQuality(0);
-          setNotes("");
-          setShowNotes(false);
-          setExpandedExerciseId(target.id);
-          console.log("[ActiveWorkoutScreen] auto-expand expandedExerciseId", target.id);
-        }
+        }, 3000);
+        expandTimeoutRef.current = fallbackTimer;
       } catch (err) {
         if (!cancelled) {
           console.error("[ActiveWorkoutScreen] initial load failed", err);
@@ -422,6 +419,55 @@ export default function ActiveWorkoutScreen({
     setShowGroupPicker(null);
     setPendingGroupExercises([]);
   };
+
+  // Auto-expand the first incomplete exercise once backend prescriptions arrive.
+  // This replaces the old inline auto-expand that ran before prescriptions were
+  // available, which caused the weight field to show a locally-computed fallback
+  // instead of the server recommendation.
+  useEffect(() => {
+    if (!isBuildingWorkout) return;
+    if (Object.keys(backendPrescriptions).length === 0) return;
+    if (!exercises || exercises.length === 0) return;
+
+    const target = exercises.find((e: ExerciseEntry) =>
+      logs.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
+    ) || exercises[0];
+
+    // Clear the fallback timer since we got prescriptions in time
+    if (expandTimeoutRef.current) {
+      clearTimeout(expandTimeoutRef.current);
+      expandTimeoutRef.current = null;
+    }
+    isBuildingWorkoutRef.current = false;
+
+    const backendPrescription = backendPrescriptions[target.id];
+    if (backendPrescription) {
+      const displayWeight = getUnitsPreference() === "imperial"
+        ? Math.round(backendPrescription.next_weight)
+        : Math.round(lbsToKg(backendPrescription.next_weight));
+      setDraftWeight(String(displayWeight));
+      setDraftReps(String(backendPrescription.next_reps));
+      console.log("[ActiveWorkoutScreen] auto-expand backend", displayWeight, "x", backendPrescription.next_reps);
+    } else {
+    }
+
+    setDraftEffort(null);
+    setDraftFormQuality(0);
+    setNotes("");
+    setShowNotes(false);
+    setExpandedExerciseId(target.id);
+    setIsBuildingWorkout(false);
+    console.log("[ActiveWorkoutScreen] auto-expand expandedExerciseId", target.id);
+  }, [backendPrescriptions, isBuildingWorkout, exercises, logs, lastSessionByExercise, displaySetsTarget, coachPhase]);
+
+  // Clear timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (expandTimeoutRef.current) {
+        clearTimeout(expandTimeoutRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     if (!workoutStart) return;
@@ -1094,6 +1140,15 @@ export default function ActiveWorkoutScreen({
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* Building workout indicator */}
+      {isBuildingWorkout && (
+        <div className="flex flex-col items-center justify-center gap-3 py-12">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full border-4 border-indigo-500 border-t-transparent animate-spin" />
+          <p className="text-sm font-medium text-slate-300">Building your workout…</p>
+          <p className="text-xs text-slate-500">Fetching your prescription</p>
         </div>
       )}
 
