@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Header, Request
+from fastapi import FastAPI, Depends, HTTPException, Header, Request, Query
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -1521,13 +1521,31 @@ def create_session(payload: SessionCreate, db: Session = Depends(get_db), curren
     )
 
 @app.get("/api/sessions", response_model=List[SessionHistoryOut])
-def list_sessions(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+def list_sessions(
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_dep),
+):
     sessions = (
         db.query(WorkoutSession)
         .filter(WorkoutSession.user_id == current_user.id)
+        .filter(
+            # Show completed sessions always; show cancelled ones only if they have logged sets
+            WorkoutSession.status != SessionStatus.cancelled
+            | db.query(SetLog.id)
+                .filter(SetLog.session_id == WorkoutSession.id)
+                .exists()
+        )
         .order_by(WorkoutSession.started_at.desc())
-        .limit(50)
+        .offset(offset)
+        .limit(limit)
         .all()
+    )
+    total = (
+        db.query(func.count(WorkoutSession.id))
+        .filter(WorkoutSession.user_id == current_user.id)
+        .scalar()
     )
     out = []
     for s in sessions:

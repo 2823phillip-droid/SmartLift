@@ -363,7 +363,8 @@ export const api = {
 
   createSession: (data: { template_id?: number | null; pre_workout_mood?: string | null; pre_workout_tags?: string[] }) =>
     request("/sessions", { method: "POST", body: JSON.stringify(data) }),
-  getSessions: () => request("/sessions"),
+  getSessions: (limit = 200, offset = 0) =>
+    request(`/sessions?limit=${limit}&offset=${offset}`),
   getSession: (id: number) => request(`/sessions/${id}`),
   endSession: (id: number) =>
     request(`/sessions/${id}/end`, { method: "POST" }),

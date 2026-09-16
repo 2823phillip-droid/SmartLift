@@ -58,6 +58,8 @@ export default function HistoryScreen({
 }) {
   const [viewMode, setViewMode] = useState(initialViewMode);
   const [sessions, setSessions] = useState<SessionHistory[]>([]);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [details, setDetails] = useState<Record<number, SessionDetail>>({});
   const [loadingDetails, setLoadingDetails] = useState(false);
