@@ -72,9 +72,19 @@ async function request(path: string, options: RequestInit = {}) {
   const isAuthPath = path.startsWith("/api/auth/");
   const refreshAndRetry = async (err: any) => {
     const status = err?.status;
-    if (!authToken || isAuthPath || typeof status !== "number" || (status !== 401 && status !== 403)) {
+    if (isAuthPath || typeof status !== "number" || (status !== 401 && status !== 403)) {
       throw err;
     }
+    // If we have no token in memory, try localStorage before giving up
+    if (!authToken && typeof window !== "undefined") {
+      const stored = localStorage.getItem("askeo_token");
+      if (stored) {
+        setAuthToken(stored);
+        headers["Authorization"] = `Bearer ${stored}`;
+        return await makeRequest(base);
+      }
+    }
+    if (!authToken) throw err;
     try {
       const refreshed = await api.refreshToken();
       if (!refreshed || !refreshed.token) throw new Error("no_token");

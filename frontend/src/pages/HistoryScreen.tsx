@@ -568,6 +568,7 @@ export default function HistoryScreen({
                       );
                     })}
                   </div>
+                )}
                 {detail?.messages && detail.messages.length > 0 && (
                   <div className="space-y-2">
                     <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Coach Notes</div>
