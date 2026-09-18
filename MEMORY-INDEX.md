@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
 last_updated: 2026-09-18
-status: clean — both machines synced to origin/master fd2bf18
+status: clean — both machines synced to origin/master 722794d
 
 This file explains where every type of project knowledge lives and when to use it.
 
@@ -8,8 +8,8 @@ This file explains where every type of project knowledge lives and when to use i
 
 ### Repo
 - **Branch:** master
-- **HEAD (both machines):** `5b14394` — "docs: update MEMORY-INDEX.md status to HEAD 06d4b20" (latest status update commit)
-- **Remote (GitHub origin/master):** `5b14394` — both machines in sync, working tree clean on both
+- **HEAD (both machines):** `722794d` — "docs: update MEMORY-INDEX.md status to fd2bf18" (latest status update — MEMORY-INDEX.md + Hermes MEMORY.md rewritten with session history)
+- **Remote (GitHub origin/master):** `722794d` — both machines in sync, working tree clean on both
 - **Remote URL:** `git@github.com:2823phillip-droid/SmartLift.git` (Mac) / `https://github.com/2823phillip-droid/SmartLift.git` (Linux)
 - **Uncommitted changes:** none on either machine
 - **Untracked files:** none on either machine (stale root `ActiveWorkoutScreen.tsx`, `main.py`, `rules.py` removed in prior session)
