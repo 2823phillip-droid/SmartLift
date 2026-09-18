@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
 last_updated: 2026-09-18
-status: clean — both machines synced to origin/master f8e88f5
+status: clean — both machines synced to origin/master 68d7924
 
 This file explains where every type of project knowledge lives and when to use it.
 
