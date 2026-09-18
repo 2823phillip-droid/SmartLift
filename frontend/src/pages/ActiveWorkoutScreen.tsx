@@ -16,19 +16,17 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { api, withRetry } from "../api";
 import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
 import { SortableExerciseCard } from "./SortableExerciseCard";
-import { computePrescription, computeProgression, type CoachPhase, type Prescription, type SetRecord, computeCoachState } from "../rules";
+import { computePrescription, type CoachPhase, type Prescription, type SetRecord } from "../rules";
 import { getUnitsPreference, lbsToKg, kgToLbs, formatWeight } from "../utils/units";
 import { resolveMediaUrl } from "../api";
 
 export default function ActiveWorkoutScreen({
   sessionId,
   templateId,
-  workoutMode,
   onEnd,
 }: {
   sessionId: number;
   templateId: number;
-  workoutMode?: "manual" | "ai_trainer";
   onEnd?: (summary?: {
     exerciseOrder: number[];
     setsTargetChanges: Record<number, number>;
@@ -63,15 +61,9 @@ export default function ActiveWorkoutScreen({
   const [isBuildingWorkout, setIsBuildingWorkout] = useState(false);
   const [isDragActive, setIsDragActive] = useState(false);
   const [isLogging, setIsLogging] = useState(false);
-  const [coachPhase, setCoachPhase] = useState<CoachPhase>("linear");
-  const [coachLoadPct, setCoachLoadPct] = useState<number | null>(null);
-  const [, setCoachLoaded] = useState(false);
-
-  const [backendPrescriptions, setBackendPrescriptions] = useState<Record<number, any>>({});
-  const [backendCoach, setBackendCoach] = useState<any>(null);
-  const [prescriptionError, setPrescriptionError] = useState<string | null>(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
+  const [prescriptionError, setPrescriptionError] = useState<string | null>(null);
 
   // Dynamic Workout — option group selection
   const [selectedGroups, setSelectedGroups] = useState<Record<string, number>>({});
@@ -84,42 +76,9 @@ export default function ActiveWorkoutScreen({
   const lastLoggedSetRef = useRef<Record<number, SetLog>>({});
   const loggedSetCountRef = useRef<Record<number, number>>({});
   const isBuildingWorkoutRef = useRef(false);
-  const expandTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const expandTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const toLbs = (lbs: number): number => lbs;
-
-  const buildRuleHistoryForCoach = (): SetRecord[] => {
-    const history: SetRecord[] = [];
-    const names = [...new Set(exercises.map((e) => e.name))];
-    for (const name of names) {
-      const ex = exercises.find((e) => e.name === name)!;
-      const lastSession = lastSessionByExercise[ex.id] || [];
-      const sessionDate = lastSession[0]?.started_at
-        ? new Date(lastSession[0].started_at).toISOString()
-        : new Date(Date.now() - 86400000).toISOString();
-      for (const s of lastSession) {
-        history.push({
-          actual_weight: toLbs(s.actual_weight),
-          actual_reps: s.actual_reps,
-          effort: s.effort,
-          completed_at: sessionDate,
-        });
-      }
-      const currentLogs = logs.filter((l) => {
-        const entry = exercises.find((e) => e.id === l.exercise_entry_id);
-        return Boolean(entry && entry.name === name);
-      });
-      for (const l of currentLogs) {
-        history.push({
-          actual_weight: toLbs(Number(l.actual_weight || 0)),
-          actual_reps: Number(l.actual_reps || 0),
-          effort: l.effort,
-          completed_at: new Date().toISOString(),
-        });
-      }
-    }
-    return history;
-  };
 
   // Prescription history = completed sessions ONLY. Current in-progress session
   // sets must not retroactively change the "next session" target mid-workout.
@@ -142,116 +101,16 @@ export default function ActiveWorkoutScreen({
   };
 
   const lastSessionFetchedRef = useRef(false);
-  const backendPrescriptionsRef = useRef<Record<number, Prescription>>({});
-  useEffect(() => {
-    backendPrescriptionsRef.current = backendPrescriptions;
-  }, [backendPrescriptions]);
 
-  useEffect(() => {
-    if ((workoutMode || "manual") !== "ai_trainer") return;
-    if (!lastSessionFetchedRef.current) return;
-    if (Object.keys(lastSessionByExercise).length === 0) return;
-    let cancelled = false;
-    const load = async () => {
-      const globalHistory = buildRuleHistoryForCoach();
-      const coach = computeCoachState({
-        history: globalHistory,
-        current_phase: coachPhase,
-        default_progression: "linear",
-        force_deload: false,
-      });
-      const map: Record<number, any> = {};
-      let lastCoach: any = null;
-      for (const exercise of exercises) {
-        try {
-          const lastSession = lastSessionByExercise[exercise.id] || [];
-          const lastWeight = lastSession.length > 0
-            ? toLbs(Math.max(...lastSession.map((s: any) => s.actual_weight || 0)))
-            : toLbs(exercise.start_weight);
-          console.log("[ActiveWorkoutScreen] backend prescription", exercise.id, exercise.name, "lastWeight", lastWeight, "history", lastSession.length);
-          const res = await api.nextPrescription({
-            start_weight: lastWeight,
-            reps_target: exercise.is_compound ? 6 : 8,
-            sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
-            rest_seconds: exercise.rest_seconds,
-            progression_type: coach.phase === "deload" ? "linear" : coach.phase,
-            history: buildPrescriptionHistory(exercise),
-            force_deload: coach.is_deload,
-            exercise_entry_id: exercise.id,
-            exercise_name: exercise.name,
-            is_compound: exercise.is_compound ?? true,
-          });
-          console.log("[ActiveWorkoutScreen] backend prescription result", exercise.id, res);
-          if (!cancelled) {
-            map[exercise.id] = res;
-            lastCoach = res.coach;
-          }
-        } catch (err: any) {
-          const msg = err?.message || "Backend prescription failed";
-          console.error("[ActiveWorkoutScreen] backend prescription failed", err);
-          if (!/load failed|network error|cors|failed to fetch|AUTH_TIMEOUT/i.test(msg)) {
-            setPrescriptionError(msg);
-          }
-        }
-      }
-      if (!cancelled) {
-        setBackendPrescriptions(map);
-        setBackendCoach(lastCoach);
-        if (lastCoach?.phase) setCoachPhase(lastCoach.phase);
-      }
-    };
-    load();
-    return () => {
-      cancelled = true;
-    };
-  }, [exercises, logs, lastSessionByExercise, displaySetsTarget, coachPhase, workoutMode]);
-
-  const localSuggestions = useMemo(() => {
-    if ((workoutMode || "manual") !== "ai_trainer") return { prescriptions: {} as Record<number, Prescription>, coach: null as any };
-    if (!lastSessionFetchedRef.current) return { prescriptions: {} as Record<number, Prescription>, coach: null as any };
-    if (Object.keys(lastSessionByExercise).length === 0) return { prescriptions: {} as Record<number, Prescription>, coach: null as any };
-    const history = buildRuleHistoryForCoach();
-    console.log("[ActiveWorkoutScreen] localSuggestions history length", history.length, "lastSessionByExercise keys", Object.keys(lastSessionByExercise).length);
-    const coach = computeCoachState({
-      history,
-      current_phase: coachPhase,
-      default_progression: "linear",
-      force_deload: false,
-    });
-
-    const map: Record<number, Prescription> = {};
-    for (const exercise of exercises) {
-      const lastSession = lastSessionByExercise[exercise.id] || [];
-      const lastWeight = lastSession.length > 0
-        ? toLbs(Math.max(...lastSession.map((s: any) => s.actual_weight || 0)))
-        : toLbs(exercise.start_weight);
-      const exHistory = buildPrescriptionHistory(exercise);
-      console.log("[ActiveWorkoutScreen] localSuggestions exercise", exercise.id, exercise.name, "lastWeight", lastWeight, "exHistory length", exHistory.length);
-      map[exercise.id] = computePrescription({
-        start_weight: lastWeight,
-        reps_target: exercise.is_compound ? 6 : 8,
-        sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
-        rest_seconds: exercise.rest_seconds,
-        progression_type: coach.phase === "deload" ? "linear" : coach.phase,
-        history: exHistory,
-        force_deload: false,
-        exerciseName: exercise.name,
-      });
-    }
-    return { prescriptions: map, coach };
-  }, [exercises, logs, lastSessionByExercise, displaySetsTarget, coachPhase]);
-
-  const useBackend = (workoutMode || "manual") === "ai_trainer";
-  const suggestions = useBackend && Object.keys(backendPrescriptions).length > 0
-    ? { prescriptions: backendPrescriptions, coach: backendCoach }
-    : localSuggestions;
-  const coach = suggestions.coach;
-  const prescriptions = suggestions.prescriptions;
+  // State for local prescriptions (computed on initial load and after each logged set).
+  // Initial load computes prescriptions for all exercises from lastSessionByExercise.
+  // After logging a set, logSet() updates prescriptions for the current exercise.
+  // SortableExerciseCard reads prescriptions[exercise.id] for its suggestion box.
+  const [prescriptions, setPrescriptions] = useState<Record<number, Prescription>>({});
 
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
-      let coachState: any = null;
       try {
         const [exercisesData, setLogsData, session, setting] = await Promise.all([
           api.getExercises(templateId),
@@ -259,13 +118,6 @@ export default function ActiveWorkoutScreen({
           api.getSession(sessionId),
           api.getSetting("global_rest_seconds"),
         ]);
-        if ((workoutMode || "manual") === "ai_trainer") {
-          try {
-            coachState = await api.getCoachState();
-          } catch (err: any) {
-            setPrescriptionError(err?.message || "Failed to load coach state");
-          }
-        }
         if (cancelled) return;
         setExercises(exercisesData);
         setLogs(setLogsData);
@@ -279,11 +131,6 @@ export default function ActiveWorkoutScreen({
         lastLoggedSetRef.current = initLast;
         if (setting?.value) {
           setGlobalRest(Number(setting.value));
-        }
-        if ((workoutMode || "manual") === "ai_trainer" && coachState) {
-          if (coachState.coach_phase) setCoachPhase(coachState.coach_phase);
-          if ((coachState as any)?.coach_load_pct !== undefined) setCoachLoadPct((coachState as any).coach_load_pct);
-          setCoachLoaded(true);
         }
         if (session?.template_id) {
           const tpl = await api.getTemplate(session.template_id);
@@ -336,9 +183,7 @@ export default function ActiveWorkoutScreen({
                 : (lastSession.length > 0
                   ? Math.max(...lastSession.map((s: any) => s.actual_weight || 0))
                   : target.start_weight);
-              const phase = coachState?.coach_phase === "deload"
-                ? "linear"
-                : (coachState?.coach_phase || "linear");
+              const phase = "linear";
               const history = buildPrescriptionHistory(target);
               const prescription = computePrescription({
                 start_weight: toLbs(lastWeight),
@@ -421,9 +266,7 @@ export default function ActiveWorkoutScreen({
   };
 
   // Auto-expand the first incomplete exercise once the workout data is loaded.
-  // Works in both manual and ai_trainer modes: in manual mode the prescription
-  // is computed locally from lastSessionByExercise; in ai_trainer mode it uses
-  // backendPrescriptions if available, falling back to local computation.
+  // Computes the prescription locally from lastSessionByExercise.
   useEffect(() => {
     if (!isBuildingWorkout) return;
     if (!exercises || exercises.length === 0) return;
@@ -440,36 +283,32 @@ export default function ActiveWorkoutScreen({
       logs.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
     ) || exercises[0];
 
-    // Pick the prescription: backend if available (ai_trainer), else local.
-    let prescription: Prescription | undefined;
-    if (target.id && backendPrescriptions[target.id]) {
-      prescription = backendPrescriptions[target.id];
-    }
-    if (!prescription) {
-      // Local computation from lastSessionByExercise (works in manual mode).
-      const sessionResolved = lastSessionByExercise[target.id] || [];
-      const firstSet = sessionResolved.find((l: any) => l.set_index === 1) || sessionResolved[0];
-      const lastWeight = firstSet
-        ? firstSet.actual_weight
-        : (sessionResolved.length > 0
-          ? Math.max(...sessionResolved.map((s: any) => s.actual_weight || 0))
-          : target.start_weight);
-      const phase = coachPhase === "deload" ? "linear" : coachPhase;
-      const history = buildPrescriptionHistory(target);
-      prescription = computePrescription({
-        start_weight: toLbs(lastWeight),
-        reps_target: target.is_compound ? 6 : 8,
-        sets_target: displaySetsTarget[target.id] ?? target.sets_target,
-        rest_seconds: target.rest_seconds,
-        progression_type: phase,
-        history,
-        force_deload: false,
-        exerciseName: target.name,
-        is_compound: target.is_compound ?? true,
-        routineName: template?.name ?? undefined,
-      });
+    if (!target) {
+      setIsBuildingWorkout(false);
+      isBuildingWorkoutRef.current = false;
+      return;
     }
 
+    const sessionResolved = lastSessionByExercise[target.id] || [];
+    const firstSet = sessionResolved.find((l: any) => l.set_index === 1) || sessionResolved[0];
+    const lastWeight = firstSet
+      ? firstSet.actual_weight
+      : (sessionResolved.length > 0
+        ? Math.max(...sessionResolved.map((s: any) => s.actual_weight || 0))
+        : target.start_weight);
+    const history = buildPrescriptionHistory(target);
+    const prescription = computePrescription({
+      start_weight: toLbs(lastWeight),
+      reps_target: target.is_compound ? 6 : 8,
+      sets_target: displaySetsTarget[target.id] ?? target.sets_target,
+      rest_seconds: target.rest_seconds,
+      progression_type: "linear",
+      history,
+      force_deload: false,
+      exerciseName: target.name,
+      is_compound: target.is_compound ?? true,
+      routineName: template?.name ?? undefined,
+    });
     const displayWeight = getUnitsPreference() === "imperial"
       ? Math.round(prescription.next_weight)
       : Math.round(lbsToKg(prescription.next_weight));
@@ -482,7 +321,8 @@ export default function ActiveWorkoutScreen({
     setExpandedExerciseId(target.id);
     setIsBuildingWorkout(false);
     console.log("[ActiveWorkoutScreen] auto-expand", displayWeight, "x", prescription.next_reps);
-  }, [isBuildingWorkout, exercises, logs, lastSessionByExercise, backendPrescriptions, displaySetsTarget, coachPhase, template?.name]);
+
+  }, [isBuildingWorkout, exercises, logs, lastSessionByExercise, displaySetsTarget, template?.name]);
 
   // Clear timeout on unmount
   useEffect(() => {
@@ -516,22 +356,6 @@ export default function ActiveWorkoutScreen({
     };
   }, [workoutStart]);
 
-  useEffect(() => {
-    if (logs.length > 0) {
-      const lastLog = logs[logs.length - 1];
-      api
-        .aiNextSuggestion({
-          session_id: sessionId,
-          context: "",
-          current_exercise_name: getCurrentExercise()?.name || "",
-          last_set_effort: lastLog.effort,
-        })
-        .then(() => {
-          // suggestions shown per-exercise in UI
-        });
-    }
-  }, [logs.length]);
-
   const getCurrentExercise = (): ExerciseEntry | undefined => {
     return exercises.find((e) => e.id === expandedExerciseId);
   };
@@ -551,8 +375,8 @@ export default function ActiveWorkoutScreen({
     if (!entry) return { weight: 0, reps: 0 };
     // Prefer the backend prescription (updated after each logged set) so the
     // rest timer, the session target box, and the weight input all agree.
-    if (entry.id && backendPrescriptions[entry.id]) {
-      const p = backendPrescriptions[entry.id];
+    const p = prescriptions[entry.id];
+    if (p) {
       const displayWeight = getUnitsPreference() === "imperial"
         ? Math.round(p.next_weight)
         : Math.round(kgToLbs(p.next_weight));
@@ -569,19 +393,17 @@ export default function ActiveWorkoutScreen({
       effort: lastLog.effort ?? undefined,
       form_quality: lastLog.form_quality ?? undefined,
     };
-    const result = computeProgression({
-      previous_set: prevSet,
-      exercise: { name: entry.name, is_compound: entry.is_compound ?? true },
-      settings: {
-        increment: 5,
-        effort_hold_threshold: 9,
-        rep_floor_compound: 6,
-        rep_floor_isolation: 8,
-        form_clean: 0,
-        form_struggled: 1,
-        form_broke: 2,
-      },
-      model: "linear",
+    const result = computePrescription({
+      start_weight: seedWeight,
+      reps_target: entry.is_compound ? 6 : 8,
+      sets_target: entry.sets_target,
+      rest_seconds: entry.rest_seconds,
+      progression_type: "linear",
+      history: [],
+      seedSet: prevSet,
+      exerciseName: entry.name,
+      routineName: template?.name ?? undefined,
+      is_compound: entry.is_compound ?? true,
     });
     const displayWeight = getUnitsPreference() === "imperial"
       ? Math.round(result.next_weight)
@@ -708,10 +530,7 @@ export default function ActiveWorkoutScreen({
     const sessionLogs = lastSessionByExercise[exercise.id] || [];
     console.log("[ActiveWorkoutScreen] expandExercise", exercise.id, exercise.name, "completedCount", completedCount, "sessionLogs", sessionLogs);
 
-    // 1) Prefer live backend prescription values (updated after each logged set)
-    //    over the pre-workout snapshot so the weight input and coaching message
-    //    reflect the latest progression result.
-    const prescription = backendPrescriptions[exercise.id] || prescriptions[exercise.id];
+    const prescription = prescriptions[exercise.id];
     if (prescription) {
       const displayWeight = getUnitsPreference() === "imperial"
         ? Math.round(prescription.next_weight)
@@ -725,12 +544,11 @@ export default function ActiveWorkoutScreen({
       return;
     }
 
-    // 2) Compute a fresh prescription from last session history.
+    // Compute a fresh prescription from last session history.
     const lastSession = sessionLogs.length > 0 ? sessionLogs : [];
     const lastWeight = lastSession.length > 0
       ? Math.max(...lastSession.map((l: any) => l.actual_weight || 0))
       : exercise.start_weight;
-    const phase = coachPhase === "deload" ? "linear" : coachPhase;
     const history = lastSession.map((l: any) => ({
       actual_weight: toLbs(l.actual_weight),
       actual_reps: l.actual_reps,
@@ -742,10 +560,12 @@ export default function ActiveWorkoutScreen({
       reps_target: exercise.is_compound ? 6 : 8,
       sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
       rest_seconds: exercise.rest_seconds,
-      progression_type: phase,
+      progression_type: "linear",
       history,
       force_deload: false,
       exerciseName: exercise.name,
+      routineName: template?.name ?? undefined,
+      is_compound: exercise.is_compound ?? true,
     });
     const fallbackWeight = getUnitsPreference() === "imperial"
       ? Math.round(fallbackPrescription.next_weight)
@@ -862,15 +682,15 @@ export default function ActiveWorkoutScreen({
     };
     const prescription = computePrescription({
       start_weight: prevWeightLbs,
-      reps_target: exercise.is_compound ? 6 : 8,
-      sets_target: displayTarget,
-      rest_seconds: exercise.rest_seconds ?? 90,
-      progression_type: coachPhase === "deload" ? "deload" : "linear",
+      reps_target: currentExercise.is_compound ? 6 : 8,
+      sets_target: resolveDisplayTarget(currentExercise),
+      rest_seconds: currentExercise.rest_seconds ?? 90,
+      progression_type: "linear",
       history: [],
       seedSet: prevSet,
       exerciseName: currentExercise.name,
       routineName: template?.name ?? undefined,
-      is_compound: exercise.is_compound ?? true,
+      is_compound: currentExercise.is_compound ?? true,
     });
 
     try {
@@ -944,7 +764,7 @@ export default function ActiveWorkoutScreen({
       setDraftReps(String(prescription.next_reps));
       // Update the per-exercise prescription so the card shows the latest
       // coaching message after each set, not the pre-workout one.
-      setBackendPrescriptions((prev: any) => ({
+      setPrescriptions((prev) => ({
         ...prev,
         [currentExercise.id]: {
           ...prev[currentExercise.id],
@@ -1064,17 +884,6 @@ export default function ActiveWorkoutScreen({
     } catch (err) {
       console.error("[ActiveWorkoutScreen] post_workout message failed", err);
     }
-    if ((workoutMode || "manual") === "ai_trainer") {
-      try {
-        await api.coachOverride({
-          phase: backendCoach?.phase || coachPhase || "linear",
-          force_deload: false,
-          deload_mode: backendCoach?.deload_mode || "ai_driven",
-        });
-      } catch (err: any) {
-        setPrescriptionError(err?.message || "Failed to save coach state at end of workout");
-      }
-    }
     onEnd?.(buildEndSummary());
   };
 
@@ -1102,33 +911,7 @@ export default function ActiveWorkoutScreen({
   };
 
   const isResting = restSeconds !== null && restSeconds > 0;
-  const isTrainer = (workoutMode || "manual") === "ai_trainer";
   const canLog = Boolean(draftWeight) && Boolean(draftReps);
-
-  const persistCoach = async (phase: CoachPhase, force_deload = false) => {
-    setCoachPhase(phase);
-    try {
-      await api.coachOverride({ phase, force_deload });
-    } catch (err: any) {
-      setPrescriptionError(err?.message || "Failed to save coach state");
-    }
-  };
-
-  const forceDeload = () => {
-    const current = coachPhase || "linear";
-    void persistCoach(current as CoachPhase, true);
-  };
-  const skipBlock = () => {
-    setCoachPhase((prev: CoachPhase) => {
-      const types: CoachPhase[] = ["linear", "double", "percentage", "autoregulated"];
-      const idx = types.indexOf(prev as any);
-      void persistCoach(types[(idx + 1) % types.length], false);
-      return types[(idx + 1) % types.length];
-    });
-  };
-  const resetCoach = () => {
-    void persistCoach("linear", false);
-  };
 
   return (
     <div className="space-y-4 pb-4">
@@ -1208,12 +991,6 @@ export default function ActiveWorkoutScreen({
             <h2 className="text-xl font-bold truncate">{template?.name || "Workout"}</h2>
             <p className="text-xs text-slate-400 mt-0.5">
               {exercises.length} exercises · {logs.length} sets logged
-              {(workoutMode || "manual") === "ai_trainer" && coach?.is_deload && (
-                <span className="text-amber-300 font-semibold ml-1">— Deload week</span>
-              )}
-              {(workoutMode || "manual") === "ai_trainer" && !coach?.is_deload && coach?.next_deload_date && (
-                <span className="text-slate-300 ml-1">· Next deload {coach.next_deload_date}</span>
-              )}
             </p>
           </div>
           <div className="flex items-center gap-2 shrink-0">
@@ -1249,51 +1026,6 @@ export default function ActiveWorkoutScreen({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
-        </div>
-      )}
-
-      {/* Coach panel */}
-      {(workoutMode || "manual") === "ai_trainer" && coach && (
-        <div className={`rounded-2xl border p-4 space-y-2 ${
-          coach.is_deload
-            ? "border-amber-800/80 bg-amber-950/40"
-            : "border-indigo-800/60 bg-indigo-950/30"
-        }`}>
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0">
-              <div className="text-[10px] font-semibold uppercase tracking-wider text-slate-300">Coach — {coach.is_deload ? "Deload" : "Current Phase"}</div>
-              <div className="text-sm font-semibold text-slate-100 truncate mt-0.5">
-                {coach.is_deload ? "Deload week" : coach.phase}
-              </div>
-              {!coach.is_deload && coachLoadPct !== null && (
-                <div className="mt-1.5 h-1.5 rounded-full bg-slate-800 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all ${
-                      coachLoadPct >= 100 ? "bg-amber-400" : coachLoadPct >= 70 ? "bg-orange-400" : "bg-indigo-400"
-                    }`}
-                    style={{ width: `${Math.min(100, coachLoadPct)}%` }}
-                  />
-                </div>
-              )}
-            </div>
-            <div className="rounded-lg border border-white/10 px-2 py-1 text-center min-w-[80px]">
-              <div className={`text-xs font-bold ${coach.is_deload ? "text-amber-300" : "text-indigo-300"}`}>
-                {coach.is_deload ? "Recover" : `${coachLoadPct !== null ? `${coachLoadPct}%` : "--"}`}
-              </div>
-            </div>
-          </div>
-          <p className="text-xs text-slate-300 leading-relaxed">{coach.explanation}</p>
-          <div className="flex items-center gap-2 pt-1">
-            <button onClick={forceDeload} className="flex-1 rounded-xl border border-amber-700/70 bg-amber-950/40 px-2 py-2 text-xs font-semibold text-amber-300 hover:bg-amber-900/40 active:scale-[0.98] transition-all">
-              Force deload
-            </button>
-            <button onClick={skipBlock} className="flex-1 rounded-xl border border-indigo-700/70 bg-indigo-950/40 px-2 py-2 text-xs font-semibold text-indigo-300 hover:bg-indigo-900/40 active:scale-[0.98] transition-all">
-              Next phase
-            </button>
-            <button onClick={resetCoach} className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-2 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 active:scale-[0.98] transition-all">
-              Reset
-            </button>
-          </div>
         </div>
       )}
 
@@ -1425,8 +1157,7 @@ export default function ActiveWorkoutScreen({
                   isLogging={isLogging}
                   onEditSet={handleEditSet}
                   onDeleteSet={handleDeleteSet}
-                  suggestion={backendPrescriptions[exercise.id] || prescriptions[exercise.id]}
-                  isTrainer={isTrainer}
+                  suggestion={prescriptions[exercise.id]}
                 />
               );
             })}

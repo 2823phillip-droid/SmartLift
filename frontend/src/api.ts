@@ -498,19 +498,7 @@ export const api = {
 
   listProgressionTransitions: () => request("/progression/transitions"),
 
-  getPhaseRecommendation: () => request("/coach/phase-recommendation"),
-
-  aiNextSuggestion: (data: {
-    session_id: number;
-    context: string;
-    current_exercise_name: string;
-    last_set_effort?: number;
-    goal?: string;
-  }) =>
-    request("/ai/next-suggestion", {
-      method: "POST",
-      body: JSON.stringify(data),
-    }),
+  logout: () => request("/auth/logout"),
 
   seed: () => request("/seed", { method: "POST" }),
 

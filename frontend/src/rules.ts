@@ -247,13 +247,6 @@ function _setTargetMessage(
   );
 }
 
-export function computeProgression(input: ProgressionInput): ProgressionResult {
-  if (input.model === "linear") {
-    return linearProgression(input);
-  }
-  return linearProgression(input);
-}
-
 export interface SetRecord {
   set_index?: number;
   actual_weight: number;
@@ -959,89 +952,5 @@ function weeksUntilNextDeload(_phase: CoachPhase, week: number, cycleWeeks: numb
   return cycleWeeks - remainder;
 }
 
-export function computeCoachState(input: {
-  history: SetRecord[];
-  current_phase?: CoachPhase;
-  current_week_in_block?: number;
-  force_deload?: boolean;
-  periodization_cycle_weeks?: number;
-  default_progression?: CoachPhase;
-  custom_phase_order?: CoachPhase[];
-  previous_phase?: CoachPhase;
-  deload_mode?: string;
-}): CoachState {
-  const phase = input.current_phase ?? progressionFromHistory(input.history, input.default_progression ?? "linear");
 
-  // Derive actual elapsed weeks from real history dates, not from a stored counter.
-  const actualWeek = (() => {
-    const real = input.history.filter((s) => s.completed_at && !s.is_seeded);
-    if (!real.length) return null;
-    const oldest = new Date(real[0].completed_at!);
-    for (let i = 1; i < real.length; i++) {
-      const d = new Date(real[i].completed_at!);
-      if (d < oldest) oldest.setTime(d.getTime());
-    }
-    const now = new Date();
-    const elapsedDays = Math.max(0, Math.floor((now.getTime() - oldest.getTime()) / 86400000));
-    return Math.round(elapsedDays / 7) + 1;
-  })();
-
-  const week = actualWeek ?? input.current_week_in_block ?? 1;
-  const duration = blockDuration(phase);
-
-  // Compute load from recent training stress
-  const loadPct = computeLoad(input.history);
-
-  const deloadDue = input.force_deload || shouldForceDeload(input.history, week, input.periodization_cycle_weeks ?? 4, loadPct, input.deload_mode);
-
-  const nextDeloadDate = (() => {
-    try {
-      const weeksUntil = weeksUntilNextDeload(phase, week, input.periodization_cycle_weeks ?? 4);
-      const today = new Date();
-      today.setDate(today.getDate() + weeksUntil * 7);
-      return today.toISOString().split("T")[0];
-    } catch {
-      return undefined;
-    }
-  })();
-
-  let newPhase = phase;
-  let reason = "continue";
-
-  if (deloadDue && phase !== "deload") {
-    newPhase = "deload";
-    reason = "to_deload";
-  } else if (phase === "deload") {
-    newPhase = "linear";
-    reason = "from_deload";
-  } else if ((input.current_week_in_block ?? 0) >= duration && !input.force_deload) {
-    newPhase = nextPhaseAfter(phase, deloadDue, input.custom_phase_order);
-    reason = "best_fit";
-  } else {
-    newPhase = phase;
-    reason = "continue";
-  }
-
-  // Reset load when transitioning out of deload
-  const finalLoad = input.previous_phase === "deload" && newPhase !== "deload" ? 0 : loadPct;
-
-  const weekIndex = newPhase === phase && input.current_phase !== "deload" ? Math.min(week + 1, duration) : 1;
-  const state: CoachState = {
-    phase: newPhase,
-    progression_type: newPhase,
-    week_in_block: weekIndex,
-    block_duration_weeks: blockDuration(newPhase),
-    transition_in_weeks: Math.max(1, blockDuration(newPhase) - weekIndex),
-    is_deload: newPhase === "deload",
-    explanation: buildExplanation({
-      is_deload: newPhase === "deload",
-      week_in_block: weekIndex,
-      block_duration_weeks: blockDuration(newPhase),
-      progression_type: newPhase,
-    }, reason),
-    next_deload_date: nextDeloadDate,
-    load_pct: finalLoad,
-  };
-  return state;
-}
 

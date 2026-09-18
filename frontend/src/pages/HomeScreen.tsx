@@ -128,7 +128,6 @@ type View =
   | "history"
   | "settings"
   | "library"
-  | "ai_trainer"
   | "profile"
   | "login"
   | "signup"
@@ -344,14 +343,6 @@ export default function HomeScreen({ onNavigate }: { onNavigate?: (view: View) =
           </div>
           <div className="text-xs text-slate-400 leading-relaxed">{phaseRec.reason}</div>
           <div className="flex gap-2">
-            <button
-              onClick={() => {
-                navigate("ai_trainer");
-              }}
-              className="flex-1 rounded-xl border border-indigo-700 bg-indigo-950/40 px-3 py-2.5 text-xs font-semibold text-indigo-300 hover:bg-indigo-900/40 active:scale-[0.98] transition-all"
-            >
-              Discuss with Coach
-            </button>
             <button
               onClick={() => setPhaseRec(null)}
               className="flex-1 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 active:scale-[0.98] transition-all"

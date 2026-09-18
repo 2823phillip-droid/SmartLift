@@ -42,7 +42,6 @@ export interface SortableExerciseCardProps {
   onEditSet: (log: SetLog, field: "actual_weight" | "actual_reps" | "effort" | "form_quality", value: number | string) => void;
   onDeleteSet: (log: SetLog) => void;
   suggestion?: Prescription;
-  isTrainer: boolean;
 }
 
 export function SortableExerciseCard({
@@ -80,7 +79,6 @@ export function SortableExerciseCard({
   onEditSet,
   onDeleteSet,
   suggestion,
-  isTrainer,
 }: SortableExerciseCardProps) {
   const [editingSetId, setEditingSetId] = useState<number | null>(null);
   const [editWeight, setEditWeight] = useState<string>("");
@@ -346,7 +344,7 @@ export function SortableExerciseCard({
                   </div>
                 )}
 
-                {isTrainer && suggestion && (
+                {suggestion && (
                   <div className={`rounded-xl border px-3 py-2 ${
                     suggestion.workload_status === "deload" ? "border-amber-800 bg-amber-950/30" :
                     suggestion.workload_status === "easy" ? "border-emerald-800 bg-emerald-950/30" :

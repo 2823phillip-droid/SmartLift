@@ -21,7 +21,6 @@ import ErrorBoundary from "./components/ErrorBoundary";
 import TabBar, { type Tab } from "./components/TabBar";
 import DebugLogScreen from "./pages/DebugLogScreen";
 import CustomWorkoutBuilderScreen from "./pages/CustomWorkoutBuilderScreen";
-import AiTrainerScreen from "./pages/AiTrainerScreen";
 import TimerScreen from "./pages/TimerScreen";
 import RemindersScreen from "./pages/RemindersScreen";
 
@@ -36,7 +35,6 @@ type View =
   | "history"
   | "settings"
   | "library"
-  | "ai_trainer"
   | "workouts"
   | "profile"
   | "login"
@@ -51,7 +49,6 @@ type View =
 const tabRootToView: Record<Tab, View> = {
   home: "home",
   workouts: "workouts",
-  ai: "ai_trainer",
   history: "history",
   settings: "settings",
 };
@@ -67,7 +64,6 @@ const viewToTab: Record<View, Tab | null> = {
   history: "history",
   settings: "settings",
   library: "workouts",
-  ai_trainer: "ai",
   workouts: "workouts",
   profile: null,
   login: null,
@@ -116,20 +112,9 @@ export default function App() {
     orderChanged: boolean;
   } | null>(null);
   const [customBuilderAnswers, setCustomBuilderAnswers] = useState<Record<string, any> | null>(null);
-  const WORKOUT_MODE_STORAGE_KEY = "askeo_workout_mode";
-  const [workoutMode, setWorkoutMode] = useState<"manual" | "ai_trainer">(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem(WORKOUT_MODE_STORAGE_KEY);
-      if (stored === "ai_trainer" || stored === "manual") return stored;
-    }
-    return "manual";
-  });
+
   const [user, setUser] = useState<{ id: number; email: string; role: string } | null>(null);
   const [checkingAuth, setCheckingAuth] = useState(true);
-
-  useEffect(() => {
-    localStorage.setItem(WORKOUT_MODE_STORAGE_KEY, workoutMode);
-  }, [workoutMode, WORKOUT_MODE_STORAGE_KEY]);
 
   useEffect(() => {
     const ACTIVE_SESSION_KEY = "askeo_active_session";
@@ -203,7 +188,6 @@ export default function App() {
     ]).catch(() => {
       if (!cancelled) {
         setCheckingAuth(false);
-        // Don't destroy the stored token on timeout — network may be temporarily unavailable.
         setView("login");
       }
     });
@@ -215,9 +199,6 @@ export default function App() {
     if (!user) return;
     withRetry(() => api.listSettings(), { retries: 2, baseDelayMs: 300 }).then((items) => {
       if (cancelled) return;
-      const mode = (items as any[])?.find((s) => s.key === "workout_mode")?.value;
-      console.debug("[App] startup listSettings workout_mode=", mode, "all=", (items as any[])?.map((s: any) => s.key + "=" + s.value));
-      if (mode === "ai_trainer" || mode === "manual") setWorkoutMode(mode);
       const units = (items as any[])?.find((s) => s.key === "units_preference")?.value;
       if (units === "imperial" || units === "metric") {
         setUnitsPreference(units);
@@ -228,11 +209,11 @@ export default function App() {
     return () => { cancelled = true; };
   }, [user]);
 
-  const handleLogin = async (userData?: { id: number; email: string; role: string; first_name?: string; last_name?: string }) => {
+  const handleLogin = async (_userData?: { id: number; email: string; role: string; first_name?: string; last_name?: string }) => {
     const token = getAuthToken();
     if (token && typeof window !== "undefined") localStorage.setItem("askeo_token", token);
     try {
-      const me = userData || (await api.me());
+      const me = await api.me();
       setUser(me as any);
       setView("home");
     } catch {
@@ -242,11 +223,11 @@ export default function App() {
     }
   };
 
-  const handleSignup = async (userData?: { id: number; email: string; role: string; first_name?: string; last_name?: string }) => {
+  const handleSignup = async (_userData?: { id: number; email: string; role: string; first_name?: string; last_name?: string }) => {
     const token = getAuthToken();
     if (token && typeof window !== "undefined") localStorage.setItem("askeo_token", token);
     try {
-      const me = userData || (await api.me());
+      const me = await api.me();
       setUser(me as any);
       setView("home");
     } catch {
@@ -304,7 +285,6 @@ export default function App() {
   const getBackTarget = (): View => {
     switch (view) {
       case "build_workout":
-      case "ai_trainer":
         return "workouts";
       case "templates":
       case "template_editor":
@@ -348,9 +328,9 @@ export default function App() {
           <div>
             <h1 className="text-base font-bold tracking-tight leading-tight">Askeo</h1>
             {user && (
-              <p className="text-[10px] text-slate-500 leading-tight -mt-0.5">
-                {workoutMode === "ai_trainer" ? "AI Trainer" : "Manual Mode"}
-              </p>
+              <span className="text-[10px] text-slate-500 leading-tight -mt-0.5">
+                Workout Logger
+              </span>
             )}
           </div>
         </div>
@@ -406,97 +386,95 @@ export default function App() {
         ) : (
           <div className="view-enter-active">
             <ErrorBoundary>
-              {view === "home" && <HomeScreen onNavigate={setView} />}
+              {view === "home" && <HomeScreen onNavigate={navigate} />}
               {view === "build_workout" && (
                 <BuildWorkoutScreen
-                onBack={goBack}
-                onStartWorkout={() => navigate("workouts")}
-                onCreateWorkout={(ctxId) => {
-                  setSelectedContextId(ctxId);
-                  setSelectedTemplateId(null);
-                  navigate("template_editor");
-                }}
-                onSelectPrebuilt={() => {
-                  navigate("library");
-                }}
-                onAskAi={(ctxId) => {
-                  alert(`AI Trainer helper for context ${ctxId} is coming next.`);
-                }}
-              />
-            )}
-            {view === "custom_builder" && (
-              <CustomWorkoutBuilderScreen
-                onBack={() => {
-                  setCustomBuilderAnswers(null);
-                  navigate("workouts");
-                }}
-                onSaved={() => {
-                  setCustomBuilderAnswers(null);
-                  navigate("workouts");
-                }}
-                initialAnswers={customBuilderAnswers || {}}
-              />
-            )}
-            {view === "templates" && selectedContextId !== null && (
-              <TemplateListScreen
-                contextId={selectedContextId}
-                onBack={() => navigate("build_workout")}
-                onSelectTemplate={(tplId) => {
-                  setSelectedTemplateId(tplId);
-                  navigate("pre_workout");
-                }}
-                onCreateNew={() => {
-                  setSelectedTemplateId(null);
-                  navigate("template_editor");
-                }}
-                onEditTemplate={(tplId) => {
-                  setSelectedTemplateId(tplId);
-                  navigate("template_editor");
-                }}
-                onDeleteTemplate={async (tplId) => {
-                  try {
-                    await api.deleteTemplate(tplId);
-                    const screen = document.querySelector('[data-testid="template-list"]');
-                    if (screen) screen.dispatchEvent(new Event('refresh-list'));
-                  } catch (err: any) {
-                    alert(err?.message || "Delete failed. See console for details.");
-                  }
-                }}
-              />
-            )}
-            {view === "template_editor" && selectedContextId !== null && (
-              <TemplateEditorScreen
-                contextId={selectedContextId}
-                templateId={selectedTemplateId ?? undefined}
-                onBack={() => navigate("workouts")}
-                onSaved={() => {
-                  setSelectedTemplateId(null);
-                  setSelectedContextId(null);
-                  navigate("workouts");
-                }}
-                onCancel={() => {
-                  setSelectedTemplateId(null);
-                  setSelectedContextId(null);
-                  navigate("workouts");
-                }}
-              />
-            )}
-            {view === "pre_workout" && selectedTemplateId !== null && (
-              <PreWorkoutScreen
-                templateId={selectedTemplateId}
-                onStart={(sid) => {
-                  setSessionId(sid);
-                  navigate("active_workout");
-                }}
-                onBack={() => navigate("workouts")}
-              />
-            )}
-            {(view === "active_workout" || sessionId !== null) && sessionId !== null && selectedTemplateId !== null && (
-              <div className={view === "active_workout" ? "" : "hidden"}>
+                  onBack={goBack}
+                  onStartWorkout={() => navigate("workouts")}
+                  onCreateWorkout={(ctxId) => {
+                    setSelectedContextId(ctxId);
+                    setSelectedTemplateId(null);
+                    navigate("template_editor");
+                  }}
+                  onSelectPrebuilt={() => {
+                    navigate("library");
+                  }}
+                  onAskAi={(_ctxId) => {
+                    alert("AI Trainer helper is not available.");
+                  }}
+                />
+              )}
+              {view === "custom_builder" && (
+                <CustomWorkoutBuilderScreen
+                  onBack={() => {
+                    setCustomBuilderAnswers(null);
+                    navigate("workouts");
+                  }}
+                  onSaved={() => {
+                    setCustomBuilderAnswers(null);
+                    navigate("workouts");
+                  }}
+                  initialAnswers={customBuilderAnswers || {}}
+                />
+              )}
+              {view === "templates" && selectedContextId !== null && (
+                <TemplateListScreen
+                  contextId={selectedContextId}
+                  onBack={() => navigate("build_workout")}
+                  onSelectTemplate={(tplId) => {
+                    setSelectedTemplateId(tplId);
+                    navigate("pre_workout");
+                  }}
+                  onCreateNew={() => {
+                    setSelectedTemplateId(null);
+                    navigate("template_editor");
+                  }}
+                  onEditTemplate={(tplId) => {
+                    setSelectedTemplateId(tplId);
+                    navigate("template_editor");
+                  }}
+                  onDeleteTemplate={async (tplId) => {
+                    try {
+                      await api.deleteTemplate(tplId);
+                      const screen = document.querySelector('[data-testid="template-list"]');
+                      if (screen) screen.dispatchEvent(new Event('refresh-list'));
+                    } catch (err: any) {
+                      alert(err?.message || "Delete failed. See console for details.");
+                    }
+                  }}
+                />
+              )}
+              {view === "template_editor" && selectedContextId !== null && (
+                <TemplateEditorScreen
+                  contextId={selectedContextId}
+                  templateId={selectedTemplateId ?? undefined}
+                  onBack={() => navigate("workouts")}
+                  onSaved={() => {
+                    setSelectedTemplateId(null);
+                    setSelectedContextId(null);
+                    navigate("workouts");
+                  }}
+                  onCancel={() => {
+                    setSelectedTemplateId(null);
+                    setSelectedContextId(null);
+                    navigate("workouts");
+                  }}
+                />
+              )}
+              {view === "pre_workout" && selectedTemplateId !== null && (
+                <PreWorkoutScreen
+                  templateId={selectedTemplateId}
+                  onStart={(sid) => {
+                    setSessionId(sid);
+                    navigate("active_workout");
+                  }}
+                  onBack={() => navigate("workouts")}
+                />
+              )}
+              {view === "active_workout" && sessionId !== null && selectedTemplateId !== null && (
                 <ActiveWorkoutScreen
                   sessionId={sessionId}
                   templateId={selectedTemplateId}
-                  workoutMode={workoutMode}
                   onEnd={(summary) => {
                     setWorkoutEndSummary(summary || null);
                     if (summary) {
@@ -509,112 +487,90 @@ export default function App() {
                     }
                   }}
                 />
-              </div>
-            )}
-            {view === "post_workout" && sessionId !== null && (
-              <PostWorkoutScreen
-                sessionId={sessionId}
-                templateId={selectedTemplateId}
-                workoutEndSummary={workoutEndSummary}
-                workoutMode={workoutMode}
-                onDone={() => {
-                  setSessionId(null);
-                  setSelectedTemplateId(null);
-                  setWorkoutEndSummary(null);
-                  navigate("home");
-                }}
-              />
-            )}
-            {view === "history" && (
-              <HistoryScreen onBack={goBack} />
-            )}
-            {view === "transition_history" && (
-              <TransitionHistoryScreen onBack={goBack} />
-            )}
-            {view === "settings" && (
-              <SettingsScreen
-                onBack={goBack}
-                onModeChange={setWorkoutMode}
-                initialWorkoutMode={workoutMode}
-                onOpenDebug={() => setView("debug_log")}
-              />
-            )}
-            {view === "debug_log" && (
-              <DebugLogScreen onBack={() => setView("settings")} />
-            )}
-            {view === "library" && (
-              <LibraryScreen onBack={goBack} onImported={() => {}} />
-            )}
-            {view === "ai_trainer" && (
-              <AiTrainerScreen onBack={goBack} />
-            )}
-            {view === "questionnaire" && (
-              <QuestionnaireScreen
-                onBack={() => {
-                  setView("home");
-                }}
-                onComplete={async (_draft, answers) => {
-                  const buildMode = (answers?.build_mode as string) || "template";
-
-                  // Custom mode: go straight to builder
-                  if (buildMode === "custom") {
-                    setCustomBuilderAnswers(answers);
-                    setView("custom_builder");
-                    return;
-                  }
-
-                  // Profile-only: mark questionnaire done and go to workouts
-                  try {
-                    if (typeof window !== "undefined") {
-                      localStorage.setItem("askeo_questionnaire_done", "1");
+              )}
+              {view === "post_workout" && sessionId !== null && (
+                <PostWorkoutScreen
+                  sessionId={sessionId}
+                  templateId={selectedTemplateId}
+                  workoutEndSummary={workoutEndSummary}
+                  onDone={() => {
+                    setSessionId(null);
+                    setSelectedTemplateId(null);
+                    setWorkoutEndSummary(null);
+                    navigate("home");
+                  }}
+                />
+              )}
+              {view === "history" && (
+                <HistoryScreen onBack={goBack} />
+              )}
+              {view === "transition_history" && (
+                <TransitionHistoryScreen onBack={goBack} />
+              )}
+              {view === "settings" && (
+                <SettingsScreen
+                  onBack={goBack}
+                  onOpenDebug={() => setView("debug_log")}
+                />
+              )}
+              {view === "debug_log" && (
+                <DebugLogScreen onBack={() => setView("settings")} />
+              )}
+              {view === "library" && (
+                <LibraryScreen onBack={goBack} onImported={() => {}} />
+              )}
+              {view === "questionnaire" && (
+                <QuestionnaireScreen
+                  onBack={() => {
+                    setView("home");
+                  }}
+                  onComplete={async (_draft: any, _answers: any) => {
+                    try {
+                      if (typeof window !== "undefined") {
+                        localStorage.setItem("askeo_questionnaire_done", "1");
+                      }
+                    } catch {
+                      // non-fatal
                     }
-                  } catch {
-                    // non-fatal
-                  }
-                  setView("workouts");
-                }}
-              />
-            )}
-            {view === "workouts" && (
-              <WorkoutsScreen
-                onStartWorkout={(tplId) => {
-                  setSelectedTemplateId(tplId);
-                  navigate("pre_workout");
-                }}
-                onBuildWorkout={() => navigate("build_workout")}
-                onSelectPrebuilt={() => navigate("library")}
-                onBack={goBack}
-                onEditTemplate={(tplId, ctxId) => {
-                  setSelectedContextId(ctxId);
-                  setSelectedTemplateId(tplId);
-                  navigate("template_editor");
-                }}
-                onOpenTransitionHistory={() => navigate("transition_history")}
-              />
-            )}
-            {view === "profile" && (
-              <ProfileScreen
-                onBack={goBack}
-                onOpenSettings={() => {
-                  setView("settings");
-                  setTab("settings");
-                }}
-                user={user}
-              />
-            )}
-            {view === "timer" && <TimerScreen onBack={goBack} />}
-            {view === "reminders" && <RemindersScreen onBack={goBack} />}
-          </ErrorBoundary>
-        </div>
-      )}
+                    setView("workouts");
+                  }}
+                />
+              )}
+              {view === "workouts" && (
+                <WorkoutsScreen
+                  onStartWorkout={(tplId) => {
+                    setSelectedTemplateId(tplId);
+                    navigate("pre_workout");
+                  }}
+                  onBuildWorkout={() => navigate("build_workout")}
+                  onSelectPrebuilt={() => navigate("library")}
+                  onBack={goBack}
+                  onEditTemplate={(tplId, ctxId) => {
+                    setSelectedContextId(ctxId);
+                    setSelectedTemplateId(tplId);
+                    navigate("template_editor");
+                  }}
+                  onOpenTransitionHistory={() => navigate("transition_history")}
+                />
+              )}
+              {view === "profile" && (
+                <ProfileScreen
+                  onBack={goBack}
+                  onOpenSettings={() => {
+                    setView("settings");
+                    setTab("settings");
+                  }}
+                  user={user}
+                />
+              )}
+              {view === "timer" && <TimerScreen onBack={goBack} />}
+              {view === "reminders" && <RemindersScreen onBack={goBack} />}
+            </ErrorBoundary>
+          </div>
+        )}
       </main>
 
       {user && <TabBar active={activeTab} onChange={switchTab} />}
     </div>
   );
 }
-
-
-// Admin login on first launch / reinstall:
-// email: phillip@askeo.fit
-// password: [REDACTED]// test marker Thu Sep  3 04:16:53 AM UTC 2026

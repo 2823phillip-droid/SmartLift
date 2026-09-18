@@ -1,11 +1,10 @@
-import { Home, Dumbbell, Bot, History, Settings } from "lucide-react";
+import { Home, Dumbbell, History, Settings } from "lucide-react";
 
-export type Tab = "home" | "workouts" | "ai" | "history" | "settings";
+export type Tab = "home" | "workouts" | "history" | "settings";
 
 const tabs: { id: Tab; label: string; Icon: React.FC<{ className?: string }> }[] = [
   { id: "home", label: "Home", Icon: Home },
   { id: "workouts", label: "Workouts", Icon: Dumbbell },
-  { id: "ai", label: "AI Trainer", Icon: Bot },
   { id: "history", label: "History", Icon: History },
   { id: "settings", label: "Settings", Icon: Settings },
 ];

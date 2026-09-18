@@ -7,7 +7,6 @@ export default function PostWorkoutScreen({
   sessionId,
   templateId,
   workoutEndSummary,
-  workoutMode,
   onDone,
 }: {
   sessionId: number;
@@ -20,7 +19,6 @@ export default function PostWorkoutScreen({
     repsChanges: Record<number, number>;
     orderChanged: boolean;
   } | null;
-  workoutMode?: "manual" | "ai_trainer";
   onDone: () => void;
 }) {
   const [session, setSession] = useState<WorkoutSession | null>(null);
@@ -31,7 +29,6 @@ export default function PostWorkoutScreen({
   const [saveTemplateMode, setSaveTemplateMode] = useState<"discard" | "values" | "valuesAndOrder" | null>(null);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [coachPhase, setCoachPhase] = useState<string | null>(null);
   const [finishing, setFinishing] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
@@ -70,16 +67,7 @@ export default function PostWorkoutScreen({
         setTemplate(exercises);
       });
     }
-    if (workoutMode === "ai_trainer") {
-      api.getCoachState().then((coachState) => {
-        if (coachState) {
-          if (coachState.coach_phase) setCoachPhase(coachState.coach_phase);
-        }
-      }).catch((err) => {
-        console.error("[PostWorkoutScreen] coach state load failed", err);
-      });
-    }
-  }, [sessionId, templateId, workoutMode]);
+  }, [sessionId, templateId]);
 
   const sendToCoach = async () => {
     if (!feedback.trim()) return;
@@ -96,12 +84,10 @@ export default function PostWorkoutScreen({
     setCoachSent(true);
   };
 
-  const isManual = workoutMode !== "ai_trainer";
-
   const adjustmentsSavedRef = useRef(false);
 
-  const buildAITrainerPayload = () => {
-    if (!workoutEndSummary || !template.length || isManual || !session || !logs.length) return null;
+  const buildPayload = () => {
+    if (!workoutEndSummary || !template.length || !session || !logs.length) return null;
     const effortAvg = Number((logs.reduce((a, b) => a + (b.effort || 0), 0) / logs.length).toFixed(1));
     const totalVolume = logs.reduce((a, b) => a + (b.actual_weight || 0) * (b.actual_reps || 0), 0);
     const totalSets = logs.length;
@@ -130,26 +116,26 @@ export default function PostWorkoutScreen({
 
   useEffect(() => {
     if (adjustmentsSavedRef.current) return;
-    if (!isManual && workoutEndSummary && session) {
+    if (workoutEndSummary && session) {
       adjustmentsSavedRef.current = true;
-      const payload = buildAITrainerPayload();
+      const payload = buildPayload();
       if (payload) {
         api.saveAITrainerAdjustments(payload).catch(() => {
           adjustmentsSavedRef.current = false;
         });
       }
     }
-  }, [isManual, workoutEndSummary, session]);
+  }, [workoutEndSummary, session]);
 
   const hasTemplateChanges = useMemo(() => {
-    if (!workoutEndSummary || !template.length || !isManual) return false;
+    if (!workoutEndSummary || !template.length) return false;
     if (workoutEndSummary.orderChanged) return true;
     if (Object.keys(workoutEndSummary.setsTargetChanges).length > 0) return true;
     if (Object.keys(workoutEndSummary.restOverrides).length > 0) return true;
     if (Object.keys(workoutEndSummary.weightChanges).length > 0) return true;
     if (Object.keys(workoutEndSummary.repsChanges).length > 0) return true;
     return false;
-  }, [workoutEndSummary, template, isManual]);
+  }, [workoutEndSummary, template]);
 
   const saveTemplate = async (mode: "values" | "valuesAndOrder") => {
     if (!templateId || !workoutEndSummary) return;
@@ -253,7 +239,9 @@ export default function PostWorkoutScreen({
     );
   }
 
-  if (saveTemplateMode === null && workoutEndSummary && hasTemplateChanges) {
+  const isSavePromptVisible = workoutEndSummary && hasTemplateChanges;
+
+  if (saveTemplateMode === null && isSavePromptVisible) {
     const highlights = [
       workoutEndSummary.orderChanged ? "Exercise order" : null,
       Object.keys(workoutEndSummary.setsTargetChanges).length > 0 ? "Sets target" : null,
@@ -316,23 +304,6 @@ export default function PostWorkoutScreen({
 
   return (
     <div className="space-y-5">
-      {!isManual && workoutEndSummary && (
-        <div className="rounded-2xl border border-emerald-800 bg-emerald-950/30 p-4 space-y-1">
-          <div className="text-sm font-semibold text-emerald-300">AI Trainer Adjustments</div>
-          <p className="text-xs text-slate-400">
-            Your next routine will be updated based on this session’s weights, reps, effort, and progression.
-          </p>
-        </div>
-      )}
-
-      {workoutMode === "ai_trainer" && coachPhase && (
-        <div className={`rounded-2xl border p-4 space-y-1 ${coachPhase === "deload" ? "border-amber-800 bg-amber-950/30" : "border-indigo-800 bg-indigo-950/30"}`}>
-          <div className={`text-[10px] font-semibold uppercase tracking-wider ${coachPhase === "deload" ? "text-amber-400" : "text-indigo-400"}`}>Coach Summary</div>
-          <div className="text-sm font-semibold text-slate-200">Phase: {coachPhase}</div>
-          <p className="text-xs text-slate-400">This session will continue from this phase unless you override it.</p>
-        </div>
-      )}
-
       <div className="text-center">
         <div className="w-14 h-14 rounded-full bg-emerald-950/50 border border-emerald-800 flex items-center justify-center mx-auto mb-3">
           <svg className="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
