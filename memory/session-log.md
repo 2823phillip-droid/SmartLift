@@ -1,6 +1,6 @@
 # Session Log — Askeo / Workout-Logger
 
-last_updated: 2026-09-18
+last_updated: 2026-09-18 (updated at end of each session)
 purpose: chronological record of Hermes sessions that changed project state. Read this to catch up on recent work before starting a new session.
 
 This file is the curated index. Full session transcripts are in the Hermes session DB and can be searched via `session_search(query="...")`. Individual session notes for debugging sessions are in `../.hermes/skills/software-development/smartlift-deploy-debug/references/` (97 session reference files as of 2026-09-18).
@@ -53,7 +53,23 @@ Each entry: DATE — goal (one line) → outcome, HEAD at end of session, key fi
 
 ---
 
-## Session log conventions
+## 2026-09-18 — Documentation reorganization: session log in repo, MEMORY.md trimmed to pointer (HEAD: 1ec2e16)
+
+**Goal:** Move session history out of ~/.hermes/memories/MEMORY.md (which fills up fast) into a versioned repo file that MEMORY.md points to. Future sessions read MEMORY.md → get pointed to session-log.md → read recent entries to catch up.
+
+**Outcome:** Done. Both machines at 1ec2e16, clean working trees.
+
+**What happened:**
+- Created `memory/session-log.md` in repo — chronological record of sessions that changed project state, versioned alongside the code
+- Created `memory/session-lifecycle.md` in repo — copies the Session Lifecycle process from .hermes/skills/ into the repo where it's versioned and referenced by MEMORY-INDEX.md
+- Trimmed ~/.hermes/memories/MEMORY.md from 5715 bytes to 4247 bytes — removed the inline "Recent sessions" section, now it's a pure pointer to `memory/session-log.md`
+- Added `.hermes/` to `.gitignore` — Hermes local config stays out of the repo cleanly
+- Updated session-lifecycle.md to point to repo copy of session-log.md
+- Both machines verified clean at HEAD 1ec2e16
+
+**Known issues left:** Backend deployed at 60019a7 (behind frontend HEAD 1ec2e16). POST /api/rules/next-prescription returns 500 — app falls back to local rules. This is the progression bug we were investigating before cleanup.
+
+**Files touched:** memory/session-log.md, memory/session-lifecycle.md, .gitignore, MEMORY-INDEX.md, ~/.hermes/memories/MEMORY.md
 
 - One entry per session that changed project state meaningfully (code, config, process, docs)
 - Investigation-only sessions ("look at logs", "read the code") get a brief entry if they surfaced something important
