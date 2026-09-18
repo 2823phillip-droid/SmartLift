@@ -197,7 +197,7 @@ app.add_middleware(
 )
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
+async def global_exception_handler(request: Request, exc: Exception):
     logger.error(json.dumps({
         "type": "unhandled_exception",
         "method": request.method,
@@ -205,10 +205,15 @@ async def global_exception_handler(request, exc):
         "error": str(exc),
         "traceback": traceback.format_exc(),
     }))
-    return JSONResponse(status_code=500, content={"detail": "internal_server_error"})
+    origin = request.headers.get("Origin", "")
+    response = JSONResponse(status_code=500, content={"detail": "internal_server_error"})
+    if origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
 
 @app.middleware("http")
-async def timeout_middleware(request, call_next):
+async def timeout_middleware(request: Request, call_next):
     try:
         return await asyncio.wait_for(call_next(request), timeout=20)
     except asyncio.TimeoutError:
@@ -217,7 +222,12 @@ async def timeout_middleware(request, call_next):
             "method": request.method,
             "path": str(request.url.path),
         }))
-        return JSONResponse(status_code=504, content={"detail": "gateway_timeout"})
+        origin = request.headers.get("Origin", "")
+        response = JSONResponse(status_code=504, content={"detail": "gateway_timeout"})
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+        return response
 
 
 @app.get("/")
@@ -385,14 +395,6 @@ def _run_migrations():
                 conn.commit()
             if "form_quality" not in scolumns:
                 conn.execute(_text("ALTER TABLE set_logs ADD COLUMN form_quality INTEGER"))
-                conn.commit()
-
-            wcols = cols("workout_sessions")
-            if "pre_workout_notes" not in wcols:
-                conn.execute(_text("ALTER TABLE workout_sessions ADD COLUMN pre_workout_notes TEXT"))
-                conn.commit()
-            if "post_workout_notes" not in wcols:
-                conn.execute(_text("ALTER TABLE workout_sessions ADD COLUMN post_workout_notes TEXT"))
                 conn.commit()
 
             if "coach_usage_logs" not in cols("coach_usage_logs"):
@@ -2129,8 +2131,6 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         ai_preferred_rir=payload.ai_preferred_rir,
         ai_stress_fatigue_adjustment=payload.ai_stress_fatigue_adjustment,
         ai_calibrated_1rm=payload.ai_calibrated_1rm,
-        exercise_name=payload.exercise_name,
-        is_compound=is_compound,
     )
     # Read previous phase before computing new state so we can reset load on deload exit
     prev_phase_setting = (
