@@ -6,17 +6,26 @@ Format: DATE | FILE | TYPE | SUMMARY
 
 ---
 
+## 2026-09-18
+
+||| File | Type | Summary |
+|||---|---|---|
+||| 2026-09-18 || `MEMORY-INDEX.md` | rewritten | Complete rewrite: added current state section (HEAD both machines c338626, backend deployed 60019a7, frontend .env, sync definition, sync workflow, audit trail table, known stale artifacts cleaned up from prior session), expanded pre-build check with verification commands, added ownership flow. |
+||| 2026-09-18 || `memory/` (Hermes) | updated | Updated `~/.hermes/memories/MEMORY.md` with full project pointer including current state, backend URL alias fact (askeo.fit = smartlift-api.fly.dev same Fly app), sync process definition, exercise classification duplication flag (backend progression.py + frontend rules.ts), and audit trail of 5 uncommitted files resolution (2 committed, 3 reverted). |
+
+---
+
 ## 2026-09-10
-|| File | Type | Summary |
-||---|---|---|
-|| 2026-09-10 || `backend/main.py` | updated | Added `/todo` route serving TODO.md as plain text/markdown (same pattern as `/roadmap`); `/roadmap` route preserved ||
-|| 2026-09-10 || `CONTEXT.md` | rewritten | Replaced stale Phase 4 custom builder entry with current inline set editor + history effort fix + backend parity deploy ||
-|| 2026-09-10 || `TODO.md` | restructured | Added "Current — what's happening now" section at top with shipped bug fixes + current bugs to fix; marked error-surface-in-UI as done; moved kg/lbs bugs to current bugs section; trimmed Phase 2 wishlist ||
-|| 2026-09-10 || `Askeo.md` | updated | Fixed stale machine ID (80e9614f60d108 → 2862102a31e718); added `/todo` endpoint to Key Endpoints; reordered endpoint list ||
-|| 2026-09-10 || `PROJECT.md` | updated | Added `/todo` URL to Domain & DNS section; Deploy section already updated by sibling subagent ||
-|| 2026-09-10 || `memory/deploy.md` | updated | Rewrote Step 4 with SSH-to-MacBook deploy as primary command; corrected health URL; added IPv6 dedicated-IP note; updated frontmatter date ||
-|| 2026-09-10 || `backend/roadmap.html` | updated | Updated "Last updated" from 2026-08-02 to 2026-09-10 ||
-|| 2026-09-10 || `MEMORY-INDEX.md` | updated | Rewrote bootstrap order (CONTEXT → PROJECT → TODO → memory file; PERSONA/Askeo/changelog moved to reference); added "Current state" section; removed broken `sync-check.sh` reference and replaced with manual pre-build check; updated usage rules; updated frontmatter date ||
+||| File | Type | Summary |
+|||---|---|---|
+||| 2026-09-10 || `backend/main.py` | updated | Added `/todo` route serving TODO.md as plain text/markdown (same pattern as `/roadmap`); `/roadmap` route preserved ||
+||| 2026-09-10 || `CONTEXT.md` | rewritten | Replaced stale Phase 4 custom builder entry with current inline set editor + history effort fix + backend parity deploy ||
+||| 2026-09-10 || `TODO.md` | restructured | Added "Current — what's happening now" section at top with shipped bug fixes + current bugs to fix; marked error-surface-in-UI as done; moved kg/lbs bugs to current bugs section; trimmed Phase 2 wishlist ||
+||| 2026-09-10 || `Askeo.md` | updated | Fixed stale machine ID (80e9614f60d108 → 2862102a31e718); added `/todo` endpoint to Key Endpoints; reordered endpoint list ||
+||| 2026-09-10 || `PROJECT.md` | updated | Added `/todo` URL to Domain & DNS section; Deploy section already updated by sibling subagent ||
+||| 2026-09-10 || `memory/deploy.md` | updated | Rewrote Step 4 with SSH-to-MacBook deploy as primary command; corrected health URL; added IPv6 dedicated-IP note; updated frontmatter date ||
+||| 2026-09-10 || `backend/roadmap.html` | updated | Updated "Last updated" from 2026-08-02 to 2026-09-10 ||
+||| 2026-09-10 || `MEMORY-INDEX.md` | updated | Rewrote bootstrap order (CONTEXT → PROJECT → TODO → memory file; PERSONA/Askeo/changelog moved to reference); added "Current state" section; removed broken `sync-check.sh` reference and replaced with manual pre-build check; updated usage rules; updated frontmatter date ||
 
 ---
 
