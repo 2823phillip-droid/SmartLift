@@ -168,6 +168,7 @@ The `related` field should list only files directly relevant. Prefer 1-3 links. 
 - Any agent session may add lessons to `memory/` and update `decisions.md`
 - Domain-specific additions go to the matching file (or a new `memory/<topic>.md`)
 - Structural changes (new file format, registry schema, merging files) also update `MEMORY-INDEX.md` and `changelog.md`
+- **The session lifecycle process in this file is owned by Memory — it is already being followed.** Every session starts with sync audit, resolves uncommitted changes immediately, cleans stale files before ending, and updates documentation in-session. This is not optional.
 
 ## Pre-Build Check
 Before building from Xcode or testing, verify:
@@ -176,6 +177,8 @@ Before building from Xcode or testing, verify:
 3. **Backend health:** `curl -s https://askeo.fit/healthz` returns `{"status":"ok"}`
 4. **No stale files:** no unexpected `.tsx`/`.py` files at repo root on Mac
 5. **Frontend dist current:** `frontend/ios/App/App/public/assets/index-*.js` on Mac exists and matches `frontend/dist/`
+
+Do not use `scripts/sync-check.sh` — it is not maintained for this environment.
 
 ---
 
