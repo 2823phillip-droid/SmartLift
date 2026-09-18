@@ -1943,6 +1943,7 @@ def list_coach_messages(session_id: int, db: Session = Depends(get_db), current_
 class RuleRequestSetIn(BaseModel):
     actual_weight: float
     actual_reps: int
+    set_index: int
     effort: Optional[int] = None
     rpe: Optional[float] = None
     rir: Optional[int] = None
@@ -2106,6 +2107,12 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
                 is_compound = lib.is_compound
 
     history = [SetRecord(**s.model_dump()) for s in payload.history]
+    # Normalize completed_at to UTC timezone-aware datetimes so the rules
+    # engine never compares naive vs aware datetimes (faf5b37 switched all
+    # internal datetimes to timezone-aware; frontend may send naive ISO strings).
+    for rec in history:
+        if rec.completed_at is not None and rec.completed_at.tzinfo is None:
+            rec.completed_at = rec.completed_at.replace(tzinfo=timezone.utc)
     rule = RuleInput(
         start_weight=payload.start_weight,
         reps_target=payload.reps_target,
@@ -2346,6 +2353,9 @@ def get_coach_state(db: Session = Depends(get_db), current_user: User = Depends(
             )
             for s in raw_sets
         ]
+        for rec in history:
+            if rec.completed_at is not None and rec.completed_at.tzinfo is None:
+                rec.completed_at = rec.completed_at.replace(tzinfo=timezone.utc)
         load_pct = compute_load(history)
     except Exception:
         pass
@@ -2390,6 +2400,9 @@ def get_phase_recommendation(db: Session = Depends(get_db), current_user: User =
         )
         for s in raw_sets
     ]
+    for rec in history:
+        if rec.completed_at is not None and rec.completed_at.tzinfo is None:
+            rec.completed_at = rec.completed_at.replace(tzinfo=timezone.utc)
 
     rec = evaluate_phase_effectiveness(history, current_phase)
     return PhaseRecommendationOut(
@@ -2816,6 +2829,9 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
             )
             for s in raw_sets
         ]
+        for rec in history:
+            if rec.completed_at is not None and rec.completed_at.tzinfo is None:
+                rec.completed_at = rec.completed_at.replace(tzinfo=timezone.utc)
         load_pct = compute_load(history)
 
         coach_state_data = {
@@ -2866,6 +2882,9 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
                     )
                     for l in raw_sets
                 ]
+                for rec in history:
+                    if rec.completed_at is not None and rec.completed_at.tzinfo is None:
+                        rec.completed_at = rec.completed_at.replace(tzinfo=timezone.utc)
                 coach_state = compute_coach_state(history)
                 ex_history = {eid: [r for r in history] for eid in [e.id for e in exercises]}
                 prescriptions = []
