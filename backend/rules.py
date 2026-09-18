@@ -41,6 +41,10 @@ def compute_load(history: List[SetRecord], window_days: int = 21) -> int:
     """Return 0-100 accumulated training load from recent history."""
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=window_days)
+    # Normalize any naive datetimes that slipped through the ingress points
+    for s in history:
+        if s.completed_at is not None and s.completed_at.tzinfo is None:
+            s.completed_at = s.completed_at.replace(tzinfo=timezone.utc)
     recent = [
         s for s in history
         if s.completed_at is not None
@@ -176,6 +180,11 @@ def _last_session_top_set(history: List[SetRecord]):
     real = _recent_real_sets(history, limit=20)
     if not real:
         return None
+    # Normalize any naive datetimes that slipped through (defensive — all
+    # ingress points should already normalize, but belt-and-suspenders).
+    for s in real:
+        if s.completed_at is not None and s.completed_at.tzinfo is None:
+            s.completed_at = s.completed_at.replace(tzinfo=timezone.utc)
     # crude session grouping by date; newest date wins
     latest_date = max((s.completed_at.date() for s in real if s.completed_at), default=None)
     if latest_date is None:

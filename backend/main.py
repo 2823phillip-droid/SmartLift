@@ -197,7 +197,7 @@ app.add_middleware(
 )
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
+async def global_exception_handler(request: Request, exc: Exception):
     logger.error(json.dumps({
         "type": "unhandled_exception",
         "method": request.method,
@@ -205,10 +205,15 @@ async def global_exception_handler(request, exc):
         "error": str(exc),
         "traceback": traceback.format_exc(),
     }))
-    return JSONResponse(status_code=500, content={"detail": "internal_server_error"})
+    origin = request.headers.get("Origin", "")
+    response = JSONResponse(status_code=500, content={"detail": "internal_server_error"})
+    if origin:
+        response.headers["Access-Control-Allow-Origin"] = origin
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+    return response
 
 @app.middleware("http")
-async def timeout_middleware(request, call_next):
+async def timeout_middleware(request: Request, call_next):
     try:
         return await asyncio.wait_for(call_next(request), timeout=20)
     except asyncio.TimeoutError:
@@ -217,7 +222,12 @@ async def timeout_middleware(request, call_next):
             "method": request.method,
             "path": str(request.url.path),
         }))
-        return JSONResponse(status_code=504, content={"detail": "gateway_timeout"})
+        origin = request.headers.get("Origin", "")
+        response = JSONResponse(status_code=504, content={"detail": "gateway_timeout"})
+        if origin:
+            response.headers["Access-Control-Allow-Origin"] = origin
+            response.headers["Access-Control-Allow-Credentials"] = "true"
+        return response
 
 
 @app.get("/")
@@ -1933,6 +1943,7 @@ def list_coach_messages(session_id: int, db: Session = Depends(get_db), current_
 class RuleRequestSetIn(BaseModel):
     actual_weight: float
     actual_reps: int
+    set_index: int
     effort: Optional[int] = None
     rpe: Optional[float] = None
     rir: Optional[int] = None
@@ -2096,6 +2107,12 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
                 is_compound = lib.is_compound
 
     history = [SetRecord(**s.model_dump()) for s in payload.history]
+    # Normalize completed_at to UTC timezone-aware datetimes so the rules
+    # engine never compares naive vs aware datetimes (faf5b37 switched all
+    # internal datetimes to timezone-aware; frontend may send naive ISO strings).
+    for rec in history:
+        if rec.completed_at is not None and rec.completed_at.tzinfo is None:
+            rec.completed_at = rec.completed_at.replace(tzinfo=timezone.utc)
     rule = RuleInput(
         start_weight=payload.start_weight,
         reps_target=payload.reps_target,
@@ -2121,8 +2138,6 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         ai_preferred_rir=payload.ai_preferred_rir,
         ai_stress_fatigue_adjustment=payload.ai_stress_fatigue_adjustment,
         ai_calibrated_1rm=payload.ai_calibrated_1rm,
-        exercise_name=payload.exercise_name,
-        is_compound=is_compound,
     )
     # Read previous phase before computing new state so we can reset load on deload exit
     prev_phase_setting = (
@@ -2338,6 +2353,9 @@ def get_coach_state(db: Session = Depends(get_db), current_user: User = Depends(
             )
             for s in raw_sets
         ]
+        for rec in history:
+            if rec.completed_at is not None and rec.completed_at.tzinfo is None:
+                rec.completed_at = rec.completed_at.replace(tzinfo=timezone.utc)
         load_pct = compute_load(history)
     except Exception:
         pass
@@ -2382,6 +2400,9 @@ def get_phase_recommendation(db: Session = Depends(get_db), current_user: User =
         )
         for s in raw_sets
     ]
+    for rec in history:
+        if rec.completed_at is not None and rec.completed_at.tzinfo is None:
+            rec.completed_at = rec.completed_at.replace(tzinfo=timezone.utc)
 
     rec = evaluate_phase_effectiveness(history, current_phase)
     return PhaseRecommendationOut(
@@ -2808,6 +2829,9 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
             )
             for s in raw_sets
         ]
+        for rec in history:
+            if rec.completed_at is not None and rec.completed_at.tzinfo is None:
+                rec.completed_at = rec.completed_at.replace(tzinfo=timezone.utc)
         load_pct = compute_load(history)
 
         coach_state_data = {
@@ -2858,6 +2882,9 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
                     )
                     for l in raw_sets
                 ]
+                for rec in history:
+                    if rec.completed_at is not None and rec.completed_at.tzinfo is None:
+                        rec.completed_at = rec.completed_at.replace(tzinfo=timezone.utc)
                 coach_state = compute_coach_state(history)
                 ex_history = {eid: [r for r in history] for eid in [e.id for e in exercises]}
                 prescriptions = []
