@@ -1943,7 +1943,7 @@ def list_coach_messages(session_id: int, db: Session = Depends(get_db), current_
 class RuleRequestSetIn(BaseModel):
     actual_weight: float
     actual_reps: int
-    set_index: int
+    set_index: Optional[int] = None
     effort: Optional[int] = None
     rpe: Optional[float] = None
     rir: Optional[int] = None
@@ -2225,7 +2225,7 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         is_deload=result.is_deload,
         linear_increment=rule.linear_increment,
         coach=CoachStateResponse(**dataclasses.asdict(coach_state)),
-        is_compound=rule.is_compound,
+        is_compound=is_compound,
     )
 
 
