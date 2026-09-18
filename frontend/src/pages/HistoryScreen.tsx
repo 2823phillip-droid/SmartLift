@@ -49,6 +49,20 @@ function formatDateOnly(iso?: string) {
   });
 }
 
+function groupLogsByExercise(logs: SetLog[], exerciseMap: Record<number, string>) {
+  const map = new Map<number, SetLog[]>();
+  for (const log of logs) {
+    const id = log.exercise_entry_id;
+    if (!map.has(id)) map.set(id, []);
+    map.get(id)!.push(log);
+  }
+  return [...map.entries()].sort((a, b) => {
+    const nA = exerciseMap[a[0]!] || `Exercise ${a[0]!}`;
+    const nB = exerciseMap[b[0]!] || `Exercise ${b[0]!}`;
+    return nA.localeCompare(nB);
+  });
+}
+
 export default function HistoryScreen({
   onBack,
   viewMode: initialViewMode = "by_workout",
@@ -58,8 +72,6 @@ export default function HistoryScreen({
 }) {
   const [viewMode, setViewMode] = useState(initialViewMode);
   const [sessions, setSessions] = useState<SessionHistory[]>([]);
-  const [hasMore, setHasMore] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [details, setDetails] = useState<Record<number, SessionDetail>>({});
   const [loadingDetails, setLoadingDetails] = useState(false);
@@ -380,15 +392,14 @@ export default function HistoryScreen({
             <div className="flex items-center gap-2">
               <span className="font-semibold text-sm truncate">{title}</span>
               <span
-                className={`text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wide shrink-0 ${\
-                  s.status === "cancelled"\
-                    ? "text-red-400 bg-red-950/40"\
-                    : s.ended_at\
-                      ? "text-emerald-400 bg-emerald-950/40"\
-                      : "text-amber-400 bg-amber-950/40"\
-                }`}\
-              >\
-                {s.status === "cancelled" ? "Cancelled" : s.ended_at ? "Done" : "Active"}\
+                className={`text-[10px] font-semibold px-2 py-0.5 rounded-md uppercase tracking-wide shrink-0 ${s.status === "cancelled"
+                    ? "text-red-400 bg-red-950/40"
+                    : s.ended_at
+                      ? "text-emerald-400 bg-emerald-950/40"
+                      : "text-amber-400 bg-amber-950/40"
+                  }`}
+              >
+                {s.status === "cancelled" ? "Cancelled" : s.ended_at ? "Done" : "Active"}
               </span>
             </div>
             <div className="text-xs text-slate-500 mt-1 truncate">
@@ -433,70 +444,12 @@ export default function HistoryScreen({
           </div>
         </button>
 
-{isExpanded && (
+        {isExpanded && (
           <div className="border-t border-slate-800/80 px-4 py-4 space-y-4">
             {loadingDetails ? (
               <div className="text-sm text-slate-500 text-center py-4">Loading...</div>
             ) : (
               <>
-                {s.pre_workout_notes && (
-                  <div className="rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2.5">
-                    <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-1">Pre-Workout Notes</div>
-                    <p className="text-sm text-slate-300 leading-relaxed">{s.pre_workout_notes}</p>
-                  </div>
-                )}
-
-                {detail?.logs && detail.logs.length > 0 && (
-                  <div className="space-y-3">
-                    <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Exercises</div>
-                    {(() => {
-                      const grouped: Record<number, typeof detail.logs> = {};
-                      detail.logs.forEach((log) => {
-                        (grouped[log.exercise_entry_id] ??= []).push(log);
-                      });
-                      const exerciseIds = Object.keys(grouped).map(Number).sort((a, b) => a - b);
-                      return exerciseIds.map((exId) => {
-                        const logs = grouped[exId];
-                        const exerciseName = exerciseMap[exId] || `Exercise ${exId}`;
-                        return (
-                          <div key={exId} className="space-y-1.5">
-                            <div className="flex items-center justify-between">
-                              <div className="text-xs font-semibold text-slate-300">{exerciseName}</div>
-                              <div className="text-[10px] text-slate-500">{logs.length} set{logs.length !== 1 ? "s" : ""}</div>
-                            </div>
-                            <div className="space-y-1">
-                              {logs.map((log) => (
-                                <div
-                                  key={log.id}
-                                  className="rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2 flex items-center justify-between"
-                                >
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-xs text-slate-400">
-                                      Set {log.set_index + 1} · {formatWeight(log.actual_weight ?? 0, getUnitsPreference())} × {log.actual_reps ?? "—"}
-                                    </div>
-                                    {log.effort != null && (
-                                      <div className="text-[10px] text-slate-500">E{log.effort}/10</div>
-                                    )}
-                                    {log.notes && (
-                                      <div className="text-[10px] text-slate-600 italic truncate max-w-[200px]">"{log.notes}"</div>
-                                    )}
-                                  </div>
-                                  <button
-                                    onClick={() => setEditingLog({ sessionId: s.id, log })}
-                                    className="text-[10px] text-indigo-300 hover:text-indigo-200 shrink-0 ml-2"
-                                  >
-                                    Edit
-                                  </button>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        );
-                      });
-                    })()}
-                  </div>
-                )}
-
                 {detail?.logs && detail.logs.length > 0 && (
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
@@ -516,142 +469,105 @@ export default function HistoryScreen({
                         </button>
                       </div>
                     </div>
-                    <div className="space-y-1.5">
-                      {detail.logs.map((log) => {
-                        const exerciseName = exerciseMap[log.exercise_entry_id] || `Exercise ${log.exercise_entry_id}`;
-                        if (editingLog && editingLog.log.id === log.id) {
-                          return (
-                            <div key={log.id} className="rounded-xl border border-indigo-800/60 bg-indigo-950/20 p-3 space-y-2">
-                              <div className="text-xs font-semibold text-indigo-200">{exerciseName} · Edit set</div>
-                              <div className="grid grid-cols-2 gap-2">
-                                <div>
-                                  <div className="text-[10px] text-slate-500">Weight</div>
-                                  <input
-                                    type="number"
-                                    defaultValue={
-                                      getUnitsPreference() === "imperial"
-                                        ? Math.round(log.actual_weight ?? 0)
-                                        : Math.round(lbsToKg(log.actual_weight ?? 0))
-                                    }
-                                    onChange={(e) =>
-                                      ((editingLog as any).log = {
-                                        ...editingLog.log,
-                                        actual_weight: e.target.value === "" ? null : Number(e.target.value),
-                                      })
-                                    }
-                                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-sm text-slate-200"
-                                  />
-                                </div>
-                                <div>
-                                  <div className="text-[10px] text-slate-500">Reps</div>
-                                  <input
-                                    type="number"
-                                    defaultValue={log.actual_reps ?? ""}
-                                    onChange={(e) =>
-                                      ((editingLog as any).log = {
-                                        ...editingLog.log,
-                                        actual_reps: e.target.value === "" ? null : Number(e.target.value),
-                                      })
-                                    }
-                                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-sm text-slate-200"
-                                  />
-                                </div>
-                                <div>
-                                  <div className="text-[10px] text-slate-500">Effort /10</div>
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    max={10}
-                                    defaultValue={log.effort ?? ""}
-                                    onChange={(e) =>
-                                      ((editingLog as any).log = {
-                                        ...editingLog.log,
-                                        effort: e.target.value === "" ? null : Number(e.target.value),
-                                      })
-                                    }
-                                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-sm text-slate-200"
-                                  />
-                                </div>
-                                <div>
-                                  <div className="text-[10px] text-slate-500">Notes</div>
-                                  <input
-                                    type="text"
-                                    defaultValue={log.notes ?? ""}
-                                    onChange={(e) =>
-                                      ((editingLog as any).log = {
-                                        ...editingLog.log,
-                                        notes: e.target.value || null,
-                                      })
-                                    }
-                                    className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-sm text-slate-200"
-                                  />
-                                </div>
-                              </div>
-                              <div className="flex gap-2 pt-1">
-                                <button
-                                  onClick={() =>
-                                    handleSaveSetLog(
-                                      editingLog.sessionId,
-                                      editingLog.log,
-                                      {
-                                        actual_weight: (editingLog.log as any).actual_weight,
-                                        actual_reps: (editingLog.log as any).actual_reps,
-                                        effort: (editingLog.log as any).effort,
-                                        notes: (editingLog.log as any).notes,
-                                      } as SetLogUpdate
-                                    )
-                                  }
-                                  className="px-3 py-1.5 rounded-lg text-[11px] bg-indigo-600 text-white hover:bg-indigo-500"
-                                >
-                                  Save
-                                </button>
-                                <button
-                                  onClick={() => setEditingLog(null)}
-                                  className="px-3 py-1.5 rounded-lg text-[11px] bg-slate-900 border border-slate-800 text-slate-300"
-                                >
-                                  Cancel
-                                </button>
-                                <button
-                                  onClick={() => handleDeleteSetLog(editingLog.sessionId, log.id)}
-                                  className="px-3 py-1.5 rounded-lg text-[11px] bg-red-900/40 border border-red-900 text-red-200 hover:bg-red-800/40"
-                                >
-                                  Delete set
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        }
-                        return (
-                          <div
-                            key={log.id}
-                            className="rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2.5 flex items-center justify-between"
-                          >
-                            <div className="flex-1 min-w-0">
-                              <div className="text-xs text-slate-500 font-semibold">{exerciseName}</div>
-                              <div className="text-xs text-slate-400">
-                                Set {log.set_index} · {formatWeight(log.actual_weight ?? 0, getUnitsPreference())} × {log.actual_reps ?? "—"} · {log.effort != null ? `E${log.effort}/10` : "effort not logged"}
-                              </div>
-                            </div>
-                            <button
-                              onClick={() => setEditingLog({ sessionId: s.id, log })}
-                              className="text-[10px] text-indigo-300 hover:text-indigo-200 shrink-0 ml-2"
-                            >
-                              Edit
-                            </button>
+                    {groupLogsByExercise(detail.logs, exerciseMap).map(([exerciseId, logs]) => {
+                      const exerciseName = exerciseMap[exerciseId] || `Exercise ${exerciseId}`;
+                      return (
+                        <div key={exerciseId} className="space-y-1">
+                          <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider px-1 pt-1 pb-0.5">
+                            {exerciseName}
                           </div>
-                        );
-                      })}
-                    </div>
+                          {logs.map((log) => {
+                            if (editingLog && editingLog.log.id === log.id) {
+                              return (
+                                <div key={log.id} className="rounded-xl border border-indigo-800/60 bg-indigo-950/20 p-3 space-y-2">
+                                  <div className="text-xs font-semibold text-indigo-200">{exerciseName} · Edit set</div>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    <div>
+                                      <div className="text-[10px] text-slate-500">Weight</div>
+                                      <input
+                                        type="number"
+                                        defaultValue={getUnitsPreference() === "imperial" ? Math.round(log.actual_weight ?? 0) : Math.round(lbsToKg(log.actual_weight ?? 0))}
+                                        onChange={(e) => ((editingLog as any).log = { ...editingLog.log, actual_weight: e.target.value === "" ? null : Number(e.target.value) })}
+                                        className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-sm text-slate-200"
+                                      />
+                                    </div>
+                                    <div>
+                                      <div className="text-[10px] text-slate-500">Reps</div>
+                                      <input
+                                        type="number"
+                                        defaultValue={log.actual_reps ?? ""}
+                                        onChange={(e) => ((editingLog as any).log = { ...editingLog.log, actual_reps: e.target.value === "" ? null : Number(e.target.value) })}
+                                        className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-sm text-slate-200"
+                                      />
+                                    </div>
+                                    <div>
+                                      <div className="text-[10px] text-slate-500">Effort /10</div>
+                                      <input
+                                        type="number"
+                                        min={1}
+                                        max={10}
+                                        defaultValue={log.effort ?? ""}
+                                        onChange={(e) => ((editingLog as any).log = { ...editingLog.log, effort: e.target.value === "" ? null : Number(e.target.value) })}
+                                        className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-sm text-slate-200"
+                                      />
+                                    </div>
+                                    <div>
+                                      <div className="text-[10px] text-slate-500">Notes</div>
+                                      <input
+                                        type="text"
+                                        defaultValue={log.notes ?? ""}
+                                        onChange={(e) => ((editingLog as any).log = { ...editingLog.log, notes: e.target.value || null })}
+                                        className="w-full rounded-lg border border-slate-800 bg-slate-950 px-2 py-2 text-sm text-slate-200"
+                                      />
+                                    </div>
+                                  </div>
+                                  <div className="flex gap-2 pt-1">
+                                    <button
+                                      onClick={() => handleSaveSetLog(editingLog.sessionId, editingLog.log, { actual_weight: (editingLog.log as any).actual_weight, actual_reps: (editingLog.log as any).actual_reps, effort: (editingLog.log as any).effort, notes: (editingLog.log as any).notes } as SetLogUpdate)}
+                                      className="px-3 py-1.5 rounded-lg text-[11px] bg-indigo-600 text-white hover:bg-indigo-500"
+                                    >
+                                      Save
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingLog(null)}
+                                      className="px-3 py-1.5 rounded-lg text-[11px] bg-slate-900 border border-slate-800 text-slate-300"
+                                    >
+                                      Cancel
+                                    </button>
+                                    <button
+                                      onClick={() => handleDeleteSetLog(editingLog.sessionId, log.id)}
+                                      className="px-3 py-1.5 rounded-lg text-[11px] bg-red-900/40 border border-red-900 text-red-200 hover:bg-red-800/40"
+                                    >
+                                      Delete set
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            }
+                            return (
+                              <div
+                                key={log.id}
+                                className="rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2.5 flex items-center justify-between"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <div className="text-xs text-slate-500 font-semibold">{exerciseName}</div>
+                                  <div className="text-xs text-slate-400">
+                                    Set {log.set_index} · {formatWeight(log.actual_weight ?? 0, getUnitsPreference())} × {log.actual_reps ?? "—"} · {log.effort != null ? `E${log.effort}/10` : "effort not logged"}
+                                  </div>
+                                </div>
+                                <button
+                                  onClick={() => setEditingLog({ sessionId: s.id, log })}
+                                  className="text-[10px] text-indigo-300 hover:text-indigo-200 shrink-0 ml-2"
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
                   </div>
-                )}
-
-                {s.post_workout_notes && (
-                  <div className="rounded-xl border border-slate-800 bg-slate-950/50 px-3 py-2.5">
-                    <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold mb-1">Post-Workout Notes</div>
-                    <p className="text-sm text-slate-300 leading-relaxed">{s.post_workout_notes}</p>
-                  </div>
-                )}
-
                 {detail?.messages && detail.messages.length > 0 && (
                   <div className="space-y-2">
                     <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Coach Notes</div>
@@ -674,8 +590,6 @@ export default function HistoryScreen({
         )}
       </div>
     );
-      </div>
-    );
   };
 
   return (
@@ -696,9 +610,7 @@ export default function HistoryScreen({
             <button
               key={mode}
               onClick={() => setViewMode(mode)}
-              className={`flex-1 text-xs font-semibold py-2.5 transition-colors ${
-                viewMode === mode ? "bg-indigo-600 text-white" : "bg-slate-900/40 text-slate-400 hover:text-slate-200"
-              }`}
+              className={`flex-1 text-xs font-semibold py-2.5 transition-colors ${viewMode === mode ? "bg-indigo-600 text-white" : "bg-slate-900/40 text-slate-400 hover:text-slate-200"}`}
             >
               {mode === "by_workout" && "By workout"}
               {mode === "by_date" && "By date"}
@@ -712,11 +624,9 @@ export default function HistoryScreen({
             <button
               key={t.key}
               onClick={() => setTimeframe(t.key)}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${
-                timeframe === t.key
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-semibold transition-colors ${timeframe === t.key
                   ? "bg-indigo-600 text-white"
-                  : "border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-slate-200"
-              }`}
+                  : "border border-slate-800 bg-slate-900/60 text-slate-400 hover:text-slate-200"}`}
             >
               {t.label}
             </button>
