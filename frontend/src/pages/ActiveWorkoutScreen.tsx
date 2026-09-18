@@ -824,28 +824,29 @@ export default function ActiveWorkoutScreen({
     const isExtraSet = addSetExerciseId === currentExercise.id;
     const nextTarget = getNextSetTarget(currentExercise);
 
-    // Compute the progression result once — used for both the coach message
+    // Compute the prescription once — used for both the coach message
     // sent to the backend and the next-set draft shown in the UI.
+    // seedSet makes this the set-2+ pathway: the just-logged set is used
+    // directly instead of looking up the previous session's first set.
     const prevWeightLbs = toLbs(weightLbs);
     const prevSet: SetRecord = {
       actual_weight: prevWeightLbs,
       actual_reps: r,
       effort: draftEffort ?? undefined,
       form_quality: draftFormQuality ?? undefined,
+      completed_at: new Date().toISOString(),
     };
-    const progressionResult = computeProgression({
-      previous_set: prevSet,
-      exercise: { name: currentExercise.name, is_compound: currentExercise.is_compound ?? true },
-      settings: {
-        increment: 5,
-        effort_hold_threshold: 9,
-        rep_floor_compound: 6,
-        rep_floor_isolation: 8,
-        form_clean: 0,
-        form_struggled: 1,
-        form_broke: 2,
-      },
-      model: "linear",
+    const prescription = computePrescription({
+      start_weight: prevWeightLbs,
+      reps_target: exercise.is_compound ? 6 : 8,
+      sets_target: displayTarget,
+      rest_seconds: exercise.rest_seconds ?? 90,
+      progression_type: coachPhase === "deload" ? "deload" : "linear",
+      history: [],
+      seedSet: prevSet,
+      exerciseName: currentExercise.name,
+      routineName: template?.name ?? undefined,
+      is_compound: exercise.is_compound ?? true,
     });
 
     try {
@@ -869,7 +870,7 @@ export default function ActiveWorkoutScreen({
       await api.createCoachMessage({
         session_id: sessionId,
         role: "in_workout",
-        content: progressionResult.coaching_message,
+        content: prescription.coaching_message,
       });
     } catch (err) {
       console.error("Failed to log set", err);
@@ -915,20 +916,20 @@ export default function ActiveWorkoutScreen({
 
     setNotes("");
     if (!exerciseIsDone && !workoutIsDone) {
-      setDraftWeight(String(Math.round(progressionResult.next_weight * 10) / 10));
-      setDraftReps(String(progressionResult.next_reps));
+      setDraftWeight(String(Math.round(prescription.next_weight * 10) / 10));
+      setDraftReps(String(prescription.next_reps));
       // Update the per-exercise prescription so the card shows the latest
       // coaching message after each set, not the pre-workout one.
       setBackendPrescriptions((prev: any) => ({
         ...prev,
         [currentExercise.id]: {
           ...prev[currentExercise.id],
-          next_weight: progressionResult.next_weight,
-          next_reps: progressionResult.next_reps,
-          coaching_message: progressionResult.coaching_message,
-          workload_status: progressionResult.workload_status,
-          prescription_type: progressionResult.prescription_type,
-          is_deload: progressionResult.is_deload,
+          next_weight: prescription.next_weight,
+          next_reps: prescription.next_reps,
+          coaching_message: prescription.coaching_message,
+          workload_status: prescription.workload_status,
+          prescription_type: prescription.prescription_type,
+          is_deload: prescription.is_deload,
         },
       }));
     }

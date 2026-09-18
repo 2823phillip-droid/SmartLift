@@ -1984,7 +1984,11 @@ class RuleRequestIn(BaseModel):
     deload_mode: str = "ai_driven"
     exercise_entry_id: Optional[int] = None
     exercise_name: Optional[str] = None
+    routine_name: Optional[str] = None
     is_compound: bool = True
+    # Seed for set 2+ within a session: the just-logged set that the next
+    # prescription should build from, instead of last session's first set.
+    seed_set: Optional[RuleRequestSetIn] = None
 
 
 class CoachStateResponse(BaseModel):
@@ -2009,6 +2013,13 @@ class RuleResponseOut(BaseModel):
     coach: CoachStateResponse
     linear_increment: float = 5.0
     is_compound: bool = True
+    # UI display fields — passed through from RuleInput so the frontend can
+    # render the message in context (routine name, exercise name, etc.).
+    exercise_name: Optional[str] = None
+    routine_name: Optional[str] = None
+    # True when this prescription was seeded from a just-logged set (set 2+),
+    # False when seeded from last session's first set (set 1).
+    is_set_target: bool = False
 
 
 class ReminderCreate(BaseModel):
@@ -2138,6 +2149,13 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         ai_preferred_rir=payload.ai_preferred_rir,
         ai_stress_fatigue_adjustment=payload.ai_stress_fatigue_adjustment,
         ai_calibrated_1rm=payload.ai_calibrated_1rm,
+        exercise_name=payload.exercise_name,
+        routine_name=payload.routine_name,
+        seed_set=(
+            SetRecord(**payload.seed_set.model_dump())
+            if payload.seed_set is not None
+            else None
+        ),
     )
     # Read previous phase before computing new state so we can reset load on deload exit
     prev_phase_setting = (
@@ -2226,6 +2244,9 @@ def next_prescription(payload: RuleRequestIn, current_user: User = Depends(get_c
         linear_increment=rule.linear_increment,
         coach=CoachStateResponse(**dataclasses.asdict(coach_state)),
         is_compound=is_compound,
+        exercise_name=rule.exercise_name,
+        routine_name=rule.routine_name,
+        is_set_target=(rule.seed_set is not None),
     )
 
 

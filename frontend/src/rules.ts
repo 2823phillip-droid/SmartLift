@@ -155,19 +155,96 @@ function linearProgression(input: ProgressionInput): ProgressionResult {
   };
 }
 
-function linearMessage(prev: SetRecord, nextWeight: number): string {
-  const w = roundToTenth(prev.actual_weight);
-  const r = prev.actual_reps;
-  const e = prev.effort;
-  const eDisplay = e != null ? e : "?";
+function _formText(formQuality?: number): string {
+  if (formQuality === 0) return "clean form";
+  if (formQuality === 1) return "form that struggled";
+  if (formQuality === 2) return "form that broke";
+  return "form not logged";
+}
 
-  if (e != null && e >= 9) {
-    return `Last set: ${w} lbs × ${r} reps, effort ${e} logged. Going up to ${Math.round(nextWeight)} lbs — effort overrated for a clean set above rep floor.`;
+function _sessionTargetMessage(
+  rule: RuleInput,
+  weight: number,
+  reps: number,
+  effort?: number,
+  formQuality?: number,
+  nextWeight: number = 0,
+  held: boolean = false,
+  heldWeight: number = 0,
+  repsTarget: number = 6,
+): string {
+  const ex = rule.exerciseName || "this exercise";
+  const rn = rule.routineName || "your";
+  const displayWeight = Math.round(weight * 10) / 10;
+  const displayNext = Math.round(nextWeight);
+  const e = effort != null ? effort : "?";
+  const ftext = _formText(formQuality);
+
+  if (formQuality !== undefined && formQuality >= 2) {
+    return (
+      `In your last ${rn} session, for ${ex}, you did ${displayWeight} lbs × ${reps} reps ` +
+      `with ${ftext}. Holding weight — form first, even if it means fewer reps or dropping. ` +
+      `In this session we'll start at ${Math.round(heldWeight)} lbs and shoot for ${repsTarget} reps.`
+    );
   }
-  if (e != null && 7 <= e && e <= 8) {
-    return `Last set: ${w} lbs × ${r} reps, effort ${e}, clean. Going up to ${Math.round(nextWeight)} lbs.`;
+
+  if (formQuality !== undefined && formQuality === 1) {
+    return (
+      `In your last ${rn} session, for ${ex}, you did ${displayWeight} lbs × ${reps} reps ` +
+      `with ${ftext}. Holding weight — keep it clean next time, even if reps drop. ` +
+      `In this session we'll start at ${Math.round(heldWeight)} lbs and shoot for ${repsTarget} reps.`
+    );
   }
-  return `Last set: ${w} lbs × ${r} reps, effort ${eDisplay}, clean. Going up to ${Math.round(nextWeight)} lbs.`;
+
+  if (held) {
+    const repFloor = repsTarget <= 6 ? 6 : 8;
+    return (
+      `In your last ${rn} session, for ${ex}, you did ${displayWeight} lbs × ${reps} reps, ` +
+      `effort ${e} — right at your rep floor. Holding weight in this session. ` +
+      `Start at ${Math.round(heldWeight)} lbs and shoot for ${repsTarget} reps.`
+    );
+  }
+
+  // Increase path (reps hit, form clean, effort in range or above floor with clean form)
+  return (
+    `In your last ${rn} session, for ${ex}, you did ${displayWeight} lbs, effort ${e}. ` +
+    `In this session, you will start 5 lbs heavier than you started this exercise in your last session ` +
+    `at ${displayNext} lbs. As long as you hit your weight and reps, I will continue to progress ` +
+    `your weight by 5 lbs.`
+  );
+}
+
+function _setTargetMessage(
+  rule: RuleInput,
+  weight: number,
+  reps: number,
+  effort?: number,
+  formQuality?: number,
+  nextWeight: number = 0,
+  held: boolean = false,
+  heldWeight: number = 0,
+  repsTarget: number = 6,
+): string {
+  const ex = rule.exerciseName || "this exercise";
+  const displayWeight = Math.round(weight * 10) / 10;
+  const e = effort != null ? effort : "?";
+  const ftext = _formText(formQuality);
+
+  if (held) {
+    // Hold: form broke, form struggled, reps missed, or high effort at floor
+    return (
+      `On your last set, for ${ex}, you did ${displayWeight} lbs, ${reps} reps, ` +
+      `effort ${e}, ${ftext}. We're holding weight — same ${Math.round(heldWeight)} lbs ` +
+      `and ${reps} reps this set. Hit the reps with clean form and we'll move up next set.`
+    );
+  }
+
+  // Increase path: hit reps + clean form
+  return (
+    `On your last set, for ${ex}, you did ${displayWeight} lbs, ${reps} reps, ` +
+    `effort ${e}, ${ftext}. On this set, you will move up 5 lbs heavier ` +
+    `to ${Math.round(nextWeight)} lbs because you hit your weight and reps with clean form.`
+  );
 }
 
 export function computeProgression(input: ProgressionInput): ProgressionResult {
@@ -249,6 +326,10 @@ export interface RuleInput {
   ai_calibrated_1rm?: number;
   exerciseName?: string;
   is_compound?: boolean;
+  /** UI display fields for coaching messages */
+  routineName?: string;
+  /** Seed for set 2+: the just-logged set to build the next prescription from */
+  seedSet?: SetRecord;
 }
 
 export interface Prescription {
@@ -260,6 +341,12 @@ export interface Prescription {
   workload_status: WorkloadStatus;
   prescription_type: string;
   is_deload: boolean;
+  /** Passed through from RuleInput — used by the UI for message context */
+  exerciseName?: string;
+  /** Passed through from RuleInput — routine/template name for message context */
+  routineName?: string;
+  /** True when this prescription was seeded from a just-logged set (set 2+) */
+  isSetTarget?: boolean;
 }
 
 function toDate(v?: string): Date | undefined {
@@ -313,6 +400,12 @@ function buildPrescription(opts: {
   workload_status: WorkloadStatus;
   prescription_type: string;
   is_deload: boolean;
+  /** Passed through from RuleInput — used by the UI for message context */
+  exerciseName?: string;
+  /** Passed through from RuleInput — routine/template name for message context */
+  routineName?: string;
+  /** True when this prescription was seeded from a just-logged set (set 2+) */
+  isSetTarget?: boolean;
 }): Prescription {
   const MIN_WEIGHT = 5; // 5 lb floor — round-to-5 can otherwise collapse to 0
   const rounded = Math.round(opts.next_weight / 5) * 5;
@@ -325,6 +418,9 @@ function buildPrescription(opts: {
     workload_status: opts.workload_status,
     prescription_type: opts.prescription_type,
     is_deload: opts.is_deload,
+    exerciseName: opts.exerciseName,
+    routineName: opts.routineName,
+    isSetTarget: opts.isSetTarget,
   };
 }
 
@@ -332,20 +428,6 @@ function linearRule(rule: RuleInput, topSet: SetRecord | null): Prescription {
   const inc = effectiveIncrement(Number(rule.linear_increment) || 5, rule);
   let rest = rule.rest_seconds;
   if (rule.ai_recovery_multiplier != null) rest = Math.round(rest * Number(rule.ai_recovery_multiplier));
-
-  const exerciseMeta: ExerciseMeta = {
-    name: rule.exerciseName || "",
-    is_compound: rule.is_compound != null ? rule.is_compound : true,
-  };
-  const settings: ProgressionSettings = {
-    increment: inc,
-    effort_hold_threshold: 9,
-    rep_floor_compound: 6,
-    rep_floor_isolation: 8,
-    form_clean: 0,
-    form_struggled: 1,
-    form_broke: 2,
-  };
 
   if (!topSet) {
     return buildPrescription({
@@ -357,32 +439,96 @@ function linearRule(rule: RuleInput, topSet: SetRecord | null): Prescription {
       workload_status: "moderate",
       prescription_type: rule.progression_type,
       is_deload: false,
+      exerciseName: rule.exerciseName,
+      routineName: rule.routineName,
+      isSetTarget: rule.seedSet != null,
     });
   }
 
-  const result = computeProgression({
-    previous_set: topSet ?? undefined,
-    exercise: exerciseMeta,
-    settings,
-    model: "linear",
-  });
+  const repsTarget = Number(rule.reps_target) || 6;
+  const weight = topSet.actual_weight;
+  const reps = topSet.actual_reps;
+  const effort = topSet.effort;
+  const formQuality = topSet.form_quality;
 
-  const statusMap: Record<string, WorkloadStatus> = {
-    start: "moderate",
-    increase: "moderate",
-    hold: "moderate",
-    drop_suggested: "hard",
-  };
+  const isSetTarget = rule.seedSet != null;
+  const repFloor = repsTarget <= 6 ? 6 : 8;
+  const heldWeight = Math.round(weight);
+
+  // Determine whether we hold weight and what the next values are.
+  let held = false;
+  let status: WorkloadStatus = "moderate";
+  let nextWeight: number;
+  let nextReps: number;
+  let isDeload = false;
+
+  // Gate 1: form broke -> hold (hard)
+  if (formQuality !== undefined && formQuality >= 2) {
+    held = true;
+    status = "hard";
+    nextWeight = weight;
+    nextReps = reps;
+  }
+  // Gate 2: form struggled -> hold (moderate)
+  else if (formQuality !== undefined && formQuality === 1) {
+    held = true;
+    nextWeight = weight;
+    nextReps = reps;
+  }
+  // Gate 3 (set 2+ only): reps below rep floor -> hold (hard)
+  else if (isSetTarget && reps < repFloor) {
+    held = true;
+    status = "hard";
+    nextWeight = weight;
+    nextReps = reps;
+  }
+  // Gate 4: high effort (9-10)
+  else if (effort != null && effort >= 9) {
+    if (reps <= repFloor + 1) {
+      // At or near rep floor -> hold (moderate)
+      held = true;
+      nextWeight = weight;
+      nextReps = reps;
+    } else {
+      // Above floor with clean form -> overrated effort, still increase
+      nextWeight = weight + inc;
+      nextReps = repsTarget;
+    }
+  }
+  // Gate 5: easy effort (1-3) -> increase
+  else if (effort != null && effort <= 3) {
+    status = "easy";
+    nextWeight = weight + inc;
+    nextReps = repsTarget;
+  }
+  // Gate 6: default -> increase (moderate)
+  else {
+    nextWeight = weight + inc;
+    nextReps = repsTarget;
+  }
+
+  // Deload override (matches backend: deload is AI-driven only).
+  if (rule.force_deload) {
+    isDeload = true;
+    status = "deload";
+  }
+
+  const coaching_message = isSetTarget
+    ? _setTargetMessage(rule, weight, reps, effort, formQuality, nextWeight, held, heldWeight, repsTarget)
+    : _sessionTargetMessage(rule, weight, reps, effort, formQuality, nextWeight, held, heldWeight, repsTarget);
 
   return buildPrescription({
-    next_weight: result.next_weight,
-    next_reps: result.next_reps,
+    next_weight: nextWeight,
+    next_reps: nextReps,
     next_sets: Number(rule.sets_target) || 3,
     rest_seconds: rest,
-    coaching_message: result.coaching_message,
-    workload_status: statusMap[result.decision] || "moderate",
+    coaching_message,
+    workload_status: status,
     prescription_type: rule.progression_type,
-    is_deload: false,
+    is_deload: isDeload,
+    exerciseName: rule.exerciseName,
+    routineName: rule.routineName,
+    isSetTarget,
   });
 }
 
@@ -546,6 +692,9 @@ function autoregulatedRule(rule: RuleInput, topSet: SetRecord | null): Prescript
       workload_status: "moderate",
       prescription_type: rule.progression_type,
       is_deload: false,
+      exerciseName: rule.exerciseName,
+      routineName: rule.routineName,
+      isSetTarget: rule.seedSet != null,
     });
   }
 
@@ -627,7 +776,9 @@ function nextPrescriptionByType(rule: RuleInput, topSet: SetRecord | null): Pres
 }
 
 export function computePrescription(rule: RuleInput, _exerciseName?: string): Prescription {
-  const topSet = lastSessionTopSet(rule.history);
+  // seedSet is for set 2+ within a session: use the just-logged set directly
+  // instead of pulling last session's first set.
+  const topSet = rule.seedSet != null ? rule.seedSet : lastSessionTopSet(rule.history);
 
   // Derive actual elapsed weeks from real history dates, matching computeCoachState.
   const actualWeek = (() => {
@@ -655,11 +806,14 @@ export function computePrescription(rule: RuleInput, _exerciseName?: string): Pr
       workload_status: "deload",
       prescription_type: base.prescription_type,
       is_deload: true,
+      exerciseName: rule.exerciseName,
+      routineName: rule.routineName,
+      isSetTarget: rule.seedSet != null,
     });
   }
 
   const base = nextPrescriptionByType(rule, topSet);
-  return {
+  return buildPrescription({
     next_weight: base.next_weight,
     next_reps: base.next_reps,
     next_sets: base.next_sets,
@@ -668,7 +822,10 @@ export function computePrescription(rule: RuleInput, _exerciseName?: string): Pr
     workload_status: base.workload_status,
     prescription_type: base.prescription_type,
     is_deload: base.is_deload,
-  };
+    exerciseName: rule.exerciseName,
+    routineName: rule.routineName,
+    isSetTarget: rule.seedSet != null,
+  });
 }
 
 export function applyAiProfile(rule: RuleInput): RuleInput {

@@ -476,6 +476,17 @@ export const api = {
     custom_phase_order?: string[] | null;
     exercise_entry_id?: number | null;
     exercise_name?: string | null;
+    routine_name?: string | null;
+    seed_set?: {
+      actual_weight: number;
+      actual_reps: number;
+      effort?: number | null;
+      rir?: number | null;
+      is_seeded?: boolean;
+      completed_at?: string | null;
+      form_quality?: number | null;
+      set_index?: number | null;
+    } | null;
   }) =>
     request("/rules/next-prescription", {
       method: "POST",
