@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
 last_updated: 2026-09-18
-status: clean — both machines synced to origin/master 06d4b20
+status: clean — both machines synced to origin/master 5b14394
 
 This file explains where every type of project knowledge lives and when to use it.
 
@@ -8,8 +8,8 @@ This file explains where every type of project knowledge lives and when to use i
 
 ### Repo
 - **Branch:** master
-- **HEAD (both machines):** `ab9fe38` — "fix: recover token from localStorage on 401/403, close HistoryScreen JSX brace"
-- **Remote (GitHub origin/master):** `ab9fe38` — both machines in sync, working tree clean on both
+- **HEAD (both machines):** `5b14394` — "docs: update MEMORY-INDEX.md status to HEAD 06d4b20" (latest status update commit)
+- **Remote (GitHub origin/master):** `5b14394` — both machines in sync, working tree clean on both
 - **Remote URL:** `git@github.com:2823phillip-droid/SmartLift.git` (Mac) / `https://github.com/2823phillip-droid/SmartLift.git` (Linux)
 - **Uncommitted changes:** none on either machine
 - **Untracked files:** none on either machine (stale root `ActiveWorkoutScreen.tsx`, `main.py`, `rules.py` removed in prior session)
@@ -177,4 +177,46 @@ Before building from Xcode or testing, verify:
 4. **No stale files:** no unexpected `.tsx`/`.py` files at repo root on Mac
 5. **Frontend dist current:** `frontend/ios/App/App/public/assets/index-*.js` on Mac exists and matches `frontend/dist/`
 
-Do not use `scripts/sync-check.sh` — it is not maintained for this environment.
+---
+
+## Session Lifecycle (mandatory for every Hermes session)
+
+Every session — whether debugging, building, or investigating — follows this envelope. No exceptions.
+
+### Start of session (before any work)
+1. Read bootstrap: `CONTEXT.md`, `PROJECT.md`, `TODO.md`, `MEMORY-INDEX.md` (in that order). This is already in Usage rules §1 — honored every time.
+2. **Run sync audit** (new — this is what was missing): check the 6 items in the Sync audit trail table above. Report results to the user before doing any work. If anything is dirty, flag it explicitly and decide: fix it now, or document why it's pending.
+3. Update `MEMORY-INDEX.md` status line to reflect actual HEAD if it changed since last read.
+4. Check if the session has a clear goal. If not (e.g. "look at logs", "investigate something"), establish one before acting.
+
+### During session
+5. **Uncommitted changes get resolved immediately.** If a change gets made that should be in git (code fix, config change, new file that matters), it gets committed and pushed before the session moves on to something else. No "I'll commit it later" — later never comes. This is what caused the 5 uncommitted files drift.
+6. **Stale/temp files get cleaned up before session end.** Debug scripts, backup files, root-level duplicates — if they don't belong in the repo, they get deleted. If they do belong, they get committed. Nothing sits in an ambiguous state.
+7. **Documentation updates happen as part of the work, not after.** If a file in `memory/` changes, update `changelog.md` in the same session. If `TODO.md` shifts, update it before moving on. If a decision is made, record it in `decisions.md`. The "I'll document it later" pattern is what creates gaps.
+8. **State changes get reported to the user at the time they happen**, not batched at the end. If the backend URL meaning changes, if a new stale file appears, if git diverges — say it when it happens so the user can course-correct.
+
+### End of session (before saying "ready for you to test" or similar)
+9. **Run sync audit again** — same 6 checks as start. If anything is now dirty, either clean it up or explicitly tell the user what's pending and why.
+10. **Update `MEMORY-INDEX.md` status line** to the actual current HEAD if it changed.
+11. **Report final state to the user** — not just "done", but: what changed, what's committed, what's deployed (or not), what's still pending. The user should never have to ask "what state are we in?" because the answer was just given.
+12. **Never end a session with uncommitted tracked changes on either machine.** If something can't be committed (needs user decision, needs more work), stash it and say so explicitly. The 5 uncommitted files from the prior session are the cautionary example — they sat for an unknown amount of time with nobody knowing if they were intentional or drift.
+
+### What this prevents
+- Uncommitted changes accumulating across sessions (the 5-file drift problem)
+- Stale files appearing without anyone noticing (the root `ActiveWorkoutScreen.tsx` problem)
+- "We thought we were synced but weren't" (the Linux-behind-Master problem)
+- Documentation that doesn't match reality (the `MEMORY-INDEX.md` status line lying about the state)
+- Sessions that leave the project in an untestable state without saying so
+
+### What is NOT required
+- Recording every file touched — only changes that matter to the project state
+- Committing debug scripts or temp files — these get deleted, not committed
+- Updating `changelog.md` for every micro-edit — only material knowledge-base changes
+- Asking the user for permission to follow this process — it's mandatory, not optional
+
+## Tagging conventions
+Use lowercase, single-word tags. Pick the dominant domain first, then add a secondary system if needed:
+  Primary tags: deploy, debugging, backend-db, auth, frontend-fetch, decisions, ios, capacitor, cors, postgres, schema, retry, token
+Secondary tags: production, device, cache, validation, migration
+
+The `related` field should list only files directly relevant. Prefer 1-3 links. Do not list every memory file.
