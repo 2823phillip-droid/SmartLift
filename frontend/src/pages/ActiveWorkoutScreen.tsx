@@ -420,36 +420,54 @@ export default function ActiveWorkoutScreen({
     setPendingGroupExercises([]);
   };
 
-  // Auto-expand the first incomplete exercise once backend prescriptions arrive.
-  // This replaces the old inline auto-expand that ran before prescriptions were
-  // available, which caused the weight field to show a locally-computed fallback
-  // instead of the server recommendation.
+  // Auto-expand the first incomplete exercise once the workout data is ready.
+  // In manual mode there are no backend prescriptions, so we clear the loading
+  // state as soon as exercises + lastSessionByExercise are available and expand
+  // the first exercise using the local computePrescription fallback.
   useEffect(() => {
     if (!isBuildingWorkout) return;
-    if (Object.keys(backendPrescriptions).length === 0) return;
     if (!exercises || exercises.length === 0) return;
+    if (!lastSessionFetchedRef.current) return;
 
-    const target = exercises.find((e: ExerciseEntry) =>
-      logs.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
-    ) || exercises[0];
-
-    // Clear the fallback timer since we got prescriptions in time
+    // Clear the fallback timer since the real data has arrived
     if (expandTimeoutRef.current) {
       clearTimeout(expandTimeoutRef.current);
       expandTimeoutRef.current = null;
     }
     isBuildingWorkoutRef.current = false;
 
-    const backendPrescription = backendPrescriptions[target.id];
-    if (backendPrescription) {
-      const displayWeight = getUnitsPreference() === "imperial"
-        ? Math.round(backendPrescription.next_weight)
-        : Math.round(lbsToKg(backendPrescription.next_weight));
-      setDraftWeight(String(displayWeight));
-      setDraftReps(String(backendPrescription.next_reps));
-      console.log("[ActiveWorkoutScreen] auto-expand backend", displayWeight, "x", backendPrescription.next_reps);
-    } else {
-    }
+    const target = exercises.find((e: ExerciseEntry) =>
+      logs.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
+    ) || exercises[0];
+
+    // Compute a local prescription for the draft weight/reps.
+    // manual mode never populates backendPrescriptions, so we always use local.
+    const sessionResolved = lastSessionByExercise[target.id] || [];
+    const firstSet = sessionResolved.find((l: any) => l.set_index === 1) || sessionResolved[0];
+    const lastWeight = firstSet
+      ? firstSet.actual_weight
+      : (sessionResolved.length > 0
+        ? Math.max(...sessionResolved.map((s: any) => s.actual_weight || 0))
+        : target.start_weight);
+    const phase = coachPhase === "deload" ? "linear" : coachPhase;
+    const history = buildPrescriptionHistory(target);
+    const localPrescription = computePrescription({
+      start_weight: toLbs(lastWeight),
+      reps_target: target.is_compound ? 6 : 8,
+      sets_target: displaySetsTarget[target.id] ?? target.sets_target,
+      rest_seconds: target.rest_seconds,
+      progression_type: phase,
+      history,
+      force_deload: false,
+      exerciseName: target.name,
+      is_compound: target.is_compound ?? true,
+      routineName: template?.name ?? undefined,
+    });
+    const displayWeight = getUnitsPreference() === "imperial"
+      ? Math.round(localPrescription.next_weight)
+      : Math.round(lbsToKg(localPrescription.next_weight));
+    setDraftWeight(String(displayWeight));
+    setDraftReps(String(localPrescription.next_reps));
 
     setDraftEffort(null);
     setDraftFormQuality(0);
@@ -457,8 +475,8 @@ export default function ActiveWorkoutScreen({
     setShowNotes(false);
     setExpandedExerciseId(target.id);
     setIsBuildingWorkout(false);
-    console.log("[ActiveWorkoutScreen] auto-expand expandedExerciseId", target.id);
-  }, [backendPrescriptions, isBuildingWorkout, exercises, logs, lastSessionByExercise, displaySetsTarget, coachPhase]);
+    console.log("[ActiveWorkoutScreen] auto-expand local", displayWeight, "x", localPrescription.next_reps);
+  }, [isBuildingWorkout, exercises, logs, lastSessionByExercise, displaySetsTarget, coachPhase, template?.name]);
 
   // Clear timeout on unmount
   useEffect(() => {
