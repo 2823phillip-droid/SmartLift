@@ -525,6 +525,15 @@ export default function ActiveWorkoutScreen({
 
   const getNextSetTarget = (entry?: ExerciseEntry): { weight: number; reps: number } => {
     if (!entry) return { weight: 0, reps: 0 };
+    // Prefer the backend prescription (updated after each logged set) so the
+    // rest timer, the session target box, and the weight input all agree.
+    if (entry.id && backendPrescriptions[entry.id]) {
+      const p = backendPrescriptions[entry.id];
+      const displayWeight = getUnitsPreference() === "imperial"
+        ? Math.round(p.next_weight)
+        : Math.round(kgToLbs(p.next_weight));
+      return { weight: Math.round(displayWeight * 10) / 10, reps: p.next_reps };
+    }
     const lastLog = lastLoggedSetRef.current[entry.id] || logs.filter(l => l.exercise_entry_id === entry.id).pop();
     const seedWeight = getUnitsPreference() === "imperial" ? entry.start_weight : lbsToKg(entry.start_weight);
     if (!lastLog) {
@@ -675,9 +684,10 @@ export default function ActiveWorkoutScreen({
     const sessionLogs = lastSessionByExercise[exercise.id] || [];
     console.log("[ActiveWorkoutScreen] expandExercise", exercise.id, exercise.name, "completedCount", completedCount, "sessionLogs", sessionLogs);
 
-    // 1) Prefer live prescription values when available (they already account for
-    //    assisted inversion, rounding, and prescription precedence).
-    const prescription = prescriptions[exercise.id];
+    // 1) Prefer live backend prescription values (updated after each logged set)
+    //    over the pre-workout snapshot so the weight input and coaching message
+    //    reflect the latest progression result.
+    const prescription = backendPrescriptions[exercise.id] || prescriptions[exercise.id];
     if (prescription) {
       const displayWeight = getUnitsPreference() === "imperial"
         ? Math.round(prescription.next_weight)
@@ -1390,7 +1400,7 @@ export default function ActiveWorkoutScreen({
                   isLogging={isLogging}
                   onEditSet={handleEditSet}
                   onDeleteSet={handleDeleteSet}
-                  suggestion={prescriptions[exercise.id]}
+                  suggestion={backendPrescriptions[exercise.id] || prescriptions[exercise.id]}
                   isTrainer={isTrainer}
                 />
               );
