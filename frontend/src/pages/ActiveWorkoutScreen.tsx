@@ -907,6 +907,20 @@ export default function ActiveWorkoutScreen({
     if (!exerciseIsDone && !workoutIsDone) {
       setDraftWeight(String(Math.round(progressionResult.next_weight * 10) / 10));
       setDraftReps(String(progressionResult.next_reps));
+      // Update the per-exercise prescription so the card shows the latest
+      // coaching message after each set, not the pre-workout one.
+      setBackendPrescriptions((prev: any) => ({
+        ...prev,
+        [currentExercise.id]: {
+          ...prev[currentExercise.id],
+          next_weight: progressionResult.next_weight,
+          next_reps: progressionResult.next_reps,
+          coaching_message: progressionResult.coaching_message,
+          workload_status: progressionResult.workload_status,
+          prescription_type: progressionResult.prescription_type,
+          is_deload: progressionResult.is_deload,
+        },
+      }));
     }
     if (rest > 0) {
       startRest(rest);
