@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
 last_updated: 2026-09-18
-status: clean — both machines synced to origin/master 85b63b1
+status: clean — both machines synced to origin/master d125543
 
 This file explains where every type of project knowledge lives and when to use it.
 
@@ -8,19 +8,19 @@ This file explains where every type of project knowledge lives and when to use i
 
 ### Repo
 - **Branch:** master
-- **HEAD (both machines):** `85b63b1` — "docs: update MEMORY-INDEX.md status to 85b63b1" (latest status update — MEMORY-INDEX.md + Hermes MEMORY.md rewritten with session history)
-- **Remote (GitHub origin/master):** `85b63b1` — both machines in sync, working tree clean on both
+- **HEAD (both machines):** `d125543` — "docs: sync MEMORY-INDEX.md status line to HEAD 85b63b1" (latest status update — MEMORY-INDEX.md + Hermes MEMORY.md rewritten with session history)
+- **Remote (GitHub origin/master):** `d125543` — both machines in sync, working tree clean on both
 - **Remote URL:** `git@github.com:2823phillip-droid/SmartLift.git` (Mac) / `https://github.com/2823phillip-droid/SmartLift.git` (Linux)
 - **Uncommitted changes:** none on either machine
 - **Untracked files:** none on either machine (stale root `ActiveWorkoutScreen.tsx`, `main.py`, `rules.py` removed in prior session)
 
 ### Backend (deployed, Fly)
 - **App:** `smartlift-api` (internal name; users see `askeo.fit`)
-- **Deployed commit:** `85b63b1` (Sep 16, 2026) — different from frontend HEAD; backend deploy not yet updated for `85b63b1`
+- **Deployed commit:** `60019a7` (Sep 16, 2026) — different from frontend HEAD; backend deploy not yet updated for `60019a7`
 - **Public URL:** `https://askeo.fit/api` — primary
-- **Fly dev URL:** `https://smartlift-api.fly.dev/api` — alias, same Fly app, same server (`85b63b1`)
+- **Fly dev URL:** `https://smartlift-api.fly.dev/api` — alias, same Fly app, same server (`57f2b87`)
 - **Health:** `https://askeo.fit/healthz`
-- **Machine ID:** `85b63b1`
+- **Machine ID:** `2862102a31e718`
 - **Current bug:** `POST /api/rules/next-prescription` returns 500 (`internal_server_error`) — app degrades to local rules fallback. NOT yet fixed.
 
 ### Frontend (built on Mac, not yet redeployed to Fly)
