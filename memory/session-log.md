@@ -30,7 +30,7 @@ Each entry: DATE — goal (one line) → outcome, HEAD at end of session, key fi
 
 **Known issues left:** Backend deployed at 60019a7 (behind frontend HEAD 95b47a7). POST /api/rules/next-prescription returns 500 — app falls back to local rules. This is the progression bug we were investigating before cleanup.
 
-**Files touched:** MEMORY-INDEX.md, memory/changelog.md, memory/session-log.md (this file), ~/.hermes/memories/MEMORY.md, .hermes/skills/project-context/references/session-lifecycle.md (created), .hermes/skills/software-development/smartlift-deploy-debug/references/session-2026-09-18-project-cleanup-and-sync-process.md (created)
+**Files touched:** MEMORY-INDEX.md, memory/changelog.md, memory/session-log.md (this file), ~/.hermes/memories/MEMORY.md, memory/session-lifecycle.md (new — copied from .hermes/skills/project-context/references/), .hermes/skills/project-context/references/session-lifecycle.md (updated to point to repo copy), .hermes/skills/software-development/smartlift-deploy-debug/references/session-2026-09-18-project-cleanup-and-sync-process.md (created)
 
 ---
 

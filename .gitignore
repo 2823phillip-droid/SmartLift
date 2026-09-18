@@ -29,3 +29,6 @@ android/
 # Caps lock / temp
 *.swp
 *~
+
+# Hermes Agent local config (not part of the project)
+.hermes/
