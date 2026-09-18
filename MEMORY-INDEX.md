@@ -1,14 +1,60 @@
 # Askeo Project Knowledge System
-last_updated: 2026-09-10
+last_updated: 2026-09-18
+status: clean — both machines synced to origin/master ab9fe38
 
 This file explains where every type of project knowledge lives and when to use it.
 
 ## Current state (as of this update)
-- Backend: deployed to Fly (`smartlift-api`, machine 2862102a31e718, v213), healthy at `https://askeo.fit/healthz`
-- Frontend: built (`index-DbEsCaNh.js`, 874971 bytes), synced to MacBook, cap sync ios done
-- Active work: inline set editor + history effort fix + backend parity deploy (shipped 2026-09-10)
-- Next: user testing on device, then continue with Phase 1/2 work
-- Git: 4 commits ahead of origin/master on `master` (ba90450, 343d9e7, 7071008, cc0eb53) — all pushed
+
+### Repo
+- **Branch:** master
+- **HEAD (both machines):** `ab9fe38` — "fix: recover token from localStorage on 401/403, close HistoryScreen JSX brace"
+- **Remote (GitHub origin/master):** `ab9fe38` — both machines in sync, working tree clean on both
+- **Remote URL:** `git@github.com:2823phillip-droid/SmartLift.git` (Mac) / `https://github.com/2823phillip-droid/SmartLift.git` (Linux)
+- **Uncommitted changes:** none on either machine
+- **Untracked files:** none on either machine (stale root `ActiveWorkoutScreen.tsx`, `main.py`, `rules.py` removed in prior session)
+
+### Backend (deployed, Fly)
+- **App:** `smartlift-api` (internal name; users see `askeo.fit`)
+- **Deployed commit:** `60019a7` (Sep 16, 2026) — different from frontend HEAD; backend deploy not yet updated for `ab9fe38`
+- **Public URL:** `https://askeo.fit/api` — primary
+- **Fly dev URL:** `https://smartlift-api.fly.dev/api` — alias, same Fly app, same server (`57f2b87`)
+- **Health:** `https://askeo.fit/healthz`
+- **Machine ID:** `2862102a31e718`
+- **Current bug:** `POST /api/rules/next-prescription` returns 500 (`internal_server_error`) — app degrades to local rules fallback. NOT yet fixed.
+
+### Frontend (built on Mac, not yet redeployed to Fly)
+- **Build target:** Capacitor iOS app, Xcode project on Mac
+- **API base (runtime):** `.env` sets `VITE_API_BASE=https://smartlift-api.fly.dev/api` — both machines. The `.env` value wins at runtime over any hardcoded fallback in `api.ts`.
+- **Domains:** `askeo.fit` and `smartlift-api.fly.dev` resolve to same IP (`66.241.124.80`) and same Fly server. Which URL is used doesn't change which backend is hit.
+- **Dist bundle:** `frontend/dist/` built on Mac, copied into `frontend/ios/App/App/public/` for Xcode to consume. Not served by Fly.
+
+### Sync definition: "fully synced" means ALL of:
+1. GitHub origin/master is source of truth. Both machines at same commit.
+2. No uncommitted tracked changes on either machine (untracked scratch files OK if they don't affect build).
+3. Identical source tree on both — no duplicate stale files at wrong paths.
+4. Frontend `.env` agrees with deployed backend URL (both `smartlift-api.fly.dev` or both `askeo.fit` — they're aliases but should be consistent).
+5. Backend deployed commit matches what frontend expects (only matters when backend code changed).
+
+### Sync workflow (run BEFORE testing anything):
+```bash
+# On Linux (or whichever machine has work):
+cd ~/workout-logger
+git status                          # review — commit or stash anything needed
+git pull origin master              # get latest from remote
+git push origin master              # push local commits
+
+# On Mac:
+cd ~/workout-logger
+git pull origin master              # pull remote
+# verify: git status clean
+# rebuild in Xcode (Run) — user action
+```
+
+### Known stale artifacts cleaned up
+- Root-level `ActiveWorkoutScreen.tsx` (stale pre-fix copy, was being compiled by Xcode) — removed, replaced with patched frontend version, now deleted since frontend copy is canonical
+- Root `main.py`, `rules.py` (backend leftovers at frontend root) — removed
+- Debug scripts (`_fetch_*.py`, `_stream_webcontent.py`, `fetch_logs.sh`, `_mac_fix_*.py`) — removed
 
 ## Bootstrap order
 Read in this order at the start of any session:
@@ -21,7 +67,6 @@ Read in this order at the start of any session:
 Reference materials (read when relevant, not mandatory at startup):
 - `PERSONA.md` — role definitions and task ownership
 - `Askeo.md` — stack, endpoints, users, gotchas, iOS bundle ID
-- `memory/README.md` — catalog of all durable lesson files
 - `memory/changelog.md` — history of knowledge-base changes
 
 ## Top-level files (stable references)
@@ -49,23 +94,19 @@ File | When to read
 
 ## Roadmap
 - `TODO.md` — phased roadmap source of truth for priorities and planning
-- `backend/roadmap.html` — live rendered roadmap at https://askeo.fit/roadmap
-- Purpose: visual status page showing completed / active / waiting / blocked work, dependency blockers, and what the user vs agent must do next
+- Backend: `backend/roadmap.html` — live rendered roadmap at `https://askeo.fit/roadmap`
+- Purpose: visual status page showing completed / active / waiting / blocked work
 - Safe edit workflow:
   1. Edit `backend/roadmap.html` directly for content changes
-  2. Redeploy with `bash -ic 'cd /home/phillip2823/workout-logger && python3 -m py_compile backend/main.py && fly deploy -a smartlift-api --no-cache'`
+  2. Redeploy with `bash -ic 'cd ~/workout-logger && python3 -m py_compile backend/main.py && fly deploy -a smartlift-api --no-cache'` (from Mac via SSH)
   3. Verify the live page before marking done
-- Warning: `backend/scripts/generate_roadmap.py` was removed because it flattened the color-coded multi-column layout. Do not regenerate `roadmap.html` automatically from `TODO.md` without explicit approval and manual verification.
-- Bullet legend on page: ✓ = completed, ○ = incomplete/waiting, 🔗 amber box = dependency/blocker
+- Warning: `backend/scripts/generate_roadmap.py` was removed. Do not regenerate `roadmap.html` automatically from `TODO.md` without explicit approval and manual verification.
+- Bullet legend: ✓ = completed, ○ = incomplete/waiting, 🔗 amber box = dependency/blocker
 
 ## Session History
-- SecureCRT logs on MacBook: `/Users/phillipwalters/Projects/SecureCRT/Logs/Hermes Sessions/`
-- Naming: `YYYY-MM-DD.log` for the main session, `YYYY-MM-DD_N.log` for additional sessions
-- Read via `macbook` SSH alias:
-  ```
-  ssh macbook 'tail -200 "/Users/phillipwalters/Projects/SecureCRT/Logs/Hermes Sessions/YYYY-MM-DD.log"'
-  ```
-- Use when you need session continuity — what shipped last, decisions made, open threads
+- Hermes session DB: `/home/phillip2823/.hermes/memories/` (SQLite + memory files)
+- Hermes logs: `~/.hermes/logs/`
+- Mac SSH logs (if needed): `/Users/phillipwalters/Projects/SecureCRT/Logs/` (SecureCRT)
 
 ## File format standards
 All files in `memory/` use this header:
@@ -92,10 +133,10 @@ Consequence:
 1. Start every session by reading: `CONTEXT.md`, then `PROJECT.md`, then `TODO.md`, then the relevant `memory/<topic>.md` files.
 2. Use `Askeo.md` for stack/endpoint reference and `PROJECT.md` for deploy/network facts.
 3. Record lessons in `memory/<topic>.md`, not in Hermes memory.
-4. Hermes memory should only store lightweight pointers to this knowledge system, not duplicate its content.
+4. Hermes memory (`~/.hermes/memories/MEMORY.md`) holds only a lightweight pointer to this knowledge system.
 5. Update `memory/changelog.md` whenever a knowledge file changes materially.
 6. When unsure whether to record something, use the decision checklist below.
-7. **Never ask the user to run terminal commands for deploy/sync/device operations.** The agent owns these end-to-end via SSH to `macbook`.
+7. **Never ask the user to run terminal commands for deploy/sync/device operations.** The agent owns these end-to-end via SSH to Mac.
 
 ## Decision checklist
 When unsure whether to record something:
@@ -103,6 +144,18 @@ When unsure whether to record something:
 2. Is it a one-time environment quirk? -> Log in `changelog.md` only.
 3. Does it change future behavior? -> Also record in `decisions.md`.
 4. Is it user-facing (UX/flow change)? -> Also update `TODO.md` and `Askeo.md`.
+
+## Sync audit trail
+Use this when checking if things are clean:
+
+| Check | Command | Expected |
+|-------|---------|----------|
+| Linux git status | `cd ~/workout-logger && git status` | clean, up to date with origin/master |
+| Mac git status | `ssh macbook 'cd ~/workout-logger && git status'` | clean, up to date with origin/master |
+| Both at same commit | compare `git rev-parse HEAD` on both | identical hash |
+| Backend reachable | `curl -s https://askeo.fit/healthz` | `{"status":"ok"}` |
+| Frontend dist on Mac | check `frontend/ios/App/App/public/assets/index-*.js` exists | matches latest `frontend/dist/` |
+| No stale root files | `ls *.tsx *.py` at repo root on Mac | no matches (files shouldn't exist) |
 
 ## Tagging conventions
 Use lowercase, single-word tags. Pick the dominant domain first, then add a secondary system if needed:
@@ -115,26 +168,13 @@ The `related` field should list only files directly relevant. Prefer 1-3 links. 
 - Any agent session may add lessons to `memory/` and update `decisions.md`
 - Domain-specific additions go to the matching file (or a new `memory/<topic>.md`)
 - Structural changes (new file format, registry schema, merging files) also update `MEMORY-INDEX.md` and `changelog.md`
-- The global registry at `~/.hermes/projects.md` is maintained by the same rules: add project entries on project creation, update paths on rename
-
-## Global registry maintenance
-Hermes maintains a project registry at `~/.hermes/projects.md` that maps all projects to paths and entry points. Add a new project:
-```markdown
-## Project Name
-path: /absolute/path/to/repo
-entry: relative/path/from/repo/root
-knowledge: path/to/decisions-or-memory-index
-```
-Update the registry whenever a project moves, is renamed, or is archived.
-
-## Global registry
-Hermes maintains a project registry at `~/.hermes/projects.md` that maps all projects to their paths and entry points.
 
 ## Pre-Build Check
-
-Before building from Xcode or testing, verify the deploy pipeline is current:
-1. Git: `git status` — no uncommitted changes that should be pushed
-2. Backend: `curl -s https://askeo.fit/healthz` → `{"status":"ok"}`
-3. Frontend bundle: check `frontend/ios/App/App/public/assets/index-*.js` on MacBook matches latest `frontend/dist/` build
+Before building from Xcode or testing, verify:
+1. **Git clean on both machines:** `git status` shows no uncommitted changes on Linux or Mac
+2. **Same commit:** `git rev-parse HEAD` matches on both machines
+3. **Backend health:** `curl -s https://askeo.fit/healthz` returns `{"status":"ok"}`
+4. **No stale files:** no unexpected `.tsx`/`.py` files at repo root on Mac
+5. **Frontend dist current:** `frontend/ios/App/App/public/assets/index-*.js` on Mac exists and matches `frontend/dist/`
 
 Do not use `scripts/sync-check.sh` — it is not maintained for this environment.
