@@ -41,10 +41,7 @@ def compute_load(history: List[SetRecord], window_days: int = 21) -> int:
     """Return 0-100 accumulated training load from recent history."""
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=window_days)
-    # Normalize any naive datetimes that slipped through the ingress points
-    for s in history:
-        if s.completed_at is not None and s.completed_at.tzinfo is None:
-            s.completed_at = s.completed_at.replace(tzinfo=timezone.utc)
+    _normalize_completed_at(history)
     recent = [
         s for s in history
         if s.completed_at is not None
@@ -167,6 +164,18 @@ def _is_deload_week(rule: RuleInput) -> bool:
     return rule.force_deload
 
 
+def _normalize_completed_at(history: List[SetRecord]) -> None:
+    """In-place: make every completed_at timezone-aware (UTC).
+
+    Defensive safety net. All ingress points should normalize before calling
+    the rules engine, but this catches anything that slips through and
+    prevents TypeError from naive-vs-aware comparisons on Python 3.11+.
+    """
+    for s in history:
+        if s.completed_at is not None and s.completed_at.tzinfo is None:
+            s.completed_at = s.completed_at.replace(tzinfo=timezone.utc)
+
+
 def _recent_real_sets(history: List[SetRecord], limit: int = 20) -> List[SetRecord]:
     """Return non-seeded sets, newest first, limited."""
     real = [s for s in history if not s.is_seeded]
@@ -180,11 +189,7 @@ def _last_session_top_set(history: List[SetRecord]):
     real = _recent_real_sets(history, limit=20)
     if not real:
         return None
-    # Normalize any naive datetimes that slipped through (defensive — all
-    # ingress points should already normalize, but belt-and-suspenders).
-    for s in real:
-        if s.completed_at is not None and s.completed_at.tzinfo is None:
-            s.completed_at = s.completed_at.replace(tzinfo=timezone.utc)
+    _normalize_completed_at(real)
     # crude session grouping by date; newest date wins
     latest_date = max((s.completed_at.date() for s in real if s.completed_at), default=None)
     if latest_date is None:
