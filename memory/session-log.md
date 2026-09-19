@@ -84,3 +84,74 @@ Each entry: DATE — goal (one line) → outcome, HEAD at end of session, key fi
 2. Read the most recent entry here to understand current state + what's pending
 3. If you need more detail on a specific past session, search the session DB or read the reference file
 4. Before starting work, run the sync audit (MEMORY-INDEX.md §Session Lifecycle) — don't assume state from this log is current
+5. When a session gets compacted (context compression), update this log with what was lost before the new session starts
+
+---
+
+## 2026-09-18 — AI trainer mode removal + local prescription refactor (HEAD: 0b98162, session compacted)
+
+**Goal:** Remove the `ai_trainer`/`manual` mode toggle from the app. The app now runs in a single mode where prescriptions are computed locally from last-session data — no backend call needed for progression. Also rebrand from "Coach — AI Trainer" to "Askeo — Workout Logger".
+
+**Outcome:** Code changes done and synced to both machines at `0b98162`. Build pipeline fixed (Vite → public/ → Xcode). Mac build succeeds but **doesn't work on device yet** — app still spins on workout start, weights/reps don't load.
+
+**What happened:**
+
+1. **Read "Last Session" logs from Mac Downloads** — found the app was running old cached build despite code being correct. The logs showed `workout_mode=manual` and `auto-expand expandedExerciseId` which don't match the new code.
+
+2. **Root cause identified — three layers of stale build:**
+   - Xcode DerivedData had old `index-C8YdHIly.js` with `workout_mode` references
+   - Xcode project (`App.xcodeproj`) has no Vite build step — it just copies `public/` folder as-is into the app bundle
+   - Node not in PATH on Mac — needed nvm path (`/Users/phillipwalters/.nvm/versions/node/v22.23.2/bin/node`)
+
+3. **Fixed the build pipeline:**
+   - Updated `frontend/index.html`: title "Askeo — Workout Logger", app name "Askeo"
+   - Set up Vite build: `nvm node → vite build --outDir dist → copy dist/* to public/`
+   - Verified new JS has zero `workout_mode`, correct `auto-expand` log format, local prescription logic
+
+4. **Multiple Xcode build attempts failed/stalled:**
+   - First attempts timed out — `xcodebuild` requires Xcode CLI tools pointed at `/Applications/Xcode.app` (was pointing at command-line tools)
+   - Build would get stuck at 332 object files (all SPM dependencies compiled, CapApp-SPM not building)
+   - Final successful build: killed stuck build, deleted DerivedData, resolved SPM packages fresh, built with `generic/platform=iOS Simulator` destination → **BUILD SUCCEEDED**
+
+5. **Build output had wrong JS:** Xcode cached old `public/` content. Fixed by:
+   - Deleting stale `public/assets/` and `public/index.html` from DerivedData build output
+   - Copying fresh Vite output directly into built `App.app/public/`
+   - Removing old unreferenced files (`index-C8YdHIly.js`, `index-NwG2PYyC.css`)
+   - Final verified: `index-frJq0BiK.js` (843,227 bytes, binary-identical to dist), `index-BkMjE_7v.css`, correct title, zero `workout_mode`
+
+**Key files touched:**
+- `frontend/index.html` — title + app name rebrand
+- `frontend/src/pages/SettingsScreen.tsx` — removed ai_trainer/manual toggle
+- `frontend/src/pages/ActiveWorkoutScreen.tsx` — local prescription logic, removed backendPrescriptions, auto-expand rewrite
+- `frontend/src/rules.ts` — trimmed (computeCoachState, computeProgression kept; RIR references removed)
+- `frontend/src/api.ts` — (verified no ai_trainer refs remain)
+- Mac DerivedData + built App.app/public/ — stale files cleaned, fresh Vite build in place
+
+**Remaining issues (NOT fixed, carry to next session):**
+1. **App still doesn't work on device** — workout starts, spinner spins forever, no weights/reps load. Built app is correct (verified in bundle) but device hasn't been updated with new build. User needs to Run from Xcode.
+2. **Coaching message wording** — user wants to redesign the "Session Target" box text. Set 1 message should say "In your last [routine] session, for [exercise], you did [weight] lbs, effort [level]..." instead of current wording. Set 2+ should show "Set Target" not "Session Target" with different logic (pull from previous set in current session, not last session).
+3. **Set 2+ progression algorithm** — needs to pull from the previous set of the current session (not last session), hold weight if reps missed or form not clean.
+4. **SVG parsing error in logs** — `Error: Problem parsing d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 0 0118 0z"` appears in both old and new builds. Looks like an SVG path parsing issue, possibly in a button icon. Not investigated yet.
+5. **401 errors on API calls** — seen in logs, could be token issue or backend not matching frontend expectations.
+6. **Mac uncommitted changes** — `frontend/index.html` and `frontend/public/` changes not committed. Should be committed before next session starts.
+
+**Mac build state:** DerivedData at `/Users/phillipwalters/Library/Developer/Xcode/DerivedData/App-dwvmsmzetlrqcmcjblihbhkhvmnm/`. Built app at `.../Build/Products/Debug-iphonesimulator/App.app/`. `public/` in built app has correct fresh JS. User needs to Run from Xcode to install on device/simulator.
+
+**Build commands (for future reference):**
+```bash
+# Vite build (nvm node required):
+cd ~/workout-logger/frontend
+/Users/phillipwalters/.nvm/versions/node/v22.23.2/bin/node node_modules/.bin/vite build --outDir dist
+rm -rf public/assets public/index.html
+mkdir -p public/assets
+cp dist/assets/index-*.js public/assets/
+cp dist/assets/*.css public/assets/
+cp dist/index.html public/index.html
+
+# Xcode build:
+/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild -project frontend/ios/App/App.xcodeproj -scheme App -configuration Debug -destination 'generic/platform=iOS Simulator' build
+```
+
+**Sync state:** Both machines at `0b98162`. Linux clean. Mac dirty (uncommitted index.html + public/). Origin/master at `0b98162`.
+
+**Files touched:** frontend/index.html, frontend/src/pages/SettingsScreen.tsx, frontend/src/pages/ActiveWorkoutScreen.tsx, frontend/src/rules.ts, frontend/ios/App/App.xcodeproj/project.pbxproj (read-only audit), Mac DerivedData (cleaned + rebuilt)

@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
 last_updated: 2026-09-18
-status: clean — both machines synced to origin/master f198794
+status: dirty on Mac — both machines at 0b98162, Mac has uncommitted index.html + public/ changes (new Vite build copied into App.app)
 
 This file explains where every type of project knowledge lives and when to use it.
 
@@ -8,11 +8,11 @@ This file explains where every type of project knowledge lives and when to use i
 
 ### Repo
 - **Branch:** master
-- **HEAD (both machines):** `78c2cb7` — "docs: sync MEMORY-INDEX.md status line to HEAD 85b63b1" (latest status update — MEMORY-INDEX.md + Hermes MEMORY.md rewritten with session history)
-- **Remote (GitHub origin/master):** `78c2cb7` — both machines in sync, working tree clean on both
+- **HEAD (both machines):** `0b98162` — "refactor: remove ai_trainer/manual mode toggle — single mode with local prescription logic"
+- **Remote (GitHub origin/master):** `0b98162` — both machines at same commit, Linux clean, Mac dirty (uncommitted index.html + public/ changes from new Vite build)
 - **Remote URL:** `git@github.com:2823phillip-droid/SmartLift.git` (Mac) / `https://github.com/2823phillip-droid/SmartLift.git` (Linux)
-- **Uncommitted changes:** none on either machine
-- **Untracked files:** none on either machine (stale root `ActiveWorkoutScreen.tsx`, `main.py`, `rules.py` removed in prior session)
+- **Uncommitted changes:** Mac only — `frontend/index.html` (title change to "Askeo — Workout Logger"), `frontend/public/assets/` + `frontend/public/index.html` (new Vite build copied in, old files cleaned). Linux clean.
+- **Untracked files:** Mac only — `frontend/public/assets/` (new JS/CSS bundles), `frontend/public/index.html` (new). These are build artifacts that belong in git once committed.
 
 ### Backend (deployed, Fly)
 - **App:** `smartlift-api` (internal name; users see `askeo.fit`)
