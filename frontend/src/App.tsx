@@ -22,6 +22,7 @@ import TabBar, { type Tab } from "./components/TabBar";
 import DebugLogScreen from "./pages/DebugLogScreen";
 import CustomWorkoutBuilderScreen from "./pages/CustomWorkoutBuilderScreen";
 import TimerScreen from "./pages/TimerScreen";
+import AiTrainerScreen from "./pages/AiTrainerScreen";
 import RemindersScreen from "./pages/RemindersScreen";
 
 type View =
@@ -44,12 +45,14 @@ type View =
   | "transition_history"
   | "custom_builder"
   | "timer"
-  | "reminders";
+  | "reminders"
+  | "ai_trainer";
 
 const tabRootToView: Record<Tab, View> = {
   home: "home",
   workouts: "workouts",
   history: "history",
+  ai_trainer: "ai_trainer",
   settings: "settings",
 };
 
@@ -74,6 +77,7 @@ const viewToTab: Record<View, Tab | null> = {
   custom_builder: "workouts",
   timer: "home",
   reminders: "home",
+  ai_trainer: "ai_trainer",
 };
 
 export default function App() {
@@ -303,6 +307,7 @@ export default function App() {
       case "transition_history":
       case "timer":
       case "reminders":
+      case "ai_trainer":
       default:
         return "home";
     }
@@ -565,6 +570,7 @@ export default function App() {
               )}
               {view === "timer" && <TimerScreen onBack={goBack} />}
               {view === "reminders" && <RemindersScreen onBack={goBack} />}
+              {view === "ai_trainer" && <AiTrainerScreen onBack={goBack} />}
             </ErrorBoundary>
           </div>
         )}
