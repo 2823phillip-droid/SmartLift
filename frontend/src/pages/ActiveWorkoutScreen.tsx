@@ -200,6 +200,10 @@ export default function ActiveWorkoutScreen({
                 : Math.round(lbsToKg(prescription.next_weight));
               setDraftWeight(String(displayWeight));
               setDraftReps(String(prescription.next_reps));
+              setPrescriptions((prev) => ({
+                ...prev,
+                [target.id]: prescription,
+              }));
               console.log("[ActiveWorkoutScreen] auto-expand fallback", displayWeight, "x", prescription.next_reps);
               setDraftEffort(null);
               setDraftFormQuality(0);
@@ -309,6 +313,10 @@ export default function ActiveWorkoutScreen({
       is_compound: target.is_compound ?? true,
       routineName: template?.name ?? undefined,
     });
+    setPrescriptions((prev) => ({
+      ...prev,
+      [target.id]: prescription,
+    }));
     const displayWeight = getUnitsPreference() === "imperial"
       ? Math.round(prescription.next_weight)
       : Math.round(lbsToKg(prescription.next_weight));
