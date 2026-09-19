@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
-last_updated: 2026-09-18
-status: dirty on Mac — both machines at 0b98162, Mac has uncommitted index.html + public/ changes (new Vite build copied into App.app)
+last_updated: 2026-09-19
+status: synced — both machines at `5453a9e`, clean working trees. Mac has fresh build in `frontend/ios/App/App/public/` (the folder Xcode reads). `frontend/public/` is a decoy — Xcode ignores it.
 
 This file explains where every type of project knowledge lives and when to use it.
 
@@ -8,11 +8,10 @@ This file explains where every type of project knowledge lives and when to use i
 
 ### Repo
 - **Branch:** master
-- **HEAD (both machines):** `0b98162` — "refactor: remove ai_trainer/manual mode toggle — single mode with local prescription logic"
-- **Remote (GitHub origin/master):** `0b98162` — both machines at same commit, Linux clean, Mac dirty (uncommitted index.html + public/ changes from new Vite build)
+- **HEAD (both machines):** `5453a9e` — "feat: restore AI Coach tab with chat functionality"
+- **Remote (GitHub origin/master):** `5453a9e` — both machines at same commit, Linux clean, Mac clean (fresh Vite build in `frontend/ios/App/App/public/` — the folder Xcode reads)
 - **Remote URL:** `git@github.com:2823phillip-droid/SmartLift.git` (Mac) / `https://github.com/2823phillip-droid/SmartLift.git` (Linux)
-- **Uncommitted changes:** Mac only — `frontend/index.html` (title change to "Askeo — Workout Logger"), `frontend/public/assets/` + `frontend/public/index.html` (new Vite build copied in, old files cleaned). Linux clean.
-- **Untracked files:** Mac only — `frontend/public/assets/` (new JS/CSS bundles), `frontend/public/index.html` (new). These are build artifacts that belong in git once committed.
+- **Untracked files:** None.
 
 ### Backend (deployed, Fly)
 - **App:** `smartlift-api` (internal name; users see `askeo.fit`)
@@ -27,7 +26,7 @@ This file explains where every type of project knowledge lives and when to use i
 - **Build target:** Capacitor iOS app, Xcode project on Mac
 - **API base (runtime):** `.env` sets `VITE_API_BASE=https://smartlift-api.fly.dev/api` — both machines. The `.env` value wins at runtime over any hardcoded fallback in `api.ts`.
 - **Domains:** `askeo.fit` and `smartlift-api.fly.dev` resolve to same IP (`66.241.124.80`) and same Fly server. Which URL is used doesn't change which backend is hit.
-- **Dist bundle:** `frontend/dist/` built on Mac, copied into `frontend/ios/App/App/public/` for Xcode to consume. Not served by Fly.
+- **Dist bundle:** `frontend/dist/` built on Mac, copied into `frontend/ios/App/App/public/` for Xcode to consume. Not served by Fly. **Important:** the Xcode project reads `public/` from `frontend/ios/App/App/public/`, NOT from `frontend/public/` — there are two `public/` folders and the `frontend/public/` one is a decoy that Xcode ignores.
 
 ### Sync definition: "fully synced" means ALL of:
 1. GitHub origin/master is source of truth. Both machines at same commit.
@@ -57,6 +56,7 @@ git pull origin master              # pull remote
 - Debug scripts (`_fetch_*.py`, `_stream_webcontent.py`, `fetch_logs.sh`, `_mac_fix_*.py`) — removed
 
 ## Bootstrap order
+
 Read in this order at the start of any session:
 
 1. `CONTEXT.md` — what's happening right now, what shipped, what's next
@@ -78,6 +78,7 @@ Reference materials (read when relevant, not mandatory at startup):
 - `MEMORY-INDEX.md` — this file
 
 ## Durable lessons
+
 See `memory/README.md` for the full catalog of domain files.
 
 File | When to read
@@ -109,6 +110,7 @@ File | When to read
 - Mac SSH logs (if needed): `/Users/phillipwalters/Projects/SecureCRT/Logs/` (SecureCRT)
 
 ## File format standards
+
 All files in `memory/` use this header:
 ```
 last_updated: YYYY-MM-DD
@@ -139,6 +141,7 @@ Consequence:
 7. **Never ask the user to run terminal commands for deploy/sync/device operations.** The agent owns these end-to-end via SSH to Mac.
 
 ## Decision checklist
+
 When unsure whether to record something:
 1. Will the same issue reappear? -> Record it.
 2. Is it a one-time environment quirk? -> Log in `changelog.md` only.
@@ -146,6 +149,7 @@ When unsure whether to record something:
 4. Is it user-facing (UX/flow change)? -> Also update `TODO.md` and `Askeo.md`.
 
 ## Sync audit trail
+
 Use this when checking if things are clean:
 
 | Check | Command | Expected |
@@ -158,6 +162,7 @@ Use this when checking if things are clean:
 | No stale root files | `ls *.tsx *.py` at repo root on Mac | no matches (files shouldn't exist) |
 
 ## Tagging conventions
+
 Use lowercase, single-word tags. Pick the dominant domain first, then add a secondary system if needed:
   Primary tags: deploy, debugging, backend-db, auth, frontend-fetch, decisions, ios, capacitor, cors, postgres, schema, retry, token
 Secondary tags: production, device, cache, validation, migration
@@ -171,6 +176,7 @@ The `related` field should list only files directly relevant. Prefer 1-3 links. 
 - **The session lifecycle process in this file is owned by Memory — it is already being followed.** Every session starts with sync audit, resolves uncommitted changes immediately, cleans stale files before ending, and updates documentation in-session. This is not optional.
 
 ## Pre-Build Check
+
 Before building from Xcode or testing, verify:
 1. **Git clean on both machines:** `git status` shows no uncommitted changes on Linux or Mac
 2. **Same commit:** `git rev-parse HEAD` matches on both machines
@@ -218,6 +224,7 @@ Every session — whether debugging, building, or investigating — follows this
 - Asking the user for permission to follow this process — it's mandatory, not optional
 
 ## Tagging conventions
+
 Use lowercase, single-word tags. Pick the dominant domain first, then add a secondary system if needed:
   Primary tags: deploy, debugging, backend-db, auth, frontend-fetch, decisions, ios, capacitor, cors, postgres, schema, retry, token
 Secondary tags: production, device, cache, validation, migration
