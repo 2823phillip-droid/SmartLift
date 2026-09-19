@@ -173,45 +173,51 @@ function _sessionTargetMessage(
   heldWeight: number = 0,
   repsTarget: number = 6,
 ): string {
+  // --- Phrase variables — edit these to change the coaching messages ---
+  const phrases = {
+    introSession: `In your last {routine} session, for {exercise}, you did {weight} lbs, effort {effort}. `,
+    increaseSession:
+      `In this session, you will start {increment} lbs heavier than you started this exercise in your last session ` +
+      `at {nextWeight} lbs. As long as you hit your weight and reps, I will continue to progress your weight by {increment} lbs.`,
+    holdFormBroke:
+      `In your last {routine} session, for {exercise}, you did {weight} lbs × {reps} reps with {form}. ` +
+      `Holding weight — form first, even if it means fewer reps or dropping. ` +
+      `In this session we'll start at {heldWeight} lbs and shoot for {repsTarget} reps.`,
+    holdFormStruggled:
+      `In your last {routine} session, for {exercise}, you did {weight} lbs × {reps} reps with {form}. ` +
+      `Holding weight — keep it clean next time, even if reps drop. ` +
+      `In this session we'll start at {heldWeight} lbs and shoot for {repsTarget} reps.`,
+    holdRepFloor:
+      `In your last {routine} session, for {exercise}, you did {weight} lbs × {reps} reps, ` +
+      `effort {effort} — right at your rep floor. Holding weight in this session. ` +
+      `Start at {heldWeight} lbs and shoot for {repsTarget} reps.`,
+  };
+
   const ex = rule.exerciseName || "this exercise";
   const rn = rule.routineName || "your";
   const displayWeight = Math.round(weight * 10) / 10;
   const displayNext = Math.round(nextWeight);
   const e = effort != null ? effort : "?";
   const ftext = _formText(formQuality);
+  const inc = Math.round(nextWeight - weight) > 0 ? Math.round(nextWeight) - Math.round(weight) : 5;
 
-  if (formQuality !== undefined && formQuality >= 2) {
-    return (
-      `In your last ${rn} session, for ${ex}, you did ${displayWeight} lbs × ${reps} reps ` +
-      `with ${ftext}. Holding weight — form first, even if it means fewer reps or dropping. ` +
-      `In this session we'll start at ${Math.round(heldWeight)} lbs and shoot for ${repsTarget} reps.`
-    );
-  }
+  const fill = (template: string) =>
+    template
+      .replace("{routine}", rn)
+      .replace("{exercise}", ex)
+      .replace("{weight}", displayWeight)
+      .replace("{reps}", reps)
+      .replace("{effort}", e)
+      .replace("{form}", ftext)
+      .replace("{nextWeight}", displayNext)
+      .replace("{heldWeight}", Math.round(heldWeight))
+      .replace("{repsTarget}", repsTarget)
+      .replace("{increment}", inc);
 
-  if (formQuality !== undefined && formQuality === 1) {
-    return (
-      `In your last ${rn} session, for ${ex}, you did ${displayWeight} lbs × ${reps} reps ` +
-      `with ${ftext}. Holding weight — keep it clean next time, even if reps drop. ` +
-      `In this session we'll start at ${Math.round(heldWeight)} lbs and shoot for ${repsTarget} reps.`
-    );
-  }
-
-  if (held) {
-    const repFloor = repsTarget <= 6 ? 6 : 8;
-    return (
-      `In your last ${rn} session, for ${ex}, you did ${displayWeight} lbs × ${reps} reps, ` +
-      `effort ${e} — right at your rep floor. Holding weight in this session. ` +
-      `Start at ${Math.round(heldWeight)} lbs and shoot for ${repsTarget} reps.`
-    );
-  }
-
-  // Increase path (reps hit, form clean, effort in range or above floor with clean form)
-  return (
-    `In your last ${rn} session, for ${ex}, you did ${displayWeight} lbs, effort ${e}. ` +
-    `In this session, you will start 5 lbs heavier than you started this exercise in your last session ` +
-    `at ${displayNext} lbs. As long as you hit your weight and reps, I will continue to progress ` +
-    `your weight by 5 lbs.`
-  );
+  if (formQuality !== undefined && formQuality >= 2) return fill(phrases.holdFormBroke);
+  if (formQuality !== undefined && formQuality === 1) return fill(phrases.holdFormStruggled);
+  if (held) return fill(phrases.holdRepFloor);
+  return fill(phrases.introSession + phrases.increaseSession);
 }
 
 function _setTargetMessage(
@@ -225,26 +231,35 @@ function _setTargetMessage(
   heldWeight: number = 0,
   repsTarget: number = 6,
 ): string {
+  // --- Phrase variables — edit these to change the coaching messages ---
+  const phrases = {
+    increase:
+      `On your last set, for {exercise}, you did {weight} lbs, {reps} reps, effort {effort}, {form}. ` +
+      `On this set, you will move up {increment} lbs heavier because you hit your weight and reps with clean form.`,
+    hold:
+      `On your last set, for {exercise}, you did {weight} lbs, {reps} reps, effort {effort}, {form}. ` +
+      `We're holding weight — same {heldWeight} lbs and {reps} reps this set. ` +
+      `Hit the reps with clean form and we'll move up next set.`,
+  };
+
   const ex = rule.exerciseName || "this exercise";
   const displayWeight = Math.round(weight * 10) / 10;
   const e = effort != null ? effort : "?";
   const ftext = _formText(formQuality);
+  const inc = Math.round(nextWeight - weight) > 0 ? Math.round(nextWeight) - Math.round(weight) : 5;
 
-  if (held) {
-    // Hold: form broke, form struggled, reps missed, or high effort at floor
-    return (
-      `On your last set, for ${ex}, you did ${displayWeight} lbs, ${reps} reps, ` +
-      `effort ${e}, ${ftext}. We're holding weight — same ${Math.round(heldWeight)} lbs ` +
-      `and ${reps} reps this set. Hit the reps with clean form and we'll move up next set.`
-    );
-  }
+  const fill = (template: string) =>
+    template
+      .replace("{exercise}", ex)
+      .replace("{weight}", displayWeight)
+      .replace("{reps}", reps)
+      .replace("{effort}", e)
+      .replace("{form}", ftext)
+      .replace("{heldWeight}", Math.round(heldWeight))
+      .replace("{increment}", inc);
 
-  // Increase path: hit reps + clean form
-  return (
-    `On your last set, for ${ex}, you did ${displayWeight} lbs, ${reps} reps, ` +
-    `effort ${e}, ${ftext}. On this set, you will move up 5 lbs heavier ` +
-    `to ${Math.round(nextWeight)} lbs because you hit your weight and reps with clean form.`
-  );
+  if (held) return fill(phrases.hold);
+  return fill(phrases.increase);
 }
 
 export interface SetRecord {
