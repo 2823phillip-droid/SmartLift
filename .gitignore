@@ -19,6 +19,9 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Build output for Xcode (generated from dist/)
+public/
+
 # Deploy-generated version info (overwritten on every deploy)
 backend/build-info.json
 frontend/src/build-info.ts
