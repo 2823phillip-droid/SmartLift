@@ -496,6 +496,8 @@ export const api = {
   getAlgorithmState: (exerciseEntryId: number) =>
     request(`/rules/algorithm-state/${exerciseEntryId}`),
 
+  getPhaseRecommendation: () => request("/coach/phase-recommendation"),
+
   listProgressionTransitions: () => request("/progression/transitions"),
 
   logout: () => request("/auth/logout"),
