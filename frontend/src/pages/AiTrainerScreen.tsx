@@ -324,10 +324,10 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
       </div>
 
       {/* Conversation box — fills remaining space, scrolls internally */}
-      <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950/40 mb-3">
+      <div className="flex-1 min-h-0 overflow-y-auto rounded-2xl border border-slate-800 bg-slate-950/40">
         <div className="p-4 space-y-4">
           {coachMessages.length === 0 && !coachLoading ? (
-            <div className="flex flex-col items-center justify-center h-full text-center py-10">
+            <div className="flex flex-col items-center justify-center text-center py-6">
               <div className="w-14 h-14 rounded-full bg-indigo-600/20 flex items-center justify-center mb-4">
                 <span className="text-2xl">💪</span>
               </div>
@@ -470,7 +470,7 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
       </div>
 
       {/* Chat input — pinned to bottom, never scrolls */}
-      <div className="shrink-0 flex gap-2 px-4 pb-4">
+      <div className="shrink-0 flex gap-2 px-4 pb-2">
         <input
           ref={inputRef}
           value={coachInput}

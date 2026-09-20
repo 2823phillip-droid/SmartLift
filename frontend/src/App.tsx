@@ -498,77 +498,53 @@ export default function App() {
                   sessionId={sessionId}
                   templateId={selectedTemplateId}
                   workoutEndSummary={workoutEndSummary}
-                  onDone={() => {
-                    setSessionId(null);
-                    setSelectedTemplateId(null);
-                    setWorkoutEndSummary(null);
-                    navigate("home");
-                  }}
                 />
               )}
               {view === "history" && (
-                <HistoryScreen onBack={goBack} />
-              )}
-              {view === "transition_history" && (
-                <TransitionHistoryScreen onBack={goBack} />
-              )}
-              {view === "settings" && (
-                <SettingsScreen
-                  onBack={goBack}
-                  onOpenDebug={() => setView("debug_log")}
+                <HistoryScreen
+                  onNavigate={navigate}
+                  onExercise={(exerciseId, exerciseName, templateId, notes) => {
+                    navigate("build_workout");
+                  }}
                 />
               )}
-              {view === "debug_log" && (
-                <DebugLogScreen onBack={() => setView("settings")} />
-              )}
+              {view === "settings" && <SettingsScreen onBack={goBack} />}
               {view === "library" && (
-                <LibraryScreen onBack={goBack} onImported={() => {}} />
-              )}
-              {view === "questionnaire" && (
-                <QuestionnaireScreen
-                  onBack={() => {
-                    setView("home");
-                  }}
-                  onComplete={async (_draft: any, _answers: any) => {
-                    try {
-                      if (typeof window !== "undefined") {
-                        localStorage.setItem("askeo_questionnaire_done", "1");
-                      }
-                    } catch {
-                      // non-fatal
-                    }
-                    setView("workouts");
-                  }}
-                />
-              )}
-              {view === "workouts" && (
-                <WorkoutsScreen
-                  onStartWorkout={(tplId) => {
+                <LibraryScreen
+                  onBack={goBack}
+                  onSelectTemplate={(tplId) => {
                     setSelectedTemplateId(tplId);
                     navigate("pre_workout");
                   }}
-                  onBuildWorkout={() => navigate("build_workout")}
-                  onSelectPrebuilt={() => navigate("library")}
-                  onBack={goBack}
-                  onEditTemplate={(tplId, ctxId) => {
-                    setSelectedContextId(ctxId);
-                    setSelectedTemplateId(tplId);
+                  onCreateTemplate={() => {
                     navigate("template_editor");
                   }}
-                  onOpenTransitionHistory={() => navigate("transition_history")}
                 />
               )}
-              {view === "profile" && (
-                <ProfileScreen
+              {view === "workouts" && <WorkoutsScreen onNavigate={navigate} />}
+              {view === "profile" && <ProfileScreen onBack={goBack} />}
+              {view === "debug_log" && <DebugLogScreen onBack={goBack} />}
+              {view === "questionnaire" && <QuestionnaireScreen onComplete={() => setView("home")} />}
+              {view === "transition_history" && (
+                <TransitionHistoryScreen
+                  contextId={selectedContextId ?? undefined}
                   onBack={goBack}
-                  onOpenSettings={() => {
-                    setView("settings");
-                    setTab("settings");
-                  }}
-                  user={user}
                 />
               )}
-              {view === "timer" && <TimerScreen onBack={goBack} />}
+              {view === "custom_builder" && (
+                <CustomWorkoutBuilderScreen
+                  onBack={() => {
+                    setCustomBuilderAnswers(null);
+                    navigate("workouts");
+                  }}
+                  onSaved={() => {
+                    setCustomBuilderAnswers(null);
+                    navigate("workouts");
+                  }}
+                  initialAnswers={customBuilderAnswers || {}}
+                />
+              )}
+              {view === "timer" && <TimerScreen onNavigate={navigate} />}
               {view === "reminders" && <RemindersScreen onBack={goBack} />}
               {view === "ai_trainer" && <AiTrainerScreen onBack={goBack} />}
             </ErrorBoundary>
@@ -576,7 +552,12 @@ export default function App() {
         )}
       </main>
 
-      {user && <TabBar active={activeTab} onChange={switchTab} />}
+      {user && (
+        <TabBar
+          tab={activeTab}
+          onChange={switchTab}
+        />
+      )}
     </div>
   );
 }

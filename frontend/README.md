@@ -34,12 +34,16 @@ src/
 
 From Linux:
 
-1. Build: `npm run build`
-2. Push source to MacBook
-3. On Mac: `npm install && npm run build`
-4. `npx cap sync ios`
-5. `npx cap open ios` — opens Xcode workspace
-6. Xcode → Play
+1. Build: `npm run build` (produces `dist/`)
+2. Rsync to Mac: `rsync -av --checksum --delete dist/ macbook:~/workout-logger/frontend/dist/`
+3. On Mac (via SSH): update `ios/App/App/public/` to match `dist/`
+   ```bash
+   ssh macbook 'rsync -av --checksum --delete ~/workout-logger/frontend/dist/index.html ~/workout-logger/frontend/ios/App/App/public/index.html'
+   ssh macbook 'rsync -av --checksum --delete ~/workout-logger/frontend/dist/assets/ ~/workout-logger/frontend/ios/App/App/public/assets/'
+   ```
+4. Open Xcode on Mac → select your iPhone → Product → Run (⌘R)
+
+**Note:** We do not use `npx cap sync ios` or the iOS simulator. The app is tested on your actual iPhone. The symlink at `ios/App/App/dist → ../../frontend/dist` exists but is not used in our deploy process.
 
 ## Production
 
