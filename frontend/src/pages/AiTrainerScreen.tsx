@@ -286,7 +286,7 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div className="flex flex-col h-dvh overflow-hidden">
+    <div className="flex flex-col h-dvh pb-50 overflow-hidden">
       {/* Header — pinned, never scrolls */}
       <div className="flex items-center justify-between px-4 py-3 shrink-0">
         <div className="flex items-center gap-3">
@@ -483,7 +483,7 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
           }}
           placeholder="Ask about your training or request a workout..."
           disabled={coachLoading}
-          className="flex-1 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-3 text-sm placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-60"
+          className="flex-1 rounded-2xl border border-slate-700 bg-slate-900 px-4 py-2.5 text-sm placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50 disabled:opacity-60"
         />
         <button
           onClick={() => handleCoachQuestion()}
