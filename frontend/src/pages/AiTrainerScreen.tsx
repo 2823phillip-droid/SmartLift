@@ -286,7 +286,7 @@ export default function AiTrainerScreen({ onBack }: { onBack: () => void }) {
   };
 
   return (
-    <div className="flex flex-col h-dvh pb-50 overflow-hidden">
+    <div className="flex flex-col h-dvh pb-60 overflow-hidden">
       {/* Header — pinned, never scrolls */}
       <div className="flex items-center justify-between px-4 py-3 shrink-0">
         <div className="flex items-center gap-3">
