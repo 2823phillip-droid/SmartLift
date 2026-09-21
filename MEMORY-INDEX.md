@@ -6,6 +6,34 @@ This file explains where every type of project knowledge lives and when to use i
 
 ## Current state (as of this update)
 
+### Rollback points
+
+Always tag before touching global layout (App.tsx) or root routing. The tag gives a one-command landing point if a change breaks multiple tabs.
+
+**To create a rollback point before making changes:**
+```bash
+git tag rollback-$(date +%Y%m%d)-<short-description> <current-commit>
+git push origin rollback-$(date +%Y%m%d)-<short-description>
+```
+
+**To roll back (Linux):**
+```bash
+git reset --hard rollback-<date>-<description>
+git push --force origin master   # only if broken commits were pushed
+# rebuild + rsync to restore Mac public/
+```
+
+**To roll back (Mac):**
+```bash
+ssh macbook 'cd ~/workout-logger && git fetch origin && git reset --hard rollback-<date>-<description>'
+```
+
+| Tag | Commit | What it represents | Created |
+|-----|--------|--------------------|---------|
+| `rollback-before-header-fix` | `1b1fd64` | pb-60 coach tab (conversation scrolls internally, chat input above tab bar). All tabs: header uses `sticky top-0`, root is `min-h-screen`, page can still scroll as one. | 2026-09-20 |
+
+Update this table after each new rollback point is created. Remove stale entries only when they're no longer the "previous known-good" reference.
+
 ### Repo
 - **Branch:** master
 - **HEAD (both machines):** `5453a9e` — "feat: restore AI Coach tab with chat functionality"
