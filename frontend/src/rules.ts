@@ -150,7 +150,7 @@ function linearProgression(input: ProgressionInput): ProgressionResult {
     next_weight: nextWeight,
     next_reps: repFloor,
     decision: "increase",
-    coaching_message: linearMessage(prev, nextWeight),
+    coaching_message: ,
     reason: "increase",
   };
 }
@@ -201,18 +201,21 @@ function _sessionTargetMessage(
   const ftext = _formText(formQuality);
   const inc = Math.round(nextWeight - weight) > 0 ? Math.round(nextWeight) - Math.round(weight) : 5;
 
-  const fill = (template: string) =>
-    template
-      .replace("{routine}", rn)
-      .replace("{exercise}", ex)
-      .replace("{weight}", displayWeight)
-      .replace("{reps}", reps)
-      .replace("{effort}", e)
-      .replace("{form}", ftext)
-      .replace("{nextWeight}", displayNext)
-      .replace("{heldWeight}", Math.round(heldWeight))
-      .replace("{repsTarget}", repsTarget)
-      .replace("{increment}", inc);
+  const fill = (template: string) => {
+    const replacements: Record<string, string> = {
+      "{routine}": String(rn),
+      "{exercise}": String(ex),
+      "{weight}": String(displayWeight),
+      "{reps}": String(reps),
+      "{effort}": String(e),
+      "{form}": String(ftext),
+      "{nextWeight}": String(displayNext),
+      "{heldWeight}": String(Math.round(heldWeight)),
+      "{repsTarget}": String(repsTarget),
+      "{increment}": String(inc),
+    };
+    return template.replace(/\{[^}]+\}/g, (m) => replacements[m] ?? m);
+  };
 
   if (formQuality !== undefined && formQuality >= 2) return fill(phrases.holdFormBroke);
   if (formQuality !== undefined && formQuality === 1) return fill(phrases.holdFormStruggled);
@@ -248,15 +251,18 @@ function _setTargetMessage(
   const ftext = _formText(formQuality);
   const inc = Math.round(nextWeight - weight) > 0 ? Math.round(nextWeight) - Math.round(weight) : 5;
 
-  const fill = (template: string) =>
-    template
-      .replace("{exercise}", ex)
-      .replace("{weight}", displayWeight)
-      .replace("{reps}", reps)
-      .replace("{effort}", e)
-      .replace("{form}", ftext)
-      .replace("{heldWeight}", Math.round(heldWeight))
-      .replace("{increment}", inc);
+  const fill = (template: string) => {
+    const replacements: Record<string, string> = {
+      "{exercise}": String(ex),
+      "{weight}": String(displayWeight),
+      "{reps}": String(reps),
+      "{effort}": String(e),
+      "{form}": String(ftext),
+      "{heldWeight}": String(Math.round(heldWeight)),
+      "{increment}": String(inc),
+    };
+    return template.replace(/\{[^}]+\}/g, (m) => replacements[m] ?? m);
+  };
 
   if (held) return fill(phrases.hold);
   return fill(phrases.increase);
