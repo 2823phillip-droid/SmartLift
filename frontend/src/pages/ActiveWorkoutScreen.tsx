@@ -619,7 +619,12 @@ export default function ActiveWorkoutScreen({
         : Math.round(lbsToKg(prescription.next_weight));
       setDraftWeight(String(displayWeight));
       setDraftReps(String(prescription.next_reps));
-      setDraftEffort(null);
+      // Restore effort from the most recent log for this exercise in the
+      // current session, so set 2+ keeps the effort from the prior set
+      // instead of resetting to unselected on every expand.
+      const exerciseLogs = logs.filter((l: SetLog) => l.exercise_entry_id === exercise.id);
+      const latestLog = exerciseLogs.length > 0 ? exerciseLogs[exerciseLogs.length - 1] : null;
+      setDraftEffort(latestLog?.effort ?? null);
       setDraftFormQuality(0);
       setNotes("");
       setShowNotes(false);
