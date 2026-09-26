@@ -363,7 +363,7 @@ export default function ActiveWorkoutScreen({
       : Math.round(lbsToKg(prescription.next_weight));
     setDraftWeight(String(displayWeight));
     setDraftReps(String(prescription.next_reps));
-    setDraftEffort(null);
+    setDraftEffort(latestLog?.effort ?? null);
     setDraftFormQuality(0);
     setNotes("");
     setShowNotes(false);

@@ -344,7 +344,7 @@ export function SortableExerciseCard({
                   </div>
                 )}
 
-                {suggestion && (
+                {!isComplete && suggestion && (
                   <div className={`rounded-xl border px-3 py-2 ${
                     suggestion.workload_status === "deload" ? "border-amber-800 bg-amber-950/30" :
                     suggestion.workload_status === "easy" ? "border-emerald-800 bg-emerald-950/30" :
@@ -357,7 +357,9 @@ export function SortableExerciseCard({
                       suggestion.workload_status === "hard" ? "text-rose-400" :
                       "text-indigo-400"
                     }`}>
-                      {suggestion.is_deload ? "Deload Week" : exerciseLogs.length === 0 ? "Session Target" : "Set Target"}
+                      {suggestion.is_deload ? "Deload Week" 
+                        : exerciseLogs.length === 0 ? "Session Target" 
+                        : "Set Target"}
                     </div>
                     <div className="text-xs text-slate-300 mt-1 leading-relaxed">{suggestion.coaching_message}</div>
                   </div>
