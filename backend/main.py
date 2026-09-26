@@ -258,30 +258,6 @@ async def version():
 async def readyz():
     return {"status": "ready"}
 
-@app.get("/roadmap")
-async def roadmap():
-    with open("roadmap.html", "r") as f:
-        html = f.read()
-    served_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    html = html.replace(
-        '<div class="legend-item" style="margin-left:auto;color:var(--muted)" id="deploy-ts"></div>',
-        f'<div class="legend-item" style="margin-left:auto;color:var(--muted)" id="deploy-ts">Deployed: {served_at}</div>',
-    )
-    return HTMLResponse(content=html, media_type="text/html")
-
-
-@app.get("/todo")
-async def todo():
-    with open("todo.html", "r") as f:
-        html = f.read()
-    served_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    html = html.replace(
-        '<div class="deploy-ts" id="deploy-ts"></div>',
-        f'<div class="deploy-ts" id="deploy-ts">Served: {served_at}</div>',
-    )
-    return HTMLResponse(content=html, media_type="text/html")
-
-
 @app.get("/home")
 async def home():
     with open("home.html", "r") as f:
@@ -290,28 +266,6 @@ async def home():
     html = html.replace(
         '<div class="deploy-ts" id="deploy-ts"></div>',
         f'<div class="deploy-ts" id="deploy-ts">Served: {served_at}</div>',
-    )
-    return HTMLResponse(content=html, media_type="text/html")
-
-@app.get("/architecture")
-async def architecture():
-    with open("architecture.html", "r") as f:
-        html = f.read()
-    served_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    html = html.replace(
-        "Last updated: 2026-08-03",
-        f"Last updated: 2026-08-03 — Served: {served_at}",
-    )
-    return HTMLResponse(content=html, media_type="text/html")
-
-@app.get("/flowchart")
-async def flowchart():
-    with open("flowchart.html", "r") as f:
-        html = f.read()
-    served_at = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
-    html = html.replace(
-        "2026-08-04",
-        f"2026-08-04 — Served: {served_at}",
     )
     return HTMLResponse(content=html, media_type="text/html")
 
