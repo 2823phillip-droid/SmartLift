@@ -5,9 +5,13 @@ last_updated: 2026-09-26
 
 ### Bugs fixed
 
+- [x] **Set 2 weight reverts to session target after navigating away and back** — Set 1 shows Session Target (pulls from last workout, going up 5lbs). Set 2 shows Set Target (matches rest timer, shows last set info, going up 5lbs). Both work correctly during continuous workout. But navigating away (Settings tab → back to Live Workout) causes two things to break:
+  - Elapsed time resets to 0
+  - Set 2 actual weight reverts to the session target weight instead of the set target weight (it was correct using set target before navigating away)
+  
+  Fixed: L274 `useEffect` now uses current `logs` when they exist for the exercise (latest log as seedSet), falling back to `lastSessionByExercise` only on fresh workout start. `workoutStart` persisted to localStorage and restored on remount.
+
 - [x] **Rest timer lost on nav away/back** — Fixed: `startRest()` now saves end time to localStorage; mount effect restores it; `clearRestTimer()` + `endWorkout()` + `cancelWorkout()` clean up.
-- [x] **Set 2+ weight reverts to session target on nav away/back** — Fixed: L274 `useEffect` now uses current `logs` when they exist for the exercise (latest log as seedSet), falling back to `lastSessionByExercise` only on fresh workout start.
-- [x] **Elapsed workout time resets to 0 on nav away/back** — Fixed: `workoutStart` now restored from localStorage on mount, persisted on set, fallback to `session.started_at`; cleared on `endWorkout()`/`cancelWorkout()`.
 
 ### Bugs to fix
 
