@@ -137,7 +137,29 @@ export default function ActiveWorkoutScreen({
           setTemplate(tpl);
         }
         if (session?.started_at) {
-          setWorkoutStart(new Date());
+          const savedStart = localStorage.getItem(`askeo_workout_${sessionId}_start`);
+          if (savedStart) {
+            const parsed = new Date(savedStart);
+            if (!isNaN(parsed.getTime())) {
+              setWorkoutStart(parsed);
+            }
+          }
+          if (!workoutStart) {
+            setWorkoutStart(new Date(session.started_at));
+          }
+        } else {
+          // Fallback: restore from localStorage if session data unavailable
+          const savedStart = localStorage.getItem(`askeo_workout_${sessionId}_start`);
+          if (savedStart) {
+            const parsed = new Date(savedStart);
+            if (!isNaN(parsed.getTime())) {
+              setWorkoutStart(parsed);
+            }
+          }
+        }
+        // Persist workout start to localStorage for recovery after navigation
+        if (workoutStart && sessionId) {
+          localStorage.setItem(`askeo_workout_${sessionId}_start`, workoutStart.toISOString());
         }
         setOriginalExercises(exercisesData);
 
@@ -293,21 +315,40 @@ export default function ActiveWorkoutScreen({
       return;
     }
 
-    const sessionResolved = lastSessionByExercise[target.id] || [];
-    const firstSet = sessionResolved.find((l: any) => l.set_index === 1) || sessionResolved[0];
-    const lastWeight = firstSet
-      ? firstSet.actual_weight
-      : (sessionResolved.length > 0
-        ? Math.max(...sessionResolved.map((s: any) => s.actual_weight || 0))
-        : target.start_weight);
-    const history = buildPrescriptionHistory(target);
+    // If there are already logged sets for this exercise in the current session,
+    // use the most recent one as the base — matching what logSet() does after
+    // each set. Fall back to lastSessionByExercise only when there are no
+    // in-progress logs (i.e. a fresh workout start).
+    const exerciseLogs = logs.filter((l: SetLog) => l.exercise_entry_id === target.id);
+    const latestLog = exerciseLogs.length > 0 ? exerciseLogs[exerciseLogs.length - 1] : null;
+    const lastWeight = latestLog
+      ? latestLog.actual_weight ?? target.start_weight
+      : (() => {
+          const sessionResolved = lastSessionByExercise[target.id] || [];
+          const firstSet = sessionResolved.find((l) => l.set_index === 1) || sessionResolved[0];
+          return firstSet
+            ? firstSet.actual_weight
+            : (sessionResolved.length > 0
+              ? Math.max(...sessionResolved.map((s) => s.actual_weight || 0))
+              : target.start_weight);
+        })();
+
+    const seedSet = latestLog ? {
+      actual_weight: toLbs(latestLog.actual_weight ?? 0),
+      actual_reps: latestLog.actual_reps ?? (target.is_compound ? 6 : 8),
+      effort: latestLog.effort ?? 5,
+      form_quality: latestLog.form_quality ?? 0,
+      completed_at: new Date().toISOString(),
+    } : undefined;
+
     const prescription = computePrescription({
       start_weight: toLbs(lastWeight),
       reps_target: target.is_compound ? 6 : 8,
       sets_target: displaySetsTarget[target.id] ?? target.sets_target,
-      rest_seconds: target.rest_seconds,
+      rest_seconds: target.rest_seconds ?? 90,
       progression_type: "linear",
-      history,
+      history: latestLog ? [] : buildPrescriptionHistory(target),
+      seedSet,
       force_deload: false,
       exerciseName: target.name,
       is_compound: target.is_compound ?? true,
@@ -478,7 +519,37 @@ export default function ActiveWorkoutScreen({
       restTimerRef.current = null;
     }
     restEndTimeRef.current = null;
+    if (sessionId) {
+      localStorage.removeItem(`askeo_workout_${sessionId}_rest_end`);
+    }
   };
+
+  // Restore rest timer on mount if it was running when we navigated away
+  useEffect(() => {
+    if (!sessionId) return;
+    const savedEnd = localStorage.getItem(`askeo_workout_${sessionId}_rest_end`);
+    if (savedEnd) {
+      const endTime = Number(savedEnd);
+      if (!isNaN(endTime) && endTime > Date.now()) {
+        const remaining = Math.ceil((endTime - Date.now()) / 1000);
+        if (remaining > 0) {
+          restEndTimeRef.current = endTime;
+          setRestSeconds(remaining);
+          restTimerRef.current = window.setInterval(() => {
+            const remaining = Math.max(0, Math.ceil((restEndTimeRef.current! - Date.now()) / 1000));
+            setRestSeconds(remaining);
+            if (remaining <= 0) {
+              clearRestTimer();
+              setRestSeconds(null);
+              playRestEndChime();
+            }
+          }, 250);
+        } else {
+          localStorage.removeItem(`askeo_workout_${sessionId}_rest_end`);
+        }
+      }
+    }
+  }, [sessionId]);
 
   const playRestEndChime = () => {
     try {
@@ -502,6 +573,9 @@ export default function ActiveWorkoutScreen({
     clearRestTimer();
     const endTime = Date.now() + seconds * 1000;
     restEndTimeRef.current = endTime;
+    if (sessionId) {
+      localStorage.setItem(`askeo_workout_${sessionId}_rest_end`, String(endTime));
+    }
     setRestSeconds(seconds);
     restTimerRef.current = window.setInterval(() => {
       const remaining = Math.max(0, Math.ceil((restEndTimeRef.current! - Date.now()) / 1000));
@@ -875,6 +949,10 @@ export default function ActiveWorkoutScreen({
 
   const endWorkout = async (extraSets = 0) => {
     clearRestTimer();
+    if (sessionId) {
+      localStorage.removeItem(`askeo_workout_${sessionId}_start`);
+      localStorage.removeItem(`askeo_workout_${sessionId}_rest_end`);
+    }
     try {
       await withRetry(() => api.endSession(sessionId), { retries: 3, baseDelayMs: 300 });
     } catch (err) {
@@ -901,6 +979,10 @@ export default function ActiveWorkoutScreen({
 
   const cancelWorkout = async () => {
     if (!sessionId) return;
+    if (sessionId) {
+      localStorage.removeItem(`askeo_workout_${sessionId}_start`);
+      localStorage.removeItem(`askeo_workout_${sessionId}_rest_end`);
+    }
     try {
       await withRetry(() => api.cancelSession(sessionId), { retries: 3, baseDelayMs: 300 });
       onEnd?.();
