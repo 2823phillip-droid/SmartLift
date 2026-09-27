@@ -150,27 +150,7 @@ function linearProgression(input: ProgressionInput): ProgressionResult {
     next_weight: nextWeight,
     next_reps: repFloor,
     decision: "increase",
-    coaching_message: _sessionTargetMessage(
-      {
-        start_weight: prev.actual_weight,
-        reps_target: repFloor,
-        sets_target: 1,
-        rest_seconds: input.settings.rest_seconds ?? 90,
-        progression_type: "linear",
-        history: input.history ?? [],
-        linear_increment: input.settings.increment,
-        exerciseName: input.exercise.name,
-        routineName: input.model?.template_name || undefined,
-      },
-      prev.actual_weight,
-      prev.actual_reps,
-      prev.effort,
-      prev.form_quality,
-      nextWeight,
-      false,
-      0,
-      repFloor
-    ),
+    coaching_message: `Last set: ${w} lbs × ${r} reps, effort ${eDisplay}. Going up to ${Math.round(nextWeight)} lbs.`,
     reason: "increase",
   };
 }
