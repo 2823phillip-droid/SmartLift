@@ -205,7 +205,10 @@ export default function ActiveWorkoutScreen({
 
             // Compute prescriptions for ALL visible exercises so every card
             // shows its session target / set target box, not just the first.
+            // Pick the FIRST target for auto-expand — a local flag so the loop
+            // doesn't let later iterations win (same as the main effect).
             const newPrescriptions: Record<number, Prescription> = {};
+            let fallbackExpanded = false;
             for (const target of targets) {
               const sessionResolved = lastSessionByExercise;
               const lastSession = sessionResolved[target.id] || [];
@@ -229,7 +232,7 @@ export default function ActiveWorkoutScreen({
               });
               newPrescriptions[target.id] = prescription;
 
-              if (!expandedExerciseId) {
+              if (!fallbackExpanded) {
                 const displayWeight = getUnitsPreference() === "imperial"
                   ? Math.round(prescription.next_weight)
                   : Math.round(lbsToKg(prescription.next_weight));
@@ -244,6 +247,7 @@ export default function ActiveWorkoutScreen({
                 setExpandedExerciseId(target.id);
                 setIsBuildingWorkout(false);
                 isBuildingWorkoutRef.current = false;
+                fallbackExpanded = true;
               }
             }
             setPrescriptions((prev) => ({ ...prev, ...newPrescriptions }));
@@ -329,7 +333,10 @@ export default function ActiveWorkoutScreen({
 
     // Compute prescriptions for ALL visible exercises so every card shows
     // its session target / set target box from the start, not just the first.
+    // Pick the FIRST target for auto-expand — a local flag (not a state read)
+    // so the loop doesn't let later iterations win.
     const newPrescriptions: Record<number, Prescription> = {};
+    let expanded = false;
     for (const target of targets) {
       const exerciseLogs = logs.filter((l: SetLog) => l.exercise_entry_id === target.id);
       const latestLog = exerciseLogs.length > 0 ? exerciseLogs[exerciseLogs.length - 1] : null;
@@ -369,7 +376,7 @@ export default function ActiveWorkoutScreen({
       });
       newPrescriptions[target.id] = prescription;
 
-      if (!expandedExerciseId) {
+      if (!expanded) {
         const displayWeight = getUnitsPreference() === "imperial"
           ? Math.round(prescription.next_weight)
           : Math.round(lbsToKg(prescription.next_weight));
@@ -381,6 +388,7 @@ export default function ActiveWorkoutScreen({
         setShowNotesMap((prev) => ({ ...prev, [target.id]: false }));
         setExpandedExerciseId(target.id);
         console.log("[ActiveWorkoutScreen] auto-expand", displayWeight, "x", prescription.next_reps);
+        expanded = true;
       }
     }
     setPrescriptions((prev) => ({ ...prev, ...newPrescriptions }));
