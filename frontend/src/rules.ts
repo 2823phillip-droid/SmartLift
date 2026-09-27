@@ -150,7 +150,7 @@ function linearProgression(input: ProgressionInput): ProgressionResult {
     next_weight: nextWeight,
     next_reps: repFloor,
     decision: "increase",
-    coaching_message: _sessionTargetMessage(rule, prev.actual_weight, prev.actual_reps, prev.effort, prev.form_quality, nextWeight, false, 0, repFloor),
+    coaching_message: _sessionTargetMessage(rule, weight, reps, effort, formQuality, nextWeight, held, heldWeight, repsTarget),
     reason: "increase",
   };
 }

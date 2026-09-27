@@ -365,8 +365,8 @@ export default function ActiveWorkoutScreen({
     setDraftReps(String(prescription.next_reps));
     setDraftEffort(latestLog?.effort ?? null);
     setDraftFormQuality(0);
-    setNotesMap((prev) => ({ ...prev, [currentExercise.id]: "" }));
-    setShowNotesMap((prev) => ({ ...prev, [currentExercise.id]: false }));
+    setNotesMap((prev) => ({ ...prev, [target.id]: "" }));
+    setShowNotesMap((prev) => ({ ...prev, [target.id]: false }));
     setExpandedExerciseId(target.id);
     setIsBuildingWorkout(false);
     console.log("[ActiveWorkoutScreen] auto-expand", displayWeight, "x", prescription.next_reps);
@@ -664,6 +664,10 @@ export default function ActiveWorkoutScreen({
     setDraftFormQuality(0);
     setNotesMap((prev) => ({ ...prev, [exercise.id]: "" }));
     setShowNotesMap((prev) => ({ ...prev, [exercise.id]: false }));
+    setPrescriptions((prev) => ({
+      ...prev,
+      [exercise.id]: fallbackPrescription,
+    }));
   };
 
   const toggleExerciseRestEdit = (exercise: ExerciseEntry, enabled: boolean) => {
@@ -792,7 +796,7 @@ export default function ActiveWorkoutScreen({
         actual_reps: r,
         effort: draftEffort ?? undefined,
         form_quality: draftFormQuality,
-        notes: notes || undefined,
+        notes: notesMap[currentExercise.id] || undefined,
       });
       setLogs((l) => [...l, log]);
       loggedSetCountRef.current[currentExercise.id] = (loggedSetCountRef.current[currentExercise.id] || 0) + 1;
