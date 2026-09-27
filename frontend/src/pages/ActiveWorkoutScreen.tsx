@@ -326,6 +326,66 @@ export default function ActiveWorkoutScreen({
     );
 
     if (targets.length === 0) {
+      // All exercises have their full set count logged — fall back to the
+      // first exercise so the user can see logs / add extra sets.
+      const first = exercises[0];
+      if (!first) {
+        setIsBuildingWorkout(false);
+        isBuildingWorkoutRef.current = false;
+        return;
+      }
+      // Expand the first exercise without computing a new prescription —
+      // it already has one from the loop above (or from a previous expand).
+      setExpandedExerciseId(first.id);
+      const p = prescriptions[first.id];
+      if (!p) {
+        // Edge case: first exercise somehow has no prescription yet —
+        // compute one from last session so the card shows something.
+        const sessionResolved = lastSessionByExercise[first.id] || [];
+        const firstSet = sessionResolved.find((l) => l.set_index === 1) || sessionResolved[0];
+        const lastWeight = firstSet
+          ? firstSet.actual_weight
+          : (sessionResolved.length > 0
+            ? Math.max(...sessionResolved.map((s) => s.actual_weight || 0))
+            : first.start_weight);
+        const history = buildPrescriptionHistory(first);
+        const prescription = computePrescription({
+          start_weight: toLbs(lastWeight),
+          reps_target: first.is_compound ? 6 : 8,
+          sets_target: displaySetsTarget[first.id] ?? first.sets_target,
+          rest_seconds: first.rest_seconds ?? 90,
+          progression_type: "linear",
+          history,
+          force_deload: false,
+          exerciseName: first.name,
+          is_compound: first.is_compound ?? true,
+          routineName: template?.name ?? undefined,
+        });
+        setPrescriptions((prev) => ({ ...prev, [first.id]: prescription }));
+        const displayWeight = getUnitsPreference() === "imperial"
+          ? Math.round(prescription.next_weight)
+          : Math.round(lbsToKg(prescription.next_weight));
+        setDraftWeight(String(displayWeight));
+        setDraftReps(String(prescription.next_reps));
+        setDraftEffort(null);
+        setDraftFormQuality(0);
+        setNotesMap((prev) => ({ ...prev, [first.id]: "" }));
+        setShowNotesMap((prev) => ({ ...prev, [first.id]: false }));
+        console.log("[ActiveWorkoutScreen] auto-expand (all done)", displayWeight, "x", prescription.next_reps);
+      } else {
+        const displayWeight = getUnitsPreference() === "imperial"
+          ? Math.round(p.next_weight)
+          : Math.round(lbsToKg(p.next_weight));
+        setDraftWeight(String(displayWeight));
+        setDraftReps(String(p.next_reps));
+        const exerciseLogs = logs.filter((l: SetLog) => l.exercise_entry_id === first.id);
+        const latestLog = exerciseLogs.length > 0 ? exerciseLogs[exerciseLogs.length - 1] : null;
+        setDraftEffort(latestLog?.effort ?? null);
+        setDraftFormQuality(0);
+        setNotesMap((prev) => ({ ...prev, [first.id]: "" }));
+        setShowNotesMap((prev) => ({ ...prev, [first.id]: false }));
+        console.log("[ActiveWorkoutScreen] auto-expand (all done, reuse)", displayWeight, "x", p.next_reps);
+      }
       setIsBuildingWorkout(false);
       isBuildingWorkoutRef.current = false;
       return;
