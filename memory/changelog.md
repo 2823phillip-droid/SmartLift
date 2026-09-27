@@ -10,9 +10,9 @@ Format: DATE | FILE | TYPE | SUMMARY
 
 |||| File | Type | Summary |
 ||||---|---|---|
-|||| 2026-09-27 || `frontend/src/rules.ts` (workout-logger) | fixed | Effort persistence: `expandExercise` now reads effort from latest log instead of defaulting to unselected (`f1c0c14`). No set target after last set: suggestion UI hides when all sets complete (`14cef4f`). Both fixed in `633f4d6`. |
+|||| 2026-09-27 || `frontend/src/rules.ts` (workout-logger) | fixed | Effort persistence: `expandExercise` now reads effort from latest log instead of defaulting to unselected (`f1c0c14`). No set target after last set: suggestion UI hides when all sets complete (`14cef4f`). Rest timer persistence across navigation: `startRest()` saves end time to localStorage, restored on mount (`10ac957`). All three part of `633f4d6` push. |
 |||| 2026-09-27 || `MEMORY-INDEX.md` (smartlift-cleanup) | updated | Rollback point labeled at `aef3fbc` + fix commit `82aeb3c`. Status line updated to reflect synced state. Tagged as most recent rollback (`9787e7d`). |
-|||| 2026-09-27 || `TODO.md` (workout-logger) | updated | Marked effort persistence and no-set-target-after-last-set as fixed with commit references. |
+|||| 2026-09-27 || `TODO.md` (workout-logger) | updated | Marked effort persistence, no-set-target-after-last-set, and rest timer persistence as fixed with commit references. |
 
 ---
 
