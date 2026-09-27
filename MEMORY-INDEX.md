@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
 last_updated: 2026-09-27
-status: synced — both machines at `b460baf`, clean working trees. Mac build + cap sync + fly deploy all succeeded. New iOS bundle ready at `ios/App/App/public/assets/index-CGjjc9h6.js`. Two fixes validated and released: effort persistence (`f1c0c14`) and no set target after last set (`14cef4f`). Notion Completed fixes updated. Rollback point labeled at `9787e7d`. Backend healthy.
+status: synced — both machines at `17c2fd9`, clean working trees. Mac build + cap sync + fly deploy all succeeded. New iOS bundle ready at `ios/App/App/public/assets/index-CGjjc9h6.js`. Three fixes validated and released this session: effort persistence (`f1c0c14`), no set target after last set (`14cef4f`), rest timer persistence across navigation (`10ac957`) — all part of push `633f4d6`. Notion Completed fixes updated with all three. TODO.md cleaned up — these three removed from "Bugs to fix". Rollback point labeled at `9787e7d`. Production Fix Workflow documented in MEMORY-INDEX.md. Backend healthy.
 
 This file explains where every type of project knowledge lives and when to use it.
 
