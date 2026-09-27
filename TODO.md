@@ -18,6 +18,6 @@ last_updated: 2026-09-27
 
 - [ ] **Coach tab layout** — header dead-pinned at top edge on every tab (no safe-area gap, no header drift); chatbox static; only conversation box scrolls inside coach tab. Outer tab should not scroll. Desired: more like Slack. Currently broken — header scrolls out of sight, chatbox scrolls, conversation box also scrolls.
 
-- [ ] **Session target on set 1** — Set 1 correctly pulls from the previous session (session target). If this bug still manifests, it's likely the same root cause as the nav-away/back overwrite (L274 effect recomputing from stale `lastSessionByExercise` on return). Need user confirmation of exact repro.
+- [x] **Session target on set 1** — Set 1 correctly pulls from the previous session. Fixed: workout state persistence across navigation (`10ac957`). Confirmed clean — session target and set target both working.
 
 - [ ] **Missing coach notes on second-half exercises** — (assisted chest dips, DB seated tricep extension, tricep cable pushdown) despite correct actual weights from linear progression. Need to investigate why coach notes aren't appearing for these exercises.
