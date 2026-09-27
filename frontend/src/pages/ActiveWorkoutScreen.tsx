@@ -52,8 +52,8 @@ export default function ActiveWorkoutScreen({
   const [draftReps, setDraftReps] = useState("");
   const [draftEffort, setDraftEffort] = useState<number | null>(null);
   const [draftFormQuality, setDraftFormQuality] = useState<number>(0);
-  const [notes, setNotes] = useState("");
-  const [showNotes, setShowNotes] = useState(false);
+  const [notesMap, setNotesMap] = useState<Record<number, string>>({});
+  const [showNotesMap, setShowNotesMap] = useState<Record<number, boolean>>({});
   const [addSetExerciseId, setAddSetExerciseId] = useState<number | null>(null);
   const [displaySetsTarget, setDisplaySetsTarget] = useState<Record<number, number>>({});
   const [lastSessionByExercise, setLastSessionByExercise] = useState<Record<number, {set_index: number; actual_weight: number; actual_reps: number; started_at?: string; effort?: number; form_quality?: number | null}[]>>({});
@@ -229,8 +229,8 @@ export default function ActiveWorkoutScreen({
               console.log("[ActiveWorkoutScreen] auto-expand fallback", displayWeight, "x", prescription.next_reps);
               setDraftEffort(null);
               setDraftFormQuality(0);
-              setNotes("");
-              setShowNotes(false);
+              setNotesMap((prev) => ({ ...prev, [target.id]: "" }));
+              setShowNotesMap((prev) => ({ ...prev, [target.id]: false }));
               setExpandedExerciseId(target.id);
               setIsBuildingWorkout(false);
               isBuildingWorkoutRef.current = false;
@@ -365,8 +365,8 @@ export default function ActiveWorkoutScreen({
     setDraftReps(String(prescription.next_reps));
     setDraftEffort(latestLog?.effort ?? null);
     setDraftFormQuality(0);
-    setNotes("");
-    setShowNotes(false);
+    setNotesMap((prev) => ({ ...prev, [currentExercise.id]: "" }));
+    setShowNotesMap((prev) => ({ ...prev, [currentExercise.id]: false }));
     setExpandedExerciseId(target.id);
     setIsBuildingWorkout(false);
     console.log("[ActiveWorkoutScreen] auto-expand", displayWeight, "x", prescription.next_reps);
@@ -626,8 +626,8 @@ export default function ActiveWorkoutScreen({
       const latestLog = exerciseLogs.length > 0 ? exerciseLogs[exerciseLogs.length - 1] : null;
       setDraftEffort(latestLog?.effort ?? null);
       setDraftFormQuality(0);
-      setNotes("");
-      setShowNotes(false);
+      setNotesMap((prev) => ({ ...prev, [exercise.id]: "" }));
+      setShowNotesMap((prev) => ({ ...prev, [exercise.id]: false }));
       return;
     }
 
@@ -662,8 +662,8 @@ export default function ActiveWorkoutScreen({
     setDraftReps(String(fallbackPrescription.next_reps || (exercise.is_compound ? 6 : 8)));
     setDraftEffort(null);
     setDraftFormQuality(0);
-    setNotes("");
-    setShowNotes(false);
+    setNotesMap((prev) => ({ ...prev, [exercise.id]: "" }));
+    setShowNotesMap((prev) => ({ ...prev, [exercise.id]: false }));
   };
 
   const toggleExerciseRestEdit = (exercise: ExerciseEntry, enabled: boolean) => {
@@ -813,8 +813,8 @@ export default function ActiveWorkoutScreen({
 
     if (isExtraSet) {
       setAddSetExerciseId(null);
-      setNotes("");
-      setShowNotes(false);
+      setNotesMap((prev) => ({ ...prev, [currentExercise.id]: "" }));
+      setShowNotesMap((prev) => ({ ...prev, [currentExercise.id]: false }));
       setDraftWeight(String(w));
       setDraftReps(String(r));
       if (rest > 0) startRest(rest);
@@ -834,8 +834,8 @@ export default function ActiveWorkoutScreen({
     }
 
     if (exerciseIsDone) {
-      setNotes("");
-      setShowNotes(false);
+      setNotesMap((prev) => ({ ...prev, [currentExercise.id]: "" }));
+      setShowNotesMap((prev) => ({ ...prev, [currentExercise.id]: false }));
       const next = exercises.find((e: ExerciseEntry) => e.id !== currentExercise.id && (exerciseCompletedCount[e.id] || 0) < resolveDisplayTarget(e));
       if (next) {
         expandExercise(next);
@@ -845,7 +845,7 @@ export default function ActiveWorkoutScreen({
       return true;
     }
 
-    setNotes("");
+    setNotesMap((prev) => ({ ...prev, [currentExercise.id]: "" }));
     if (!exerciseIsDone && !workoutIsDone) {
       setDraftWeight(String(Math.round(prescription.next_weight * 10) / 10));
       setDraftReps(String(prescription.next_reps));
@@ -1243,10 +1243,10 @@ export default function ActiveWorkoutScreen({
                   onDraftEffortChange={setDraftEffort}
                   draftFormQuality={draftFormQuality}
                   onDraftFormQualityChange={setDraftFormQuality}
-                  showNotes={showNotes}
-                  notes={notes}
-                  onToggleNotes={() => setShowNotes((v) => !v)}
-                  onNotesChange={setNotes}
+                  showNotes={showNotesMap[exercise.id] ?? false}
+                  notes={notesMap[exercise.id] ?? ""}
+                  onToggleNotes={() => setShowNotesMap((prev) => ({ ...prev, [exercise.id]: !(prev[exercise.id] ?? false) }))}
+                  onNotesChange={(v) => setNotesMap((prev) => ({ ...prev, [exercise.id]: v }))}
                   canLog={canLog}
                   onLogSet={() => logSet()}
                   isLogging={isLogging}
