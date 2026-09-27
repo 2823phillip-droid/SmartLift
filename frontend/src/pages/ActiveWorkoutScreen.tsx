@@ -193,10 +193,20 @@ export default function ActiveWorkoutScreen({
         const fallbackTimer = setTimeout(() => {
           if (isBuildingWorkoutRef.current) {
             // Fallback: compute locally if backend hasn't arrived in time
-            const target = exercisesData.find((e: ExerciseEntry) =>
+            const targets = exercisesData.filter((e: ExerciseEntry) =>
               setLogsData.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
-            ) || exercisesData[0];
-            if (target && exercisesData.length > 0) {
+            );
+
+            if (targets.length === 0) {
+              setIsBuildingWorkout(false);
+              isBuildingWorkoutRef.current = false;
+              return;
+            }
+
+            // Compute prescriptions for ALL visible exercises so every card
+            // shows its session target / set target box, not just the first.
+            const newPrescriptions: Record<number, Prescription> = {};
+            for (const target of targets) {
               const sessionResolved = lastSessionByExercise;
               const lastSession = sessionResolved[target.id] || [];
               const firstSet = lastSession.find((l: any) => l.set_index === 1) || lastSession[0];
@@ -217,24 +227,26 @@ export default function ActiveWorkoutScreen({
                 force_deload: false,
                 exerciseName: target.name,
               });
-              const displayWeight = getUnitsPreference() === "imperial"
-                ? Math.round(prescription.next_weight)
-                : Math.round(lbsToKg(prescription.next_weight));
-              setDraftWeight(String(displayWeight));
-              setDraftReps(String(prescription.next_reps));
-              setPrescriptions((prev) => ({
-                ...prev,
-                [target.id]: prescription,
-              }));
-              console.log("[ActiveWorkoutScreen] auto-expand fallback", displayWeight, "x", prescription.next_reps);
-              setDraftEffort(null);
-              setDraftFormQuality(0);
-              setNotesMap((prev) => ({ ...prev, [target.id]: "" }));
-              setShowNotesMap((prev) => ({ ...prev, [target.id]: false }));
-              setExpandedExerciseId(target.id);
-              setIsBuildingWorkout(false);
-              isBuildingWorkoutRef.current = false;
+              newPrescriptions[target.id] = prescription;
+
+              if (!expandedExerciseId) {
+                const displayWeight = getUnitsPreference() === "imperial"
+                  ? Math.round(prescription.next_weight)
+                  : Math.round(lbsToKg(prescription.next_weight));
+                setDraftWeight(String(displayWeight));
+                setDraftReps(String(prescription.next_reps));
+                setPrescriptions((prev) => ({ ...prev, ...newPrescriptions }));
+                console.log("[ActiveWorkoutScreen] auto-expand fallback", displayWeight, "x", prescription.next_reps);
+                setDraftEffort(null);
+                setDraftFormQuality(0);
+                setNotesMap((prev) => ({ ...prev, [target.id]: "" }));
+                setShowNotesMap((prev) => ({ ...prev, [target.id]: false }));
+                setExpandedExerciseId(target.id);
+                setIsBuildingWorkout(false);
+                isBuildingWorkoutRef.current = false;
+              }
             }
+            setPrescriptions((prev) => ({ ...prev, ...newPrescriptions }));
           }
         }, 3000);
         expandTimeoutRef.current = fallbackTimer;
@@ -305,71 +317,75 @@ export default function ActiveWorkoutScreen({
     }
     isBuildingWorkoutRef.current = false;
 
-    const target = exercises.find((e: ExerciseEntry) =>
+    const targets = exercises.filter((e: ExerciseEntry) =>
       logs.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
-    ) || exercises[0];
+    );
 
-    if (!target) {
+    if (targets.length === 0) {
       setIsBuildingWorkout(false);
       isBuildingWorkoutRef.current = false;
       return;
     }
 
-    // If there are already logged sets for this exercise in the current session,
-    // use the most recent one as the base — matching what logSet() does after
-    // each set. Fall back to lastSessionByExercise only when there are no
-    // in-progress logs (i.e. a fresh workout start).
-    const exerciseLogs = logs.filter((l: SetLog) => l.exercise_entry_id === target.id);
-    const latestLog = exerciseLogs.length > 0 ? exerciseLogs[exerciseLogs.length - 1] : null;
-    const lastWeight = latestLog
-      ? latestLog.actual_weight ?? target.start_weight
-      : (() => {
-          const sessionResolved = lastSessionByExercise[target.id] || [];
-          const firstSet = sessionResolved.find((l) => l.set_index === 1) || sessionResolved[0];
-          return firstSet
-            ? firstSet.actual_weight
-            : (sessionResolved.length > 0
-              ? Math.max(...sessionResolved.map((s) => s.actual_weight || 0))
-              : target.start_weight);
-        })();
+    // Compute prescriptions for ALL visible exercises so every card shows
+    // its session target / set target box from the start, not just the first.
+    const newPrescriptions: Record<number, Prescription> = {};
+    for (const target of targets) {
+      const exerciseLogs = logs.filter((l: SetLog) => l.exercise_entry_id === target.id);
+      const latestLog = exerciseLogs.length > 0 ? exerciseLogs[exerciseLogs.length - 1] : null;
+      const lastWeight = latestLog
+        ? latestLog.actual_weight ?? target.start_weight
+        : (() => {
+            const sessionResolved = lastSessionByExercise[target.id] || [];
+            const firstSet = sessionResolved.find((l) => l.set_index === 1) || sessionResolved[0];
+            return firstSet
+              ? firstSet.actual_weight
+              : (sessionResolved.length > 0
+                ? Math.max(...sessionResolved.map((s) => s.actual_weight || 0))
+                : target.start_weight);
+          })();
 
-    const seedSet = latestLog ? {
-      actual_weight: toLbs(latestLog.actual_weight ?? 0),
-      actual_reps: latestLog.actual_reps ?? (target.is_compound ? 6 : 8),
-      effort: latestLog.effort ?? 5,
-      form_quality: latestLog.form_quality ?? 0,
-      completed_at: new Date().toISOString(),
-    } : undefined;
+      const seedSet = latestLog ? {
+        actual_weight: toLbs(latestLog.actual_weight ?? 0),
+        actual_reps: latestLog.actual_reps ?? (target.is_compound ? 6 : 8),
+        effort: latestLog.effort ?? 5,
+        form_quality: latestLog.form_quality ?? 0,
+        completed_at: new Date().toISOString(),
+      } : undefined;
 
-    const prescription = computePrescription({
-      start_weight: toLbs(lastWeight),
-      reps_target: target.is_compound ? 6 : 8,
-      sets_target: displaySetsTarget[target.id] ?? target.sets_target,
-      rest_seconds: target.rest_seconds ?? 90,
-      progression_type: "linear",
-      history: latestLog ? [] : buildPrescriptionHistory(target),
-      seedSet,
-      force_deload: false,
-      exerciseName: target.name,
-      is_compound: target.is_compound ?? true,
-      routineName: template?.name ?? undefined,
-    });
-    setPrescriptions((prev) => ({
-      ...prev,
-      [target.id]: prescription,
-    }));
-    const displayWeight = getUnitsPreference() === "imperial"
-      ? Math.round(prescription.next_weight)
-      : Math.round(lbsToKg(prescription.next_weight));
-    setDraftWeight(String(displayWeight));
-    setDraftReps(String(prescription.next_reps));
-    setDraftEffort(latestLog?.effort ?? null);
-    setDraftFormQuality(0);
-    setNotesMap((prev) => ({ ...prev, [target.id]: "" }));
-    setShowNotesMap((prev) => ({ ...prev, [target.id]: false }));
-    setExpandedExerciseId(target.id);
+      const history = latestLog ? [] : buildPrescriptionHistory(target);
+      const prescription = computePrescription({
+        start_weight: toLbs(lastWeight),
+        reps_target: target.is_compound ? 6 : 8,
+        sets_target: displaySetsTarget[target.id] ?? target.sets_target,
+        rest_seconds: target.rest_seconds ?? 90,
+        progression_type: "linear",
+        history,
+        seedSet,
+        force_deload: false,
+        exerciseName: target.name,
+        is_compound: target.is_compound ?? true,
+        routineName: template?.name ?? undefined,
+      });
+      newPrescriptions[target.id] = prescription;
+
+      if (!expandedExerciseId) {
+        const displayWeight = getUnitsPreference() === "imperial"
+          ? Math.round(prescription.next_weight)
+          : Math.round(lbsToKg(prescription.next_weight));
+        setDraftWeight(String(displayWeight));
+        setDraftReps(String(prescription.next_reps));
+        setDraftEffort(latestLog?.effort ?? null);
+        setDraftFormQuality(0);
+        setNotesMap((prev) => ({ ...prev, [target.id]: "" }));
+        setShowNotesMap((prev) => ({ ...prev, [target.id]: false }));
+        setExpandedExerciseId(target.id);
+        console.log("[ActiveWorkoutScreen] auto-expand", displayWeight, "x", prescription.next_reps);
+      }
+    }
+    setPrescriptions((prev) => ({ ...prev, ...newPrescriptions }));
     setIsBuildingWorkout(false);
-    console.log("[ActiveWorkoutScreen] auto-expand", displayWeight, "x", prescription.next_reps);
+    isBuildingWorkoutRef.current = false;
 
   }, [isBuildingWorkout, exercises, logs, lastSessionByExercise, displaySetsTarget, template?.name]);
 
