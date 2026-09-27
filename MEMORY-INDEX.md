@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
-last_updated: 2026-09-19
-status: synced — both machines at `aef3fbc`, clean working trees. Mac has fresh unminified build in `frontend/ios/App/App/public/` (Xcode reads this folder). Progression fix verified: coaching message shows "progress your weight by 5 lbs." (no literal `{increment}`). Fix committed as `82aeb3c` on both machines, force-pushed to origin/master. Backend healthy.
+last_updated: 2026-09-27
+status: synced — both machines at `b460baf`, clean working trees. Mac build + cap sync + fly deploy all succeeded. New iOS bundle ready at `ios/App/App/public/assets/index-CGjjc9h6.js`. Two fixes validated and released: effort persistence (`f1c0c14`) and no set target after last set (`14cef4f`). Notion Completed fixes updated. Rollback point labeled at `9787e7d`. Backend healthy.
 
 This file explains where every type of project knowledge lives and when to use it.
 
@@ -8,10 +8,10 @@ This file explains where every type of project knowledge lives and when to use i
 
 ### Repo
 - **Branch:** master
-- **HEAD (both machines):** `aef3fbc` — "feat: restore AI Coach tab with chat functionality" (+ fix commit `82aeb3c` on Mac, force-pushed)
-- **Remote (GitHub origin/master):** `aef3fbc` — both machines at same commit, Linux clean, Mac clean (fresh unminified Vite build in `frontend/ios/App/App/public/` — the folder Xcode reads)
+- **HEAD (both machines):** `b460baf` — "docs: mark effort persistence + no-set-target-after-last-set as fixed, add 2026-09-27 changelog entry"
+- **Remote (GitHub origin/master):** `b460baf` — both machines at same commit, Linux clean, Mac clean (fresh unminified Vite build in `frontend/ios/App/App/public/` — the folder Xcode reads)
 - **Remote URL:** `git@github.com:2823phillip-droid/SmartLift.git` (Mac) / `https://github.com/2823phillip-droid/SmartLift.git` (Linux)
-- **Untracked files:** None.
+- **Untracked files:** Mac only — `backend/flowchart.html.bak.2026-09-26`, `checkpoint.md`. Linux only — `backend/roadmap.html.bak.2026-09-21`. All build/backup artifacts.
 
 ### Backend (deployed, Fly)
 - **App:** `smartlift-api` (internal name; users see `askeo.fit`)
@@ -49,34 +49,7 @@ git pull origin master              # pull remote
 # rebuild in Xcode (Run) — user action
 ```
 
-### Known stale artifacts cleaned up
-- Root-level `ActiveWorkoutScreen.tsx` (stale pre-fix copy, was being compiled by Xcode) — removed, replaced with patched frontend version, now deleted since frontend copy is canonical
-- Root `main.py`, `rules.py` (backend leftovers at frontend root) — removed
-- Debug scripts (`_fetch_*.py`, `_stream_webcontent.py`, `fetch_logs.sh`, `_mac_fix_*.py`) — removed
-
-## Bootstrap order
-
-Read in this order at the start of any session:
-
-1. `CONTEXT.md` — what's happening right now, what shipped, what's next
-2. `PROJECT.md` — deploy commands, network facts, auth credentials (the things you cannot afford to get wrong)
-3. `TODO.md` — full priority list and phased roadmap
-4. `memory/<task>.md` — whatever's relevant to the task at hand
-
-Reference materials (read when relevant, not mandatory at startup):
-- `PERSONA.md` — role definitions and task ownership
-- `Askeo.md` — stack, endpoints, users, gotchas, iOS bundle ID
-- `memory/changelog.md` — history of knowledge-base changes
-
-## Top-level files (stable references)
-- `PERSONA.md` — role definition for agents working in this repo
-- `TODO.md` — phased roadmap. Read this at the start of any session to understand current priorities
-- `Askeo.md` — stack reference, endpoint list, known gotchas, users, backups. Updated when stack changes
-- `CONTEXT.md` — what we're working on right now, what shipped last, what's next. Check this before asking the user about current state
-- `PROJECT.md` — deploy commands, network facts, auth credentials. Immutable-ish operational facts
-- `MEMORY-INDEX.md` — this file
-
-## Durable lessons
+## Knowledge Files
 
 See `memory/README.md` for the full catalog of domain files.
 
@@ -160,14 +133,6 @@ Use this when checking if things are clean:
 | Frontend dist on Mac | check `frontend/ios/App/App/public/assets/index-*.js` exists | matches latest `frontend/dist/` |
 | No stale root files | `ls *.tsx *.py` at repo root on Mac | no matches (files shouldn't exist) |
 
-## Tagging conventions
-
-Use lowercase, single-word tags. Pick the dominant domain first, then add a secondary system if needed:
-  Primary tags: deploy, debugging, backend-db, auth, frontend-fetch, decisions, ios, capacitor, cors, postgres, schema, retry, token
-Secondary tags: production, device, cache, validation, migration
-
-The `related` field should list only files directly relevant. Prefer 1-3 links. Do not list every memory file.
-
 ## Ownership and contributor flow
 - Any agent session may add lessons to `memory/` and update `decisions.md`
 - Domain-specific additions go to the matching file (or a new `memory/<topic>.md`)
@@ -217,10 +182,61 @@ Every session — whether debugging, building, or investigating — follows this
 - Sessions that leave the project in an untestable state without saying so
 
 ### What is NOT required
+
 - Recording every file touched — only changes that matter to the project state
 - Committing debug scripts or temp files — these get deleted, not committed
 - Updating `changelog.md` for every micro-edit — only material knowledge-base changes
 - Asking the user for permission to follow this process — it's mandatory, not optional
+
+---
+
+## Production Fix Workflow
+
+Moving forward, with a working app in users' hands, changes follow a **one-thing-at-a-time** model. Pick a single fix, validate it, then save. Do not batch multiple unrelated changes into one push.
+
+### The cycle
+
+1. **Identify** — User reports a bug or Hermes finds one during investigation. Write it into `TODO.md` "Bugs to fix" if it's not there already. One bug per row, with enough detail to reproduce.
+
+2. **Investigate** — User says "investigate" (or Hermes picks it up as the next item). Find root cause. Identify the specific file(s) and line(s). Stop at understanding — do not start fixing yet.
+
+3. **Implement** — Fix the specific issue. Scope: one bug, one commit. If investigation surfaces a second issue, that's a separate item — note it in TODO and come back later.
+
+4. **Commit** — Commit with a descriptive message. Include the bug name and the fix in the message body. Push to origin/master from Linux.
+
+5. **Sync to Mac** — Mac pulls the latest. Hermes owns this via SSH — user does not run terminal commands.
+
+6. **Build** — Mac does Clean Build Folder + Run in Xcode (user action — only they can do this). Hermes waits.
+
+7. **Validate** — User tests the specific fix on device. Reports back: fixed, or still broken, or new issue. Hermes does not declare victory — only the user's validation counts.
+
+8. **Release or revert** —
+   - **If fixed:** Update `TODO.md` (move to "Bugs fixed", mark `[x]`). Update Notion "Completed fixes" with the commit hash. Add `memory/changelog.md` entry for the date. Update `MEMORY-INDEX.md` status line. This push is now a labeled release point.
+   - **If not fixed:** Revert the commit (`git revert`), push the revert, sync to Mac. The bug goes back to "Bugs to fix" unscathed. No damage done.
+
+### Rollback labeling
+
+Every validated release gets a rollback anchor. The simplest approach:
+
+- The commit that lands the fix is the release point.
+- If a later change breaks things, `git revert` back to before that later change, or `git reset --hard` to the labeled release commit, then push --force-with-lease and sync.
+
+The rollback label lives in the commit message. Look for commits starting with `rollback:` — those are the save points. The most recent one is `9787e7d` as of this writing.
+
+### What this prevents
+
+- Pushing 5 unrelated changes and having no idea which one broke the app
+- "Did the bug fix land, or was it the other thing?" ambiguity
+- Rolling back a whole batch because one item in it was bad
+- Sessions that leave the app in an unknown state
+
+### What this does NOT require
+
+- Batching — each fix is its own cycle
+- Perfect documentation mid-cycle — document at the end of the validated fix
+- Asking permission — this is the operating model now
+
+---
 
 ## Tagging conventions
 
