@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Askeo — Roadmap</title>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface-2: #334155;
+    --border: #475569;
+    --text: #f1f5f9;
+    --muted: #94a3b8;
+    --accent: #6366f1;
+    --green: #22c55e;
+    --amber: #f59e0b;
+    --red: #ef4444;
+    --blue: #3b82f6;
+    --emerald: #10b981;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    line-height: 1.6;
+    padding: 2rem;
+    max-width: 1100px;
+    margin: 0 auto;
+  }
+  h1 { font-size: 1.8rem; margin-bottom: 0.25rem; }
+  .subtitle { color: var(--muted); margin-bottom: 2rem; font-size: 0.95rem; }
+
+  .section {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .section-header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+  .section-badge {
+    font-size: 0.7rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 0.25rem 0.6rem;
+    border-radius: 999px;
+    white-space: nowrap;
+  }
+  .badge-launch { background: var(--accent); color: white; }
+  .badge-post { background: var(--surface-2); color: var(--muted); }
+  .badge-done { background: var(--green); color: #052e16; }
+  .badge-missing { background: var(--red); color: white; }
+
+  .section-title { font-size: 1.15rem; font-weight: 600; }
+  .section-desc { color: var(--muted); font-size: 0.9rem; margin-bottom: 1rem; }
+
+  .columns {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+  }
+  @media (max-width: 700px) { .columns { grid-template-columns: 1fr; } }
+  .columns-3 {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1rem;
+  }
+  @media (max-width: 700px) { .columns-3 { grid-template-columns: 1fr; } }
+  @media (min-width: 701px) and (max-width: 1000px) { .columns-3 { grid-template-columns: 1fr 1fr; } }
+
+  .col {
+    background: var(--surface-2);
+    border-radius: 8px;
+    padding: 1rem;
+  }
+  .col-header {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin-bottom: 0.6rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .col-agent { color: var(--blue); }
+  .col-user { color: var(--emerald); }
+  .col-done { color: var(--green); }
+  .col-missing { color: var(--red); }
+  .col-later { color: var(--amber); }
+
+  ul { list-style: none; }
+  li {
+    padding: 0.35rem 0;
+    font-size: 0.88rem;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    display: flex;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  li:last-child { border-bottom: none; }
+  li::before {
+    content: "•";
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  .col-done li::before { content: "✓"; color: var(--green); }
+  .col-agent li::before { color: var(--blue); }
+  .col-user li::before { color: var(--emerald); }
+  .col-missing li::before { content: "✗"; color: var(--red); }
+  .col-later li::before { content: "○"; color: var(--amber); font-weight: 400; }
+
+  .gap {
+    margin-top: 0.75rem;
+    background: rgba(239,68,68,0.08);
+    border: 1px solid rgba(239,68,68,0.25);
+    border-radius: 8px;
+    padding: 0.7rem 0.9rem;
+    font-size: 0.82rem;
+    color: #fca5a5;
+  }
+  .gap strong { color: var(--red); }
+
+  .note {
+    margin-top: 1rem;
+    background: rgba(99,102,241,0.1);
+    border: 1px solid rgba(99,102,241,0.25);
+    border-radius: 8px;
+    padding: 0.9rem 1rem;
+    font-size: 0.88rem;
+    color: #c7d2fe;
+  }
+  .note strong { color: var(--accent); }
+
+  .flow-steps {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+   margin-top: 0.5rem;
+  }
+  .flow-step {
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.85rem;
+    font-weight: 500;
+  }
+  .flow-arrow { color: var(--muted); font-size: 1.2rem; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    font-size: 0.8rem;
+    color: var(--muted);
+  }
+  .legend-item { display: flex; align-items: center; gap: 0.35rem; }
+  .legend-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+  }
+</style>
+</head>
+<body>
+
+<h1>Askeo</h1>
+<p class="subtitle">Roadmap &amp; Status — what "done" looks like, what ships first, what comes after.</p>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:var(--green)"></div> Shipped / working</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--red)"></div> Missing — blocks launch</div>
+  <div class="legend-item"><div class="legend-dot" style="background:var(--amber)"></div> Post-launch / later</div>
+  <div class="legend-item" style="margin-left:auto;color:var(--muted)" id="deploy-ts">Deployed: 2026-09-21</div>
+</div>
+
+<!-- ========== PRODUCTION READY BAR ========== -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-badge badge-launch">Launch Gate</span>
+    <span class="section-title">What "production ready" means</span>
+  </div>
+  <p class="section-desc">The bar for putting this on TestFlight with internal testers — and eventually the App Store. If a box isn't checked, it's not launch-ready.</p>
+
+  <div class="columns">
+    <div class="col col-done">
+      <div class="col-header col-done">Shipped</div>
+      <ul>
+        <li>Backend runs on Fly, health endpoint returns ok</li>
+        <li>Auth works: email signup + login with JWT</li>
+        <li>Exercise library seeded (1,318 exercises from licensed source)</li>
+        <li>Workout generator: questionnaire → draft → save</li>
+        <li>Active workout: log sets with weight, reps, effort</li>
+        <li>Workout history: view past sessions</li>
+        <li>AI Coach tab: chat interface for questions and workout modification</li>
+        <li>iOS app builds and runs on device (Capacitor)</li>
+      </ul>
+    </div>
+    <div class="col col-missing">
+      <div class="col-header col-missing">Still needed</div>
+      <ul>
+        <li><strong>Google sign-in</strong> — Google Cloud Console setup + VITE_GOOGLE_CLIENT_ID</li>
+        <li><strong>Privacy policy URL</strong> — required before App Store submission</li>
+        <li><strong>Legal review</strong> — before any paid release</li>
+        <li><strong>TestFlight build uploaded</strong> — App Store Connect, internal testers invited</li>
+        <li><strong>Real-device stability test</strong> — no crashes on launch, during workout, on restart</li>
+        <li><strong>Account deletion / data export</strong> — App Store requirement</li>
+        <li><strong>Dedicated IPv4 ($2/mo)</strong> — current shared IP can rotate and break askeo.fit</li>
+        <li><strong>Progression validation</strong> — 2–3 logged sessions with RIR to confirm defaults make sense</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ========== DAY ONE CORE LOOP ========== -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-badge badge-launch">Launch Scope</span>
+    <span class="section-title">Day one: what a new user does</span>
+  </div>
+  <p class="section-desc">The core loop for someone opening the app for the first time. Everything here needs to work end-to-end before launch. Features outside this loop are post-launch iteration.</p>
+
+  <div class="flow-steps">
+    <span class="flow-step">Open app</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Sign up / log in</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Answer questionnaire</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Get workout</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">Log sets</span>
+    <span class="flow-arrow">→</span>
+    <span class="flow-step">See recap + progression</span>
+  </div>
+
+  <div class="columns" style="margin-top:1rem">
+    <div class="col col-done">
+      <div class="col-header col-done">Already works</div>
+      <ul>
+        <li>Open app → login screen</li>
+        <li>Email signup + login</li>
+        <li>Questionnaire: 12 sections, one screen each, single/multi-select</li>
+        <li>Generate workout from answers → save as draft → start</li>
+        <li>Log sets during workout: weight, reps, effort (1–10)</li>
+        <li>Complete workout → see recap screen</li>
+        <li>View past workouts in history</li>
+        <li>AI Coach tab: ask questions, request workout changes</li>
+      </ul>
+    </div>
+    <div class="col col-missing">
+      <div class="col-header col-missing">Needs verification</div>
+      <ul>
+        <li><strong>Weight units: verify consistent</strong> — start_weight seeded in lbs, frontend assumed kg. Fix applied; needs a real workout to confirm numbers display correctly end-to-end.</li>
+        <li><strong>Coach Recap on Ready screen</strong> — session lookup returns empty even when completed session exists. Needs testing with a real completed session.</li>
+        <li><strong>Progression visible to user</strong> — backend now computes next prescription and increases weight (5 lb on first set). Confirm the UI surfaces that change where the user expects to see it between sessions.</li>
+        <li><strong>Transition history</strong> — no UI to see "why did my weight change?" Verify whether this is still missing or was added during AI Coach work.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>Not in day-one scope:</strong> AI voice coach, meal plans, double progression, 5/3/1, autoregulation, deload intelligence, AI profile engine. These are post-launch. Day one is: sign up, get workout, log it, see it improve.
+  </div>
+</div>
+
+<!-- ========== CURRENT GAPS ========== -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-badge badge-missing">Gap List</span>
+    <span class="section-title">What's between now and launch</span>
+  </div>
+  <p class="section-desc">Concrete items. Ordered roughly by dependency — fix the foundation before the polish.</p>
+
+  <div class="columns">
+    <div class="col">
+      <div class="col-header col-missing">Verify before TestFlight</div>
+      <ul>
+        <li><strong>Weight units: verify consistent</strong> — confirm start_weight displays correctly end-to-end on a real workout. Fix was applied; needs testing.</li>
+        <li><strong>Coach Recap session lookup: verify</strong> — should find last completed session of same template. Needs a real completed session to test.</li>
+        <li><strong>Progression visible in UI: verify</strong> — user should see their next workout's weight is different from last time. Confirm the prescription is surfacing where expected.</li>
+        <li><strong>Transition history: verify</strong> — confirm whether this exists or still needs building.</li>
+        <li><strong>Bug audit: test every screen on device</strong> — login, questionnaire, generate, active workout, history, settings, AI Coach. Look for crashes, blank screens, wrong data.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="col-header col-missing">Must have for App Store</div>
+      <ul>
+        <li>Google sign-in configured</li>
+        <li>Privacy policy page (hosted URL)</li>
+        <li>Account deletion flow (settings or profile)</li>
+        <li>Data export flow (download your workout history)</li>
+        <li>Dedicated IPv4 allocated ($2/mo) — eliminates shared-IP rotation risk</li>
+        <li>App Store Connect account + bundle ready</li>
+        <li>TestFlight build uploaded + internal testers invited</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="gap">
+    <strong>Before TestFlight builds:</strong> run a real-device bug audit across every screen — login, questionnaire, generate, active workout, history, settings, AI Coach. The backend progression endpoint works (sets increase by 5 lbs on first set); confirm the UI surfaces that change where the user expects to see it.
+  </div>
+</div>
+
+<!-- ========== POST-LAUNCH ========== -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-badge badge-post">Post-Launch</span>
+    <span class="section-title">What comes after — not launch-blocking</span>
+  </div>
+  <p class="section-desc">These improve the product but aren't required to ship. They're ordered by dependency — each one needs the previous to be stable first.</p>
+
+  <div class="columns">
+    <div class="col">
+      <div class="col-header col-later">Next (after launch feedback)</div>
+      <ul>
+        <li><strong>Double progression</strong> — rep range 8–12, hit top → add weight → drop to bottom. Triggered by RIR at top set.</li>
+        <li><strong>Transition: linear → double</strong> — stall detection auto-switches the user, AI explains the change.</li>
+        <li><strong>Rule engine UI</strong> — settings to pick rule script per exercise group, exercise detail shows current prescription + estimated 1RM.</li>
+      </ul>
+    </div>
+    <div class="col">
+      <div class="col-header col-later">Later (more data needed)</div>
+      <ul>
+        <li><strong>Percentage-based (5/3/1 variant)</strong> — training max from history, week percentages, AMRAP set, deload every 4th week.</li>
+        <li><strong>Recovery &amp; deload intelligence</strong> — detect overreaching, missed sessions, declining performance. Auto-trigger deload.</li>
+        <li><strong>Advanced autoregulation</strong> — per-user RIR calibration, volume landmarks (MRV/MAV/MEV), weak-point detection.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="note">
+    <strong>AI features (any timeline):</strong> AI coach chat is already in the app. Voice input during workout, TTS output, AI profile engine, and meal plan generation are all separate work items — not on the critical path for launch. Voice is push-to-talk only, never always-on.
+  </div>
+</div>
+
+<!-- ========== HOW TO READ THIS ========== -->
+<div class="section">
+  <div class="section-header">
+    <span class="section-badge" style="background:var(--surface-2);color:var(--muted)">Process</span>
+    <span class="section-title">How this stays current</span>
+  </div>
+  <p class="section-desc">This page is the source of truth. It gets updated when state changes — not on a schedule, not "when we get around to it."</p>
+  <ul>
+    <li><strong>When something ships:</strong> move it from "missing" to "shipped" here, same session.</li>
+    <li><strong>When something gets blocked:</strong> mark it and say why. Don't leave it ambiguous.</li>
+    <li><strong>When priorities shift:</strong> update the gap list. The old TODO.md was a graveyard of completed items that never got marked done — this replaces that pattern.</li>
+    <li><strong>Phases are a planning tool, not a commitment.</strong> "Post-launch" items have no dates. They happen when the launch track is stable and there's capacity.</li>
+    <li><strong>This page is rendered from backend/roadmap.html.</strong> To update it, edit that file and redeploy the backend.</li>
+  </ul>
+</div>
+
+</body>
+</html>
