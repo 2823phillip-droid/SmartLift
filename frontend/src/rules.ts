@@ -146,12 +146,11 @@ function linearProgression(input: ProgressionInput): ProgressionResult {
 
   // Increase
   const nextWeight = roundWeight(prev.actual_weight + input.settings.increment);
-  const inc = Math.round(nextWeight - prev.actual_weight);
   return {
     next_weight: nextWeight,
     next_reps: repFloor,
     decision: "increase",
-    coaching_message: `Last set: ${w} lbs × ${r} reps${e != null ? `, effort ${eDisplay}` : ''}. Going up ${inc} lbs to ${Math.round(nextWeight)} lbs.`,
+    coaching_message: _sessionTargetMessage(rule, prev.actual_weight, prev.actual_reps, prev.effort, prev.form_quality, nextWeight, false, 0, repFloor),
     reason: "increase",
   };
 }
