@@ -209,10 +209,36 @@ Moving forward, with a working app in users' hands, changes follow a **one-thing
 6. **Build** — Mac does Clean Build Folder + Run in Xcode (user action — only they can do this). Hermes waits.
 
 7. **Validate** — User tests the specific fix on device. Reports back: fixed, or still broken, or new issue. Hermes does not declare victory — only the user's validation counts.
+### Release or revert
 
-8. **Release or revert** —
-   - **If fixed:** Update `TODO.md` (move to "Bugs fixed", mark `[x]`). Update Notion "Completed fixes" with the commit hash. Add `memory/changelog.md` entry for the date. Update `MEMORY-INDEX.md` status line. This push is now a labeled release point.
-   - **If not fixed:** Revert the commit (`git revert`), push the revert, sync to Mac. The bug goes back to "Bugs to fix" unscathed. No damage done.
+- **If fixed:**
+  1. Update `TODO.md` — move the bug to "Bugs fixed", mark `[x]`, include the fix commit hash and a one-line summary.
+  2. Add `memory/changelog.md` entry for the date.
+  3. Update `MEMORY-INDEX.md` status line to the current HEAD.
+  4. Update Notion "Completed Fixes" — see Notion release format below.
+
+- **If not fixed:** Revert the commit (`git revert`), push the revert, sync to Mac. The bug goes back to "Bugs to fix" untouched. No damage done.
+
+### Notion release format (Completed Fixes section)
+
+Each validated release gets one to-do block under the Notion "Completed Fixes" H2. Format:
+
+- **Block type:** `to_do`, **unchecked** (no strikethrough — the fact it's under "Completed Fixes" is enough).
+- **Title line:** `Release <commit-short-hash> — YYYY-MM-DD`
+- **Body:** one bullet-style line per fix: `- <short description> (<commit-short-hash>)`
+- **Ordering:** newest release on top. Next release inserts above the current one. The current one gets pushed down.
+
+Example:
+```
+[ ] Release 633f4d6 — 2026-09-27
+- effort persistence across navigation (f1c0c14)
+- no set target after last set (14cef4f)
+- average weight prompt typo (2429afb)
+- set target message for increase (633f4d6)
+- rest timer, elapsed time, set target persistence (10ac957)
+```
+
+How to do it (when the Notion API works): PATCH the to-do block's `rich_text` with the formatted text and `checked: false`. When the Notion API is blocked (Cloudflare), use the browser to edit the page directly.
 
 ### Rollback labeling
 
