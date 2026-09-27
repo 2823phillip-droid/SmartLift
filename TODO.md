@@ -5,6 +5,8 @@ last_updated: 2026-09-26
 
 ### Bugs fixed
 
+- [x] **Effort persistence across navigation** — Complete set 1 with effort 7, set 2 auto-expands with effort 7 pre-selected. Navigate away (Settings), come back — effort still 7, not unselected. Fixed: `expandExercise` now reads effort from latest log (`f1c0c14`).
+- [x] **No set target after last set** — Complete set 4 of an exercise. The Set Target suggestion box disappears entirely; no panel, no "Set Target" label. Fixed: `14cef4f`.
 - [x] **Set 2 weight reverts to session target after navigating away and back** — Set 1 shows Session Target (pulls from last workout, going up 5lbs). Set 2 shows Set Target (matches rest timer, shows last set info, going up 5lbs). Both work correctly during continuous workout. But navigating away (Settings tab → back to Live Workout) causes two things to break:
   - Elapsed time resets to 0
   - Set 2 actual weight reverts to the session target weight instead of the set target weight (it was correct using set target before navigating away)
