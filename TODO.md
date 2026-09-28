@@ -19,3 +19,21 @@ last_updated: 2026-09-27
 ### Bugs to fix
 
 - [ ] **Coach tab layout** — header dead-pinned at top edge on every tab (no safe-area gap, no header drift); chatbox static; only conversation box scrolls inside coach tab. Outer tab should not scroll. Desired: more like Slack. Currently broken — header scrolls out of sight, chatbox scrolls, conversation box also scrolls.
+
+## Features / Wishlist
+
+### Social
+- [ ] Friend system — add friends in-app, see their workout activity
+- [ ] Share workouts — share completed workout summaries with friends
+- [ ] Status — set and view workout/status updates (lifting, resting, etc.)
+
+### Notifications
+- [ ] Push notifications — workout reminders, rest timer alerts, coach messages
+
+## Modifications / Tweaks
+
+### Coach messages
+- [ ] Change "This workout" to "Next workout" in all coaching messages (backend `rules.py` + frontend `rules.ts`)
+
+### Weight display
+- [ ] Audit all frontend weight display paths for consistent kg/lbs conversion (start_weight, draft prefill, `getNextSetTarget()`, coach prescription inputs, recap screens)
