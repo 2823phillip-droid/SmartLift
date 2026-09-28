@@ -18,8 +18,6 @@ last_updated: 2026-09-27
 
 ### Bugs to fix
 
-- [ ] **Coach tab layout** — header dead-pinned at top edge on every tab (no safe-area gap, no header drift); chatbox static; only conversation box scrolls inside coach tab. Outer tab should not scroll. Desired: more like Slack. Currently broken — header scrolls out of sight, chatbox scrolls, conversation box also scrolls.
-
 ## Features / Wishlist
 
 ### Social
@@ -37,3 +35,6 @@ last_updated: 2026-09-27
 
 ### Weight display
 - [ ] Audit all frontend weight display paths for consistent kg/lbs conversion (start_weight, draft prefill, `getNextSetTarget()`, coach prescription inputs, recap screens)
+
+### Layout / UI
+- [ ] **Coach tab layout** — header dead-pinned at top edge on every tab (no safe-area gap, no header drift); chatbox static; only conversation box scrolls inside coach tab. Outer tab should not scroll. Desired: more like Slack. Currently the header scrolls out of sight, chatbox scrolls, conversation box also scrolls.
