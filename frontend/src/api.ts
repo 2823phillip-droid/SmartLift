@@ -500,8 +500,6 @@ export const api = {
 
   listProgressionTransitions: () => request("/progression/transitions"),
 
-  logout: () => request("/auth/logout"),
-
   seed: () => request("/seed", { method: "POST" }),
 
   getBodyWeightLogs: () => request("/body-weight"),

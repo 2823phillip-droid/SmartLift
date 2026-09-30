@@ -96,7 +96,11 @@ export default function SettingsScreen({ onBack, onOpenDebug }: { onBack: () => 
       return;
     }
     try {
-      await api.request("GET", `${candidate.replace(/\/+$/, "")}/health`, { retries: 1, baseDelayMs: 300 });
+      const healthUrl = candidate.replace(/\/+$/, "") + "/health";
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 30000);
+      await fetch(healthUrl, { signal: controller.signal });
+      clearTimeout(timer);
     } catch {
       setSaving(null);
       setSaved("api_base_bad");
