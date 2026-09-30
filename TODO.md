@@ -2,11 +2,11 @@
 last_updated: 2026-09-30
 
 ## Latest Build
-- **Git HEAD:** `da7c5c6` — "docs: explain raw fetch rationale in SettingsScreen health check"
+- **Git HEAD:** `2ee6e08` — "fix: update build-version.py REPO path to Studio + clean up tsconfig.app.json"
 - **Build:** `index-CUrp3hZN.js` (859,740 bytes) + `index-Cp3limsD.css` (57,000 bytes)
 - **Build date:** 2026-09-30
-- **Deploy status:** Frontend built and synced to iOS; backend deployed to Fly v264 (Sep 30 2026)
-- **Validation status:** Health OK (`{"status":"ok"}`), smoke test passed
+- **Deploy status:** Backend deployed to Fly v265 (Sep 30 2026); frontend built and synced to iOS
+- **Validation status:** Health OK (`{"status":"ok"}`), smoke test passed (login→401, healthz→200)
 
 ## Bugs to fix
 
