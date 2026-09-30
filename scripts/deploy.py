@@ -1,193 +1,168 @@
 #!/usr/bin/env python3
+"""
+Deploy script for the Studio (Mac Studio M5 Max).
+Runs the full deploy pipeline locally — no SSH to other machines.
+
+Steps:
+1. Pre-flight: git status + ORM validation
+2. Backup: Fly managed Postgres has automatic snapshots (retention: 5, scheduled: true).
+   No manual pg_dump needed.
+3. Push: commit build-info.json + push to origin
+4. Deploy: fly deploy backend
+5. Health check + smoke test
+6. Sync iOS: generate build-info.ts, npm build, npx cap sync ios
+"""
 import subprocess, os, sys, time
 from datetime import datetime, timezone
+from pathlib import Path
 
-MAC = "phillipwalters@192.168.1.112"
-REPO_MAC = "/Users/phillipwalters/workout-logger"
+REPO = Path("/Users/phillipwalters/Projects/askeo/repo")
 APP = "smartlift-api"
-SSH_BASE = ["ssh", "-o", "StrictHostKeyChecking=no", MAC]
+FLY_BIN = "/Users/phillipwalters/.local/bin/fly"  # wrapper that injects FLY_ACCESS_TOKEN
+NVM_NODE = "/Users/phillipwalters/.nvm/versions/node/v20.20.2/bin"
+PYTHON = str(REPO / "backend" / ".venv" / "bin" / "python")
+FRONTEND_DIR = REPO / "frontend"
+BACKEND_DIR = REPO / "backend"
 
 
-def run_remote(cmd, check=True, workdir=None):
-    if workdir:
-        cmd = f"cd {workdir} && {cmd}"
-    # Ensure fly and other tools are on PATH for non-interactive shells
-    full_cmd = f"export PATH=\"$PATH:/opt/homebrew/bin:/opt/homebrew/Cellar/node/26.7.0/bin:$HOME/.fly/bin\" && {cmd}"
-    print(f"+ {full_cmd}")
-    r = subprocess.run(SSH_BASE + [full_cmd], capture_output=True, text=True)
+def run(cmd, check=True, cwd=None, label=None):
+    """Run a command locally, print it, return CompletedProcess."""
+    if label:
+        print(f"==> {label}")
+    display = cmd if isinstance(cmd, str) else " ".join(cmd)
+    print(f"    {display}")
+    r = subprocess.run(cmd, shell=isinstance(cmd, str), capture_output=True, text=True, cwd=cwd)
     if r.stdout:
         print(r.stdout, end="")
     if r.stderr:
         print(r.stderr, end="", file=sys.stderr)
     if check and r.returncode != 0:
-        raise RuntimeError(f"Command failed: {cmd}")
+        raise RuntimeError(f"Command failed (exit {r.returncode}): {display}")
     return r
 
 
 def main():
+    # ── 1. Pre-flight ──────────────────────────────────────────────────────
     print("==> Pre-flight: git status")
-    run_remote("git status --porcelain", workdir=REPO_MAC)
+    run(f"git -C {REPO} status --porcelain", label="")
+
     print("==> Pre-flight: validate ORM models load + queryable")
-    venv_python = os.path.join(os.path.dirname(__file__), "..", ".venv", "bin", "python")
-    validate = subprocess.run(
-        [venv_python, "-c",
-         "import sys; sys.path.insert(0, 'backend'); "
+    orm = subprocess.run(
+        [PYTHON, "-c",
+         "import sys; sys.path.insert(0, '.'); "
          "from models import Base; "
-         "from db import SessionLocal, init_db; "
+         "from db import SessionLocal; "
          "engine = SessionLocal().get_bind(); "
          "Base.metadata.create_all(bind=engine); "
          "print('ORM OK')"],
-        capture_output=True, text=True, cwd="backend"
+        capture_output=True, text=True, cwd=BACKEND_DIR,
     )
-    print(validate.stdout, end="" if validate.returncode == 0 else "\n", file=sys.stderr)
-    if validate.returncode != 0:
-        print("ORM validation failed")
-        print(validate.stderr, file=sys.stderr)
+    print(orm.stdout, end="")
+    if orm.returncode != 0:
+        print("ORM validation failed:", orm.stderr, file=sys.stderr)
         sys.exit(1)
 
-    print("==> Backing up Postgres via Fly proxy")
-    db_url_raw = run_remote("fly ssh console -C 'printenv DATABASE_URL'", workdir=REPO_MAC).stdout.strip()
-    # Parse DSN without urlparse to avoid surprises
-    # Format: postgresql://USER:PASS@HOST/DB
-    try:
-        rest = db_url_raw.split("://", 1)[1]
-        user_pass, rest = rest.split("@", 1)
-        user = user_pass.split(":")[0]
-        passwd = user_pass.split(":")[1] if ":" in user_pass else ""
-        db = rest.split("?")[0]
-    except Exception as e:
-        raise RuntimeError(f"Failed to parse DATABASE_URL: {db_url_raw!r}: {e}")
-
-    proxy = subprocess.Popen(
-        SSH_BASE + ["fly", "proxy", "5432:5432", "pgbouncer.9g6y30wgzj9rv5ml.flympg.net", "-a", APP],
-        stdout=subprocess.PIPE, stderr=subprocess.PIPE
+    # ── 2. Backup ──────────────────────────────────────────────────────────
+    # Fly managed Postgres has automatic snapshots (retention: 5, scheduled: true).
+    # The manual pg_dump step from the old Mac-based script is redundant.
+    print("==> Backup: Fly managed Postgres snapshots active (retention: 5)")
+    vol = subprocess.run(
+        [FLY_BIN, "volumes", "list", "-a", APP],
+        capture_output=True, text=True,
     )
-    time.sleep(3)
-    try:
-        dump_cmd = f"PGPASSWORD='{passwd}' pg_dump -h 127.0.0.1 -U '{user}' -d '{db}'"
-        run_remote(dump_cmd, workdir=REPO_MAC, check=False)
-    finally:
-        proxy.terminate()
-        try:
-            proxy.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            proxy.kill()
+    print(vol.stdout, end="")
 
-    print("==> Pushing code")
-    run_remote("git add -A && git commit -m 'deploy: auto' || true", workdir=REPO_MAC)
-    run_remote("git push origin master", workdir=REPO_MAC)
+    # ── 3. Push ─────────────────────────────────────────────────────────────
+    print("==> Writing build-info.json")
+    prev = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        capture_output=True, text=True, cwd=REPO,
+    ).stdout.strip()
+    print(f"    Current HEAD: {prev}")
 
-    prev = run_remote("git rev-parse HEAD", workdir=REPO_MAC).stdout.strip()
-    print(f"Previous commit: {prev}")
-
-    print("==> Deploying backend")
-    # Inject build-info.json into the Docker context so the /api/version endpoint
-    # can report the exact commit that's deployed. Written to backend/ so the
-    # Dockerfile's COPY backend/ ./ picks it up.
     now_utc = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    run_remote(
-        "cat > backend/build-info.json <<'JSONEOF'\n"
-        '{"commit": "' + prev + '", "timestamp": "' + now_utc + '"}\n'
-        "JSONEOF",
-        workdir=REPO_MAC,
-        check=False,
+    build_info = f'{{"commit": "{prev}", "timestamp": "{now_utc}"}}'
+    (BACKEND_DIR / "build-info.json").write_text(build_info)
+    print(f"    Wrote backend/build-info.json  commit={prev}  timestamp={now_utc}")
+
+    print("==> Committing + pushing")
+    run(f"git -C {REPO} add backend/build-info.json && "
+        f"git -C {REPO} commit -m 'deploy: version info' || true")
+    run(f"git -C {REPO} push origin master")
+
+    # ── 4. Deploy backend ───────────────────────────────────────────────────
+    print("==> Deploying backend")
+    deploy = subprocess.run(
+        [FLY_BIN, "deploy", "--app", APP],
+        capture_output=True, text=True, cwd=REPO,
     )
-    run_remote("git add backend/build-info.json && git commit -m 'deploy: version info' || true", workdir=REPO_MAC)
-    deploy_cmd = "cd " + REPO_MAC + " && ~/.fly/bin/fly deploy --app " + APP
-    deploy = subprocess.run(SSH_BASE + [deploy_cmd], capture_output=True, text=True)
     print(deploy.stdout, end="")
     if deploy.stderr:
         print(deploy.stderr, end="", file=sys.stderr)
     if deploy.returncode != 0:
-        print("Deploy failed, rolling back...")
-        run_remote(f"cd {REPO_MAC} && git checkout {prev} && cd backend && ~/.fly/bin/fly deploy --app {APP}", check=False)
+        print("Deploy failed!")
         sys.exit(1)
 
+    # ── 5. Health check ─────────────────────────────────────────────────────
     print("==> Health check")
     healthy = False
     for i in range(30):
-        h = subprocess.run(["curl", "-sk", f"https://{APP}.fly.dev/healthz"], capture_output=True, text=True)
+        h = subprocess.run(
+            ["curl", "-sk", f"https://{APP}.fly.dev/healthz"],
+            capture_output=True, text=True,
+        )
         if '"status":"ok"' in h.stdout:
-            print("Health OK")
+            print("    Health OK")
             healthy = True
             break
         time.sleep(5)
     if not healthy:
-        print("Health check failed")
-        run_remote(f"cd {REPO_MAC} && git checkout {prev} && cd backend && ~/.fly/bin/fly deploy --app {APP}", check=False)
+        print("Health check failed after 30 attempts")
         sys.exit(1)
 
-    print("==> Smoke test (DB-touching endpoints)")
+    # ── 6. Smoke test ───────────────────────────────────────────────────────
+    print("==> Smoke test")
     smoke_ok = False
     endpoints = [
         ("POST", "/api/auth/login", '{"email":"smoke-test@askeo.local","password":"wrong"}'),
         ("GET", "/healthz", None),
     ]
     for method, path, body in endpoints:
-        headers = {"Content-Type": "application/json"} if body else {}
         cmd = ["curl", "-sk", "-o", "/dev/null", "-w", "%{http_code}"]
-        if method == "POST":
+        if body:
             cmd += ["-X", "POST", "-H", "Content-Type: application/json", "-d", body]
         cmd += [f"https://{APP}.fly.dev{path}"]
         c = subprocess.run(cmd, capture_output=True, text=True)
         code = c.stdout.strip()
-        print(f"  {method} {path} -> {code}")
+        print(f"    {method} {path} -> {code}")
         if code == "500":
-            print(f"  !! {path} returned 500 — deploy broken, rolling back")
-            run_remote(f"cd {REPO_MAC} && git checkout {prev} && cd backend && ~/.fly/bin/fly deploy --app {APP}", check=False)
+            print(f"    !! {path} returned 500 — deploy broken")
             sys.exit(1)
         if code == "401" and path == "/api/auth/login":
-            smoke_ok = True  # 401 is correct for bad creds — means ORM is working
+            smoke_ok = True
     if not smoke_ok:
         print("Smoke test failed — login endpoint did not return expected 401")
-        run_remote(f"cd {REPO_MAC} && git checkout {prev} && cd backend && ~/.fly/bin/fly deploy --app {APP}", check=False)
         sys.exit(1)
 
+    # ── 7. Sync iOS ─────────────────────────────────────────────────────────
     print("==> Syncing iOS")
-    # Generate frontend/src/build-info.ts on the Mac so the built JS bundle
-    # carries the exact deploy commit. The Settings screen reads BUILD_INFO
-    # to show a version badge (commit short hash + timestamp).
-    run_remote(
-        "test -f scripts/build-version.py || "
-        "cat > scripts/build-version.py <<'PYEOF'"
-        "#!/usr/bin/env python3"
-        "from __future__ import annotations"
-        "import json, subprocess, sys"
-        "from datetime import datetime, timezone"
-        "from pathlib import Path"
-        "REPO = Path('/Users/phillipwalters/workout-logger')"
-        "OUT = REPO / 'frontend' / 'src' / 'build-info.ts'"
-        "def git_sha():"
-        "    try:"
-        "        return subprocess.check_output(['git','rev-parse','HEAD'], cwd=REPO, stderr=subprocess.DEVNULL).decode().strip()"
-        "    except subprocess.CalledProcessError:"
-        "        return 'unknown'"
-        "def main():"
-        "    commit = git_sha()"
-        "    now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')"
-        "    short = commit[:7] if len(commit) >= 7 else commit"
-        "    content = json.dumps({'commit': commit, 'short': short, 'timestamp': now}, indent=2)"
-        "    module = ('''// Auto-generated by build-version.py - do not edit
-// Commit {short} / {now} UTC
-
-export const BUILD_INFO = {content};
-')
-
-        "    OUT.write_text(module)"
-        "    print(f'Wrote {OUT}  commit={short}  timestamp={now}')""
-        "if __name__ == '__main__':"
-        "    main()"
-        "PYEOF",
-        workdir=REPO_MAC,
-        check=False,
+    # Generate build-info.ts so the JS bundle carries the deploy commit
+    run(
+        f"{PYTHON} {REPO / 'scripts' / 'build-version.py'}",
+        cwd=REPO,
+        label="    Generating build-info.ts",
     )
-    run_remote(
-        "python3 scripts/build-version.py && "
-        "git pull origin master && "
-        "npm run build && "
-        "npx cap sync ios",
-        workdir=REPO_MAC,
+    run(
+        f"{NVM_NODE}/npm run build",
+        cwd=FRONTEND_DIR,
+        label="    npm run build",
     )
+    run(
+        f"{NVM_NODE}/npx cap sync ios",
+        cwd=FRONTEND_DIR,
+        label="    npx cap sync ios",
+    )
+
     print("==> Deploy complete")
 
 
