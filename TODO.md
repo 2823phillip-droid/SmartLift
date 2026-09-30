@@ -2,11 +2,11 @@
 last_updated: 2026-09-30
 
 ## Latest Build
-- **Git HEAD:** `47fd026` — "docs: add exercise library curation plan, investigation notes, and release notes (not yet implemented)"
+- **Git HEAD:** `da7c5c6` — "docs: explain raw fetch rationale in SettingsScreen health check"
 - **Build:** `index-CUrp3hZN.js` (859,740 bytes) + `index-Cp3limsD.css` (57,000 bytes)
 - **Build date:** 2026-09-30
-- **Deploy status:** Frontend built and synced to iOS; not yet deployed to Fly
-- **Validation status:** Not yet tested on device
+- **Deploy status:** Frontend built and synced to iOS; backend deployed to Fly v264 (Sep 30 2026)
+- **Validation status:** Health OK (`{"status":"ok"}`), smoke test passed
 
 ## Bugs to fix
 
