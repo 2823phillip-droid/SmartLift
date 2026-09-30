@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 """Generate frontend/src/build-info.ts with the current git commit + timestamp.
 
-Runs on the Mac just before `npm run build` so the built JS bundle carries
-the exact deploy commit. The Settings screen reads BUILD_INFO.commit to show
-a version badge so you can verify you're running the latest code.
-
-This file is shipped to the Mac by scripts/deploy.py and invoked remotely.
+Runs before `npm run build` so the built JS bundle carries the exact deploy
+commit. The Settings screen reads BUILD_INFO.commit to show a version badge.
 """
 
 from __future__ import annotations
@@ -16,7 +13,7 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPO = Path("/Users/phillipwalters/workout-logger")
+REPO = Path("/Users/phillipwalters/Projects/askeo/repo")
 OUT = REPO / "frontend" / "src" / "build-info.ts"
 
 
