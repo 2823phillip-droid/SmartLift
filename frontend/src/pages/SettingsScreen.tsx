@@ -96,6 +96,9 @@ export default function SettingsScreen({ onBack, onOpenDebug }: { onBack: () => 
       return;
     }
     try {
+      // Raw fetch instead of api.request: health-check on a user-entered URL.
+      // We don't send auth headers (the URL may not be our API), we don't need
+      // the retry/refresh logic from request(), and api has no generic request method.
       const healthUrl = candidate.replace(/\/+$/, "") + "/health";
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), 30000);
