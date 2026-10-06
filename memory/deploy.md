@@ -1,60 +1,69 @@
 # Deploy: Frontend + Backend
 
-last_updated: 2026-09-10
+last_updated: 2026-10-05
 created: 2026-07-31
 tags: [deploy, frontend, backend, fly, cap-sync, verification]
 related: PROJECT.md, Askeo.md, debugging.md
+note: Updated 2026-10-05 — migration to Mac Studio M5 Max complete. All steps now run local via scripts/deploy.py
 
-## End-of-session routine (run when user says "save, sync, deploy")
+## Deployment (Mac Studio M5 Max, single machine)
 
-### Step 1 — Save
-- `git add` all modified files
-- `git commit` with descriptive message
-- `git push origin master`
+Run the full pipeline locally with `scripts/deploy.py`. It does everything in sequence:
+1. **Preflight** — git status check, backend syntax check (`py_compile`)
+2. **Backup** — Fly remote snapshots of backend + frontend
+3. **Push** — `git add` + `git commit` + `git push origin master`
+4. **Fly deploy backend** — `fly deploy --app smartlift-api` from backend/
+5. **Health check** — `curl -s https://askeo.fit/healthz` returns OK
+6. **Build frontend** — `npm run build` in frontend/, then `npx cap sync ios`
+7. **Smoke test** — verify API responds through Xcode Capacitor bridge
 
-### Step 2 — Sync source to MacBook
-- `rsync -avz --delete /home/phillip2823/workout-logger/ macbook:~/workout-logger/`
-- This syncs source code only (backend, frontend/src, memory, etc.)
+### Single-command deploy
+```bash
+cd /Users/phillipwalters/Projects/askeo/repo && python3 scripts/deploy.py
+```
 
-### Step 3 — Frontend web build + iOS sync
-**Only if frontend source changed** (`frontend/src/`, `frontend/package.json`, etc.):
-1. `cd /home/phillip2823/workout-logger/frontend && npm run build`
-2. `rsync -avz /home/phillip2823/workout-logger/frontend/dist/ macbook:~/workout-logger/frontend/dist/`
-3. `ssh macbook "cd ~/workout-logger/frontend && source ~/.nvm/nvm.sh && nvm use 22 && npx cap sync ios"`
-4. Verify: `ssh macbook "ls -la ~/workout-logger/frontend/ios/App/App/public/assets/index-*.js"` shows new timestamp
+For just the backend (no frontend changes):
+```bash
+cd /Users/phillipwalters/Projects/askeo/repo/backend && fly deploy --app smartlift-api
+```
 
-### Step 4 — Backend deploy
-- `fly` CLI lives only on the MacBook (phillipwalters@192.168.1.112), not on this Linux VM. Run the deploy from the Linux VM via SSH to `macbook`:
-  - Non-interactive: `ssh -o BatchMode=yes macbook "cd ~/workout-logger && /Users/phillipwalters/.fly/bin/fly deploy --remote-only"`
-  - Interactive: `ssh macbook "cd ~/workout-logger/backend && /Users/phillipwalters/.fly/bin/fly deploy -a smartlift-api"`
-  - Run `python3 -m py_compile backend/main.py` on Linux first to catch syntax errors before deploy.
-- Verify: `curl -s https://askeo.fit/healthz` returns `{"status":"ok"}`. The health route is `/healthz`, NOT `/api/healthz`.
-- Note: the shared ingress IP (`66.241.124.80`) can rotate; always verify `askeo.fit` resolves before relying on a hardcoded IP. IPv6 (`2a09:8280:1::158:fa7:0`) is dedicated and safe.
+### Testing from Xcode
+After a successful `deploy.py`:
+1. Open `frontend/ios/App.xcworkspace` in Xcode
+2. Clean build (Product > Clean Build Folder): **especially if JS bundle hash changed**
+3. Run on Simulator or connected device (Product > Run)
+4. Or use the Simulator directly without pushing to a real device
 
-### Step 5 — Handoff to user
-- Tell user to build/run from Xcode
-- If frontend bundle hash changed, remind user to **Product > Clean Build Folder** first
+### Standalone backend deploy (no frontend changes)
+```bash
+cd /Users/phillipwalters/Projects/askeo/repo/backend && fly deploy --app smartlift-api --remote-only
+```
+
+### Manual verification steps (if needed)
+- Backend healthy: `curl -s https://askeo.fit/healthz` returns OK
+- Frontend JS bundle updated: check `frontend/ios/App/App/public/assets/index-*.js` exists and is recent
+- WebDir config: Capacitor reads from `dist/`, Xcode consumes from `frontend/ios/App/App/public/`
 
 ## Validation checklist
-- [ ] Git commit + push succeeded
-- [ ] Source rsync to MacBook completed
-- [ ] If frontend changed: web build succeeded, dist rsync'd, cap sync ios ran
-- [ ] `frontend/ios/App/App/public/assets/index-<newhash>.js` exists with current timestamp
+- [ ] Git commit + push succeeded (or skip if nothing changed)
 - [ ] Backend py_compile passed
-- [ ] Fly deploy succeeded
+- [ ] Fly deploy succeeded (`smartlift-api`)
 - [ ] Health check returns OK
+- [ ] Frontend built and cap sync ios ran
+- [ ] iOS bundle hash updated in `frontend/ios/App/App/public/assets/`
 - [ ] User instructed to clean build in Xcode if frontend changed
 
 ## Common failures
-- `fly: command not found` → ensure `~/.fly/bin` is on PATH
-- `no access token available` → shell was non-interactive; use `bash -ic ...`
-- Stale `index-<old>.js` → delete or cap sync overwrites
+- `fly: command not found` → ensure `~/.fly/bin` is on PATH (set in .zshrc)
+- `no access token available` → run in interactive shell, not cron/background
+- Stale `index-<old>.js` → cap sync overwrites; if stuck, delete old JS files first
 - `ionic://localhost` CORS block → backend missing origin in `allow_origins`
 - Backend 500 masked as CORS → check backend logs, not just console
 - 401 after fresh login → stale token in localStorage; logout + login clears it
 - **iOS shows old questionnaire/UI after deploy** → missed `npm run build` + `npx cap sync ios`; the web bundle in Xcode project is stale
 
 ## Change log
+- 2026-10-05 — Rewrote: all steps moved to local `scripts/deploy.py` on Mac Studio M5 Max. Removed rsync, SSH, and MacBook references entirely.
 - 2026-09-10 — Rewrote Step 4: documented SSH-to-MacBook deploy as primary command, corrected health URL to `/healthz`, added IPv6 dedicated-IP note
 - 2026-09-10 — Updated frontmatter `last_updated` to 2026-09-10
 - 2026-08-07 — Added explicit end-of-session routine with frontend build + cap sync step

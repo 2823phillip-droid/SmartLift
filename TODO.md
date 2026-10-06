@@ -35,6 +35,9 @@ _(no open bugs right now — add new bugs here when you find something broken du
 - [ ] Share workouts — share completed workout summaries with friends
 - [ ] Status — set and view workout/status updates (lifting, resting, etc.)
 
+### Prebuilt Templates
+- [ ] Shared prebuilt templates — create a library of ready-to-use workout templates available to ALL users, not just one user's local-only templates. Think: "Push Day," "Pull Day," "Legs," "Full Body Power" — structured exercise sets with progression logic baked in. Users pick from the shared library at workout start time or when creating new templates.
+
 ### Notifications
 - [ ] Push notifications — workout reminders, rest timer alerts, coach messages
 

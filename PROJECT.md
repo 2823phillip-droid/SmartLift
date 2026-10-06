@@ -1,16 +1,13 @@
 # Askeo / Workout-Logger Project
 
 ## Paths
-- Repo root: /home/phillip2823/workout-logger
-- Frontend: /home/phillip2823/workout-logger/frontend
-- Backend: /home/phillip2823/workout-logger/backend
+- Repo root: /Users/phillipwalters/Projects/askeo/repo/
+- Frontend: /Users/phillipwalters/Projects/askeo/repo/frontend/
+- Backend: /Users/phillipwalters/Projects/askeo/repo/backend/
 
 ## Network
-- MacBook SSH: `macbook` (configured in ~/.ssh/config)
-- MacBook IP: 192.168.1.112 (DHCP-reserved, never hardcode elsewhere)
-- Linux server: 192.168.1.111 (this machine)
-- Local backend: removed; do not use.
 - Production backend: https://askeo.fit/api
+- Fly dev URL: https://smartlift-api.fly.dev/api (same Fly app, same server)
 
 ## Domain & DNS
 - Public domain: askeo.fit (Namecheap)
@@ -23,13 +20,11 @@
 - Health endpoint is `/healthz` (not `/api/healthz`). Production URL: `https://askeo.fit/healthz`.
 - NOTE: Fly internal app name is `smartlift-api` — do NOT rename. Users only see askeo.fit.
 
-## Deploy
-- Frontend build + sync: build `frontend/dist/` on Linux, rsync to `macbook:~/workout-logger/frontend/ios/App/App/public/`, then `npx cap sync ios` on MacBook. Frontend bundle is consumed by Xcode/Capacitor from `frontend/ios/`; the Fly app does NOT serve it.
-- Backend deploy: `fly` CLI lives only on the MacBook. Run from Linux VM via SSH:
-  - Prefer: `ssh -o BatchMode=yes macbook "cd ~/workout-logger/backend && /Users/phillipwalters/.fly/bin/fly deploy --remote-only"`
-  - Or interactive: `bash -ic 'cd ~/workout-logger/backend && fly deploy -a smartlift-api'`
-  - Run `python3 -m py_compile backend/main.py` first (on Linux) to catch syntax errors before deploy.
-- Health verification: `curl -s https://askeo.fit/healthz` must return `{"status":"ok"}`. The health route is `/healthz`, NOT `/api/healthz`.
+## Deploy (Mac Studio M5 Max, single machine)
+Deploy runs entirely local on the Mac Studio via `scripts/deploy.py` (7 stages): preflight → fly backup snapshots → push git → fly deploy backend → health check → cap sync ios → smoke test. The frontend build is built in-process and synced to Capacitor's `frontend/ios/App/App/public/` — Xcode reads from this folder. The Fly app does NOT serve the frontend; it only serves the API.
+- Backend: `fly deploy --app smartlift-api` (run from backend/)
+- Frontend: `npx cap sync ios` after `npm run build`, then test via Xcode → Product > Run (Simulator or connected device)
+- Health verification: `curl -s https://askeo.fit/healthz` returns `{"status":"ok"}`. The health route is `/healthz`, NOT `/api/healthz`.
 - Remote git: https://github.com/2823phillip-droid/SmartLift.git
 
 ## Auth
@@ -43,5 +38,4 @@
 ## Rules
 - Agent owns full deploy/sync end-to-end.
 - Never ask user to run manual terminal commands for deploy.
-- Use `macbook` SSH alias for all MacBook operations; never use raw IP.
 - Do not fall back to local backend.

@@ -64,26 +64,23 @@ This document captures all work needed to clean up and properly structure the ex
 
 ### 2.3 Ghost template cleanup
 - **Problem:** 7 of 10 templates are empty (no exercises). Templates 7, 8, 9 have placeholder exercises with `reps_target=0`. Template 5 "Chest" has 87 sessions but empty template.
+- **All 10 templates were built for testing purposes** — they are not real workout data. The user did not start using this app until ~2 months ago. Any session data from pre-app usage is test/placeholder nonsense, not actual training history.
 - **Current template state:**
 
-| ID | Name | Exercises | Sessions | Notes |
-|----|------|-----------|----------|-------|
-| 1 | Push Test A | 0 | 2 | empty, test |
-| 2 | Back | 0 | 2 | empty, test |
-| 3 | Shoulders | 0 | 6 | empty, test |
-| 4 | StrongLifts 5x5 | 0 | 0 | empty |
-| 5 | Chest | 0 | 87 | empty template, 87 test sessions (2021-2026) |
-| 6 | Push Day A | 0 | 0 | empty |
+| ID | Name | Exercises | Sessions | Status |
+|----|------|-----------|----------|--------|
+| 1 | Push Test A | 0 | 2 | test ghost |
+| 2 | Back | 0 | 2 | test ghost |
+| 3 | Shoulders | 0 | 6 | test ghost |
+| 4 | StrongLifts 5x5 | 0 | 0 | test ghost |
+| 5 | Chest | 0 | 87 | test data (empty template, user only started ~2 months ago) |
+| 6 | Push Day A | 0 | 0 | test ghost |
 | 7 | Back | 1 (3/4 sit-up) | 0 | placeholder, reps=0 |
-| 8 | Chest | 2 (3/4 sit-up, 45° side bend) | 2 | placeholder, reps=0 |
-| 9 | Planet workout | 2 (band calf raise ×2) | 2 | placeholder, reps=0 |
-| 10 | Push Day A | 0 | 0 | empty |
+| 8 | Chest | 2 (3/4 sit-up, 45 deg side bend) | 2 | placeholder, reps=0 |
+| 9 | Planet workout | 2 (band calf raise x2) | 2 | placeholder, reps=0 |
+| 10 | Push Day A | 0 | 0 | test ghost |
 
-- **Recommendation:**
-  - Delete templates 1, 2, 3, 4, 6, 10 (empty, no real sessions)
-  - Delete templates 7, 8, 9 and their placeholder exercises (test data, reps=0)
-  - **Template 5 (Chest):** 87 sessions exist. Options: (a) keep the template and sessions as-is (empty template but session history preserved), (b) delete sessions then template. **Recommend: keep template 5 and its sessions** — 87 sessions is real usage history, even if template is empty now. Do NOT delete template 5's sessions without user approval.
-- **Comms:** Confirm with user before deleting anything. Template 5 sessions are the only real usage data.
+- **Action: delete ALL templates and their associated data.** None of these are user training history. 87 sessions over 5 years on an empty template when the user only started using this app 2 months ago is clearly testing artifact. Clean slate.
 
 ### 2.4 Exercise entry data quality
 - **Problem:** All 5 existing exercise entries have `reps_target=0`, `start_weight=0`. They're placeholders, not usable workouts.
@@ -159,7 +156,7 @@ This document captures all work needed to clean up and properly structure the ex
 
 **P0 — Must do before next real workout:**
 1. Library cleanup: POV duplicate collapse + mark unused as `program_worthy=False` (or "Show all" toggle)
-2. Ghost template cleanup (templates 1-4, 6, 7, 8, 9 — keep template 5 + sessions)
+2. Delete ALL ghost templates and their data (clean slate)
 3. Mac DB sync (columns + classification + cleanup)
 
 **P1 — Before progression system is usable:**
@@ -177,7 +174,7 @@ This document captures all work needed to clean up and properly structure the ex
 
 1. **Library cleanup approach:** "Show all exercises" toggle, or mark `program_worthy=False` on unused entries? Or both?
 
-2. **Ghost templates:** Confirm deletion of templates 1-4, 6, 7, 8, 9. Keep template 5 (Chest) with its 87 sessions? Or also clean up template 5's sessions?
+2. **Ghost templates:** DELETE ALL — 87 sessions over 5 years on an empty template when the user only started using this app 2 months ago is testing artifact. Clean slate.
 
 3. **POV duplicates:** Collapse all POV variants to `program_worthy=False`? Any POV variants you'd want to keep (e.g., incline bench vs flat bench are different exercises, not POV)?
 
@@ -187,6 +184,6 @@ This document captures all work needed to clean up and properly structure the ex
 
 6. **ExerciseEntry override:** Should exercise entries have their own `is_compound` / `is_helper_activity` override, or always inherit from `ExerciseLibrary`?
 
-7. **Template 5 sessions:** 87 sessions on an empty template — keep as history, or clean up?
+7. **Template 5 (Chest):** DELETE ALL — 87 sessions over 5 years on an empty template when the user only started using this app 2 months ago is testing artifact. Clean slate.
 
 8. **Exercise library source:** The library comes from ExerciseDB (seeded via `sync_exercise_library` endpoint). When we mark entries as `program_worthy=False`, will a re-sync overwrite our changes? Need to check if sync preserves manual edits.

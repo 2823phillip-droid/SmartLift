@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
-last_updated: 2026-09-27
-status: synced — both machines at `17c2fd9`, clean working trees. Mac build + cap sync + fly deploy all succeeded. New iOS bundle ready at `ios/App/App/public/assets/index-CGjjc9h6.js`. Three fixes validated and released this session: effort persistence (`f1c0c14`), no set target after last set (`14cef4f`), rest timer persistence across navigation (`10ac957`) — all part of push `633f4d6`. Notion Completed fixes updated with all three. TODO.md cleaned up — these three removed from "Bugs to fix". Rollback point labeled at `9787e7d`. Production Fix Workflow documented in MEMORY-INDEX.md. Backend healthy.
+last_updated: 2026-10-05
+status: Mac Studio M5 Max only, master branch HEAD `49bef68`, clean working tree. All migration to local Studio complete — scripts/deploy.py handles the full 7-stage pipeline (preflight → backup → push → fly deploy backend → health check → cap sync ios → smoke test). Backend healthy at askeo.fit/healthz. iOS bundle ready in Xcode at frontend/ios/App/App/public/assets/.
 
 This file explains where every type of project knowledge lives and when to use it.
 
@@ -8,46 +8,11 @@ This file explains where every type of project knowledge lives and when to use i
 
 ### Repo
 - **Branch:** master
-- **HEAD (both machines):** `b460baf` — "docs: mark effort persistence + no-set-target-after-last-set as fixed, add 2026-09-27 changelog entry"
-- **Remote (GitHub origin/master):** `b460baf` — both machines at same commit, Linux clean, Mac clean (fresh unminified Vite build in `frontend/ios/App/App/public/` — the folder Xcode reads)
-- **Remote URL:** `git@github.com:2823phillip-droid/SmartLift.git` (Mac) / `https://github.com/2823phillip-droid/SmartLift.git` (Linux)
-- **Untracked files:** Mac only — `backend/flowchart.html.bak.2026-09-26`, `checkpoint.md`. Linux only — `backend/roadmap.html.bak.2026-09-21`. All build/backup artifacts.
+- **HEAD:** `49bef68` — "docs: update TODO build entry to v265 + smoke test details"
+- **Remote (GitHub):** clean working tree, all changes pushed. Single Mac Studio M5 Max machine — no second machine to sync with.
 
-### Backend (deployed, Fly)
-- **App:** `smartlift-api` (internal name; users see `askeo.fit`)
-- **Deployed commit:** `60019a7` (Sep 16, 2026) — different from frontend HEAD; backend deploy not yet updated for `60019a7`
-- **Public URL:** `https://askeo.fit/api` — primary
-- **Fly dev URL:** `https://smartlift-api.fly.dev/api` — alias, same Fly app, same server (`57f2b87`)
-- **Health:** `https://askeo.fit/healthz`
-- **Machine ID:** `2862102a31e718`
-
-### Frontend (built on Mac, not yet redeployed to Fly)
-- **Build target:** Capacitor iOS app, Xcode project on Mac
-- **API base (runtime):** `.env` sets `VITE_API_BASE=https://smartlift-api.fly.dev/api` — both machines. The `.env` value wins at runtime over any hardcoded fallback in `api.ts`.
-- **Domains:** `askeo.fit` and `smartlift-api.fly.dev` resolve to same IP (`66.241.124.80`) and same Fly server. Which URL is used doesn't change which backend is hit.
-- **Dist bundle:** `frontend/dist/` built on Mac, copied into `frontend/ios/App/App/public/` for Xcode to consume. Not served by Fly. **Important:** the Xcode project reads `public/` from `frontend/ios/App/App/public/`, NOT from `frontend/public/` — there are two `public/` folders and the `frontend/public/` one is a decoy that Xcode ignores.
-
-### Sync definition: "fully synced" means ALL of:
-1. GitHub origin/master is source of truth. Both machines at same commit.
-2. No uncommitted tracked changes on either machine (untracked scratch files OK if they don't affect build).
-3. Identical source tree on both — no duplicate stale files at wrong paths.
-4. Frontend `.env` agrees with deployed backend URL (both `smartlift-api.fly.dev` or both `askeo.fit` — they're aliases but should be consistent).
-5. Backend deployed commit matches what frontend expects (only matters when backend code changed).
-
-### Sync workflow (run BEFORE testing anything):
-```bash
-# On Linux (or whichever machine has work):
-cd ~/workout-logger
-git status                          # review — commit or stash anything needed
-git pull origin master              # get latest from remote
-git push origin master              # push local commits
-
-# On Mac:
-cd ~/workout-logger
-git pull origin master              # pull remote
-# verify: git status clean
-# rebuild in Xcode (Run) — user action
-```
+### Frontend
+- **Build target:** Capacitor iOS app, Xcode project on Mac Studio. Run from Xcode → Product > Run.
 
 ## Knowledge Files
 
@@ -110,7 +75,7 @@ Consequence:
 4. Hermes memory (`~/.hermes/memories/MEMORY.md`) holds only a lightweight pointer to this knowledge system.
 5. Update `memory/changelog.md` whenever a knowledge file changes materially.
 6. When unsure whether to record something, use the decision checklist below.
-7. **Never ask the user to run terminal commands for deploy/sync/device operations.** The agent owns these end-to-end via SSH to Mac.
+7. **Never ask the user to run terminal commands for deploy/sync/device operations.** The agent owns these end-to-end locally on the Mac Studio M5 Max.
 
 ## Decision checklist
 
@@ -120,18 +85,15 @@ When unsure whether to record something:
 3. Does it change future behavior? -> Also record in `decisions.md`.
 4. Is it user-facing (UX/flow change)? -> Also update `TODO.md` and `Askeo.md`.
 
-## Sync audit trail
+## Sync audit trail (Mac Studio M5 Max)
 
 Use this when checking if things are clean:
 
 | Check | Command | Expected |
 |-------|---------|----------|
-| Linux git status | `cd ~/workout-logger && git status` | clean, up to date with origin/master |
-| Mac git status | `ssh macbook 'cd ~/workout-logger && git status'` | clean, up to date with origin/master |
-| Both at same commit | compare `git rev-parse HEAD` on both | identical hash |
-| Backend reachable | `curl -s https://askeo.fit/healthz` | `{"status":"ok"}` |
-| Frontend dist on Mac | check `frontend/ios/App/App/public/assets/index-*.js` exists | matches latest `frontend/dist/` |
-| No stale root files | `ls *.tsx *.py` at repo root on Mac | no matches (files shouldn't exist) |
+| Repo clean | `cd ~/Projects/askeo/repo && git status` | clean, up to date with origin/master |
+| Backend reachable | `curl -s https://askeo.fit/healthz` | OK |
+| Frontend dist current | check `frontend/ios/App/App/public/assets/index-*.js` exists | matches latest build |
 
 ## Ownership and contributor flow
 - Any agent session may add lessons to `memory/` and update `decisions.md`
@@ -142,11 +104,10 @@ Use this when checking if things are clean:
 ## Pre-Build Check
 
 Before building from Xcode or testing, verify:
-1. **Git clean on both machines:** `git status` shows no uncommitted changes on Linux or Mac
-2. **Same commit:** `git rev-parse HEAD` matches on both machines
-3. **Backend health:** `curl -s https://askeo.fit/healthz` returns `{"status":"ok"}`
-4. **No stale files:** no unexpected `.tsx`/`.py` files at repo root on Mac
-5. **Frontend dist current:** `frontend/ios/App/App/public/assets/index-*.js` on Mac exists and matches `frontend/dist/`
+1. **Repo clean:** `git status` shows no uncommitted changes at HEAD
+2. **Backend health:** `curl -s https://askeo.fit/healthz` returns OK
+3. **No stale files:** no unexpected `.tsx`/`.py` files at repo root
+4. **Frontend dist current:** `frontend/ios/App/App/public/assets/index-*.js` exists and matches latest build
 
 Do not use `scripts/sync-check.sh` — it is not maintained for this environment.
 
@@ -158,7 +119,7 @@ Every session — whether debugging, building, or investigating — follows this
 
 ### Start of session (before any work)
 1. Read bootstrap: `CONTEXT.md`, `PROJECT.md`, `TODO.md`, `MEMORY-INDEX.md` (in that order). This is already in Usage rules §1 — honored every time.
-2. **Run sync audit** (new — this is what was missing): check the 6 items in the Sync audit trail table above. Report results to the user before doing any work. If anything is dirty, flag it explicitly and decide: fix it now, or document why it's pending.
+2. **Run sync audit** (new — this is what was missing): check repo state (`git status` clean, up to date with origin/master), backend health (`curl -s askeo.fit/healthz` returns OK), frontend bundle current (JS in `frontend/ios/App/App/public/assets/` matches latest build). Report results to the user before doing any work. If anything is dirty, flag it explicitly and decide: fix it now, or document why it's pending.
 3. Update `MEMORY-INDEX.md` status line to reflect actual HEAD if it changed since last read.
 4. Check if the session has a clear goal. If not (e.g. "look at logs", "investigate something"), establish one before acting.
 

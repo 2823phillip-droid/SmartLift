@@ -1,19 +1,27 @@
 ---
-last_updated: 2026-08-06
+last_updated: 2026-10-05
 created: 2026-07-31
-tags: [trainer, questionnaire, backend, deploy, decisions]
-related: backend-db.md, auth.md, decisions.md, deploy.md
+tags: [trainer, questionnaire, backend, deploy]
+related: backend-db.md, auth.md, decisions.md, deploy.md, memory/deploy.md
 ---
 
-# Trainer-Generated Workout & Meal Plan Schema
+# Trainer-Generated Workout & Meal Plan Schema — DEPRECATED as of 2026-10-05
 
-This file is the source of truth for the questionnaire data model, backend endpoints, and generation rules for trainer-created workouts and optional meal plans.
+## Status Change (2026-10-05)
 
-## Questionnaire Structure
+The automatic workout builder flow (`POST /api/trainer/generate`) is being **retired**. The questionnaire and prebuilt template selection model replaces the auto-generated approach. This document still contains all historical schema details below for reference, but new work follows the redesigned flow described in `trainer-redesign.md`.
+
+---
+
+# Trainer-Generated Workout & Meal Plan Schema (Historical)
+
+This file is the source of truth for the historical questionnaire data model, backend endpoints, and generation rules for trainer-created workouts and optional meal plans. **The automatic builder is retired; see `trainer-redesign.md` for the new flow.**
+
+## Historical Questionnaire Structure
 
 Single section — Training Profile. Body metrics and nutrition are out of scope for current release.
 
-### Section 1 — Training Profile
+### Section 1 — Training Profile (Historical)
 Preface: "This shapes exercise selection, split structure, volume, and intensity."
 
 | Field | Type | Options | Notes |
@@ -41,14 +49,14 @@ Preface: "This shapes exercise selection, split structure, volume, and intensity
 - `age_range` — not needed for workout generation; used only by meal plan which is deferred
 - `meal_plan_opt_in`, `diet_type`, `cooking_skill`, `allergies`, `meals_per_day` — nutrition removed from current scope
 
-## Modality Mix Semantics
+## Historical Modality Mix Semantics
 
 - `single` — just primary style, no secondary activities
 - `together` — primary + secondary activities in the same session (e.g., lifting + cardio in one workout)
 - `separate_days` — dedicated days for each activity (e.g., lift Mon/Wed, cardio Tue/Thu)
 - `mostly_primary` — primary most days, secondary as occasional add-on
 
-## Progression Type
+## Historical Progression Type
 
 - `linear` — add weight every session (default for beginners)
 - `double` — add reps first, then add weight (default for intermediates)
@@ -59,23 +67,23 @@ Explicit `progression_type` from questionnaire overrides the experience-based de
 progression_type = getattr(profile, "progression_type", None) or _EXPERIENCE_PROGRESSION.get(profile.experience, "linear")
 ```
 
-## Split Styles
+## Historical Split Styles
 
 - `full_body` — every session hits all major muscle groups
 - `upper_lower_split` — alternating upper and lower days
 - `push_pull_legs` — three day types rotating
 - `body_part_split` — chest/tris, back/bis, legs, shoulders, arms rotation
 
-## Workout Naming Rules
+## Historical Workout Naming Rules
 
 - No day numbers for identical structures (e.g., "Upper Body" not "Day 1").
 - A/B/C suffixes only when the same muscle group repeats within the same week.
 - Upper/Lower split start order: match modality priority.
-  - Powerlifting/strongman: start Lower first (squat/bench focus).
-  - All other modalities (bodybuilding, general, etc.): start Upper first.
+   - Powerlifting/strongman: start Lower first (squat/bench focus).
+   - All other modalities (bodybuilding, general, etc.): start Upper first.
 - AI coach may recommend split switches after N months; user accepts before applying.
 
-## Workout Generation Rules
+## Historical Workout Generation Rules
 
 - Fewer exercises, more sets for compounds. More exercises, fewer sets for accessories.
 - Lift budget = session minutes - cardio minutes - warmup minutes.
@@ -85,33 +93,33 @@ progression_type = getattr(profile, "progression_type", None) or _EXPERIENCE_PRO
 - CHEST_TRICEPS adds 2 tricep slots (5 total).
 - Transition: same area 30s, different area 60s.
 
-## Gym Types
+## Historical Gym Types
 
 - `full_gym` — barbell, dumbbell, cable, machines
 - `planet_fitness` — limited barbell, primarily machines/dumbbells
 - `home_gym_basic` — dumbbells, resistance bands, limited equipment
 - `bodyweight_only` — no equipment
 
-## Reverse Exercise Rules
+## Historical Reverse Exercise Rules
 
 - Not all reverse exercises are bad — surgical exclusions only.
 - Reverse lunge and reverse fly are standard exercises, not excluded by default.
 - Exclude reverse exercises only when they conflict with a specific limitation (e.g., knee issues → exclude reverse lunge).
 - Exclusion rules must be surgical, not blanket bans.
 
-## Builder Draft Persistence
+## Historical Builder Draft Persistence
 
 - Workout builder draft must persist across tab switches.
 - Cancel exits without clearing draft.
 - Accept saves the workout as a template.
 
-## ExerciseDB
+## Historical ExerciseDB
 
 - ExerciseDB is the licensed exercise library source.
 - GIFs stored at `180/` and `360/` angle folders.
 - Frontend uses `program_worthy` tagging + tag-based exercise picker.
 
-## Custom Builder Flow
+## Historical Custom Builder Flow (Deprecated)
 
 When `build_mode == "custom"`:
 - Questionnaire skips `focus` entirely
@@ -122,7 +130,7 @@ When `build_mode == "custom"`:
 - Exercises can be manually reordered within each day
 - User saves → creates templates + exercises in backend → routes to Workouts tab
 
-## Backend Storage
+## Historical Backend Storage
 
 - Table: `users`
 - Column: `fitness_profile` (JSONB, nullable)
@@ -130,47 +138,49 @@ When `build_mode == "custom"`:
 - Updated by `PUT /api/profile/fitness`
 - Read by `POST /api/trainer/generate` as default values; request payload can override per generation
 
-## Endpoints
+## Historical Endpoints
 
-### GET /api/profile/fitness
+### GET /api/profile/fitness (Deprecated)
 Returns current user profile for questionnaire pre-fill.
 
-### PUT /api/profile/fitness
+### PUT /api/profile/fitness (Historical Use)
 Request body mirrors questionnaire answer structure. Saves to `users.fitness_profile` JSONB.
 
 Response:
 ```json
 {
-  "goal": ["strength", "mobility"],
-  "equipment": "dumbbells",
-  ...
+   "goal": ["strength", "mobility"],
+   "equipment": "dumbbells",
+   ...
 }
 ```
 
-### POST /api/trainer/generate
+### POST /api/trainer/generate ⚠️ RETIRED
 Request: optional overrides merged with saved profile.
 ```json
 {
-  "goal": ["strength"],
-  ...
+   "goal": ["strength"],
+   ...
 }
 ```
 
 Response:
 ```json
 {
-  "workout_draft": {
-    "name": "Generated Workout - 2026-08-06",
-    "description": "...",
-    "groups": [...]
-  },
-  "meal_plan_draft": null
+   "workout_draft": {
+     "name": "Generated Workout - 2026-08-06",
+     "description": "...",
+     "groups": [...]
+   },
+   "meal_plan_draft": null
 }
 ```
 
+**Retired 2026-10-05. The questionnaire no longer auto-generates workouts.** Use the new flow: questionnaire → prebuilt template selection → workout logging. See `trainer-redesign.md`.
+
 Note: `meal_plan_draft` is always `null` until nutrition flow is built.
 
-## Generation Rules
+## Historical Generation Rules (Deprecated)
 
 ### Workout Draft
 1. Filter exercise library by equipment and limitations
@@ -181,7 +191,7 @@ Note: `meal_plan_draft` is always `null` until nutrition flow is built.
 6. Minutes/session caps total work + rest
 7. Seeded randomness for exercise selection within filters
 
-### Slot-Based Templates (10 templates)
+### Slot-Based Templates (10 Templates — Historical Structure)
 Each day template has 5 slots: compound_1, compound_2, accessory_1, accessory_2, isolation_1
 - Chest Day: horizontal_push, vertical_push, horizontal_push_accessory, isometric_push, triceps_isolation
 - Back Day: vertical_pull, horizontal_pull, horizontal_pull_accessory, isometric_pull, biceps_isolation
@@ -194,19 +204,19 @@ Each day template has 5 slots: compound_1, compound_2, accessory_1, accessory_2,
 - Lower Body: squat + hinge + quad_accessory + ham_accessory + calf
 - Full Body: overhead_press + hinge + pull + leg_accessory + core
 
-### Body Part Split Rotation
+### Body Part Split Rotation (Historical)
 When `focus == "body_part_split"` and days_per_week > 5:
 - Rotates through: Chest+Triceps → Back+Biceps → Legs → Shoulders → Arms
 - Each day uses the corresponding template
 - 6 days = one full rotation + chest/tris repeat
 
-### Meal Plan Draft
+### Meal Plan Draft (Never Used)
 **Not generated in current release.** `generate_meal_plan()` returns `None`.
 Code preserved in `progression.py` for when nutrition is re-enabled.
 
-## AI Coach Layer (future)
+## Historical AI Coach Layer
 
-The AI coach is NOT part of workout generation. Its responsibilities:
+The AI coach was NOT part of workout generation. Its responsibilities:
 - Explain questions and guide users through the questionnaire
 - Reconcile conflicting or ambiguous answers
 - Build `week_schedule` dict for mixed-modality weeks (e.g., {"monday": "bodybuilding", "tuesday": "hiit", ...})
@@ -215,7 +225,7 @@ The AI coach is NOT part of workout generation. Its responsibilities:
 
 The backend receives the final structured `week_schedule` and generates workouts deterministically.
 
-## Frontend UX
+## Historical Frontend UX
 
 - Step-through: one question per screen with progress indicator
 - Single-select options render as tabs
@@ -224,18 +234,18 @@ The backend receives the final structured `week_schedule` and generates workouts
 - Pre-select defaults where sensible
 - Save profile on completion so next session pre-fills
 - Conditional question flow:
-  - `focus` is skipped in `custom` build mode
-  - `modality_mix`, `cardio_timing`, `incorporated_cardio_type`, `cardio_type` are skipped when `modality_secondary == ["none"]`
-  - `modality_mix` removes "single" option when cardio/HIIT is selected
+   - `focus` is skipped in `custom` build mode
+   - `modality_mix`, `cardio_timing`, `incorporated_cardio_type`, `cardio_type` are skipped when `modality_secondary == ["none"]`
+   - `modality_mix` removes "single" option when cardio/HIIT is selected
 
-## User Model Migration
+## Historical User Model Migration
 
 In `backend/main.py` `_run_migrations()`:
 - `fitness_profile` JSONB column already exists
 - No schema changes needed for questionnaire redesign
 
-## Open Decisions
+## Questions (Resolved)
 
-- Should generated workout auto-save as a template, or return as unsaved draft? Current: unsaved draft, user accepts to save.
-- AI coach `week_schedule` format — currently a flat dict of day→modality. May need time-of-day support for "lift in morning, cardio in evening" patterns.
-- Nutrition questionnaire — when re-enabled, body metrics section returns, plus diet/cooking/allergy questions.
+- ✅ Should generated workout auto-save as a template, or return as unsaved draft? **Retired.** Replaced with prebuilt template selection flow.
+- ✅ AI coach `week_schedule` format — currently a flat dict of day→modality. May need time-of-day support for "lift in morning, cardio in evening" patterns. **Still future.**
+- ✅ Nutrition questionnaire — when re-enabled, body metrics section returns, plus diet/cooking/allergy questions. **Deferred.**
