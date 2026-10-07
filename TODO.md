@@ -2,7 +2,7 @@
 last_updated: 2026-09-30
 
 ## Latest Build
-- **Git HEAD:** `2ee6e08` — "fix: update build-version.py REPO path to Studio + clean up tsconfig.app.json"
+- **Git HEAD:** `439c55f` — "feat: redesign questionnaire to Training Profile → Prebuilt Template Selection flow. Retire automatic workout builder; replace with prebuilt template model."
 - **Build:** `index-CUrp3hZN.js` (859,740 bytes) + `index-Cp3limsD.css` (57,000 bytes)
 - **Build date:** 2026-09-30
 - **Deploy status:** Backend deployed to Fly v265 (Sep 30 2026); frontend built and synced to iOS
@@ -36,10 +36,20 @@ _(no open bugs right now — add new bugs here when you find something broken du
 - [ ] Status — set and view workout/status updates (lifting, resting, etc.)
 
 ### Prebuilt Templates
-- [ ] Shared prebuilt templates — create a library of ready-to-use workout templates available to ALL users, not just one user's local-only templates. Think: "Push Day," "Pull Day," "Legs," "Full Body Power" — structured exercise sets with progression logic baked in. Users pick from the shared library at workout start time or when creating new templates.
+- [x] **Redesign questionnaire flow** — Replace "build_mode" choice (template vs custom builder) with streamlined Training Profile: capture goals, equipment, training history, experience level. Goals map directly to progression model. Remove automatic workout generation from questionnaire path. Done in `439c55f`.
+- [ ] **Remove automatic workout builder** — DELETE `POST /api/trainer/generate` endpoint (still live in code — used by AI coach `generate_workout` tool). Retire `QuestionnaireScreen.tsx` template-generation logic, remove build_mode toggle. Questionnaire now only saves profile data to `fitness_profile`.
+- [x] **Shared prebuilt templates** — Create backend library of structured workouts available to ALL users. Done in `439c55f` — prebuilt template model replaces automatic builder.
+- [x] **Template selector UI** — After questionnaire completes, show prebuilt template gallery instead of auto-generated workout. Done in `439c55f`.
 
 ### Notifications
 - [ ] Push notifications — workout reminders, rest timer alerts, coach messages
+
+### Progression Architecture (Block Periodization)
+- [ ] Phase 2: Library cleanup (`is_compound` flags, POV collapse, ghost templates) → `ReleaseNotes/progression_tasks.md`
+- [ ] Phase 3: Onboarding wizard + user profile schema
+- [ ] Phase 4: Model picker engine (`model_picker` function)
+- [ ] Phase 5: Frontend UI (block pill, rep targets, deload states)
+- [ ] Phase 6: Data sync & deployment (Mac DB, TS types)
 
 ## Modifications / Tweaks
 

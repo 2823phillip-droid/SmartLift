@@ -6,6 +6,17 @@ Format: DATE | FILE | TYPE | SUMMARY
 
 ---
 
+## 2026-10-07
+
+| Date | File | Type | Summary |
+|---|---|---|---|
+| 2026-10-07 | `MEMORY-INDEX.md` | updated | Status line → `439c55f` (was `49bef68`). |
+| 2026-10-07 | `TODO.md` | updated | HEAD → `439c55f`. Marked prebuilt template redesign items done. Clarified "Remove automatic workout builder" still open (endpoint live for AI coach). |
+| 2026-10-07 | `Askeo.md` | updated | Fixed exercise library source: `backend/exercisedb_data.json` (was `backend/dist/exercises-hasan.json`). Fixed count: 1384 (was 1318). Added `last_updated: 2026-10-07`. Updated `/api/trainer/generate` description with retirement note. |
+| 2026-10-07 | `memory/ai-coach-capabilities.md` | updated | Added `last_updated: 2026-10-07`. Added note clarifying `generate_workout` tool status post-retirement of automatic builder. |
+| 2026-10-07 | `memory/prebuilt-templates.md` | created | New file documenting the prebuilt template selection flow that replaced the automatic builder in `439c55f`. Covers Training Profile, template library, AI coach tools, and what changed vs old flow. |
+| 2026-10-07 | `memory/README.md` | updated | Added `prebuilt-templates.md` to file catalog. Marked `trainer.md` as archived. |
+
 ## 2026-09-27
 
 |||| File | Type | Summary |

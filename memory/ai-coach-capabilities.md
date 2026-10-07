@@ -1,5 +1,5 @@
 ---
-last_updated: 2026-08-31
+last_updated: 2026-10-07
 created: 2026-08-31
 tags: [ai-coach, capabilities, reference]
 related: trainer.md, Askeo.md
@@ -11,6 +11,8 @@ This is the source of truth for what the AI coach can and cannot do.
 Any changes to backend/frontend capability must be reflected here.
 
 ## Current Capabilities (Live on Production)
+
+**Note on `generate_workout` tool:** The automatic workout builder flow (questionnaire → auto-generated workout) was retired in `439c55f` and replaced with prebuilt template selection. The `generate_workout` tool itself remains live — it is now used exclusively by the AI coach when a user asks to build or generate a workout, not by the questionnaire path. The `modify_workout` tool is unaffected by this change.
 
 ### 1. Conversational Q&A About Training
 - Answer questions about the user's workout history, program phase, prescription, recovery, nutrition as it relates to training, exercise form, and progression.

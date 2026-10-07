@@ -1,4 +1,5 @@
 # Askeo Architecture / "Index"
+last_updated: 2026-10-07
 
 ## Stack
 - Backend: FastAPI + SQLAlchemy 2.0 + Pydantic v2
@@ -14,9 +15,9 @@
 
 ## Exercise Library (current)
 - Source: `hasaneyldrm/exercises-dataset` GitHub repo
-- File: `backend/dist/exercises-hasan.json`
+- File: `backend/exercisedb_data.json`
 - Seeded into: Fly Postgres table `exercise_library`
-- Count: 1,318 unique exercises
+- Count: 1,384 unique exercises
 - Fields: name, category, body_part, muscle_group, secondary_muscles, target, equipment, instructions, instruction_steps, gif_url, image_url, video_url, media_id, attribution
 - Media provider: GitHub raw CDN (`https://raw.githubusercontent.com/hasaneyldrm/exercises-dataset/main/...`)
 - Sync endpoint: `POST /api/exercise-library/sync` (requires auth)
@@ -34,7 +35,7 @@
 - `/api/exercise-library` — list exercises (optionally query `?q=`)
 - `/api/exercise-library/sync` — import exercises JSON into DB
 - `/api/profile/fitness` — GET/PUT user fitness profile (questionnaire answers)
-- `/api/trainer/generate` — generate workout draft from questionnaire answers
+- `/api/trainer/generate` — generate workout draft from questionnaire answers (**retired from questionnaire flow** in `439c55f`; still live for AI coach `generate_workout` tool use)
 - `/api/workout-library` — workout templates
 - `/api/workout-library/import` — import from exercise library
 - `/api/rules/next-prescription` — compute next session prescription + persist AlgorithmState

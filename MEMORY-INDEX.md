@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
 last_updated: 2026-10-05
-status: Mac Studio M5 Max only, master branch HEAD `49bef68`, clean working tree. All migration to local Studio complete — scripts/deploy.py handles the full 7-stage pipeline (preflight → backup → push → fly deploy backend → health check → cap sync ios → smoke test). Backend healthy at askeo.fit/healthz. iOS bundle ready in Xcode at frontend/ios/App/App/public/assets/.
+status: Mac Studio M5 Max only, master branch HEAD `439c55f`, clean working tree. All migration to local Studio complete — scripts/deploy.py handles the full 7-stage pipeline (preflight → backup → push → fly deploy backend → health check → cap sync ios → smoke test). Backend healthy at askeo.fit/healthz. iOS bundle ready in Xcode at frontend/ios/App/App/public/assets/.
 
 This file explains where every type of project knowledge lives and when to use it.
 
@@ -25,8 +25,9 @@ File | When to read
 `memory/backend-db.md` | Before touching schema, queries, or migrations
 `memory/auth.md` | When debugging login, token, or 401/403 errors
 `memory/frontend-fetch.md` | When touching api.ts or fetch logic
-`memory/trainer.md` | When building or changing trainer-generated workout or meal plan features
+`memory/trainer.md` | **Archived** — historical reference only. See `prebuilt-templates.md` for current flow.
 `memory/ai-coach-capabilities.md` | Before changing AI coach tools, prompts, or workout/profile modification logic
+`memory/prebuilt-templates.md` | Before working on questionnaire, template selection, or AI coach generation
 `memory/decisions.md` | When revisiting a past technical decision
 `memory/changelog.md` | When auditing what changed and when
 
