@@ -351,3 +351,80 @@ Task count: ~34 discrete sub-tasks mapping directly to Phases 2–6. Ready for d
 14. [DONE] Add coach progression toggle — Settings UI + frontend conditional rendering
 15. [DONE] Consolidate muscle groups — frontend filter cleanup
 16. [DONE] Remove deload override toggle — simplify exercise cards
+17. [DONE] Questionnaire auto-updates equipment settings
+
+---
+
+## PROGRESSION ENGINE IMPLEMENTATION PLAN (2026-10-09)
+
+The exercise library is complete. Now building the progression engine that uses it.
+
+### Block Periodization Overview
+
+**Block Cycle:**
+- Total Beginner: Foundation (6 wks) → Linear Baseline (2-3 wks) → Hypertrophy (6 wks) → Strength A (2 wks) → Strength B (2 wks) → Deload (1-2 wks) → loop to Hypertrophy
+- Intermediate/Advanced: Hypertrophy (6 wks) → Strength A (2 wks) → Strength B (2 wks) → Deload (1-2 wks) → loop to Hypertrophy
+
+**Rep Targets by Block:**
+| Block | Target Reps | Increment |
+|-------|-------------|-----------|
+| Foundation | 8-10 | +5lbs when hitting 10 |
+| Linear Baseline | 8-10 → 6-8 | Slide down naturally; stall → auto-switch |
+| Hypertrophy | 10-12 | +3-5lbs when hitting 12 |
+| Strength A | 8-10 | Double Progression |
+| Strength B | 6-8 | Double Progression |
+| Deload | 10-12 (RPE 5) | -20% load |
+
+**model_picker function:**
+```python
+def model_picker(exercise, history, block_state):
+    # Returns (target_reps_floor, target_reps_cap, increment_rule)
+    # All blocks use Double Progression
+```
+
+### Implementation Phases
+
+**Phase 3: Onboarding + Block State (Backend)**
+- [ ] 3.1: Questionnaire flow exists (`QuestionnaireScreen.tsx`)
+- [ ] 3.2: Create `block_state` table — user_id, block_mode, week_number, start_date, phase
+- [ ] 3.3: Link questionnaire → block state — beginner → Foundation block (week 1/6)
+- [ ] 3.4: Block advancement — advance week, advance block, auto-switch on stall
+- [ ] 3.5: User profile schema — add block_state reference
+
+**Phase 4: Model Picker Engine (Backend)**
+- [ ] 4.1: Implement `model_picker(exercise, history, block_state)`
+- [ ] 4.2: Unit test for each block type
+- [ ] 4.3: Add `POST /api/progression/calculate` endpoint
+- [ ] 4.4: Add `POST /api/progression/advance` endpoint
+- [ ] 4.5: Test Double Progression logic end-to-end
+
+**Phase 5: Frontend UI**
+- [ ] 5.1: Block pill — "Foundation Block • Week 3/6"
+- [ ] 5.2: Rep target display — "Target: 8-10 reps"
+- [ ] 5.3: Progression indicator — visual cue at rep cap
+- [ ] 5.4: Settings to view/advance block
+
+**Phase 6: Testing (End-to-End)**
+- T1: Beginner questionnaire → Foundation block created
+- T2: First workout → Foundation targets (8-10 reps) displayed
+- T3: Hit rep cap → weight increases (Double Progression)
+- T4: Advance week 6 → Linear Baseline (reps slide 8-10 → 6-8)
+- T5: Stall in Linear → auto-switch to Hypertrophy
+- T6: Advance through Strength A/B → rep targets decrease
+- T7: Deload → loads drop 20%, reps 10-12 RPE 5
+
+**Phase 7: Coach Polish**
+- Coach messages for block switches
+- Mid-block goal change handling
+- Injury/limitation adjustments
+- Rest timer by block
+- Foundational health integration
+
+### Current Status
+- Exercise library: COMPLETE (1359 exercises, 32 columns, fully classified)
+- Equipment system: COMPLETE (17 categories, toggle UI, filtering, questionnaire auto-update)
+- Coach progression toggle: COMPLETE (ON=default hides UI, OFF shows manual controls)
+- Block state: NOT STARTED
+- model_picker: NOT STARTED
+- Frontend progression UI: NOT STARTED
+- End-to-end testing: NOT STARTED

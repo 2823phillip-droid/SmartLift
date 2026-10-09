@@ -45,11 +45,35 @@ _(no open bugs right now — add new bugs here when you find something broken du
 - [ ] Push notifications — workout reminders, rest timer alerts, coach messages
 
 ### Progression Architecture (Block Periodization)
-||- [~] Phase 2: Library cleanup and classification — COMPLETE. 1359/1359 exercises classified (100%). Database fully classified with 32 columns including base_movement, hitt_worthy, warmup_type, primary_equipment. Equipment categories refined from 8→17: bodyweight, dumbbell, barbell, cable, machine, resistance_band, stretching, kettlebell, plates, stability_ball, medicine_ball, rope, cardio, roller, sledge, tire, arms_forearm. Empty categories core_abs and hitt_cardio removed. Deleted 10 poor-quality exercises (7 POV duplicates, 1 female variant, 2 towel rows). Movement pattern sweep complete: 43 patterns total including grip and hip_abduction_adduction. Frontend equipment toggle system built and working: Settings screen has 17 equipment category checkboxes with "Select All", equipment filtering in TemplateEditorScreen and CustomWorkoutBuilderScreen using primary_equipment from backend API. Coach progression toggle added: ON (default) = coach controls all progression, exercise cards clean; OFF = user controls progression at workout and exercise level. Muscle groups consolidated (upper/lower arms→Arms, upper/lower legs→Legs). Deload override toggle removed. → `ReleaseNotes/progression_tasks.md`
-- [ ] Phase 3: Onboarding wizard + user profile schema
-- [ ] Phase 4: Model picker engine (`model_picker` function)
-- [ ] Phase 5: Frontend UI (block pill, rep targets, deload states)
-- [ ] Phase 6: Data sync & deployment (Mac DB, TS types)
+|||- [~] Phase 2: Library cleanup and classification — COMPLETE. 1359/1359 exercises classified (100%). Database fully classified with 32 columns including base_movement, hitt_worthy, warmup_type, primary_equipment. Equipment categories refined from 8→17. Frontend equipment toggle system built and working. Coach progression toggle added. Muscle groups consolidated. Deload override toggle removed. Questionnaire auto-updates equipment settings. → `ReleaseNotes/progression_tasks.md`
+|- [ ] Phase 3: Onboarding wizard + user profile schema + block state
+|||- [ ] 3.1: Questionnaire flow (existing — `QuestionnaireScreen.tsx` + `config/questionnaire.ts`)
+|||- [ ] 3.2: Create `block_state` table/schema — stores user's current block mode, week number, start date, phase
+|||- [ ] 3.3: Link questionnaire → block state — when beginner selected, auto-create Foundation block (week 1/6)
+|||- [ ] 3.4: Block advancement logic — advance week, advance block, auto-switch on stall
+|||- [ ] 3.5: User profile schema update — add block_state reference, goals, experience level, equipment
+|- [ ] Phase 4: Model picker engine (`model_picker` function)
+|||- [ ] 4.1: Implement `model_picker(exercise, history, block_state)` → returns (rep_floor, rep_cap, increment_rule)
+|||- [ ] 4.2: Unit test model_picker for each block type (Foundation, Linear, Hypertrophy, Strength A/B, Deload)
+|||- [ ] 4.3: Add `POST /api/progression/calculate` endpoint — takes exercise + history, returns next weight/reps
+|||- [ ] 4.4: Add `POST /api/progression/advance` endpoint — advance block or week
+|||- [ ] 4.5: Test Double Progression logic — verify rep cap → weight increase → rep reset works
+|- [ ] Phase 5: Frontend UI (block pill, rep targets, deload states)
+|||- [ ] 5.1: Add block pill to workout screen — "Foundation Block • Week 3/6"
+|||- [ ] 5.2: Add rep target display — "Target: 8-10 reps" on exercise cards
+|||- [ ] 5.3: Add progression indicator — visual cue when user hits rep cap (ready to increase weight)
+|||- [ ] 5.4: Settings to view/change block mode — see current block, manually advance
+|- [ ] Phase 6: Data sync & deployment
+|||- [ ] 6.1: Run migrations on production Postgres (block_state table, etc.)
+|||- [ ] 6.2: Deploy progression endpoints
+|||- [ ] 6.3: Frontend type updates (block state types, progression response types)
+|||- [ ] 6.4: End-to-end testing (see Phase 3 in progression_tasks.md for test plan)
+|- [ ] Phase 7: Coach engine polish (Active Coach Logic Layer)
+|||- [ ] 7.1: Coach messages for block switches, progression changes
+|||- [ ] 7.2: Handle mid-block goal changes
+|||- [ ] 7.3: Injury/limitation adjustments
+|||- [ ] 7.4: Rest timer integration by block
+|||- [ ] 7.5: Foundational health integration (sleep, nutrition, mobility)
 
 ## Modifications / Tweaks
 
