@@ -2403,4 +2403,169 @@ def generate_meal_plan(profile: UserProfile) -> Optional[dict]:
     # Keep below code for when nutrition is re-enabled:
     # if not profile.weight_kg or not profile.height_cm or not profile.sex or not getattr(profile, "age_range", None):
     #     return None
-    ...
+    # ...
+
+# ---------------------------------------------------------------------------
+# Model Picker — Single Double Progression Model
+# ---------------------------------------------------------------------------
+
+# Block mode → rep targets
+# All blocks use Double Progression: work within floor→cap, hit cap → increase weight
+BLOCK_REP_TARGETS = {
+    "foundation": {"rep_floor": 8, "rep_cap": 10, "increment": 5},
+    "linear_baseline": {"rep_floor": 8, "rep_cap": 10, "increment": 5},  # reps slide down naturally
+    "hypertrophy": {"rep_floor": 10, "rep_cap": 12, "increment": 3},
+    "strength_a": {"rep_floor": 8, "rep_cap": 10, "increment": 5},
+    "strength_b": {"rep_floor": 6, "rep_cap": 8, "increment": 5},
+    "maintenance": {"rep_floor": 10, "rep_cap": 12, "increment": 0},  # no progression, RPE 5 cap
+}
+
+# Block cycle order (for advancement)
+BLOCK_SEQUENCE = [
+    "foundation",
+    "linear_baseline",
+    "hypertrophy",
+    "strength_a",
+    "strength_b",
+    "maintenance",
+]
+
+# Block phase numbers (for display)
+BLOCK_PHASES = {
+    "foundation": 1,
+    "linear_baseline": 2,
+    "hypertrophy": 3,
+    "strength_a": 4,
+    "strength_b": 5,
+    "maintenance": 6,
+}
+
+
+def get_block_targets(block_mode: str) -> dict:
+    """
+    Get rep targets for a given block mode.
+    
+    Returns:
+        {
+            rep_floor: int,      # minimum reps to aim for
+            rep_cap: int,        # maximum reps before increasing weight
+            increment: float,    # weight increase in lbs when hitting rep_cap
+        }
+    """
+    return BLOCK_REP_TARGETS.get(block_mode, {"rep_floor": 8, "rep_cap": 10, "increment": 5})
+
+
+def model_picker(
+    exercise: dict,
+    history: list,
+    block_state: dict,
+) -> dict:
+    """
+    Determine progression targets for an exercise based on block state and history.
+    
+    Args:
+        exercise: Exercise data from exercise_library
+            - id: int
+            - name: str
+            - is_compound: bool (optional)
+            - movement_type: str (optional)
+        history: List of past set logs
+            - weight: float
+            - reps: int
+            - workout_date: datetime (optional)
+        block_state: Current user block state
+            - block_mode: str (foundation, hypertrophy, strength_a, etc.)
+            - week_number: int
+    
+    Returns:
+        {
+            rep_floor: int,           # minimum reps to aim for
+            rep_cap: int,             # maximum reps before increasing weight
+            increment: float,         # weight increase in lbs
+            suggested_weight: float,  # suggested starting weight for next workout
+            should_increase: bool,    # whether to increase weight based on history
+        }
+    """
+    # Get block-specific targets
+    targets = get_block_targets(block_state.get("block_mode", "foundation"))
+    
+    rep_floor = targets["rep_floor"]
+    rep_cap = targets["rep_cap"]
+    increment = targets["increment"]
+    
+    # Determine current weight from history
+    suggested_weight = 0.0
+    should_increase = False
+    
+    if history:
+        # Get the most recent weight
+        recent_weights = [h.get("weight", 0) for h in history if h.get("weight", 0) > 0]
+        if recent_weights:
+            suggested_weight = max(recent_weights)
+        
+        # Check if user hit rep cap in recent workouts
+        recent_reps = [h.get("reps", 0) for h in history if h.get("reps", 0) > 0]
+        if recent_reps:
+            max_reps = max(recent_reps)
+            # If user hit or exceeded rep cap, suggest weight increase
+            if max_reps >= rep_cap and increment > 0:
+                should_increase = True
+                suggested_weight += increment
+    
+    # For maintenance block, no progression
+    if block_state.get("block_mode") == "maintenance":
+        should_increase = False
+        increment = 0
+        # Reduce weight by 20% for deload
+        if suggested_weight > 0:
+            suggested_weight = round(suggested_weight * 0.8, 1)
+    
+    return {
+        "rep_floor": rep_floor,
+        "rep_cap": rep_cap,
+        "increment": increment,
+        "suggested_weight": suggested_weight,
+        "should_increase": should_increase,
+    }
+
+
+def advance_block(block_mode: str) -> str:
+    """
+    Get the next block mode in the sequence.
+    """
+    if block_mode not in BLOCK_SEQUENCE:
+        return "hypertrophy"  # default to hypertrophy if unknown
+    
+    current_idx = BLOCK_SEQUENCE.index(block_mode)
+    next_idx = (current_idx + 1) % len(BLOCK_SEQUENCE)
+    return BLOCK_SEQUENCE[next_idx]
+
+
+def get_block_phase(block_mode: str) -> int:
+    """Get the phase number for a block mode (1-6)."""
+    return BLOCK_PHASES.get(block_mode, 3)
+
+
+def is_block_complete(block_state: dict) -> bool:
+    """
+    Check if the current block is complete (week reached max).
+    
+    Foundation, Hypertrophy: 6 weeks
+    Linear Baseline: 2-3 weeks
+    Strength A/B: 2 weeks each
+    Maintenance: 1-2 weeks
+    """
+    block_mode = block_state.get("block_mode", "foundation")
+    week_number = block_state.get("week_number", 1)
+    
+    max_weeks = {
+        "foundation": 6,
+        "linear_baseline": 3,
+        "hypertrophy": 6,
+        "strength_a": 2,
+        "strength_b": 2,
+        "maintenance": 2,
+    }
+    
+    return week_number >= max_weeks.get(block_mode, 6)
+
