@@ -137,7 +137,21 @@ class ExerciseLibrary(Base):
     substitutions = Column(Text, nullable=True)  # JSON array
     progressions = Column(Text, nullable=True)  # JSON array
     regressions = Column(Text, nullable=True)  # JSON array
-    program_worthy = Column(Boolean, default=True, nullable=False)
+
+    # Classification columns (Phase 2)
+    is_compound = Column(Boolean, nullable=True)
+    primary_equipment = Column(String, nullable=True)
+    movement_type = Column(String, nullable=True)  # compound | isolation | helper
+    exercise_role = Column(String, nullable=True)  # main_compound | secondary_compound | accessory | isolation_technical | warmup | prehab_activation | cool_down
+    systemic_fatigue_load = Column(Integer, nullable=True)
+    structural_safety_score = Column(Integer, nullable=True)
+    joint_stress_flags = Column(Text, nullable=True)
+    movement_pattern = Column(String, nullable=True)
+    risk_score = Column(Integer, nullable=True)
+    impact_score = Column(Integer, nullable=True)
+    base_movement = Column(String, nullable=True)
+    hitt_worthy = Column(Integer, nullable=True)  # 0/1 flag
+    warmup_type = Column(String, nullable=True)  # dynamic | static | activation | general
 
 class ExerciseEntry(Base):
     __tablename__ = "exercise_entries"

@@ -1,12 +1,12 @@
 # TODO
-last_updated: 2026-09-30
+last_updated: 2026-10-08
 
 ## Latest Build
-- **Git HEAD:** `439c55f` — "feat: redesign questionnaire to Training Profile → Prebuilt Template Selection flow. Retire automatic workout builder; replace with prebuilt template model."
-- **Build:** `index-CUrp3hZN.js` (859,740 bytes) + `index-Cp3limsD.css` (57,000 bytes)
-- **Build date:** 2026-09-30
-- **Deploy status:** Backend deployed to Fly v265 (Sep 30 2026); frontend built and synced to iOS
-- **Validation status:** Health OK (`{"status":"ok"}`), smoke test passed (login→401, healthz→200)
+- **Git HEAD:** `c5d5bdc` — "feat: equipment toggle system with coach progression control; consolidate muscle groups; remove deload override toggle"
+- **Build:** `index-3C8zlRL3.js` (867,530 bytes) + `index-C0Ze5QzQ.css` (57,620 bytes)
+- **Build date:** 2026-10-08
+- **Deploy status:** Backend deployed to Fly; frontend built and synced to iOS
+- **Validation status:** Health OK, smoke test passed
 
 ## Bugs to fix
 
@@ -45,7 +45,7 @@ _(no open bugs right now — add new bugs here when you find something broken du
 - [ ] Push notifications — workout reminders, rest timer alerts, coach messages
 
 ### Progression Architecture (Block Periodization)
-- [ ] Phase 2: Library cleanup (`is_compound` flags, POV collapse, ghost templates) → `ReleaseNotes/progression_tasks.md`
+||- [~] Phase 2: Library cleanup and classification — COMPLETE. 1359/1359 exercises classified (100%). Database fully classified with 32 columns including base_movement, hitt_worthy, warmup_type, primary_equipment. Equipment categories refined from 8→17: bodyweight, dumbbell, barbell, cable, machine, resistance_band, stretching, kettlebell, plates, stability_ball, medicine_ball, rope, cardio, roller, sledge, tire, arms_forearm. Empty categories core_abs and hitt_cardio removed. Deleted 10 poor-quality exercises (7 POV duplicates, 1 female variant, 2 towel rows). Movement pattern sweep complete: 43 patterns total including grip and hip_abduction_adduction. Frontend equipment toggle system built and working: Settings screen has 17 equipment category checkboxes with "Select All", equipment filtering in TemplateEditorScreen and CustomWorkoutBuilderScreen using primary_equipment from backend API. Coach progression toggle added: ON (default) = coach controls all progression, exercise cards clean; OFF = user controls progression at workout and exercise level. Muscle groups consolidated (upper/lower arms→Arms, upper/lower legs→Legs). Deload override toggle removed. → `ReleaseNotes/progression_tasks.md`
 - [ ] Phase 3: Onboarding wizard + user profile schema
 - [ ] Phase 4: Model picker engine (`model_picker` function)
 - [ ] Phase 5: Frontend UI (block pill, rep targets, deload states)
@@ -58,6 +58,7 @@ _(no open bugs right now — add new bugs here when you find something broken du
 
 ### Weight display
 - [ ] Audit all frontend weight display paths for consistent kg/lbs conversion (start_weight, draft prefill, `getNextSetTarget()`, coach prescription inputs, recap screens)
+- [ ] **Allow user to override weight** — coach suggests +5lbs progression, but user can enter custom weight for the set. Needed for exercises where gym doesn't have intermediate dumbbell sizes (e.g., lateral raises where 12.5lbs isn't available). Backend progression stays +5lbs default; frontend UI adds override option.
 
 ### Layout / UI
 - [ ] **Coach tab layout** — header dead-pinned at top edge on every tab (no safe-area gap, no header drift); chatbox static; only conversation box scrolls inside coach tab. Outer tab should not scroll. Desired: more like Slack. Currently the header scrolls out of sight, chatbox scrolls, conversation box also scrolls.

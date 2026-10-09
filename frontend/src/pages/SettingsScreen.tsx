@@ -4,6 +4,27 @@ import BodyWeightQuickLog from "../components/BodyWeightQuickLog";
 import { getUnitsPreference, setUnitsPreference } from "../utils/units";
 import { BUILD_INFO } from "../build-info";
 
+// Equipment categories for toggle tree
+const EQUIPMENT_CATEGORIES = [
+  { key: "bodyweight", label: "Bodyweight", description: "No equipment needed", count: 297 },
+  { key: "dumbbell", label: "Dumbbells", description: "DB exercises", count: 295 },
+  { key: "barbell", label: "Barbell", description: "Barbell exercises", count: 177 },
+  { key: "cable", label: "Cable Machine", description: "Cable exercises", count: 159 },
+  { key: "machine", label: "Machines", description: "Resistance machines", count: 144 },
+  { key: "resistance_band", label: "Resistance Bands", description: "Band exercises", count: 70 },
+  { key: "stretching", label: "Stretching", description: "Stretching & mobility", count: 67 },
+  { key: "kettlebell", label: "Kettlebell", description: "KB exercises", count: 42 },
+  { key: "plates", label: "Weight Plates", description: "Plate-loaded exercises", count: 41 },
+  { key: "stability_ball", label: "Stability Ball", description: "Swiss ball exercises", count: 31 },
+  { key: "medicine_ball", label: "Medicine Ball", description: "Med ball exercises", count: 14 },
+  { key: "rope", label: "Rope", description: "Battle rope, jump rope", count: 11 },
+  { key: "cardio", label: "Cardio", description: "Cardio equipment", count: 6 },
+  { key: "roller", label: "Ab Roller", description: "Ab wheel exercises", count: 2 },
+  { key: "sledge", label: "Sledge Hammer", description: "Sledge exercises", count: 1 },
+  { key: "tire", label: "Tire", description: "Tire exercises", count: 1 },
+  { key: "arms_forearm", label: "Wrist Roller", description: "Forearm exercises", count: 1 },
+];
+
 type SettingItem = { key: string; value: string | null };
 
 export default function SettingsScreen({ onBack, onOpenDebug }: { onBack: () => void; onOpenDebug?: () => void }) {
@@ -227,6 +248,113 @@ export default function SettingsScreen({ onBack, onOpenDebug }: { onBack: () => 
           >
             Kilograms (kg)
           </button>
+        </div>
+      </div>
+
+      {/* Equipment Toggles */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+            </svg>
+            <div>
+              <div className="font-semibold text-sm">Exercises</div>
+              <div className="text-xs text-slate-500">Select which equipment you have available</div>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              const allEnabled = EQUIPMENT_CATEGORIES.map(e => e.key);
+              save("equipment_enabled", JSON.stringify(allEnabled));
+              setSettings((s) => ({ ...s, equipment_enabled: JSON.stringify(allEnabled) }));
+              if (typeof window !== "undefined") {
+                localStorage.setItem("equipment_enabled", JSON.stringify(allEnabled));
+              }
+            }}
+            className="text-xs text-indigo-400 hover:text-indigo-300 transition-colors"
+          >
+            Select All
+          </button>
+        </div>
+        <div className="space-y-1 max-h-96 overflow-y-auto">
+          {EQUIPMENT_CATEGORIES.map((cat) => {
+            const enabled = settings["equipment_enabled"] ? JSON.parse(settings["equipment_enabled"] || "[]").includes(cat.key) : false;
+            return (
+              <div key={cat.key} className="flex items-center gap-3 py-2 px-2 rounded-lg hover:bg-slate-800/50 transition-colors">
+                <button
+                  onClick={() => {
+                    const current = settings["equipment_enabled"] ? JSON.parse(settings["equipment_enabled"] || "[]") : [];
+                    const updated = enabled ? current.filter((k: string) => k !== cat.key) : [...current, cat.key];
+                    save("equipment_enabled", JSON.stringify(updated));
+                    setSettings((s) => ({ ...s, equipment_enabled: JSON.stringify(updated) }));
+                    if (typeof window !== "undefined") {
+                      localStorage.setItem("equipment_enabled", JSON.stringify(updated));
+                    }
+                  }}
+                  className={`relative w-5 h-5 rounded-md border-2 transition-all flex items-center justify-center ${enabled ? "bg-indigo-600 border-indigo-500" : "border-slate-600 bg-slate-800"}`}
+                  aria-label={`Toggle ${cat.label}`}
+                >
+                  {enabled && (
+                    <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                    </svg>
+                  )}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <div className="text-sm font-medium text-slate-200">{cat.label}</div>
+                  <div className="text-xs text-slate-500 truncate">{cat.description}</div>
+                </div>
+                <div className="text-xs text-slate-600">{cat.count}</div>
+              </div>
+            );
+          })}
+        </div>
+        {saved === "equipment_enabled" && (
+          <p className="text-xs text-emerald-400 text-center">Saved</p>
+        )}
+        <div className="pt-1">
+          <p className="text-xs text-slate-500 text-center">Settings saved automatically — navigate to workout builder to see changes</p>
+        </div>
+      </div>
+
+      {/* Coach Progression Toggle */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+            </svg>
+            <div>
+              <div className="font-semibold text-sm">Coach Progression</div>
+              <div className="text-xs text-slate-500">Let the AI coach control exercise progression</div>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              const current = settings["coach_progression"] !== "false";
+              const newValue = !current;
+              save("coach_progression", String(newValue));
+              setSettings((s) => ({ ...s, coach_progression: String(newValue) }));
+              if (typeof window !== "undefined") {
+                localStorage.setItem("coach_progression", String(newValue));
+              }
+            }}
+            className={`relative w-12 h-7 rounded-full transition-colors ${settings["coach_progression"] !== "false" ? "bg-indigo-600" : "bg-slate-700"}`}
+            aria-label="Toggle coach progression"
+          >
+            <div className={`absolute top-1 left-1 w-5 h-5 rounded-full bg-white shadow transition-transform ${settings["coach_progression"] !== "false" ? "translate-x-5" : ""}`} />
+          </button>
+        </div>
+        <div className="flex items-center gap-2 text-xs">
+          <span className={`px-2 py-1 rounded-full font-medium ${settings["coach_progression"] !== "false" ? "bg-indigo-900/30 text-indigo-300" : "bg-slate-800 text-slate-400"}`}>
+            {settings["coach_progression"] !== "false" ? "Coach Controlled" : "User Controlled"}
+          </span>
+          <p className="text-slate-500">
+            {settings["coach_progression"] !== "false"
+              ? "Coach decides progression for all exercises"
+              : "You control progression at workout and exercise level"}
+          </p>
         </div>
       </div>
 

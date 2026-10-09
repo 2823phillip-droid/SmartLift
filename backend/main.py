@@ -351,30 +351,54 @@ def _run_migrations():
                 conn.execute(_text("ALTER TABLE set_logs ADD COLUMN form_quality INTEGER"))
                 conn.commit()
 
+            # Exercise library classification columns (Phase 2)
+            elcols = cols("exercise_library")
+            if "is_compound" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN is_compound BOOLEAN"))
+                conn.commit()
+            if "primary_equipment" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN primary_equipment TEXT"))
+                conn.commit()
+            if "movement_type" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN movement_type TEXT"))
+                conn.commit()
+            if "exercise_role" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN exercise_role TEXT"))
+                conn.commit()
+            if "systemic_fatigue_load" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN systemic_fatigue_load INTEGER"))
+                conn.commit()
+            if "structural_safety_score" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN structural_safety_score INTEGER"))
+                conn.commit()
+            if "joint_stress_flags" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN joint_stress_flags TEXT"))
+                conn.commit()
+            if "movement_pattern" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN movement_pattern TEXT"))
+                conn.commit()
+            if "risk_score" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN risk_score INTEGER"))
+                conn.commit()
+            if "impact_score" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN impact_score INTEGER"))
+                conn.commit()
+            if "base_movement" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN base_movement TEXT"))
+                conn.commit()
+            if "hitt_worthy" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN hitt_worthy INTEGER"))
+                conn.commit()
+            if "warmup_type" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN warmup_type TEXT"))
+                conn.commit()
+
             if "coach_usage_logs" not in cols("coach_usage_logs"):
                 from models import Base
                 Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["coach_usage_logs"]])
                 conn.commit()
                 logging.info("Created coach_usage_logs table")
 
-            # Migrate exercise_library to ExerciseDB schema
-            elib_cols = cols("exercise_library")
-            if "program_worthy" not in elib_cols:
-                # Drop old table (CASCADE removes dependent FKs from exercise_entries/cardio_logs)
-                # then recreate exercise_library + dependent tables
-                if dialect == "sqlite":
-                    conn.execute(_text("DROP TABLE IF EXISTS exercise_library"))
-                else:
-                    conn.execute(_text("DROP TABLE IF EXISTS exercise_library CASCADE"))
-                conn.commit()
-                from models import Base
-                # Recreate exercise_library first (FKs reference it)
-                Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["exercise_library"]])
-                # Then recreate dependent tables
-                for dep in ["exercise_entries", "cardio_logs"]:
-                    if dep in Base.metadata.tables:
-                        Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables[dep]])
-                logging.info("Recreated exercise_library table with ExerciseDB schema")
     except Exception:
         pass
 
@@ -411,6 +435,7 @@ class ExerciseLibraryOut(BaseModel):
     name: str
     muscle_group: Optional[str]
     equipment: Optional[str]
+    primary_equipment: Optional[str]
     default_rest_seconds: int
     video_url: Optional[str] = None
     image_url: Optional[str] = None
@@ -1368,6 +1393,7 @@ def search_exercise_library(q: str = "", db: Session = Depends(get_db), current_
             name=_canonical_name_for_exercise(e.name),
             muscle_group=e.muscle_group,
             equipment=e.equipment,
+            primary_equipment=getattr(e, "primary_equipment", None),
             default_rest_seconds=e.default_rest_seconds,
             video_url=e.video_url,
             image_url=e.image_url,

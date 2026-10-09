@@ -12,10 +12,10 @@ export interface ExerciseLibraryItem {
   name: string;
   muscle_group?: string;
   equipment?: string;
+  primary_equipment?: string;
   target?: string;
   difficulty?: string;
   category?: string;
-  program_worthy: boolean;
   default_rest_seconds: number;
   video_url?: string | null;
   image_url?: string | null;

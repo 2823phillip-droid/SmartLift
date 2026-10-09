@@ -86,6 +86,8 @@ export default function TemplateEditorScreen({
   const [search, setSearch] = useState("");
   const [selectedMuscle, setSelectedMuscle] = useState<string | null>(null);
   const [selectedEquipment, setSelectedEquipment] = useState<string | null>(null);
+  const [equipmentEnabled, setEquipmentEnabled] = useState<string[]>([]);
+  const [coachProgression, setCoachProgression] = useState(true);
 
   const [globalRest, setGlobalRest] = useState<number>(90);
 
@@ -337,13 +339,63 @@ export default function TemplateEditorScreen({
       .catch(() => setLoadingLibrary(false));
   }, []);
 
+  // Load settings
+  useEffect(() => {
+    let cancelled = false;
+    // Equipment
+    const cached = typeof window !== "undefined" ? localStorage.getItem("equipment_enabled") : null;
+    if (cached) {
+      try {
+        const enabled = JSON.parse(cached);
+        setEquipmentEnabled(Array.isArray(enabled) ? enabled : []);
+      } catch {
+        // ignore
+      }
+    }
+    // Coach progression
+    const cpCached = typeof window !== "undefined" ? localStorage.getItem("coach_progression") : null;
+    if (cpCached) {
+      setCoachProgression(cpCached !== "false");
+    }
+    api.listSettings().then((items: any[]) => {
+      if (cancelled) return;
+      const equipSetting = items.find((s: any) => s.key === "equipment_enabled");
+      if (equipSetting?.value) {
+        try {
+          const enabled = JSON.parse(equipSetting.value);
+          setEquipmentEnabled(Array.isArray(enabled) ? enabled : []);
+        } catch {
+          setEquipmentEnabled([]);
+        }
+      }
+      const cpSetting = items.find((s: any) => s.key === "coach_progression");
+      if (cpSetting?.value) {
+        setCoachProgression(cpSetting.value !== "false");
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
   const muscleFilters = useMemo(() => {
+    // Consolidate muscle groups: merge upper/lower variants
+    const mergedGroups: Record<string, string> = {
+      "upper arms": "Arms",
+      "lower arms": "Arms",
+      "upper legs": "Legs",
+      "lower legs": "Legs",
+      "back": "Back",
+      "chest": "Chest",
+      "shoulders": "Shoulders",
+      "waist": "Core",
+      "neck": "Neck",
+      "cardio": "Cardio",
+    };
     const map = new Map<string, number>();
     for (const ex of library) {
       const raw = (ex.muscle_group || "").trim();
       if (!raw) continue;
-      const display = toTitle(raw);
-      map.set(display, (map.get(display) || 0) + 1);
+      const consolidated = mergedGroups[raw.toLowerCase()] || toTitle(raw);
+      map.set(consolidated, (map.get(consolidated) || 0) + 1);
     }
     return Array.from(map.entries())
       .sort((a, b) => b[1] - a[1])
@@ -352,16 +404,39 @@ export default function TemplateEditorScreen({
 
   const equipmentFilters = useMemo(() => {
     const map = new Map<string, number>();
+    // Map from primary_equipment key to display name
+    const keyToDisplay: Record<string, string> = {
+      bodyweight: "Bodyweight",
+      dumbbell: "Dumbbells",
+      barbell: "Barbell",
+      cable: "Cable Machine",
+      machine: "Machines",
+      resistance_band: "Resistance Bands",
+      stretching: "Stretching",
+      kettlebell: "Kettlebell",
+      plates: "Weight Plates",
+      stability_ball: "Stability Ball",
+      medicine_ball: "Medicine Ball",
+      rope: "Rope",
+      cardio: "Cardio",
+      roller: "Ab Roller",
+      sledge: "Sledge Hammer",
+      tire: "Tire",
+      arms_forearm: "Wrist Roller",
+    };
     for (const ex of library) {
-      const raw = (ex.equipment || "").trim();
-      if (!raw) continue;
-      const display = toTitle(raw);
-      map.set(display, (map.get(display) || 0) + 1);
+      const pe = ex.primary_equipment;
+      if (!pe) continue;
+      // Only count if equipment is enabled in settings
+      if (equipmentEnabled.length === 0 || equipmentEnabled.includes(pe)) {
+        const display = keyToDisplay[pe] || toTitle(pe);
+        map.set(display, (map.get(display) || 0) + 1);
+      }
     }
     return Array.from(map.entries())
       .sort((a, b) => b[1] - a[1])
       .map(([name, count]) => ({ name, count }));
-  }, [library]);
+  }, [library, equipmentEnabled]);
 
   const results = useMemo(() => {
     let items = library;
@@ -371,18 +446,57 @@ export default function TemplateEditorScreen({
     }
     if (selectedMuscle) {
       items = items.filter((ex) => {
-        const raw = (ex.muscle_group || "").trim();
-        return raw && toTitle(raw) === selectedMuscle;
+        // Map raw muscle group to consolidated name
+        const mergedGroups: Record<string, string> = {
+          "upper arms": "Arms",
+          "lower arms": "Arms",
+          "upper legs": "Legs",
+          "lower legs": "Legs",
+          "back": "Back",
+          "chest": "Chest",
+          "shoulders": "Shoulders",
+          "waist": "Core",
+          "neck": "Neck",
+          "cardio": "Cardio",
+        };
+        const raw = (ex.muscle_group || "").trim().toLowerCase();
+        const consolidated = mergedGroups[raw] || toTitle(raw);
+        return raw && consolidated === selectedMuscle;
       });
     }
     if (selectedEquipment) {
+      // Map display name back to primary_equipment key
+      const displayToKey: Record<string, string> = {
+        "Bodyweight": "bodyweight",
+        "Dumbbells": "dumbbell",
+        "Barbell": "barbell",
+        "Cable Machine": "cable",
+        "Machines": "machine",
+        "Resistance Bands": "resistance_band",
+        "Stretching": "stretching",
+        "Kettlebell": "kettlebell",
+        "Weight Plates": "plates",
+        "Stability Ball": "stability_ball",
+        "Medicine Ball": "medicine_ball",
+        "Rope": "rope",
+        "Cardio": "cardio",
+        "Ab Roller": "roller",
+        "Sledge Hammer": "sledge",
+        "Tire": "tire",
+        "Wrist Roller": "arms_forearm",
+      };
+      const peKey = displayToKey[selectedEquipment];
+      items = items.filter((ex) => ex.primary_equipment === peKey);
+    }
+    // Filter by enabled equipment settings
+    if (equipmentEnabled.length > 0) {
       items = items.filter((ex) => {
-        const raw = (ex.equipment || "").trim();
-        return raw && toTitle(raw) === selectedEquipment;
+        const pe = ex.primary_equipment;
+        return pe && equipmentEnabled.includes(pe);
       });
     }
     return items;
-  }, [library, search, selectedMuscle, selectedEquipment]);
+  }, [library, search, selectedMuscle, selectedEquipment, equipmentEnabled]);
 
   const toggleExerciseRestEdit = (ex: DraftExercise, enabled: boolean) => {
     const key = ex.localId;
@@ -494,14 +608,45 @@ export default function TemplateEditorScreen({
                 {exercises.length} exercise{exercises.length !== 1 ? "s" : ""}
               </span>
             </div>
+            {!coachProgression && (
             <div className="flex flex-wrap items-center gap-2">
               <div className="text-[10px] text-slate-500 uppercase tracking-wider mr-1">Set all progression</div>
-              {["linear", "double", "percentage", "autoregulated"].map((p) => (
-                <button key={p} onClick={() => batchSetProgression(p)} className="rounded-xl border border-slate-700 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800">
-                  {p}
-                </button>
-              ))}
+              {(["default", "linear", "double", "percentage", "autoregulated"] as const).map((p) => {
+                let allMatch: boolean;
+                if (p === "default") {
+                  // "Default" is active when no override exists OR all exercises use their default
+                  const hasOverrides = Object.keys(exerciseProgressionOverrides).length > 0;
+                  allMatch = !hasOverrides;
+                } else {
+                  allMatch = exercises.length > 0 && exercises.every((ex) => ex.progression_type === p);
+                }
+                const isDefault = p === "default";
+                return (
+                  <button
+                    key={p}
+                    onClick={() => {
+                      if (isDefault) {
+                        // Clear all overrides - let app/coach dictate
+                        setExerciseProgressionOverrides({});
+                        setExercises((list) => list.map((ex) => ({ ...ex, progression_type: undefined })));
+                      } else {
+                        batchSetProgression(p);
+                      }
+                    }}
+                    className={`rounded-xl border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                      allMatch
+                        ? isDefault
+                          ? "border-indigo-500 bg-indigo-900/30 text-indigo-300"
+                          : "border-indigo-500 bg-indigo-900/30 text-indigo-300"
+                        : "border-slate-700 bg-slate-800/50 text-slate-500"
+                    }`}
+                  >
+                    {isDefault ? "Default" : p}
+                  </button>
+                );
+              })}
             </div>
+            )}
 
             <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
               <SortableContext items={exercises.map((ex) => ex.localId)} strategy={verticalListSortingStrategy}>
@@ -620,25 +765,7 @@ export default function TemplateEditorScreen({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2">
-                  <div className="text-[10px] text-slate-500 uppercase tracking-wider">Deload override</div>
-                  <button
-                    type="button"
-                    onClick={() => toggleExerciseDeload(ex.localId)}
-                    className={`flex h-5 w-9 items-center rounded-full border px-0.5 transition-colors ${
-                      exerciseDeloadOverrides[ex.localId]
-                        ? "border-amber-500 bg-amber-600 justify-end"
-                        : "border-slate-700 bg-slate-800 justify-start"
-                    }`}
-                    title={exerciseDeloadOverrides[ex.localId] ? "Exclude from deload" : "Force deload for this exercise"}
-                  >
-                    <div className="h-3 w-3 rounded-full bg-white shadow-sm" />
-                  </button>
-                  {exerciseDeloadOverrides[ex.localId] && (
-                    <span className="text-[10px] text-amber-300 font-semibold">Deload</span>
-                  )}
-                </div>
-
+                {!coachProgression && (
                 <div className="flex items-center gap-2">
                   <div className="text-[10px] text-slate-500 uppercase tracking-wider">Progression</div>
                   {exerciseProgressionEditing[ex.localId] ? (
@@ -669,6 +796,7 @@ export default function TemplateEditorScreen({
                     <div className="h-3 w-3 rounded-full bg-white shadow-sm" />
                   </button>
                 </div>
+                )}
 
                 <div className="space-y-2">
                   <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Sets</div>
@@ -716,7 +844,7 @@ export default function TemplateEditorScreen({
                     Add Set
                   </button>
                 </div>
-                    </SortableItem>
+                </SortableItem>
                 ))}
                 </div>
               </SortableContext>

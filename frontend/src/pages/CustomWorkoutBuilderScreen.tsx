@@ -158,6 +158,7 @@ export default function CustomWorkoutBuilderScreen({
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMuscle, setFilterMuscle] = useState<string>("all");
   const [activeDayIndex, setActiveDayIndex] = useState(0);
+  const [equipmentEnabled, setEquipmentEnabled] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -174,6 +175,34 @@ export default function CustomWorkoutBuilderScreen({
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // Load equipment settings
+  useEffect(() => {
+    let cancelled = false;
+    // First check localStorage for immediate update
+    const cached = typeof window !== "undefined" ? localStorage.getItem("equipment_enabled") : null;
+    if (cached) {
+      try {
+        const enabled = JSON.parse(cached);
+        setEquipmentEnabled(Array.isArray(enabled) ? enabled : []);
+      } catch {
+        // ignore
+      }
+    }
+    api.listSettings().then((items: any[]) => {
+      if (cancelled) return;
+      const setting = items.find((s: any) => s.key === "equipment_enabled");
+      if (setting?.value) {
+        try {
+          const enabled = JSON.parse(setting.value);
+          setEquipmentEnabled(Array.isArray(enabled) ? enabled : []);
+        } catch {
+          setEquipmentEnabled([]);
+        }
+      }
+    }).catch(() => {});
+    return () => { cancelled = true; };
   }, []);
 
   const muscleGroups = useMemo(() => {
@@ -194,8 +223,15 @@ export default function CustomWorkoutBuilderScreen({
     if (filterMuscle !== "all") {
       list = list.filter((ex) => (ex.muscle_group || "") === filterMuscle);
     }
+    // Filter by enabled equipment
+    if (equipmentEnabled.length > 0) {
+      list = list.filter((ex) => {
+        const pe = ex.primary_equipment;
+        return pe && equipmentEnabled.includes(pe);
+      });
+    }
     return list;
-  }, [library, searchQuery, filterMuscle]);
+  }, [library, searchQuery, filterMuscle, equipmentEnabled]);
 
   const addExerciseToDay = (dayIndex: number, ex: ExerciseLibraryItem) => {
     setDays((prev) => {
