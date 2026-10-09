@@ -289,6 +289,26 @@ export default function QuestionnaireScreen({
         }
       }
 
+      // Create block state based on experience level
+      const experience = answers.experience;
+      const isBeginner = experience === "beginner";
+      try {
+        await fetch(`${getApiBase()}/api/progression/block-state`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${getAuthToken()}`,
+          },
+          body: JSON.stringify({
+            block_mode: isBeginner ? "foundation" : "hypertrophy",
+            week_number: 1,
+            phase: isBeginner ? 1 : 3,  // 1=Foundation, 3=Hypertrophy
+          }),
+        });
+      } catch {
+        // non-fatal - block state can be created later
+      }
+
       // Mark questionnaire complete and return to workouts
       onComplete(null, answers);
     } catch (err: any) {
