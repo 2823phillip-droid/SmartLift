@@ -39,6 +39,7 @@ class User(Base):
     workout_library_exercises = relationship("WorkoutLibraryExercise", back_populates="user", cascade="all, delete-orphan")
     ai_coach_conversations = relationship("AiCoachConversation", back_populates="user", cascade="all, delete-orphan")
     reminders = relationship("Reminder", back_populates="user")
+    block_states = relationship("BlockState", back_populates="user", cascade="all, delete-orphan")
 
 class RoutineType(str, enum.Enum):
     strength = "strength"
@@ -266,6 +267,21 @@ class AlgorithmState(Base):
 
     user = relationship("User", back_populates="algorithm_states")
     exercise_entry = relationship("ExerciseEntry")
+
+
+class BlockState(Base):
+    """Tracks user's current progression block (Foundation, Hypertrophy, Strength, etc.)"""
+    __tablename__ = "block_state"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False, unique=True)
+    block_mode = Column(String, nullable=False, default="foundation")
+    week_number = Column(Integer, default=1)
+    start_date = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+    phase = Column(Integer, default=1)  # 1=Foundation, 2=Linear, 3=Hypertrophy, 4=Strength A, 5=Strength B, 6=Deload
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
+
+    user = relationship("User", back_populates="block_states")
 
 
 class ProgressionTransition(Base):

@@ -21,6 +21,7 @@ from models import (
     WorkoutTemplate,
     AppSetting,
     Reminder,
+    BlockState,
 )
 import secrets
 import hashlib
@@ -2253,6 +2254,102 @@ class ProgressionTransitionOut(ApiBaseModel):
 
     class Config:
         from_attributes = True
+
+
+class BlockStateOut(ApiBaseModel):
+    id: int
+    block_mode: str
+    week_number: int
+    start_date: datetime
+    phase: int
+    created_at: Optional[datetime]
+    updated_at: Optional[datetime]
+
+    class Config:
+        from_attributes = True
+
+
+class BlockStateCreate(ApiBaseModel):
+    block_mode: str = "foundation"
+    week_number: int = 1
+    phase: int = 1
+
+
+class BlockStateAdvance(ApiBaseModel):
+    advance_week: bool = False
+    advance_block: bool = False
+    new_block_mode: Optional[str] = None
+    new_phase: Optional[int] = None
+
+
+@app.get("/api/progression/block-state", response_model=BlockStateOut)
+def get_block_state(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    """Get the current user's block state."""
+    block_state = db.query(BlockState).filter(BlockState.user_id == current_user.id).first()
+    if not block_state:
+        # Create default Foundation block if none exists
+        block_state = BlockState(user_id=current_user.id)
+        db.add(block_state)
+        db.commit()
+        db.refresh(block_state)
+    return block_state
+
+
+@app.post("/api/progression/block-state", response_model=BlockStateOut)
+def create_block_state(data: BlockStateCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    """Create or replace the user's block state (called from questionnaire)."""
+    existing = db.query(BlockState).filter(BlockState.user_id == current_user.id).first()
+    if existing:
+        # Update existing
+        existing.block_mode = data.block_mode
+        existing.week_number = data.week_number
+        existing.phase = data.phase
+        existing.start_date = datetime.now(timezone.utc)
+    else:
+        # Create new
+        existing = BlockState(
+            user_id=current_user.id,
+            block_mode=data.block_mode,
+            week_number=data.week_number,
+            phase=data.phase,
+        )
+        db.add(existing)
+    db.commit()
+    db.refresh(existing)
+    return existing
+
+
+@app.patch("/api/progression/block-state/advance", response_model=BlockStateOut)
+def advance_block_state(data: BlockStateAdvance, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    """Advance the user's block state (week or block)."""
+    block_state = db.query(BlockState).filter(BlockState.user_id == current_user.id).first()
+    if not block_state:
+        # Create default if none exists
+        block_state = BlockState(user_id=current_user.id)
+        db.add(block_state)
+        db.commit()
+        db.refresh(block_state)
+
+    if data.advance_week:
+        block_state.week_number += 1
+    if data.advance_block or data.new_block_mode:
+        if data.new_block_mode:
+            block_state.block_mode = data.new_block_mode
+        if data.new_phase:
+            block_state.phase = data.new_phase
+        else:
+            # Auto-advance to next block in sequence
+            block_sequence = ["foundation", "linear_baseline", "hypertrophy", "strength_a", "strength_b", "maintenance"]
+            current_idx = block_sequence.index(block_state.block_mode) if block_state.block_mode in block_sequence else 0
+            next_idx = (current_idx + 1) % len(block_sequence)
+            block_state.block_mode = block_sequence[next_idx]
+            block_state.phase = next_idx + 1
+        block_state.week_number = 1
+        block_state.start_date = datetime.now(timezone.utc)
+
+    db.commit()
+    db.refresh(block_state)
+    return block_state
 
 
 @app.get("/api/rules/algorithm-state/{exercise_entry_id}", response_model=AlgorithmStateOut)
