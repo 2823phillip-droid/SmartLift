@@ -269,6 +269,26 @@ export default function QuestionnaireScreen({
         }
       }
 
+      // Save equipment selection to settings
+      if (answers.equipment && Array.isArray(answers.equipment)) {
+        try {
+          await fetch(`${getApiBase()}/settings/${encodeURIComponent("equipment_enabled")}`, {
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${getAuthToken()}`,
+            },
+            body: JSON.stringify({ key: "equipment_enabled", value: JSON.stringify(answers.equipment) }),
+          });
+          // Also update localStorage for immediate effect
+          if (typeof window !== "undefined") {
+            localStorage.setItem("equipment_enabled", JSON.stringify(answers.equipment));
+          }
+        } catch {
+          // non-fatal
+        }
+      }
+
       // Mark questionnaire complete and return to workouts
       onComplete(null, answers);
     } catch (err: any) {
