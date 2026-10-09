@@ -23,6 +23,7 @@ from models import (
     Reminder,
     BlockState,
 )
+from progression import model_picker, get_block_targets, advance_block, is_block_complete
 import secrets
 import hashlib
 import httpx
@@ -2384,6 +2385,133 @@ class CoachOverrideRequest(BaseModel):
     force_deload: bool = False
     custom_phase_order: Optional[List[str]] = None
     deload_mode: str = "ai_driven"
+
+
+@app.post("/api/coach/override")
+def coach_override(payload: CoachOverrideRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    keys = {
+        "coach_phase": payload.phase,
+        "coach_force_deload": str(payload.force_deload).lower(),
+        "coach_deload_mode": payload.deload_mode,
+    }
+    if payload.custom_phase_order is not None:
+        keys["coach_custom_phase_order"] = json.dumps(payload.custom_phase_order)
+    results = []
+    for key, value in keys.items():
+        s = db.query(AppSetting).filter(AppSetting.key == key, AppSetting.user_id == current_user.id).first()
+
+
+class ProgressionCalculateRequest(BaseModel):
+    exercise_id: Optional[int] = None
+    exercise_name: Optional[str] = None
+    exercise_library_id: Optional[int] = None
+    history: List[dict] = []
+    block_mode: Optional[str] = None
+    week_number: Optional[int] = None
+
+
+class ProgressionCalculateResponse(BaseModel):
+    rep_floor: int
+    rep_cap: int
+    increment: float
+    suggested_weight: float
+    should_increase: bool
+    block_mode: str
+    block_phase: int
+    is_block_complete: bool
+
+    class Config:
+        from_attributes = True
+
+
+@app.post("/api/progression/calculate", response_model=ProgressessionCalculateResponse)
+def calculate_progression(
+    payload: ProgressionCalculateRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_dep),
+):
+    """
+    Calculate progression targets for an exercise based on user's block state and history.
+    
+    If block_mode is not provided, fetches from user's block_state.
+    If history is not provided, uses exercise entry logs from DB.
+    """
+    # Get block state
+    block_mode = payload.block_mode
+    week_number = payload.week_number
+    
+    if not block_mode:
+        block_state = db.query(BlockState).filter(BlockState.user_id == current_user.id).first()
+        if block_state:
+            block_mode = block_state.block_mode
+            week_number = block_state.week_number
+        else:
+            # Default to foundation
+            block_mode = "foundation"
+            week_number = 1
+    
+    # Get exercise info
+    exercise = None
+    if payload.exercise_library_id:
+        exercise = db.query(ExerciseLibrary).filter(ExerciseLibrary.id == payload.exercise_library_id).first()
+    elif payload.exercise_id:
+        # Try to find exercise entry
+        from models import ExerciseEntry
+        entry = db.query(ExerciseEntry).filter(
+            ExerciseEntry.id == payload.exercise_id,
+            ExerciseEntry.user_id == current_user.id,
+        ).first()
+        if entry and entry.exercise_library:
+            exercise = entry.exercise_library
+    
+    # Build exercise dict for model_picker
+    exercise_dict = {}
+    if exercise:
+        exercise_dict = {
+            "id": exercise.id,
+            "name": exercise.name,
+            "is_compound": exercise.is_compound if hasattr(exercise, "is_compound") else None,
+            "movement_type": exercise.movement_type if hasattr(exercise, "movement_type") else None,
+        }
+    
+    # Get history from payload or DB
+    history = payload.history
+    if not history and exercise:
+        # Get set logs for this exercise
+        from models import SetLog
+        logs = db.query(SetLog).filter(
+            SetLog.user_id == current_user.id,
+            SetLog.exercise_entry_id == exercise.id if hasattr(exercise, "id") else None,
+        ).order_by(SetLog.created_at.desc()).limit(20).all()
+        
+        history = [
+            {
+                "weight": log.actual_weight,
+                "reps": log.actual_reps,
+                "workout_date": log.created_at.isoformat() if log.created_at else None,
+            }
+            for log in logs
+            if log.actual_weight is not None or log.actual_reps is not None
+        ]
+    
+    # Call model_picker
+    block_state = {
+        "block_mode": block_mode,
+        "week_number": week_number or 1,
+    }
+    
+    result = model_picker(exercise_dict, history, block_state)
+    
+    return ProgressionCalculateResponse(
+        rep_floor=result["rep_floor"],
+        rep_cap=result["rep_cap"],
+        increment=result["increment"],
+        suggested_weight=result["suggested_weight"],
+        should_increase=result["should_increase"],
+        block_mode=block_mode,
+        block_phase=get_block_phase(block_mode),
+        is_block_complete=is_block_complete(block_state),
+    )
 
 
 @app.post("/api/coach/override")
