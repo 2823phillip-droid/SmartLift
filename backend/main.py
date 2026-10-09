@@ -2424,7 +2424,7 @@ class ProgressionCalculateResponse(BaseModel):
         from_attributes = True
 
 
-@app.post("/api/progression/calculate", response_model=ProgressessionCalculateResponse)
+@app.post("/api/progression/calculate", response_model=ProgressionCalculateResponse)
 def calculate_progression(
     payload: ProgressionCalculateRequest,
     db: Session = Depends(get_db),
