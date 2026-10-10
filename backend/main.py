@@ -2513,6 +2513,180 @@ def calculate_progression(
         is_block_complete=is_block_complete(block_state),
     )
 
+# Block advancement thresholds and endpoints
+
+BLOCK_ADVANCEMENT_THRESHOLDS = {
+    "foundation": {"min_weeks": 4, "load_threshold": 60},
+    "linear_baseline": {"min_weeks": 2, "load_threshold": 60},
+    "hypertrophy": {"min_weeks": 4, "load_threshold": 70},
+    "strength_a": {"min_weeks": 2, "load_threshold": 70},
+    "strength_b": {"min_weeks": 2, "load_threshold": 75},
+    "maintenance": {"min_weeks": 1, "load_threshold": 50},
+}
+
+ADVANCEMENT_SEQUENCE = [
+    "foundation", "linear_baseline", "hypertrophy", "strength_a", "strength_b", "maintenance",
+]
+
+
+class AdvancementCheckResponse(BaseModel):
+    ready_to_advance: bool
+    current_block: str
+    current_week: int
+    weeks_in_block: int
+    min_weeks: int
+    load_pct: int
+    load_threshold: int
+    next_block: Optional[str] = None
+    message: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+
+class AdvancementConfirmResponse(BaseModel):
+    success: bool
+    previous_block: str
+    new_block: str
+    new_week: int
+    message: str
+
+    class Config:
+        from_attributes = True
+
+
+@app.get("/api/progression/advancement/check", response_model=AdvancementCheckResponse)
+def check_advancement(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_dep),
+):
+    """Check if user is ready to advance to the next block."""
+    from rules import compute_load
+    from models import SetLog
+
+    block_state = db.query(BlockState).filter(BlockState.user_id == current_user.id).first()
+
+    if not block_state:
+        return AdvancementCheckResponse(
+            ready_to_advance=False,
+            current_block="foundation",
+            current_week=0,
+            weeks_in_block=0,
+            min_weeks=4,
+            load_pct=0,
+            load_threshold=60,
+            next_block="foundation",
+            message="No block state found.",
+        )
+
+    current_block = block_state.block_mode or "foundation"
+    current_week = block_state.week_number or 1
+
+    threshold = BLOCK_ADVANCEMENT_THRESHOLDS.get(current_block, {"min_weeks": 4, "load_threshold": 60})
+    min_weeks = threshold["min_weeks"]
+    load_threshold = threshold["load_threshold"]
+
+    cutoff = datetime.now(timezone.utc) - timedelta(days=21)
+    logs = db.query(SetLog).filter(
+        SetLog.user_id == current_user.id,
+        SetLog.created_at >= cutoff,
+    ).all()
+
+    history = []
+    for log in logs:
+        if log.actual_weight is not None or log.actual_reps is not None:
+            hist = {
+                "actual_weight": log.actual_weight or 0,
+                "actual_reps": log.actual_reps or 0,
+                "effort": log.effort,
+                "is_seeded": False,
+            }
+            if log.created_at:
+                hist["completed_at"] = log.created_at.isoformat()
+            history.append(hist)
+
+    set_records = []
+    for h in history:
+        try:
+            completed_at = datetime.fromisoformat(h["completed_at"]) if h.get("completed_at") else None
+        except (ValueError, TypeError):
+            completed_at = None
+        set_records.append(SetRecord(
+            actual_weight=h["actual_weight"],
+            actual_reps=h["actual_reps"],
+            effort=h.get("effort"),
+            completed_at=completed_at,
+            is_seeded=h.get("is_seeded", False),
+        ))
+
+    load_pct = compute_load(set_records, window_days=21)
+    ready = (current_week >= min_weeks) and (load_pct >= load_threshold)
+
+    try:
+        current_idx = ADVANCEMENT_SEQUENCE.index(current_block)
+        next_block = ADVANCEMENT_SEQUENCE[(current_idx + 1) % len(ADVANCEMENT_SEQUENCE)]
+    except ValueError:
+        next_block = "hypertrophy"
+
+    if ready:
+        message = f"Ready to progress from {current_block.replace('_', ' ').title()} to {next_block.replace('_', ' ').title()}?"
+    elif current_week < min_weeks:
+        message = f"Week {current_week} of {min_weeks} minimum."
+    else:
+        message = f"Load at {load_pct}%, need {load_threshold}%."
+
+    return AdvancementCheckResponse(
+        ready_to_advance=ready,
+        current_block=current_block,
+        current_week=current_week,
+        weeks_in_block=current_week,
+        min_weeks=min_weeks,
+        load_pct=load_pct,
+        load_threshold=load_threshold,
+        next_block=next_block if ready else None,
+        message=message,
+    )
+
+
+@app.post("/api/progression/advancement/confirm", response_model=AdvancementConfirmResponse)
+def confirm_advancement(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_dep),
+):
+    """Confirm and execute block advancement."""
+    block_state = db.query(BlockState).filter(BlockState.user_id == current_user.id).first()
+
+    if not block_state:
+        return AdvancementConfirmResponse(
+            success=False,
+            previous_block="unknown",
+            new_block="foundation",
+            new_week=1,
+            message="No block state found.",
+        )
+
+    current_block = block_state.block_mode or "foundation"
+
+    try:
+        current_idx = ADVANCEMENT_SEQUENCE.index(current_block)
+        next_block = ADVANCEMENT_SEQUENCE[(current_idx + 1) % len(ADVANCEMENT_SEQUENCE)]
+    except ValueError:
+        next_block = "hypertrophy"
+
+    block_state.block_mode = next_block
+    block_state.week_number = 1
+    block_state.started_at = datetime.now(timezone.utc)
+    db.commit()
+
+    return AdvancementConfirmResponse(
+        success=True,
+        previous_block=current_block,
+        new_block=next_block,
+        new_week=1,
+        message=f"Advanced to {next_block.replace('_', ' ').title()}, week 1.",
+    )
+
+
 
 @app.post("/api/coach/override")
 def coach_override(payload: CoachOverrideRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
