@@ -572,4 +572,11 @@ export const api = {
       body: JSON.stringify({ token: currentToken || authToken }),
     }),
   logout: () => request("/auth/logout", { method: "POST" }),
+  getBlockState: () => request("/api/progression/block-state"),
+  get: (path: string) => request(path),
+  post: (path: string, body?: any) =>
+    request(path, {
+      method: "POST",
+      body: body ? JSON.stringify(body) : undefined,
+    }),
 };

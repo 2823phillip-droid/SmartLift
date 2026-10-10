@@ -65,6 +65,16 @@ export default function ActiveWorkoutScreen({
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [prescriptionError, setPrescriptionError] = useState<string | null>(null);
 
+  // Advancement popup
+  const [showAdvancementPopup, setShowAdvancementPopup] = useState(false);
+  const [advancementData, setAdvancementData] = useState<{
+    current_block: string;
+    next_block: string;
+    current_week: number;
+    load_pct: number;
+    message: string;
+  } | null>(null);
+
   // Dynamic Workout — option group selection
   const [selectedGroups, setSelectedGroups] = useState<Record<string, number>>({});
   const [showGroupPicker, setShowGroupPicker] = useState<string | null>(null);
@@ -79,6 +89,26 @@ export default function ActiveWorkoutScreen({
   const expandTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const toLbs = (lbs: number): number => lbs;
+
+  // Block state
+  const [blockState, setBlockState] = useState<{
+    block_mode: string;
+    week_number: number;
+  } | null>(null);
+
+  // Fetch block state on mount
+  useEffect(() => {
+    api.getBlockState().then((data: any) => {
+      if (data && data.block_mode) {
+        setBlockState({
+          block_mode: data.block_mode,
+          week_number: data.week_number || 1,
+        });
+      }
+    }).catch(() => {
+      // Silently fail - block state is not critical
+    });
+  }, []);
 
   // Prescription history = completed sessions ONLY. Current in-progress session
   // sets must not retroactively change the "next session" target mid-workout.
@@ -1064,6 +1094,51 @@ export default function ActiveWorkoutScreen({
       console.error("[ActiveWorkoutScreen] post_workout message failed", err);
     }
     onEnd?.(buildEndSummary());
+
+    // Check for advancement after workout
+    checkAdvancement();
+  };
+
+  const checkAdvancement = async () => {
+    try {
+      const data = await api.get(`/api/progression/advancement/check`);
+      if (data && data.ready_to_advance) {
+        setAdvancementData({
+          current_block: data.current_block,
+          next_block: data.next_block,
+          current_week: data.current_week,
+          load_pct: data.load_pct,
+          message: data.message,
+        });
+        setShowAdvancementPopup(true);
+      }
+    } catch (err) {
+      console.error("[ActiveWorkoutScreen] advancement check failed", err);
+    }
+  };
+
+  const confirmAdvancement = async () => {
+    try {
+      await api.post(`/api/progression/advancement/confirm`, {});
+      setShowAdvancementPopup(false);
+      setAdvancementData(null);
+      // Refresh block state
+      const blockData = await api.getBlockState();
+      if (blockData) {
+        setBlockState({
+          block_mode: blockData.block_mode,
+          week_number: blockData.week_number || 1,
+        });
+      }
+    } catch (err) {
+      console.error("[ActiveWorkoutScreen] advancement confirm failed", err);
+      alert("Could not confirm advancement. Please try again.");
+    }
+  };
+
+  const skipAdvancement = () => {
+    setShowAdvancementPopup(false);
+    setAdvancementData(null);
   };
 
   const finishWorkout = async () => {
@@ -1176,6 +1251,15 @@ export default function ActiveWorkoutScreen({
               {exercises.length} exercises · {logs.length} sets logged
             </p>
           </div>
+
+          {/* Block pill */}
+          {blockState && (
+            <div className="rounded-lg border border-indigo-800 bg-indigo-950/40 px-3 py-1.5 text-center">
+              <div className="text-xs font-semibold text-indigo-300 uppercase tracking-wide">
+                {blockState.block_mode?.replace(/_/g, " ")?.replace(/\b\w/g, l => l.toUpperCase()) || "No Block"}
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-2 shrink-0">
             <div className="rounded-xl border border-emerald-800 bg-emerald-950/40 px-3 py-2 text-center min-w-[70px]">
               <div className="text-base font-bold text-emerald-300 tabular-nums leading-none">{formatElapsed(workoutElapsed)}</div>
@@ -1402,7 +1486,68 @@ export default function ActiveWorkoutScreen({
           </div>
         </div>
       )}
-    </div>
+
+    {/* Advancement popup - full screen overlay */}
+    {showAdvancementPopup && advancementData && (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+        <div className="rounded-2xl border border-indigo-800 bg-slate-900 p-6 max-w-md w-full space-y-4">
+          <div className="flex items-center gap-2">
+            <div className="h-3 w-3 rounded-full bg-rose-500"></div>
+            <div className="h-3 w-3 rounded-full bg-amber-500"></div>
+            <div className="h-3 w-3 rounded-full bg-emerald-500"></div>
+          </div>
+          
+          <h3 className="text-lg font-bold text-slate-100">
+            Block Advancement
+          </h3>
+          
+          <p className="text-sm text-slate-300">
+            {advancementData.message}
+          </p>
+          
+          <div className="bg-slate-800/50 rounded-lg p-3 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-slate-400">Current block:</span>
+              <span className="font-semibold text-slate-200 capitalize">
+                {advancementData.current_block?.replace(/_/g, " ")}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Weeks completed:</span>
+              <span className="font-semibold text-slate-200">
+                {advancementData.current_week}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-slate-400">Load Meter:</span>
+              <span className="font-semibold text-slate-200">
+                {advancementData.load_pct}%
+              </span>
+            </div>
+          </div>
+          
+          <p className="text-xs text-slate-500">
+            You're ready to progress to the next block. Review the details and confirm when ready.
+          </p>
+          
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={skipAdvancement}
+              className="flex-1 rounded-xl border border-slate-700 bg-slate-800 px-4 py-3 text-sm font-semibold text-slate-300 hover:bg-slate-700 transition-colors"
+            >
+              Not Now
+            </button>
+            <button
+              onClick={confirmAdvancement}
+              className="flex-1 rounded-xl bg-indigo-600 px-4 py-3 text-sm font-semibold text-white hover:bg-indigo-500 transition-colors"
+            >
+              Continue to {advancementData.next_block?.replace(/_/g, " ")?.replace(/\b\w/g, l => l.toUpperCase())}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+  </div>
   )
 }
 
