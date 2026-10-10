@@ -38,7 +38,14 @@ class WorkloadStatus(str, Enum):
 
 
 def compute_load(history: List[SetRecord], window_days: int = 21) -> int:
-    """Return 0-100 accumulated training load from recent history."""
+    """Return 0-100 accumulated training load from recent history.
+
+    Factors:
+    - consistency_score: rewards showing up (session count)
+    - effort_score: average effort level per session
+    - volume_score: set count per session (volume proxy)
+    - progression_bonus: high-effort sessions signal active progression
+    """
     now = datetime.now(timezone.utc)
     cutoff = now - timedelta(days=window_days)
     _normalize_completed_at(history)
@@ -57,14 +64,41 @@ def compute_load(history: List[SetRecord], window_days: int = 21) -> int:
         day = s.completed_at.date()
         sessions.setdefault(day, []).append(s)
 
-    total_score = 0.0
+    num_sessions = len(sessions)
+    if num_sessions == 0:
+        return 0
+
+    # 1. Consistency score: reward showing up
+    # Target: 12 sessions in 21 days (~3-4/week) = full consistency points
+    consistency_score = min(40, (num_sessions / 12) * 40)
+
+    # 2. Per-session scores: effort + volume + progression signal
+    total_effort_volume_score = 0.0
+    high_effort_sessions = 0
+
     for day_sets in sessions.values():
         effort = sum(s.effort or 2 for s in day_sets) / len(day_sets)
         sets = len(day_sets)
-        session_score = (effort / 4) * 50 + min(sets / 8, 1.0) * 50
-        total_score += session_score
 
-    num_sessions = len(sessions)
+        # Effort score (0-50)
+        effort_score = (effort / 4) * 50
+
+        # Volume proxy: set count (0-50)
+        volume_score = min(sets / 8, 1.0) * 50
+
+        # Progression bonus: high effort (>=7) signals active progression
+        if effort >= 7:
+            high_effort_sessions += 1
+
+        total_effort_volume_score += effort_score + volume_score
+
+    # 3. Progression signal from high-effort sessions
+    # Up to 20 points if most sessions are high effort
+    progression_bonus = min(20, (high_effort_sessions / num_sessions) * 20) if num_sessions > 0 else 0
+
+    total_score = consistency_score + total_effort_volume_score + progression_bonus
+
+    # Normalize against target session count
     return min(100, int(total_score / max(num_sessions, 8)))
 
 
