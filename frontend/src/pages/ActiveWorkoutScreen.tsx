@@ -75,6 +75,11 @@ export default function ActiveWorkoutScreen({
     message: string;
   } | null>(null);
 
+  // Exercise progression targets (from model_picker/calculate)
+  const [exerciseProgression, setExerciseProgression] = useState<
+    Record<number, { rep_floor: number; rep_cap: number; should_increase: boolean }>
+  >({});
+
   // Dynamic Workout — option group selection
   const [selectedGroups, setSelectedGroups] = useState<Record<string, number>>({});
   const [showGroupPicker, setShowGroupPicker] = useState<string | null>(null);
@@ -151,6 +156,10 @@ export default function ActiveWorkoutScreen({
         if (cancelled) return;
         setExercises(exercisesData);
         setLogs(setLogsData);
+
+        // Fetch progression targets for exercises
+        fetchExerciseProgression(exercisesData);
+
         const initCounts: Record<number, number> = {};
         const initLast: Record<number, SetLog> = {};
         for (const s of setLogsData) {
@@ -295,6 +304,28 @@ export default function ActiveWorkoutScreen({
       cancelled = true;
     };
   }, [sessionId, templateId]);
+
+  // Fetch progression targets for exercises
+  const fetchExerciseProgression = async (exercises: ExerciseEntry[]) => {
+    const progression: Record<number, { rep_floor: number; rep_cap: number; should_increase: boolean }> = {};
+    for (const exercise of exercises) {
+      try {
+        const data = await api.post(`/api/progression/calculate`, {
+          exercise_library_id: exercise.exercise_library_id,
+        });
+        if (data) {
+          progression[exercise.id] = {
+            rep_floor: data.rep_floor,
+            rep_cap: data.rep_cap,
+            should_increase: data.should_increase,
+          };
+        }
+      } catch (err) {
+        console.error(`[ActiveWorkoutScreen] progression fetch failed for ${exercise.name}`, err);
+      }
+    }
+    setExerciseProgression(progression);
+  };
 
   // Dynamic Workout — compute visible exercises and pending groups
   const visibleExercises = useMemo(() => {
@@ -1425,6 +1456,9 @@ export default function ActiveWorkoutScreen({
                   onEditSet={handleEditSet}
                   onDeleteSet={handleDeleteSet}
                   suggestion={prescriptions[exercise.id]}
+                  repFloor={exerciseProgression[exercise.id]?.rep_floor}
+                  repCap={exerciseProgression[exercise.id]?.rep_cap}
+                  shouldIncrease={exerciseProgression[exercise.id]?.should_increase}
                 />
               );
             })}

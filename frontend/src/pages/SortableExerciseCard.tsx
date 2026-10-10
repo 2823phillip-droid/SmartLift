@@ -42,6 +42,9 @@ export interface SortableExerciseCardProps {
   onEditSet: (log: SetLog, field: "actual_weight" | "actual_reps" | "effort" | "form_quality", value: number | string) => void;
   onDeleteSet: (log: SetLog) => void;
   suggestion?: Prescription;
+  repFloor?: number;
+  repCap?: number;
+  shouldIncrease?: boolean;
 }
 
 export function SortableExerciseCard({
@@ -79,6 +82,9 @@ export function SortableExerciseCard({
   onEditSet,
   onDeleteSet,
   suggestion,
+  repFloor,
+  repCap,
+  shouldIncrease,
 }: SortableExerciseCardProps) {
   const [editingSetId, setEditingSetId] = useState<number | null>(null);
   const [editWeight, setEditWeight] = useState<string>("");
@@ -147,6 +153,16 @@ export function SortableExerciseCard({
                 />
               ) : null}
               <div className="text-sm font-semibold text-slate-200 truncate">{exercise.name}</div>
+              {repFloor !== undefined && repCap !== undefined && (
+                <div className="text-[10px] text-slate-500 mt-0.5">
+                  Target: {repFloor}-{repCap} reps
+                </div>
+              )}
+              {shouldIncrease && (
+                <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-full px-2 py-0.5">
+                  Ready to progress
+                </span>
+              )}
               {isComplete && (
                 <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-full px-2 py-0.5">
                   Done
