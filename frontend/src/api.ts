@@ -44,7 +44,7 @@ async function request(path: string, options: RequestInit = {}) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), options.signal ? 0 : 30000);
     try {
-      const res = await fetch(`${attemptBase}${path}`, {
+      const res = await fetch(`${attemptBase}/${pathPart}`, {
         ...options,
         signal: options.signal || controller.signal,
         headers: headers as Record<string, string>,
@@ -53,7 +53,7 @@ async function request(path: string, options: RequestInit = {}) {
       if (!res.ok) {
         const text = await res.text();
         const error = new Error(`API error ${res.status}: ${text}`);
-        (error as any).url = `${attemptBase}${path}`;
+        (error as any).url = `${attemptBase}/${pathPart}`;
         (error as any).status = res.status;
         captureError(error, {
           context: { path, method: options.method, status: res.status },
@@ -64,7 +64,7 @@ async function request(path: string, options: RequestInit = {}) {
       return res.json();
     } catch (err: any) {
       clearTimeout(timer);
-      if (!(err as any)?.url) (err as any).url = `${attemptBase}${path}`;
+      if (!(err as any)?.url) (err as any).url = `${attemptBase}/${pathPart}`;
       throw err;
     }
   };
