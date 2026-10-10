@@ -103,16 +103,23 @@ export default function ActiveWorkoutScreen({
 
   // Fetch block state on mount
   useEffect(() => {
-    api.getBlockState().then((data: any) => {
-      if (data && data.block_mode) {
-        setBlockState({
-          block_mode: data.block_mode,
-          week_number: data.week_number || 1,
-        });
-      }
-    }).catch(() => {
-      // Silently fail - block state is not critical
-    });
+    console.log("[ActiveWorkoutScreen] Fetching block state...");
+    api.getBlockState()
+      .then((data: any) => {
+        console.log("[ActiveWorkoutScreen] Block state response:", data);
+        if (data && data.block_mode) {
+          setBlockState({
+            block_mode: data.block_mode,
+            week_number: data.week_number || 1,
+          });
+          console.log("[ActiveWorkoutScreen] Block state set:", data.block_mode);
+        } else {
+          console.log("[ActiveWorkoutScreen] No block_mode in response");
+        }
+      })
+      .catch((err: any) => {
+        console.error("[ActiveWorkoutScreen] Block state fetch failed:", err);
+      });
   }, []);
 
   // Prescription history = completed sessions ONLY. Current in-progress session
@@ -307,12 +314,15 @@ export default function ActiveWorkoutScreen({
 
   // Fetch progression targets for exercises
   const fetchExerciseProgression = async (exercises: ExerciseEntry[]) => {
+    console.log("[ActiveWorkoutScreen] Fetching progression for", exercises.length, "exercises...");
     const progression: Record<number, { rep_floor: number; rep_cap: number; should_increase: boolean }> = {};
     for (const exercise of exercises) {
       try {
+        console.log(`[ActiveWorkoutScreen] Calculating for exercise ${exercise.id} (${exercise.name}), library_id=${exercise.exercise_library_id}`);
         const data = await api.post(`/api/progression/calculate`, {
           exercise_library_id: exercise.exercise_library_id,
         });
+        console.log(`[ActiveWorkoutScreen] Calculate response for ${exercise.id}:`, data);
         if (data) {
           progression[exercise.id] = {
             rep_floor: data.rep_floor,
@@ -321,9 +331,10 @@ export default function ActiveWorkoutScreen({
           };
         }
       } catch (err) {
-        console.error(`[ActiveWorkoutScreen] progression fetch failed for ${exercise.name}`, err);
+        console.error(`[ActiveWorkoutScreen] Progression fetch failed for ${exercise.id}:`, err);
       }
     }
+    console.log("[ActiveWorkoutScreen] Progression data:", progression);
     setExerciseProgression(progression);
   };
 
