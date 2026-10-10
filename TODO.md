@@ -50,19 +50,21 @@ _(no open bugs right now — add new bugs here when you find something broken du
 |||- [ ] 3.1: Questionnaire flow (existing — `QuestionnaireScreen.tsx` + `config/questionnaire.ts`)
 |||- [ ] 3.2: Create `block_state` table/schema — stores user's current block mode, week number, start date, phase
 |||- [ ] 3.3: Link questionnaire → block state — when beginner selected, auto-create Foundation block (week 1/6)
-|||- [ ] 3.4: Block advancement logic — advance week, advance block, auto-switch on stall
+|||- [ ] 3.4: Block advancement logic — auto-advance based on week threshold + Load Meter (modified compute_load with session count weighting + progression signal); coach popup at transition: "Ready to progress to next block?"; no manual advancement button
+||||- [ ] 3.4a: Modify compute_load in rules.py — add consistency_score (session count weight), keep effort/volume scores, add progression_bonus from high-effort sessions; target ~12 sessions/21 days for Foundation
+||||- [ ] 3.4b: Advance endpoint/flow — check week threshold + Load Meter >= threshold, determine readiness, return popup prompt; user confirms → advance block, reset week; user declines → stay in block
 |||- [ ] 3.5: User profile schema update — add block_state reference, goals, experience level, equipment
 |- [ ] Phase 4: Model picker engine (`model_picker` function)
 |||- [ ] 4.1: Implement `model_picker(exercise, history, block_state)` → returns (rep_floor, rep_cap, increment_rule)
 |||- [ ] 4.2: Unit test model_picker for each block type (Foundation, Linear, Hypertrophy, Strength A/B, Deload)
 |||- [ ] 4.3: Add `POST /api/progression/calculate` endpoint — takes exercise + history, returns next weight/reps
-|||- [ ] 4.4: Add `POST /api/progression/advance` endpoint — advance block or week
+|||- [ ] 4.4: Add advancement flow — integrate with Load Meter; check week threshold + Load Meter >= block-specific threshold; return advancement prompt for coach popup; no separate manual advance endpoint needed
 |||- [ ] 4.5: Test Double Progression logic — verify rep cap → weight increase → rep reset works
-|- [ ] Phase 5: Frontend UI (block pill, rep targets, deload states)
-|||- [ ] 5.1: Add block pill to workout screen — "Foundation Block • Week 3/6"
-|||- [ ] 5.2: Add rep target display — "Target: 8-10 reps" on exercise cards
-|||- [ ] 5.3: Add progression indicator — visual cue when user hits rep cap (ready to increase weight)
-|||- [ ] 5.4: Settings to view/change block mode — see current block, manually advance
+||- [ ] Phase 5: Frontend UI (block pill, rep targets, advancement popup)
+||||- [ ] 5.1: Add block pill to workout screen — "Foundation Block • Week 3/6" with phase indicator
+||||- [ ] 5.2: Add rep target display — "Target: 8-10 reps" on exercise cards (from model_picker/calculate)
+||||- [ ] 5.3: Add progression indicator — visual cue when user hits rep cap (ready to increase weight)
+||||- [ ] 5.4: Advancement popup — when block ready (week threshold + Load Meter met), show "Ready to progress to [next block]?", Yes/No buttons; Yes → advance block, No → stay
 |- [ ] Phase 6: Data sync & deployment
 |||- [ ] 6.1: Run migrations on production Postgres (block_state table, etc.)
 |||- [ ] 6.2: Deploy progression endpoints
