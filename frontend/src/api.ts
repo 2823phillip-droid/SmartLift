@@ -30,7 +30,12 @@ async function request(path: string, options: RequestInit = {}) {
   const FLY_DEFAULT = "https://askeo.fit/api";
   let base = apiBase || import.meta.env.VITE_API_BASE || FLY_DEFAULT;
   const pathPart = path.startsWith("/") ? path.slice(1) : path;
-  let url = `${base}/${pathPart}`;
+  // Remove /api/ prefix if present (endpoint paths include it but base URL already has /api)
+  let apiPath = pathPart;
+  if (apiPath.startsWith("api/")) {
+    apiPath = apiPath.slice(4);
+  }
+  let url = `${base}/${apiPath}`;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -44,7 +49,7 @@ async function request(path: string, options: RequestInit = {}) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), options.signal ? 0 : 30000);
     try {
-      const res = await fetch(`${attemptBase}/${pathPart}`, {
+      const res = await fetch(`${attemptBase}/${apiPath}`, {
         ...options,
         signal: options.signal || controller.signal,
         headers: headers as Record<string, string>,
@@ -53,7 +58,7 @@ async function request(path: string, options: RequestInit = {}) {
       if (!res.ok) {
         const text = await res.text();
         const error = new Error(`API error ${res.status}: ${text}`);
-        (error as any).url = `${attemptBase}/${pathPart}`;
+        (error as any).url = `${attemptBase}/${apiPath}`;
         (error as any).status = res.status;
         captureError(error, {
           context: { path, method: options.method, status: res.status },
@@ -64,7 +69,7 @@ async function request(path: string, options: RequestInit = {}) {
       return res.json();
     } catch (err: any) {
       clearTimeout(timer);
-      if (!(err as any)?.url) (err as any).url = `${attemptBase}/${pathPart}`;
+      if (!(err as any)?.url) (err as any).url = `${attemptBase}/${apiPath}`;
       throw err;
     }
   };
