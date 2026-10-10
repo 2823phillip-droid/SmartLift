@@ -61,10 +61,10 @@ _(no open bugs right now — add new bugs here when you find something broken du
 |||- [ ] 4.4: Add advancement flow — integrate with Load Meter; check week threshold + Load Meter >= block-specific threshold; return advancement prompt for coach popup; no separate manual advance endpoint needed
 |||- [ ] 4.5: Test Double Progression logic — verify rep cap → weight increase → rep reset works
 ||- [ ] Phase 5: Frontend UI (block pill, rep targets, advancement popup)
-||||- [ ] 5.1: Add block pill to workout screen — "Foundation Block • Week 3/6" with phase indicator
+||||- [ ] 5.1: Add block pill to workout screen — show block name only (no week count), e.g., "Foundation Block" or "Hypertrophy Block"
 ||||- [ ] 5.2: Add rep target display — "Target: 8-10 reps" on exercise cards (from model_picker/calculate)
 ||||- [ ] 5.3: Add progression indicator — visual cue when user hits rep cap (ready to increase weight)
-||||- [ ] 5.4: Advancement popup — when block ready (week threshold + Load Meter met), show "Ready to progress to [next block]?", Yes/No buttons; Yes → advance block, No → stay
+||||- [ ] 5.4: Full-screen overlay popup — coach interruption style; blocks app interaction until acknowledged; shows block purpose, how it works, how long (based on Load Meter), what to focus on; Yes/Not now buttons; "Not now" delays, "Yes" confirms advancement
 |- [ ] Phase 6: Data sync & deployment
 |||- [ ] 6.1: Run migrations on production Postgres (block_state table, etc.)
 |||- [ ] 6.2: Deploy progression endpoints
