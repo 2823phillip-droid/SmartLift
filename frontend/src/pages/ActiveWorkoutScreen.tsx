@@ -149,6 +149,7 @@ export default function ActiveWorkoutScreen({
   // After logging a set, logSet() updates prescriptions for the current exercise.
   // SortableExerciseCard reads prescriptions[exercise.id] for its suggestion box.
   const [prescriptions, setPrescriptions] = useState<Record<number, Prescription>>({});
+  const [sessionTargets, setSessionTargets] = useState<Record<number, { coaching_message: string; block_mode: string }>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -182,6 +183,39 @@ export default function ActiveWorkoutScreen({
           const tpl = await api.getTemplate(session.template_id);
           setTemplate(tpl);
         }
+        
+        // Fetch session targets from backend (model-specific coaching messages)
+        try {
+          const targets = await api.getSessionTargets(sessionId);
+          const targetsMap: Record<number, { coaching_message: string; block_mode: string }> = {};
+          for (const t of targets) {
+            targetsMap[t.exercise_id] = {
+              coaching_message: t.coaching_message,
+              block_mode: t.block_mode,
+            };
+          }
+          setSessionTargets(targetsMap);
+          
+          // Update prescriptions with session target coaching messages
+          if (Object.keys(targetsMap).length > 0) {
+            setPrescriptions(prev => {
+              const updated: Record<number, Prescription> = { ...prev };
+              for (const exIdStr of Object.keys(targetsMap)) {
+                const exId = Number(exIdStr);
+                if (updated[exId]) {
+                  updated[exId] = {
+                    ...updated[exId],
+                    coaching_message: targetsMap[exId].coaching_message,
+                  };
+                }
+              }
+              return updated;
+            });
+          }
+        } catch (err) {
+          console.error("[ActiveWorkoutScreen] Failed to fetch session targets", err);
+        }
+        
         if (session?.started_at) {
           const savedStart = localStorage.getItem(`askeo_workout_${sessionId}_start`);
           if (savedStart) {

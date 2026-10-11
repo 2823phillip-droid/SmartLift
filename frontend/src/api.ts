@@ -503,6 +503,12 @@ export const api = {
 
   getPhaseRecommendation: () => request("/coach/phase-recommendation"),
 
+  getSessionTargets: (sessionId: number) =>
+    request("/coach/session-targets", {
+      method: "POST",
+      body: JSON.stringify({ session_id: sessionId }),
+    }),
+
   listProgressionTransitions: () => request("/progression/transitions"),
 
   seed: () => request("/seed", { method: "POST" }),
