@@ -16,7 +16,7 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { api, withRetry } from "../api";
 import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
 import { SortableExerciseCard } from "./SortableExerciseCard";
-import { computePrescription, type CoachPhase, type Prescription, type SetRecord, type ProgressionType } from "../rules";
+import { computePrescription, type CoachPhase, type Prescription, type SetRecord } from "../rules";
 import { getUnitsPreference, lbsToKg, kgToLbs, formatWeight } from "../utils/units";
 import { resolveMediaUrl } from "../api";
 
@@ -230,87 +230,9 @@ export default function ActiveWorkoutScreen({
         lastSessionFetchedRef.current = true;
         console.log("[ActiveWorkoutScreen] lastSessionByExercise", sessionResolved);
 
-        // Defer auto-expand until backend prescriptions arrive so the weight
-        // field always reflects the server-computed recommendation instead of
-        // a local fallback that may read stale state. Show a loading indicator
-        // while waiting, with a timeout fallback to local computation.
+        // Wait for backend prescriptions before showing workout
         setIsBuildingWorkout(true);
         isBuildingWorkoutRef.current = true;
-        const fallbackTimer = setTimeout(() => {
-          if (isBuildingWorkoutRef.current) {
-            // Fallback: compute locally if backend hasn't arrived in time
-            const targets = exercisesData.filter((e: ExerciseEntry) =>
-              setLogsData.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
-            );
-
-            if (targets.length === 0) {
-              setIsBuildingWorkout(false);
-              isBuildingWorkoutRef.current = false;
-              return;
-            }
-
-            // Compute prescriptions for ALL visible exercises so every card
-            // shows its session target / set target box, not just the first.
-            // Pick the FIRST target for auto-expand — a local flag so the loop
-            // doesn't let later iterations win (same as the main effect).
-            const newPrescriptions: Record<number, Prescription> = {};
-            let fallbackExpanded = false;
-            const blockMode = blockState?.block_mode || "foundation";
-            for (const target of targets) {
-              const sessionResolved = lastSessionByExercise;
-              const lastSession = sessionResolved[target.id] || [];
-              const firstSet = lastSession.find((l: any) => l.set_index === 1) || lastSession[0];
-              const lastWeight = firstSet
-                ? firstSet.actual_weight
-                : (lastSession.length > 0
-                  ? Math.max(...lastSession.map((s: any) => s.actual_weight || 0))
-                  : target.start_weight);
-              // Use double progression for block periodization fallback
-              const phase: ProgressionType = "double";
-              const history = buildPrescriptionHistory(target);
-              const prescription = computePrescription({
-                start_weight: toLbs(lastWeight),
-                reps_target: target.is_compound ? 6 : 8,
-                sets_target: displaySetsTarget[target.id] ?? target.sets_target,
-                rest_seconds: target.rest_seconds,
-                progression_type: phase,
-                history,
-                force_deload: false,
-                exerciseName: target.name,
-              });
-              // Override coaching message for foundation block
-              if (blockState?.block_mode === "foundation") {
-                prescription.should_increase = prescription.next_reps > (lastSession.length > 0 ? lastSession[0].actual_reps : 0);
-                if (prescription.should_increase) {
-                  prescription.coaching_message = `Foundation: You hit 10 reps with good form last session — add 5 lbs.`;
-                } else {
-                  prescription.coaching_message = `Foundation: Hold weight until you consistently hit 10 reps with good form.`;
-                }
-              }
-              newPrescriptions[target.id] = prescription;
-
-              if (!fallbackExpanded) {
-                const displayWeight = getUnitsPreference() === "imperial"
-                  ? Math.round(prescription.next_weight)
-                  : Math.round(lbsToKg(prescription.next_weight));
-                setDraftWeight(String(displayWeight));
-                setDraftReps(String(prescription.next_reps));
-                setPrescriptions((prev) => ({ ...prev, ...newPrescriptions }));
-                console.log("[ActiveWorkoutScreen] auto-expand fallback", displayWeight, "x", prescription.next_reps);
-                setDraftEffort(null);
-                setDraftFormQuality(0);
-                setNotesMap((prev) => ({ ...prev, [target.id]: "" }));
-                setShowNotesMap((prev) => ({ ...prev, [target.id]: false }));
-                setExpandedExerciseId(target.id);
-                setIsBuildingWorkout(false);
-                isBuildingWorkoutRef.current = false;
-                fallbackExpanded = true;
-              }
-            }
-            setPrescriptions((prev) => ({ ...prev, ...newPrescriptions }));
-          }
-        }, 3000);
-        expandTimeoutRef.current = fallbackTimer;
       } catch (err) {
         if (!cancelled) {
           console.error("[ActiveWorkoutScreen] initial load failed", err);
