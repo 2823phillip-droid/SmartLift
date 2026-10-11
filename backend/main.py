@@ -2477,12 +2477,21 @@ def calculate_progression(
     # Get history from payload or DB
     history = payload.history
     if not history and exercise:
-        # Get set logs for this exercise
-        from models import SetLog
-        logs = db.query(SetLog).filter(
-            SetLog.user_id == current_user.id,
-            SetLog.exercise_entry_id == exercise.id if hasattr(exercise, "id") else None,
-        ).order_by(SetLog.completed_at.desc()).limit(20).all()
+        # Get set logs for this exercise - need to go through ExerciseEntry
+        from models import SetLog, ExerciseEntry
+        # Find exercise entries that reference this exercise_library
+        entry_ids = db.query(ExerciseEntry.id).filter(
+            ExerciseEntry.exercise_library_id == exercise.id
+        ).all()
+        entry_id_values = [e[0] for e in entry_ids] if entry_ids else []
+        
+        if entry_id_values:
+            logs = db.query(SetLog).filter(
+                SetLog.user_id == current_user.id,
+                SetLog.exercise_entry_id.in_(entry_id_values),
+            ).order_by(SetLog.completed_at.desc()).limit(20).all()
+        else:
+            logs = []
         
         history = [
             {
