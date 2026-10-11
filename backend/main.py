@@ -3710,6 +3710,9 @@ If the user asks about switching progression models, phases, blocks, or training
     if message is None:
         # Deterministic fallback from context
         lines = [f"Coach notes for: \"{payload.question}\""]
+        if block_mode:
+            block_name = block_mode.replace("_", " ").title()
+            lines.append(f"[Generated using: {block_name} Progression Model]")
         if session_summaries:
             latest = session_summaries[0]
             lines.append(f"Last session ({latest.get('template_name') or latest.get('context_name') or 'session'}): {len(latest['exercises'])} exercises, {latest.get('duration_min')} min.")
