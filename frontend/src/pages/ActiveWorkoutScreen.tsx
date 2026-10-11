@@ -184,38 +184,6 @@ export default function ActiveWorkoutScreen({
           setTemplate(tpl);
         }
         
-        // Fetch session targets from backend (model-specific coaching messages)
-        try {
-          const targets = await api.getSessionTargets(sessionId);
-          const targetsMap: Record<number, { coaching_message: string; block_mode: string }> = {};
-          for (const t of targets) {
-            targetsMap[t.exercise_id] = {
-              coaching_message: t.coaching_message,
-              block_mode: t.block_mode,
-            };
-          }
-          setSessionTargets(targetsMap);
-          
-          // Update prescriptions with session target coaching messages
-          if (Object.keys(targetsMap).length > 0) {
-            setPrescriptions(prev => {
-              const updated: Record<number, Prescription> = { ...prev };
-              for (const exIdStr of Object.keys(targetsMap)) {
-                const exId = Number(exIdStr);
-                if (updated[exId]) {
-                  updated[exId] = {
-                    ...updated[exId],
-                    coaching_message: targetsMap[exId].coaching_message,
-                  };
-                }
-              }
-              return updated;
-            });
-          }
-        } catch (err) {
-          console.error("[ActiveWorkoutScreen] Failed to fetch session targets", err);
-        }
-        
         if (session?.started_at) {
           const savedStart = localStorage.getItem(`askeo_workout_${sessionId}_start`);
           if (savedStart) {
@@ -359,16 +327,17 @@ export default function ActiveWorkoutScreen({
   // Auto-expand the first incomplete exercise once the workout data is loaded.
   // Computes the prescription locally from lastSessionByExercise.
   useEffect(() => {
-    if (!isBuildingWorkout) return;
-    if (!exercises || exercises.length === 0) return;
-    if (!lastSessionFetchedRef.current) return;
+    (async () => {
+      if (!isBuildingWorkout) return;
+      if (!exercises || exercises.length === 0) return;
+      if (!lastSessionFetchedRef.current) return;
 
-    // Clear the fallback timer — the real data has arrived
-    if (expandTimeoutRef.current) {
-      clearTimeout(expandTimeoutRef.current);
-      expandTimeoutRef.current = null;
-    }
-    isBuildingWorkoutRef.current = false;
+      // Clear the fallback timer — the real data has arrived
+      if (expandTimeoutRef.current) {
+        clearTimeout(expandTimeoutRef.current);
+        expandTimeoutRef.current = null;
+      }
+      isBuildingWorkoutRef.current = false;
 
     const targets = exercises.filter((e: ExerciseEntry) =>
       logs.filter((l: SetLog) => l.exercise_entry_id === e.id).length < e.sets_target
@@ -504,6 +473,36 @@ export default function ActiveWorkoutScreen({
     setIsBuildingWorkout(false);
     isBuildingWorkoutRef.current = false;
 
+    // Fetch session targets from backend (model-specific coaching messages)
+    // and update prescriptions with the backend's coaching messages
+    try {
+      const targets = await api.getSessionTargets(sessionId);
+      const targetsMap: Record<number, { coaching_message: string }> = {};
+      for (const t of targets) {
+        targetsMap[t.exercise_id] = {
+          coaching_message: t.coaching_message,
+        };
+      }
+      // Update prescriptions with session target coaching messages
+      if (Object.keys(targetsMap).length > 0) {
+        setPrescriptions(prev => {
+          const updated: Record<number, Prescription> = { ...prev };
+          for (const exIdStr of Object.keys(targetsMap)) {
+            const exId = Number(exIdStr);
+            if (updated[exId]) {
+              updated[exId] = {
+                ...updated[exId],
+                coaching_message: targetsMap[exId].coaching_message,
+              };
+            }
+          }
+          return updated;
+        });
+      }
+    } catch (err) {
+      console.error("[ActiveWorkoutScreen] Failed to fetch session targets", err);
+    }
+  })();
   }, [isBuildingWorkout, exercises, logs, lastSessionByExercise, displaySetsTarget, template?.name]);
 
   // Clear timeout on unmount
