@@ -2482,13 +2482,13 @@ def calculate_progression(
         logs = db.query(SetLog).filter(
             SetLog.user_id == current_user.id,
             SetLog.exercise_entry_id == exercise.id if hasattr(exercise, "id") else None,
-        ).order_by(SetLog.created_at.desc()).limit(20).all()
+        ).order_by(SetLog.completed_at.desc()).limit(20).all()
         
         history = [
             {
                 "weight": log.actual_weight,
                 "reps": log.actual_reps,
-                "workout_date": log.created_at.isoformat() if log.created_at else None,
+                "workout_date": log.completed_at.isoformat() if log.completed_at else None,
             }
             for log in logs
             if log.actual_weight is not None or log.actual_reps is not None
