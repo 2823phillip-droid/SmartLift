@@ -2546,7 +2546,7 @@ def get_block_phase(block_mode: str) -> int:
     return BLOCK_PHASES.get(block_mode, 3)
 
 
-def is_block_complete(block_state: dict) -> bool:
+def is_block_complete(block_state) -> bool:
     """
     Check if the current block is complete (week reached max).
     
@@ -2555,8 +2555,14 @@ def is_block_complete(block_state: dict) -> bool:
     Strength A/B: 2 weeks each
     Maintenance: 1-2 weeks
     """
-    block_mode = block_state.get("block_mode", "foundation")
-    week_number = block_state.get("week_number", 1)
+    # Handle both dict and BlockState object
+    if isinstance(block_state, dict):
+        block_mode = block_state.get("block_mode", "foundation")
+        week_number = block_state.get("week_number", 1)
+    else:
+        # BlockState object
+        block_mode = block_state.block_mode or "foundation"
+        week_number = block_state.week_number or 1
     
     max_weeks = {
         "foundation": 6,
@@ -2566,6 +2572,5 @@ def is_block_complete(block_state: dict) -> bool:
         "strength_b": 2,
         "maintenance": 2,
     }
-    
     return week_number >= max_weeks.get(block_mode, 6)
 
