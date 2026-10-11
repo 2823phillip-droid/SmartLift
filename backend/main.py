@@ -3270,8 +3270,16 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
 
     # Try to get current prescription if session_id provided
     prescription = None
+    block_mode = None
+    block_week = 1
     if payload.session_id:
         try:
+            from models import BlockState
+            block_state = db.query(BlockState).filter(BlockState.user_id == current_user.id).first()
+            if block_state:
+                block_mode = block_state.block_mode
+                block_week = block_state.week_number
+            
             from rules import compute_prescription, RuleInput, SetRecord
             session = db.query(WorkoutSession).filter(WorkoutSession.id == payload.session_id).first()
             if session and session.template_id:
@@ -3296,33 +3304,40 @@ def coach_chat(payload: CoachChatRequest, db: Session = Depends(get_db), current
                 for rec in history:
                     if rec.completed_at is not None and rec.completed_at.tzinfo is None:
                         rec.completed_at = rec.completed_at.replace(tzinfo=timezone.utc)
-                coach_state = compute_coach_state(history)
-                ex_history = {eid: [r for r in history] for eid in [e.id for e in exercises]}
+                
+                ex_history = {exercise.id: [r for r in history] for exercise in exercises}
                 prescriptions = []
                 for ex in exercises:
                     if not ex_history.get(ex.id):
                         continue
-                    pt = ProgressionType(coach_state.phase) if coach_state.phase in [p.value for p in ProgressionType] else ProgressionType.linear
-                    rule = compute_prescription(RuleInput(
-                        start_weight=ex.start_weight or 0,
-                        reps_target=ex.reps_target or 8,
-                        sets_target=ex.sets_target or 3,
-                        rest_seconds=ex.rest_seconds or 90,
-                        progression_type=pt,
-                        history=ex_history.get(ex.id, []),
-                        linear_increment=5.0,
-                        double_increment=5.0,
-                        double_success_threshold=2,
-                        estimated_1rm=None,
-                        percentage_of_1rm=0.0,
-                        pct_increment_success=0.0,
-                        pct_decrement_fail=0.0,
-                    ))
+                    # Build exercise dict for model_picker
+                    exercise_dict = {
+                        "id": ex.id,
+                        "name": ex.name,
+                        "is_compound": ex.is_compound if hasattr(ex, "is_compound") else None,
+                        "movement_type": ex.movement_type if hasattr(ex, "movement_type") else None,
+                    }
+                    # Build history for model_picker
+                    mp_history = [
+                        {
+                            "weight": rec.actual_weight,
+                            "reps": rec.actual_reps,
+                            "workout_date": rec.completed_at.isoformat() if rec.completed_at else None,
+                        }
+                        for rec in ex_history.get(ex.id, [])
+                        if rec.actual_weight is not None or rec.actual_reps is not None
+                    ]
+                    # Call model_picker
+                    block_state_dict = {"block_mode": block_mode, "week_number": block_week}
+                    result = model_picker(exercise_dict, mp_history, block_state_dict)
                     prescriptions.append({
                         "exercise": ex.name,
-                        "next_weight": rule.next_weight,
-                        "next_reps": rule.next_reps,
-                        "message": rule.coaching_message,
+                        "next_weight": result["suggested_weight"],
+                        "next_reps": result["rep_floor"],
+                        "rep_floor": result["rep_floor"],
+                        "rep_cap": result["rep_cap"],
+                        "should_increase": result["should_increase"],
+                        "message": result.get("coaching_message") or f"Target {result['rep_floor']}-{result['rep_cap']} reps. {'Ready to increase weight' if result['should_increase'] else 'Hold weight until you hit the top of the range.'}",
                     })
                 if prescriptions:
                     prescription = prescriptions
@@ -3708,8 +3723,9 @@ If the user asks about switching progression models, phases, blocks, or training
                         cur = matches[0]
                         if ex["top_weight"] != cur["top_weight"] or ex["top_reps"] != cur["top_reps"]:
                             lines.append(f"- Trend: {ex['name']} went from {ex['top_weight']}×{ex['top_reps']} to {cur['top_weight']}×{cur['top_reps']}.")
-        if coach_state_data:
-            lines.append(f"Program state: {coach_state_data.get('phase') or 'unknown phase'}, load {coach_state_data.get('load_pct', 0)}%")
+        if block_mode:
+            block_name = block_mode.replace("_", " ").title()
+            lines.append(f"Current block: {block_name} Block, Week {block_week}")
         if prescription:
             if isinstance(prescription, list):
                 lines.append("Up next:")
