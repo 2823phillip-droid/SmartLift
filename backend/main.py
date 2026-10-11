@@ -2832,12 +2832,26 @@ class CoachChatRequest(BaseModel):
     conversation_id: Optional[int] = None
 
 
+class SessionTargetRequest(BaseModel):
+    session_id: int
+
+
 class CoachChatResponse(BaseModel):
     message: str
     source: str = "fallback"
     referenced_sessions: list[dict] = []
     conversation_id: Optional[int] = None
     workout_draft: Optional[dict] = None
+
+
+class SessionTargetResponse(BaseModel):
+    exercise_id: int
+    exercise_name: str
+    suggested_weight: float
+    rep_floor: int
+    rep_cap: int
+    coaching_message: str
+    block_mode: str
 
 
 class CoachHealthResponse(BaseModel):
@@ -3794,6 +3808,122 @@ If the user asks about switching progression models, phases, blocks, or training
         conversation_id=conv_id,
         workout_draft=workout_draft,
     )
+
+
+@app.post("/api/coach/session-targets", response_model=list[SessionTargetResponse])
+def get_session_targets(payload: SessionTargetRequest, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    """Get per-exercise session target messages for the active workout.
+    
+    Returns model-specific coaching messages for each exercise in the session.
+    """
+    # Get session
+    session = db.query(WorkoutSession).filter(
+        WorkoutSession.id == payload.session_id,
+        WorkoutSession.user_id == current_user.id
+    ).first()
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found")
+    
+    # Get block state
+    block_state = db.query(BlockState).filter(
+        BlockState.user_id == current_user.id,
+        BlockState.is_active == True
+    ).first()
+    
+    block_mode = block_state.block_mode if block_state else "foundation"
+    block_week = block_state.week_number if block_state else 1
+    
+    # Get session exercises with their set logs
+    from models import ExerciseEntry, SetLog, ExerciseLibrary
+    from progression import model_picker, BLOCK_REP_TARGETS
+    from rules import compute_load
+    
+    # Get all exercises in this session
+    session_exercises = db.query(WorkoutSessionExercise).filter(
+        WorkoutSessionExercise.session_id == payload.session_id
+    ).all()
+    
+    targets = []
+    for sse in session_exercises:
+        exercise_entry = db.query(ExerciseEntry).filter(
+            ExerciseEntry.id == sse.exercise_entry_id
+        ).first()
+        if not exercise_entry:
+            continue
+        
+        exercise = db.query(ExerciseLibrary).filter(
+            ExerciseLibrary.id == exercise_entry.library_id
+        ).first()
+        if not exercise:
+            continue
+        
+        # Get set logs for this exercise
+        set_logs = db.query(SetLog).filter(
+            SetLog.session_id == payload.session_id,
+            SetLog.exercise_entry_id == exercise_entry.id
+        ).all()
+        
+        # Build history records
+        history = []
+        for log in set_logs:
+            if log.completed_at:
+                from datetime import timezone
+                completed_at = log.completed_at
+                if completed_at.tzinfo is None:
+                    completed_at = completed_at.replace(tzinfo=timezone.utc)
+                history.append(SetRecord(
+                    actual_weight=log.actual_weight,
+                    actual_reps=log.actual_reps,
+                    effort=log.effort,
+                    form_quality=log.form_quality,
+                    completed_at=completed_at,
+                ))
+        
+        # Get prescription from model_picker
+        preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["foundation"])
+        reps_target = exercise.is_compound and preset.get("rep_cap", 8) or preset.get("rep_floor", 8)
+        sets_target = exercise.sets_target or 3
+        
+        prescription = model_picker(
+            exercise=exercise,
+            history=history,
+            block_mode=block_mode,
+            week_number=block_week,
+            reps_target=reps_target,
+            increment=preset.get("increment", 5),
+        )
+        
+        # Generate coaching message based on block mode
+        if block_mode == "foundation":
+            if len(history) > 0 and history[-1].actual_reps >= prescription.rep_cap:
+                coaching_message = f"Foundation: You hit {prescription.rep_cap} reps with good form last set — add {preset.get('increment', 5)} lbs."
+            else:
+                coaching_message = f"Foundation: Hold weight until you consistently hit {prescription.rep_cap} reps with good form."
+        elif block_mode == "hypertrophy":
+            if len(history) > 0 and history[-1].actual_reps >= prescription.rep_cap:
+                coaching_message = f"Hypertrophy: You hit {prescription.rep_cap} reps — add {preset.get('increment', 3)} lbs."
+            else:
+                coaching_message = f"Hypertrophy: Aim for {prescription.rep_floor}-{prescription.rep_cap} reps. Focus on control and stretch."
+        elif block_mode == "strength_a":
+            coaching_message = f"Strength A: Work up to {prescription.rep_cap} reps. Focus on progressive overload."
+        elif block_mode == "strength_b":
+            coaching_message = f"Strength B: Low reps, heavy weight. Focus on max effort."
+        elif block_mode == "maintenance":
+            coaching_message = f"Maintenance: Keep weight steady. Focus on form and consistency."
+        else:
+            coaching_message = f"Start at {prescription.suggested_weight} lbs × {prescription.rep_floor}-{prescription.rep_cap} reps."
+        
+        targets.append(SessionTargetResponse(
+            exercise_id=exercise_entry.id,
+            exercise_name=exercise.name,
+            suggested_weight=prescription.suggested_weight,
+            rep_floor=prescription.rep_floor,
+            rep_cap=prescription.rep_cap,
+            coaching_message=coaching_message,
+            block_mode=block_mode,
+        ))
+    
+    return targets
 
 
 def get_admin_user(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)) -> User:
