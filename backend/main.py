@@ -2509,7 +2509,7 @@ def calculate_progression(
         suggested_weight=result["suggested_weight"],
         should_increase=result["should_increase"],
         block_mode=block_mode,
-        block_phase=get_block_phase(block_mode),
+        block_phase=block_state.phase if block_state else None,
         is_block_complete=is_block_complete(block_state),
     )
 
