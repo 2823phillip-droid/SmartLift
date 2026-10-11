@@ -2495,12 +2495,14 @@ def calculate_progression(
         ]
     
     # Call model_picker
-    block_state = {
+    # Save phase from original block_state before creating dict for model_picker
+    block_state_phase = block_state.phase if isinstance(block_state, BlockState) and block_state else None
+    block_state_dict = {
         "block_mode": block_mode,
         "week_number": week_number or 1,
     }
     
-    result = model_picker(exercise_dict, history, block_state)
+    result = model_picker(exercise_dict, history, block_state_dict)
     
     return ProgressionCalculateResponse(
         rep_floor=result["rep_floor"],
@@ -2509,7 +2511,7 @@ def calculate_progression(
         suggested_weight=result["suggested_weight"],
         should_increase=result["should_increase"],
         block_mode=block_mode,
-        block_phase=block_state.phase if block_state else None,
+        block_phase=block_state_phase if block_state_phase is not None else (block_state.phase if isinstance(block_state, BlockState) else None),
         is_block_complete=is_block_complete(block_state),
     )
 
