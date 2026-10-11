@@ -944,13 +944,23 @@ export default function ActiveWorkoutScreen({
       reps_target: currentExercise.is_compound ? 6 : 8,
       sets_target: resolveDisplayTarget(currentExercise),
       rest_seconds: currentExercise.rest_seconds ?? 90,
-      progression_type: "linear",
+      progression_type: "double",
       history: [],
       seedSet: prevSet,
       exerciseName: currentExercise.name,
       routineName: template?.name ?? undefined,
       is_compound: currentExercise.is_compound ?? true,
     });
+    // Determine if user should increase weight
+    prescription.should_increase = prescription.next_reps > (prevSet.actual_reps || 0);
+    // Override coaching message based on current block
+    if (blockState?.block_mode === "foundation") {
+      if (prescription.should_increase) {
+        prescription.coaching_message = `Foundation: You hit 10 reps with good form — add 5 lbs next set.`;
+      } else {
+        prescription.coaching_message = `Foundation: Hold weight until you consistently hit 10 reps with good form.`;
+      }
+    }
 
     try {
       const suggestedWeightLbs = getUnitsPreference() === "imperial" ? nextTarget.weight : kgToLbs(nextTarget.weight);

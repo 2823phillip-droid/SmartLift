@@ -355,6 +355,8 @@ export interface Prescription {
   workload_status: WorkloadStatus;
   prescription_type: string;
   is_deload: boolean;
+  /** Whether to increase weight based on progression logic */
+  should_increase?: boolean;
   /** Passed through from RuleInput — used by the UI for message context */
   exerciseName?: string;
   /** Passed through from RuleInput — routine/template name for message context */
