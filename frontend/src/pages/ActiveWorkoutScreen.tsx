@@ -278,6 +278,15 @@ export default function ActiveWorkoutScreen({
                 force_deload: false,
                 exerciseName: target.name,
               });
+              // Override coaching message for foundation block
+              if (blockState?.block_mode === "foundation") {
+                prescription.should_increase = prescription.next_reps > (lastSession.length > 0 ? lastSession[0].actual_reps : 0);
+                if (prescription.should_increase) {
+                  prescription.coaching_message = `Foundation: You hit 10 reps with good form last session — add 5 lbs.`;
+                } else {
+                  prescription.coaching_message = `Foundation: Hold weight until you consistently hit 10 reps with good form.`;
+                }
+              }
               newPrescriptions[target.id] = prescription;
 
               if (!fallbackExpanded) {
