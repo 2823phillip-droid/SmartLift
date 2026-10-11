@@ -16,7 +16,7 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { api, withRetry } from "../api";
 import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
 import { SortableExerciseCard } from "./SortableExerciseCard";
-import { computePrescription, type CoachPhase, type Prescription, type SetRecord } from "../rules";
+import { computePrescription, type CoachPhase, type Prescription, type SetRecord, type WorkloadStatus } from "../rules";
 import { getUnitsPreference, lbsToKg, kgToLbs, formatWeight } from "../utils/units";
 import { resolveMediaUrl } from "../api";
 
@@ -77,7 +77,7 @@ export default function ActiveWorkoutScreen({
 
   // Exercise progression targets (from model_picker/calculate)
   const [exerciseProgression, setExerciseProgression] = useState<
-    Record<number, { rep_floor: number; rep_cap: number; should_increase: boolean }>
+    Record<number, { rep_floor: number; rep_cap: number; should_increase: boolean; suggested_weight: number; box_type?: string }>
   >({});
 
   // Dynamic Workout — option group selection
@@ -862,28 +862,51 @@ export default function ActiveWorkoutScreen({
     // sent to the backend and the next-set draft shown in the UI.
     // seedSet makes this the set-2+ pathway: the just-logged set is used
     // directly instead of looking up the previous session's first set.
-    const prevWeightLbs = toLbs(weightLbs);
-    const prevSet: SetRecord = {
-      actual_weight: prevWeightLbs,
-      actual_reps: r,
-      effort: draftEffort ?? undefined,
-      form_quality: draftFormQuality ?? undefined,
-      completed_at: new Date().toISOString(),
-    };
-    const prescription = computePrescription({
-      start_weight: prevWeightLbs,
-      reps_target: currentExercise.is_compound ? 6 : 8,
-      sets_target: resolveDisplayTarget(currentExercise),
-      rest_seconds: currentExercise.rest_seconds ?? 90,
-      progression_type: "double",
-      history: [],
-      seedSet: prevSet,
-      exerciseName: currentExercise.name,
-      routineName: template?.name ?? undefined,
-      is_compound: currentExercise.is_compound ?? true,
-    });
-    // Determine if user should increase weight
-    prescription.should_increase = prescription.next_reps > (prevSet.actual_reps || 0);
+    // Use model_picker progression data if available, otherwise fall back
+    // to local computation.
+    const progressionData = exerciseProgression[currentExercise.id];
+    let prescription;
+    if (progressionData?.suggested_weight != null) {
+      // Use model_picker data from calculate endpoint
+      const suggestedWeightLbs = toLbs(progressionData.suggested_weight);
+      const nextReps = progressionData.should_increase
+        ? Math.min(progressionData.rep_cap + 1, progressionData.rep_cap + 2)
+        : progressionData.rep_floor;
+      prescription = {
+        next_weight: suggestedWeightLbs,
+        next_reps: nextReps,
+        next_sets: resolveDisplayTarget(currentExercise),
+        rest_seconds: currentExercise.rest_seconds ?? 90,
+        coaching_message: "",
+        workload_status: "moderate" as WorkloadStatus,
+        prescription_type: progressionData.box_type || "foundation",
+        is_deload: false,
+        should_increase: progressionData.should_increase,
+      };
+    } else {
+      // Fallback: local computation (should rarely happen)
+      const prevWeightLbs = toLbs(weightLbs);
+      const prevSet: SetRecord = {
+        actual_weight: prevWeightLbs,
+        actual_reps: r,
+        effort: draftEffort ?? undefined,
+        form_quality: draftFormQuality ?? undefined,
+        completed_at: new Date().toISOString(),
+      };
+      prescription = computePrescription({
+        start_weight: prevWeightLbs,
+        reps_target: currentExercise.is_compound ? 6 : 8,
+        sets_target: resolveDisplayTarget(currentExercise),
+        rest_seconds: currentExercise.rest_seconds ?? 90,
+        progression_type: "double",
+        history: [],
+        seedSet: prevSet,
+        exerciseName: currentExercise.name,
+        routineName: template?.name ?? undefined,
+        is_compound: currentExercise.is_compound ?? true,
+      });
+      prescription.should_increase = prescription.next_reps > (prevSet.actual_reps || 0);
+    }
     // Override coaching message based on current block
     if (blockState?.block_mode === "foundation") {
       if (prescription.should_increase) {
