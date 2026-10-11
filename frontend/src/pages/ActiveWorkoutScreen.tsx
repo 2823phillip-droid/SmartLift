@@ -16,7 +16,7 @@ import { restrictToVerticalAxis } from "@dnd-kit/modifiers";
 import { api, withRetry } from "../api";
 import type { ExerciseEntry, SetLog, WorkoutTemplate, SetSuggestion } from "../types";
 import { SortableExerciseCard } from "./SortableExerciseCard";
-import { computePrescription, type CoachPhase, type Prescription, type SetRecord } from "../rules";
+import { computePrescription, type CoachPhase, type Prescription, type SetRecord, type ProgressionType } from "../rules";
 import { getUnitsPreference, lbsToKg, kgToLbs, formatWeight } from "../utils/units";
 import { resolveMediaUrl } from "../api";
 
@@ -255,6 +255,7 @@ export default function ActiveWorkoutScreen({
             // doesn't let later iterations win (same as the main effect).
             const newPrescriptions: Record<number, Prescription> = {};
             let fallbackExpanded = false;
+            const blockMode = blockState?.block_mode || "foundation";
             for (const target of targets) {
               const sessionResolved = lastSessionByExercise;
               const lastSession = sessionResolved[target.id] || [];
@@ -264,7 +265,8 @@ export default function ActiveWorkoutScreen({
                 : (lastSession.length > 0
                   ? Math.max(...lastSession.map((s: any) => s.actual_weight || 0))
                   : target.start_weight);
-              const phase = "linear";
+              // Use double progression for block periodization fallback
+              const phase: ProgressionType = "double";
               const history = buildPrescriptionHistory(target);
               const prescription = computePrescription({
                 start_weight: toLbs(lastWeight),
@@ -315,7 +317,7 @@ export default function ActiveWorkoutScreen({
   // Fetch progression targets for exercises
   const fetchExerciseProgression = async (exercises: ExerciseEntry[]) => {
     console.log("[ActiveWorkoutScreen] Fetching progression for", exercises.length, "exercises...");
-    const progression: Record<number, { rep_floor: number; rep_cap: number; should_increase: boolean }> = {};
+    const progression: Record<number, { rep_floor: number; rep_cap: number; should_increase: boolean; suggested_weight: number }> = {};
     for (const exercise of exercises) {
       try {
         console.log(`[ActiveWorkoutScreen] Calculating for exercise ${exercise.id} (${exercise.name}), library_id=${exercise.exercise_library_id}`);
@@ -328,7 +330,17 @@ export default function ActiveWorkoutScreen({
             rep_floor: data.rep_floor,
             rep_cap: data.rep_cap,
             should_increase: data.should_increase,
+            suggested_weight: data.suggested_weight,
           };
+          // Update draft weight for this exercise if it's the first exercise or expanded
+          if (exercise.id === expandedExerciseId || !expandedExerciseId) {
+            const displayWeight = getUnitsPreference() === "imperial"
+              ? Math.round(data.suggested_weight)
+              : Math.round(lbsToKg(data.suggested_weight));
+            setDraftWeight(String(displayWeight));
+            setDraftReps(String(data.rep_floor));
+            console.log("[ActiveWorkoutScreen] Updated draft from progression:", displayWeight, "x", data.rep_floor);
+          }
         }
       } catch (err) {
         console.error(`[ActiveWorkoutScreen] Progression fetch failed for ${exercise.id}:`, err);
@@ -1286,14 +1298,15 @@ export default function ActiveWorkoutScreen({
 
       {/* Header */}
       <div className="space-y-3">
-        <div className="flex items-start justify-between gap-3">
-          <div className="min-w-0">
-            <h2 className="text-xl font-bold truncate">{template?.name || "Workout"}</h2>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {exercises.length} exercises · {logs.length} sets logged
-            </p>
+        <div className="flex flex-col gap-2">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xl font-bold truncate">{template?.name || "Workout"}</h2>
+              <p className="text-xs text-slate-400 mt-0.5">
+                {exercises.length} exercises · {logs.length} sets logged
+              </p>
+            </div>
           </div>
-
           {/* Block pill */}
           {blockState && (
             <div className="rounded-lg border border-indigo-800 bg-indigo-950/40 px-3 py-1.5 text-center">
