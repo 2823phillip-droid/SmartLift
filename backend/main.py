@@ -2589,7 +2589,7 @@ def check_advancement(
     cutoff = datetime.now(timezone.utc) - timedelta(days=21)
     logs = db.query(SetLog).filter(
         SetLog.user_id == current_user.id,
-        SetLog.created_at >= cutoff,
+        SetLog.completed_at >= cutoff,
     ).all()
 
     history = []
@@ -2601,8 +2601,8 @@ def check_advancement(
                 "effort": log.effort,
                 "is_seeded": False,
             }
-            if log.created_at:
-                hist["completed_at"] = log.created_at.isoformat()
+            if log.completed_at:
+                hist["completed_at"] = log.completed_at.isoformat()
             history.append(hist)
 
     set_records = []
