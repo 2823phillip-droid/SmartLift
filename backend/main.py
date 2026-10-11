@@ -3826,8 +3826,7 @@ def get_session_targets(payload: SessionTargetRequest, db: Session = Depends(get
     
     # Get block state
     block_state = db.query(BlockState).filter(
-        BlockState.user_id == current_user.id,
-        BlockState.is_active == True
+        BlockState.user_id == current_user.id
     ).first()
     
     block_mode = block_state.block_mode if block_state else "foundation"
