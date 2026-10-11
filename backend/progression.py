@@ -2458,7 +2458,9 @@ def get_block_targets(block_mode: str) -> dict:
 def model_picker(
     exercise: any,
     history: list,
-    block_mode: str = "foundation",
+    block_state: any = None,
+    *,
+    block_mode: str = None,
     week_number: int = 1,
     reps_target: int = None,
     increment: int = None,
@@ -2469,6 +2471,7 @@ def model_picker(
     Args:
         exercise: Exercise data (dict or object with id, name, is_compound attributes)
         history: List of past set logs (dicts or objects with weight/actual_weight, reps/actual_reps)
+        block_state: DEPRECATED - Use block_mode and week_number instead (dict with block_mode, week_number)
         block_mode: Current block mode (foundation, hypertrophy, strength_a, etc.)
         week_number: Current week number
         reps_target: Target reps for this exercise (optional, uses block default if not provided)
@@ -2483,6 +2486,18 @@ def model_picker(
             should_increase: bool,
         }
     """
+    # Handle both old and new signatures
+    if block_state is not None:
+        # Old signature: block_state is a dict
+        if isinstance(block_state, dict):
+            if block_mode is None:
+                block_mode = block_state.get("block_mode", "foundation")
+            if week_number == 1:
+                week_number = block_state.get("week_number", 1)
+    else:
+        # New signature: block_mode and week_number are provided
+        if block_mode is None:
+            block_mode = "foundation"
     # Get block-specific targets
     preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["foundation"])
     rep_floor = preset.get("rep_floor", 8)
