@@ -2456,55 +2456,63 @@ def get_block_targets(block_mode: str) -> dict:
 
 
 def model_picker(
-    exercise: dict,
+    exercise: any,
     history: list,
-    block_state: dict,
+    block_mode: str = "foundation",
+    week_number: int = 1,
+    reps_target: int = None,
+    increment: int = None,
 ) -> dict:
     """
     Determine progression targets for an exercise based on block state and history.
     
     Args:
-        exercise: Exercise data from exercise_library
-            - id: int
-            - name: str
-            - is_compound: bool (optional)
-            - movement_type: str (optional)
-        history: List of past set logs
-            - weight: float
-            - reps: int
-            - workout_date: datetime (optional)
-        block_state: Current user block state
-            - block_mode: str (foundation, hypertrophy, strength_a, etc.)
-            - week_number: int
+        exercise: Exercise data (dict or object with id, name, is_compound attributes)
+        history: List of past set logs (dicts or objects with weight/actual_weight, reps/actual_reps)
+        block_mode: Current block mode (foundation, hypertrophy, strength_a, etc.)
+        week_number: Current week number
+        reps_target: Target reps for this exercise (optional, uses block default if not provided)
+        increment: Weight increment in lbs (optional, uses block default if not provided)
     
     Returns:
         {
-            rep_floor: int,           # minimum reps to aim for
-            rep_cap: int,             # maximum reps before increasing weight
-            increment: float,         # weight increase in lbs
-            suggested_weight: float,  # suggested starting weight for next workout
-            should_increase: bool,    # whether to increase weight based on history
+            rep_floor: int,
+            rep_cap: int,
+            increment: float,
+            suggested_weight: float,
+            should_increase: bool,
         }
     """
     # Get block-specific targets
-    targets = get_block_targets(block_state.get("block_mode", "foundation"))
+    preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["foundation"])
+    rep_floor = preset.get("rep_floor", 8)
+    rep_cap = preset.get("rep_cap", 10)
+    default_increment = preset.get("increment", 5)
     
-    rep_floor = targets["rep_floor"]
-    rep_cap = targets["rep_cap"]
-    increment = targets["increment"]
+    # Use provided increment or block default
+    if increment is None:
+        increment = default_increment
     
     # Determine current weight from history
     suggested_weight = 0.0
     should_increase = False
     
     if history:
-        # Get the most recent weight
-        recent_weights = [h.get("weight", 0) for h in history if h.get("weight", 0) > 0]
+        # Get the most recent weight (handle both dict and object)
+        recent_weights = []
+        for h in history:
+            weight = h.get("weight", 0) if isinstance(h, dict) else (h.actual_weight or 0)
+            if weight > 0:
+                recent_weights.append(weight)
         if recent_weights:
             suggested_weight = max(recent_weights)
         
         # Check if user hit rep cap in recent workouts
-        recent_reps = [h.get("reps", 0) for h in history if h.get("reps", 0) > 0]
+        recent_reps = []
+        for h in history:
+            reps = h.get("reps", 0) if isinstance(h, dict) else (h.actual_reps or 0)
+            if reps > 0:
+                recent_reps.append(reps)
         if recent_reps:
             max_reps = max(recent_reps)
             # If user hit or exceeded rep cap, suggest weight increase
@@ -2513,7 +2521,7 @@ def model_picker(
                 suggested_weight += increment
     
     # For maintenance block, no progression
-    if block_state.get("block_mode") == "maintenance":
+    if block_mode == "maintenance":
         should_increase = False
         increment = 0
         # Reduce weight by 20% for deload
