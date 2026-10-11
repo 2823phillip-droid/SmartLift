@@ -3894,24 +3894,9 @@ def get_session_targets(payload: SessionTargetRequest, db: Session = Depends(get
         )
         
         # Generate coaching message based on block mode
-        if block_mode == "foundation":
-            if len(history) > 0 and history[-1].actual_reps >= prescription.rep_cap:
-                coaching_message = f"Foundation: You hit {prescription.rep_cap} reps with good form last set — add {preset.get('increment', 5)} lbs."
-            else:
-                coaching_message = f"Foundation: Hold weight until you consistently hit {prescription.rep_cap} reps with good form."
-        elif block_mode == "hypertrophy":
-            if len(history) > 0 and history[-1].actual_reps >= prescription.rep_cap:
-                coaching_message = f"Hypertrophy: You hit {prescription.rep_cap} reps — add {preset.get('increment', 3)} lbs."
-            else:
-                coaching_message = f"Hypertrophy: Aim for {prescription.rep_floor}-{prescription.rep_cap} reps. Focus on control and stretch."
-        elif block_mode == "strength_a":
-            coaching_message = f"Strength A: Work up to {prescription.rep_cap} reps. Focus on progressive overload."
-        elif block_mode == "strength_b":
-            coaching_message = f"Strength B: Low reps, heavy weight. Focus on max effort."
-        elif block_mode == "maintenance":
-            coaching_message = f"Maintenance: Keep weight steady. Focus on form and consistency."
-        else:
-            coaching_message = f"Start at {prescription.suggested_weight} lbs × {prescription.rep_floor}-{prescription.rep_cap} reps."
+        # Simple message for now - will build out templates later
+        block_name = block_mode.replace("_", " ").title() if block_mode else "Foundation"
+        coaching_message = f"This is the coach notes for {block_name}."
         
         targets.append(SessionTargetResponse(
             exercise_id=exercise_entry.id,
