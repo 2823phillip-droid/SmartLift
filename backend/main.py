@@ -3833,19 +3833,21 @@ def get_session_targets(payload: SessionTargetRequest, db: Session = Depends(get
     block_week = block_state.week_number if block_state else 1
     
     # Get session exercises with their set logs
-    from models import ExerciseEntry, SetLog, ExerciseLibrary
+    # Query SetLog to get unique exercise entries in this session
+    from models import ExerciseEntry, SetLog, ExerciseLibrary, WorkoutSessionExercise
     from progression import model_picker, BLOCK_REP_TARGETS
     from rules import compute_load, SetRecord
     
-    # Get all exercises in this session
-    session_exercises = db.query(WorkoutSessionExercise).filter(
-        WorkoutSessionExercise.session_id == payload.session_id
-    ).all()
+    # Get all exercises in this session via SetLog's unique exercise_entry_id
+    set_log_entries = db.query(SetLog.exercise_entry_id).filter(
+        SetLog.session_id == payload.session_id
+    ).distinct().all()
+    exercise_entry_ids = [entry.exercise_entry_id for entry in set_log_entries]
     
     targets = []
-    for sse in session_exercises:
+    for exercise_entry_id in exercise_entry_ids:
         exercise_entry = db.query(ExerciseEntry).filter(
-            ExerciseEntry.id == sse.exercise_entry_id
+            ExerciseEntry.id == exercise_entry_id
         ).first()
         if not exercise_entry:
             continue
