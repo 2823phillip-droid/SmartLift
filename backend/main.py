@@ -3834,21 +3834,16 @@ def get_session_targets(payload: SessionTargetRequest, db: Session = Depends(get
     
     # Get session exercises with their set logs
     # Query SetLog to get unique exercise entries in this session
-    from models import ExerciseEntry, SetLog, ExerciseLibrary, WorkoutSessionExercise
+    from models import ExerciseEntry, SetLog, ExerciseLibrary
     from progression import model_picker, BLOCK_REP_TARGETS
     from rules import compute_load, SetRecord
     
-    # Get all exercises in this session via SetLog's unique exercise_entry_id
-    set_log_entries = db.query(SetLog.exercise_entry_id).filter(
-        SetLog.session_id == payload.session_id
-    ).distinct().all()
-    exercise_entry_ids = [entry.exercise_entry_id for entry in set_log_entries]
+    # Get exercises from session's template
+    template_exercises = session.template.exercises if session.template else []
     
     targets = []
-    for exercise_entry_id in exercise_entry_ids:
-        exercise_entry = db.query(ExerciseEntry).filter(
-            ExerciseEntry.id == exercise_entry_id
-        ).first()
+    for template_exercise in template_exercises:
+        exercise_entry = template_exercise  # template_exercise is already an ExerciseEntry
         if not exercise_entry:
             continue
         
