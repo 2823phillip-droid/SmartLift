@@ -3871,8 +3871,8 @@ def get_session_targets(payload: SessionTargetRequest, db: Session = Depends(get
                 if completed_at.tzinfo is None:
                     completed_at = completed_at.replace(tzinfo=timezone.utc)
                 history.append(SetRecord(
-                    actual_weight=log.actual_weight,
-                    actual_reps=log.actual_reps,
+                    actual_weight=log.actual_weight or 0.0,
+                    actual_reps=log.actual_reps or 0,
                     effort=log.effort,
                     form_quality=log.form_quality,
                     completed_at=completed_at,
