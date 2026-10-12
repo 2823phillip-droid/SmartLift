@@ -475,8 +475,10 @@ export default function ActiveWorkoutScreen({
 
     // Fetch session targets from backend (model-specific coaching messages)
     // and update prescriptions with the backend's coaching messages
+    console.log("[ActiveWorkoutScreen] Fetching session targets...");
     try {
       const targets = await api.getSessionTargets(sessionId);
+      console.log("[ActiveWorkoutScreen] Session targets received:", targets.length, "exercises");
       const targetsMap: Record<number, { coaching_message: string }> = {};
       for (const t of targets) {
         targetsMap[t.exercise_id] = {
