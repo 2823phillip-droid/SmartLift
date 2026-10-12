@@ -3835,7 +3835,7 @@ def get_session_targets(payload: SessionTargetRequest, db: Session = Depends(get
     # Get session exercises with their set logs
     from models import ExerciseEntry, SetLog, ExerciseLibrary
     from progression import model_picker, BLOCK_REP_TARGETS
-    from rules import compute_load
+    from rules import compute_load, SetRecord
     
     # Get all exercises in this session
     session_exercises = db.query(WorkoutSessionExercise).filter(
