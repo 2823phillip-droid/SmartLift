@@ -3901,7 +3901,10 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
             SetLog.exercise_entry_id == exercise_entry.id
         ).all()
         
-        # Build history records — include last session's logs + current session's logs
+        # Build history records — query ALL completed sessions' logs for this exercise
+        # (like calculate endpoint does), not just the last completed session.
+        # This ensures we find the most recent logs for each exercise regardless of
+        # which session is "last completed" — works when switching between routines.
         history = []
         
         # Get all exercise_entry_ids for this exercise_library (across all sessions)
@@ -3909,17 +3912,17 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
             ExerciseEntry.exercise_library_id == exercise.id
         ).all()
         entry_id_values = [e[0] for e in entry_ids] if entry_ids else []
-        last_session_logs = []  # Initialize for debug logging
+        all_logs = []  # Initialize for debug logging
         
-        # Add last session's logs first (older data)
-        # Query by exercise_entry_id IN (all entry ids for this exercise) to find logs
-        # from the last session that reference this exercise (via any exercise_entry)
-        if last_session and entry_id_values:
-            last_session_logs = db.query(SetLog).filter(
-                SetLog.session_id == last_session.id,
-                SetLog.exercise_entry_id.in_(entry_id_values)
-            ).all()
-            for log in last_session_logs:
+        # Query ALL completed sessions' logs for this exercise (like calculate endpoint)
+        if entry_id_values:
+            all_logs = db.query(SetLog).filter(
+                SetLog.user_id == current_user.id,
+                SetLog.exercise_entry_id.in_(entry_id_values),
+                SetLog.completed_at.isnot(None)
+            ).order_by(SetLog.completed_at.desc()).limit(20).all()
+            
+            for log in all_logs:
                 if log.completed_at:
                     from datetime import timezone
                     completed_at = log.completed_at
@@ -3933,23 +3936,8 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
                         completed_at=completed_at,
                     ))
         
-        # Add current session's logs (more recent data)
-        for log in set_logs:
-            if log.completed_at:
-                from datetime import timezone
-                completed_at = log.completed_at
-                if completed_at.tzinfo is None:
-                    completed_at = completed_at.replace(tzinfo=timezone.utc)
-                history.append(SetRecord(
-                    actual_weight=log.actual_weight or 0.0,
-                    actual_reps=log.actual_reps or 0,
-                    effort=log.effort,
-                    form_quality=log.form_quality,
-                    completed_at=completed_at,
-                ))
-        
         # DEBUG: Log what we're passing to model_picker
-        print(f"[SESSION_TARGETS DEBUG] exercise_id={exercise.id}, name={exercise.name}, last_session_id={last_session.id if last_session else None}, entry_id_values={entry_id_values}, last_session_logs_count={len(last_session_logs) if last_session else 0}, current_session_logs_count={len(set_logs)}, history_count={len(history)}")
+        print(f"[SESSION_TARGETS DEBUG] exercise_id={exercise.id}, name={exercise.name}, entry_id_values={entry_id_values}, all_logs_count={len(all_logs) if entry_id_values else 0}, history_count={len(history)}")
         if history:
             print(f"[SESSION_TARGETS DEBUG] history[0]={history[0]}, history[-1]={history[-1]}, type={type(history[0])}")
         
