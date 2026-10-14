@@ -510,33 +510,9 @@ export default function ActiveWorkoutScreen({
         : Math.round(kgToLbs(p.next_weight));
       return { weight: Math.round(displayWeight * 10) / 10, reps: p.next_reps };
     }
-    const lastLog = lastLoggedSetRef.current[entry.id] || logs.filter(l => l.exercise_entry_id === entry.id).pop();
-    const seedWeight = getUnitsPreference() === "imperial" ? entry.start_weight : lbsToKg(entry.start_weight);
-    if (!lastLog) {
-      return { weight: Math.round(seedWeight * 10) / 10, reps: entry.is_compound ? 6 : 8 };
-    }
-    const prevSet: SetRecord = {
-      actual_weight: getUnitsPreference() === "imperial" ? lastLog.actual_weight! : lbsToKg(lastLog.actual_weight!),
-      actual_reps: lastLog.actual_reps || (entry.is_compound ? 6 : 8),
-      effort: lastLog.effort ?? undefined,
-      form_quality: lastLog.form_quality ?? undefined,
-    };
-    const result = computePrescription({
-      start_weight: seedWeight,
-      reps_target: entry.is_compound ? 6 : 8,
-      sets_target: entry.sets_target,
-      rest_seconds: entry.rest_seconds,
-      progression_type: "linear",
-      history: [],
-      seedSet: prevSet,
-      exerciseName: entry.name,
-      routineName: template?.name ?? undefined,
-      is_compound: entry.is_compound ?? true,
-    });
-    const displayWeight = getUnitsPreference() === "imperial"
-      ? Math.round(result.next_weight)
-      : Math.round(kgToLbs(result.next_weight));
-    return { weight: Math.round(displayWeight * 10) / 10, reps: result.next_reps };
+    // No local fallback — if backend prescription is empty and no last log,
+    // we just don't have a target yet.
+    return { weight: 0, reps: 0 };
   };
 
   const exerciseCompletedCount = useMemo(() => {
@@ -710,44 +686,8 @@ export default function ActiveWorkoutScreen({
       return;
     }
 
-    // Compute a fresh prescription from last session history.
-    const lastSession = sessionLogs.length > 0 ? sessionLogs : [];
-    const lastWeight = lastSession.length > 0
-      ? Math.max(...lastSession.map((l: any) => l.actual_weight || 0))
-      : exercise.start_weight;
-    const history = lastSession.map((l: any) => ({
-      actual_weight: toLbs(l.actual_weight),
-      actual_reps: l.actual_reps,
-      effort: l.effort,
-      completed_at: lastSession[0]?.started_at || new Date().toISOString(),
-    }));
-    const fallbackPrescription = computePrescription({
-      start_weight: toLbs(lastWeight),
-      reps_target: exercise.is_compound ? 6 : 8,
-      sets_target: displaySetsTarget[exercise.id] ?? exercise.sets_target,
-      rest_seconds: exercise.rest_seconds,
-      progression_type: "linear",
-      history,
-      force_deload: false,
-      exerciseName: exercise.name,
-      routineName: template?.name ?? undefined,
-      is_compound: exercise.is_compound ?? true,
-    });
-    const fallbackWeight = getUnitsPreference() === "imperial"
-      ? Math.round(fallbackPrescription.next_weight)
-      : Math.round(lbsToKg(fallbackPrescription.next_weight));
-    const useWeight = fallbackPrescription.next_weight > 0 ? fallbackWeight : Math.round(toLbs(lastWeight));
-    setDraftWeight(String(useWeight));
-    setDraftReps(String(fallbackPrescription.next_reps || (exercise.is_compound ? 6 : 8)));
-    setDraftEffort(null);
-    setDraftFormQuality(0);
-    setNotesMap((prev) => ({ ...prev, [exercise.id]: "" }));
-    setShowNotesMap((prev) => ({ ...prev, [exercise.id]: false }));
-    fallbackPrescription.source = "local";
-    setPrescriptions((prev) => ({
-      ...prev,
-      [exercise.id]: fallbackPrescription,
-    }));
+    // No local fallback — if prescriptions[exercise.id] is empty,
+    // we just don't set a weight/reps until backend returns.
   };
 
   const toggleExerciseRestEdit = (exercise: ExerciseEntry, enabled: boolean) => {
@@ -865,32 +805,9 @@ export default function ActiveWorkoutScreen({
         is_deload: false,
         should_increase: progressionData.should_increase,
       };
-    } else {
-      // Fallback: local computation (should rarely happen)
-      const prevWeightLbs = toLbs(weightLbs);
-      const prevSet: SetRecord = {
-        actual_weight: prevWeightLbs,
-        actual_reps: r,
-        effort: draftEffort ?? undefined,
-        form_quality: draftFormQuality ?? undefined,
-        completed_at: new Date().toISOString(),
-      };
-      prescription = computePrescription({
-        start_weight: prevWeightLbs,
-        reps_target: currentExercise.is_compound ? 6 : 8,
-        sets_target: resolveDisplayTarget(currentExercise),
-        rest_seconds: currentExercise.rest_seconds ?? 90,
-        progression_type: "double",
-        history: [],
-        seedSet: prevSet,
-        exerciseName: currentExercise.name,
-        routineName: template?.name ?? undefined,
-        is_compound: currentExercise.is_compound ?? true,
-      });
-      prescription.should_increase = prescription.next_reps > (prevSet.actual_reps || 0);
     }
-    prescription.source = "local";
-
+    // No local fallback — if backend prescription is empty, we just
+    // don't update the prescription until backend returns.
     try {
       const suggestedWeightLbs = getUnitsPreference() === "imperial" ? nextTarget.weight : kgToLbs(nextTarget.weight);
       const log = await api.createSetLog({
@@ -912,7 +829,7 @@ export default function ActiveWorkoutScreen({
       await api.createCoachMessage({
         session_id: sessionId,
         role: "in_workout",
-        content: prescription.coaching_message,
+        content: prescription?.coaching_message ?? "",
       });
     } catch (err) {
       console.error("Failed to log set", err);
