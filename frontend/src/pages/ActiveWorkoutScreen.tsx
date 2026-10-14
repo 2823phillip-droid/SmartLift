@@ -49,7 +49,7 @@ export default function ActiveWorkoutScreen({
 
   const [expandedExerciseId, setExpandedExerciseId] = useState<number | null>(null);
   const [draftWeight, setDraftWeight] = useState("");
-  const [autoExpandComplete, setAutoExpandComplete] = useState(false);
+  const autoExpandCompleteRef = useRef(false);
   const [draftReps, setDraftReps] = useState("");
   const [draftEffort, setDraftEffort] = useState<number | null>(null);
   const [draftFormQuality, setDraftFormQuality] = useState<number>(0);
@@ -268,7 +268,7 @@ export default function ActiveWorkoutScreen({
           };
           // Update draft weight for this exercise if it's the first exercise or expanded,
           // but only if the auto-expand hasn't completed yet (to avoid race condition).
-          if ((exercise.id === expandedExerciseId || !expandedExerciseId) && !autoExpandComplete) {
+          if ((exercise.id === expandedExerciseId || !expandedExerciseId) && !autoExpandCompleteRef.current) {
             const displayWeight = getUnitsPreference() === "imperial"
               ? Math.round(data.suggested_weight)
               : Math.round(lbsToKg(data.suggested_weight));
@@ -444,7 +444,7 @@ export default function ActiveWorkoutScreen({
         setNotesMap((prev) => ({ ...prev, [target.id]: "" }));
         setShowNotesMap((prev) => ({ ...prev, [target.id]: false }));
         setExpandedExerciseId(target.id);
-        setAutoExpandComplete(true);
+        autoExpandCompleteRef.current = true;
         console.log("[ActiveWorkoutScreen] auto-expand", displayWeight, "x", p.next_reps, "source:", p.source);
         expanded = true;
       }
