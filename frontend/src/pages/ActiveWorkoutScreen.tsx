@@ -906,6 +906,7 @@ export default function ActiveWorkoutScreen({
     // to local computation.
     const progressionData = exerciseProgression[currentExercise.id];
     let prescription;
+    const existingCoachingMessage = prescriptions[currentExercise.id]?.coaching_message ?? "";
     if (progressionData?.suggested_weight != null) {
       // Use model_picker data from calculate endpoint
       const suggestedWeightLbs = toLbs(progressionData.suggested_weight);
@@ -917,7 +918,7 @@ export default function ActiveWorkoutScreen({
         next_reps: nextReps,
         next_sets: resolveDisplayTarget(currentExercise),
         rest_seconds: currentExercise.rest_seconds ?? 90,
-        coaching_message: "",
+        coaching_message: existingCoachingMessage,
         workload_status: "moderate" as WorkloadStatus,
         prescription_type: progressionData.box_type || "foundation",
         is_deload: false,
