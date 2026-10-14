@@ -3816,6 +3816,18 @@ def get_session_targets(payload: SessionTargetRequest, db: Session = Depends(get
     
     Returns model-specific coaching messages for each exercise in the session.
     """
+    import traceback
+    try:
+        return _do_session_targets(payload, db, current_user)
+    except Exception as e:
+        traceback.print_exc()
+        print(f"[SESSION_TARGETS ERROR] {type(e).__name__}: {e}")
+        print(f"[SESSION_TARGETS ERROR] session_id={payload.session_id}, user_id={current_user.id}")
+        raise
+
+
+def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user: User) -> list[SessionTargetResponse]:
+    """Inner implementation of get_session_targets — extracted for try/except wrapping."""
     # Get session
     session = db.query(WorkoutSession).filter(
         WorkoutSession.id == payload.session_id,
@@ -3833,7 +3845,6 @@ def get_session_targets(payload: SessionTargetRequest, db: Session = Depends(get
     block_week = block_state.week_number if block_state else 1
     
     # Get session exercises with their set logs
-    # Query SetLog to get unique exercise entries in this session
     from models import ExerciseEntry, SetLog, ExerciseLibrary
     from progression import model_picker, BLOCK_REP_TARGETS
     from rules import compute_load, SetRecord
@@ -3843,7 +3854,7 @@ def get_session_targets(payload: SessionTargetRequest, db: Session = Depends(get
     
     targets = []
     for template_exercise in template_exercises:
-        exercise_entry = template_exercise  # template_exercise is already an ExerciseEntry
+        exercise_entry = template_exercise
         if not exercise_entry:
             continue
         
@@ -3890,7 +3901,6 @@ def get_session_targets(payload: SessionTargetRequest, db: Session = Depends(get
         )
         
         # Generate coaching message based on block mode
-        # Simple message for now - will build out templates later
         block_name = block_mode.replace("_", " ").title() if block_mode else "Foundation"
         coaching_message = f"This is the coach notes for {block_name}."
         

@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
-last_updated: 2026-10-08
-status: Mac Studio M5 Max only, master branch HEAD `c5d5bdc`, clean working tree. All migration to local Studio complete — scripts/deploy.py handles the full 7-stage pipeline (preflight → backup → push → fly deploy backend → health check → cap sync ios → smoke test). Backend healthy at askeo.fit/healthz. iOS bundle ready in Xcode at frontend/ios/App/App/public/assets/. Exercise library fully classified (1359 exercises, 32 columns), equipment toggle system working (coach progression + equipment categories), frontend filtering verified.
+last_updated: 2026-10-14
+status: Mac Studio M5 Max only, master branch HEAD `4d4929d`, 4 modified files pending commit (backend/main.py, frontend/src/rules.ts, frontend/src/pages/ActiveWorkoutScreen.tsx, frontend/src/pages/SortableExerciseCard.tsx). Backend healthy at askeo.fit/healthz. iOS bundle NOT YET UPDATED — needs clean build and sync to frontend/ios/App/App/public/assets/.
 
 This file explains where every type of project knowledge lives and when to use it.
 

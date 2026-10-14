@@ -379,6 +379,7 @@ export default function ActiveWorkoutScreen({
           is_compound: first.is_compound ?? true,
           routineName: template?.name ?? undefined,
         });
+        prescription.source = "local";
         setPrescriptions((prev) => ({ ...prev, [first.id]: prescription }));
         const displayWeight = getUnitsPreference() === "imperial"
           ? Math.round(prescription.next_weight)
@@ -452,6 +453,7 @@ export default function ActiveWorkoutScreen({
         is_compound: target.is_compound ?? true,
         routineName: template?.name ?? undefined,
       });
+      prescription.source = "local";
       newPrescriptions[target.id] = prescription;
 
       if (!expanded) {
@@ -495,6 +497,7 @@ export default function ActiveWorkoutScreen({
               updated[exId] = {
                 ...updated[exId],
                 coaching_message: targetsMap[exId].coaching_message,
+                source: "backend",
               };
             }
           }
@@ -502,7 +505,8 @@ export default function ActiveWorkoutScreen({
         });
       }
     } catch (err) {
-      console.error("[ActiveWorkoutScreen] Failed to fetch session targets", err);
+      console.error("[ActiveWorkoutScreen] Failed to fetch session targets — using local fallback prescriptions", err);
+      // Prescriptions retain their source: "local" marking from the build loop above
     }
   })();
   }, [isBuildingWorkout, exercises, logs, lastSessionByExercise, displaySetsTarget, template?.name]);
@@ -798,6 +802,7 @@ export default function ActiveWorkoutScreen({
     setDraftFormQuality(0);
     setNotesMap((prev) => ({ ...prev, [exercise.id]: "" }));
     setShowNotesMap((prev) => ({ ...prev, [exercise.id]: false }));
+    fallbackPrescription.source = "local";
     setPrescriptions((prev) => ({
       ...prev,
       [exercise.id]: fallbackPrescription,
@@ -950,6 +955,7 @@ export default function ActiveWorkoutScreen({
         prescription.coaching_message = `Foundation: Hold weight until you consistently hit 10 reps with good form.`;
       }
     }
+    prescription.source = "local";
 
     try {
       const suggestedWeightLbs = getUnitsPreference() === "imperial" ? nextTarget.weight : kgToLbs(nextTarget.weight);

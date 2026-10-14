@@ -363,6 +363,8 @@ export interface Prescription {
   routineName?: string;
   /** True when this prescription was seeded from a just-logged set (set 2+) */
   isSetTarget?: boolean;
+  /** Where the coaching_message came from: 'local' = computed locally, 'backend' = from session-targets endpoint */
+  source?: 'local' | 'backend';
 }
 
 function toDate(v?: string): Date | undefined {
