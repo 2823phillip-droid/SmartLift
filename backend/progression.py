@@ -2587,17 +2587,18 @@ class LinearModel:
         routine_name = exercise.get("routine_name", None) if isinstance(exercise, dict) else getattr(exercise, "routine_name", None)
         
         if not top_set:
-            # No history — first set
+            # No history — first set; use estimated starting weight
             coaching_message = "This is the Linear model."
+            starting_weight = _estimate_starting_weight(exercise)
             return {
-                "suggested_weight": 0.0,
+                "suggested_weight": starting_weight,
                 "rep_floor": rep_floor,
                 "rep_cap": rep_cap,
                 "increment": inc,
                 "coaching_message": coaching_message,
                 "block_name": _get_block_name(block_mode),
                 "should_increase": False,
-                "next_weight": 0.0,
+                "next_weight": starting_weight,
                 "next_reps": reps_target or 6,
                 "next_sets": 3,
                 "rest_seconds": 90,
@@ -2716,15 +2717,16 @@ class FoundationModel:
         
         if not top_set:
             coaching_message = "This is the Foundation model."
+            starting_weight = _estimate_starting_weight(exercise)
             return {
-                "suggested_weight": 0.0,
+                "suggested_weight": starting_weight,
                 "rep_floor": rep_floor,
                 "rep_cap": rep_cap,
                 "increment": inc,
                 "coaching_message": coaching_message,
                 "block_name": _get_block_name(block_mode),
                 "should_increase": False,
-                "next_weight": 0.0,
+                "next_weight": starting_weight,
                 "next_reps": reps_target or 8,
                 "next_sets": 3,
                 "rest_seconds": 90,
@@ -2843,16 +2845,18 @@ class HypertrophyModel:
         exercise_name = exercise.get("name", "this exercise") if isinstance(exercise, dict) else getattr(exercise, "name", "this exercise")
         
         if not top_set:
+            # No history — first set; use estimated starting weight
             coaching_message = "This is the Hypertrophy model."
+            starting_weight = _estimate_starting_weight(exercise)
             return {
-                "suggested_weight": 0.0,
+                "suggested_weight": starting_weight,
                 "rep_floor": rep_floor,
                 "rep_cap": rep_cap,
                 "increment": inc,
                 "coaching_message": coaching_message,
                 "block_name": _get_block_name(block_mode),
                 "should_increase": False,
-                "next_weight": 0.0,
+                "next_weight": starting_weight,
                 "next_reps": reps_target or 10,
                 "next_sets": 3,
                 "rest_seconds": 90,
@@ -2964,16 +2968,18 @@ class StrengthAModel:
         exercise_name = exercise.get("name", "this exercise") if isinstance(exercise, dict) else getattr(exercise, "name", "this exercise")
         
         if not top_set:
+            # No history — first set; use estimated starting weight
             coaching_message = "This is the Strength A model."
+            starting_weight = _estimate_starting_weight(exercise)
             return {
-                "suggested_weight": 0.0,
+                "suggested_weight": starting_weight,
                 "rep_floor": rep_floor,
                 "rep_cap": rep_cap,
                 "increment": inc,
                 "coaching_message": coaching_message,
                 "block_name": _get_block_name(block_mode),
                 "should_increase": False,
-                "next_weight": 0.0,
+                "next_weight": starting_weight,
                 "next_reps": reps_target or 8,
                 "next_sets": 3,
                 "rest_seconds": 90,
@@ -3080,16 +3086,18 @@ class StrengthBModel:
         exercise_name = exercise.get("name", "this exercise") if isinstance(exercise, dict) else getattr(exercise, "name", "this exercise")
         
         if not top_set:
+            # No history — first set; use estimated starting weight
             coaching_message = "This is the Strength B model."
+            starting_weight = _estimate_starting_weight(exercise)
             return {
-                "suggested_weight": 0.0,
+                "suggested_weight": starting_weight,
                 "rep_floor": rep_floor,
                 "rep_cap": rep_cap,
                 "increment": inc,
                 "coaching_message": coaching_message,
                 "block_name": _get_block_name(block_mode),
                 "should_increase": False,
-                "next_weight": 0.0,
+                "next_weight": starting_weight,
                 "next_reps": reps_target or 6,
                 "next_sets": 3,
                 "rest_seconds": 90,
@@ -3209,6 +3217,10 @@ class MaintenanceModel:
                 if w and w > 0:
                     base_weight = w
                     break
+        
+        # If no history, use estimated starting weight as base
+        if base_weight == 0.0:
+            base_weight = _estimate_starting_weight(exercise)
         
         # Apply 20% reduction for deload
         suggested_weight = round(base_weight * 0.8, 1) if base_weight > 0 else 0.0
@@ -3339,9 +3351,31 @@ def advance_block(block_mode: str) -> str:
     return BLOCK_SEQUENCE[next_idx]
 
 
-def get_block_phase(block_mode: str) -> int:
+def _get_block_phase(block_mode: str) -> int:
     """Get the phase number for a block mode (1-6)."""
     return BLOCK_PHASES.get(block_mode, 3)
+
+
+def _estimate_starting_weight(exercise: dict | any) -> float:
+    """
+    Estimate a reasonable starting weight for a new exercise when there's
+    no history. Uses exercise type to make an educated guess.
+    
+    Compound exercises: 45 lbs (standard barbell weight).
+    Isolation exercises: 10 lbs (light dumbbell/weight).
+    
+    Returns 0 only if the exercise type cannot be determined.
+    """
+    # Determine if the exercise is compound
+    if isinstance(exercise, dict):
+        is_compound = exercise.get("is_compound", True)
+    else:
+        is_compound = getattr(exercise, "is_compound", True)
+    
+    if is_compound:
+        return 45.0  # Standard barbell weight
+    else:
+        return 10.0  # Light dumbbell/weight
 
 
 def is_block_complete(block_state) -> bool:

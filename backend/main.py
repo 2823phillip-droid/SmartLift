@@ -2495,9 +2495,11 @@ def calculate_progression(
         
         history = [
             {
-                "weight": log.actual_weight,
-                "reps": log.actual_reps,
-                "workout_date": log.completed_at.isoformat() if log.completed_at else None,
+                "actual_weight": log.actual_weight,
+                "actual_reps": log.actual_reps,
+                "effort": log.effort,
+                "form_quality": log.form_quality,
+                "completed_at": log.completed_at.isoformat() if log.completed_at else None,
             }
             for log in logs
             if log.actual_weight is not None or log.actual_reps is not None
@@ -3862,9 +3864,17 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
     block_week = block_state.week_number if block_state else 1
     
     # Get session exercises with their set logs
-    from models import ExerciseEntry, SetLog, ExerciseLibrary
+    from models import ExerciseEntry, SetLog, ExerciseLibrary, WorkoutSession
     from progression import model_picker, BLOCK_REP_TARGETS
     from rules import compute_load, SetRecord
+    
+    # Get exercises from session's template
+    
+    # ALSO: fetch last session's set logs for history (Set 1 should use last session's weight)
+    last_session = db.query(WorkoutSession).filter(
+        WorkoutSession.user_id == current_user.id,
+        WorkoutSession.started_at < session.started_at
+    ).order_by(WorkoutSession.started_at.desc()).first()
     
     # Get exercises from session's template
     template_exercises = session.template.exercises if session.template else []
@@ -3887,8 +3897,30 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
             SetLog.exercise_entry_id == exercise_entry.id
         ).all()
         
-        # Build history records
+        # Build history records — include last session's logs + current session's logs
         history = []
+        
+        # Add last session's logs first (older data)
+        if last_session:
+            last_session_logs = db.query(SetLog).filter(
+                SetLog.session_id == last_session.id,
+                SetLog.exercise_entry_id == exercise_entry.id
+            ).all()
+            for log in last_session_logs:
+                if log.completed_at:
+                    from datetime import timezone
+                    completed_at = log.completed_at
+                    if completed_at.tzinfo is None:
+                        completed_at = completed_at.replace(tzinfo=timezone.utc)
+                    history.append(SetRecord(
+                        actual_weight=log.actual_weight or 0.0,
+                        actual_reps=log.actual_reps or 0,
+                        effort=log.effort,
+                        form_quality=log.form_quality,
+                        completed_at=completed_at,
+                    ))
+        
+        # Add current session's logs (more recent data)
         for log in set_logs:
             if log.completed_at:
                 from datetime import timezone
