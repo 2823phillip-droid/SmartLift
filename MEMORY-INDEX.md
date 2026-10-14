@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
 last_updated: 2026-10-14
-status: Mac Studio M5 Max only, master branch HEAD `d67e26a`, clean working tree. Backend deployed to Fly (commit `26e9a6b`, build-info.json timestamp `2026-10-14T15:10:48Z`). Backend healthy at askeo.fit/healthz. iOS bundle synced: `index-D9MNLi7W.js` (874KB, Oct 14 11:35) in frontend/ios/App/App/public/assets/. Exercise library fully classified (1359 exercises, 32 columns), equipment toggle system working (coach progression + equipment categories), frontend filtering verified. Session-targets endpoint: model_picker returns dict — bracket access fix applied. Phase 0 (session-target fix) COMPLETE. Phase 1 (model-agnostic frontend) COMPLETE. Phase 2 (backend model classes) IN PROGRESS.
+status: Mac Studio M5 Max only, master branch HEAD `0f0730b`, clean working tree. Backend deployed to Fly (commit `0f0730b`, build-info.json timestamp `2026-10-14T17:10:24Z`). Backend healthy at askeo.fit/healthz. iOS bundle synced: `index-D9MNLi7W.js` (874KB, Oct 14 11:35) in frontend/ios/App/App/public/assets/. Exercise library fully classified (1359 exercises, 32 columns), equipment toggle system working (coach progression + equipment categories), frontend filtering verified. Session-targets endpoint: model_picker now delegates to 6 model classes. Phase 0 (session-target fix) COMPLETE. Phase 1 (model-agnostic frontend) COMPLETE. Phase 2 (backend model classes) COMPLETE — 6 models built, deployed, syntax verified. Phase 3 (model_picker refactor + session_targets use model prescriptions) NEXT.
 
 This file explains where every type of project knowledge lives and when to use it.
 
@@ -8,7 +8,7 @@ This file explains where every type of project knowledge lives and when to use i
 
 ### Repo
 - **Branch:** master
-- **HEAD:** `d67e26a` — "docs: update TODO.md to reflect Phase 1 done + Phase 2 in progress + new phase ordering"
+- **HEAD:** `0f0730b` — "feat: add 6 model classes (Linear, Foundation, Hypertrophy, StrengthA, StrengthB, Maintenance) with compute() methods"
 - **Remote (GitHub):** clean working tree, all changes pushed. Single Mac Studio M5 Max machine — no second machine to sync with.
 
 ### Frontend
