@@ -1015,7 +1015,7 @@ export default function ActiveWorkoutScreen({
     }
 
     setNotesMap((prev) => ({ ...prev, [currentExercise.id]: "" }));
-    if (!exerciseIsDone && !workoutIsDone) {
+    if (!workoutIsDone) {
       setDraftWeight(String(Math.round(prescription.next_weight * 10) / 10));
       setDraftReps(String(prescription.next_reps));
       // Update the per-exercise prescription so the card shows the latest
