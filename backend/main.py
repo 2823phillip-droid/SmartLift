@@ -3905,8 +3905,8 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
         
         # Get prescription from model_picker
         preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["foundation"])
-        reps_target = exercise.is_compound and preset.get("rep_cap", 8) or preset.get("rep_floor", 8)
-        sets_target = exercise.sets_target or 3
+        reps_target = exercise_entry.is_compound and preset.get("rep_cap", 8) or preset.get("rep_floor", 8)
+        sets_target = exercise_entry.sets_target or 3
         
         prescription = model_picker(
             exercise=exercise,
@@ -3923,7 +3923,7 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
         
         targets.append(SessionTargetResponse(
             exercise_id=exercise_entry.id,
-            exercise_name=exercise.name,
+            exercise_name=exercise_entry.name,
             suggested_weight=prescription.suggested_weight,
             rep_floor=prescription.rep_floor,
             rep_cap=prescription.rep_cap,
