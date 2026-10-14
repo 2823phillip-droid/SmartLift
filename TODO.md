@@ -3,9 +3,9 @@ last_updated: 2026-10-14
 
 ## Current State (as of this update)
 
-- **Git HEAD:** `0f0730b` — "feat: add 6 model classes (Linear, Foundation, Hypertrophy, StrengthA, StrengthB, Maintenance) with compute() methods"
+- **Git HEAD:** `819dd82` — "feat: Phase 3 - session_targets endpoint uses model.compute() coaching_message"
 - **Build:** `index-D9MNLi7W.js` (frontend dist), synced to iOS at `frontend/ios/App/App/public/assets/`
-- **Deploy status:** Backend deployed to Fly (commit `0f0730b`, build-info timestamp `2026-10-14T17:10:24Z`). Health OK.
+- **Deploy status:** Backend deployed to Fly (commit `819dd82`, build-info timestamp `2026-10-14T17:30:19Z`). Health OK.
 - **Session-targets endpoint:** WORKING. Returns 6 exercises with coaching messages. Fixed 7 attribute errors (library_id, sets_target, name, is_compound, prescription dict access).
 - **iOS bundle in app:** `index-D9MNLi7W.js` — synced to iOS, user needs Clean Build Folder to pick up latest.
 - **Backend error logging:** `/app/logs/session_targets_error.log` on server — captures full traceback + session_id + user_id on every 500.
@@ -44,7 +44,7 @@ But the backend doesn't have model classes yet. The `model_picker` function in `
 - [x] Session-targets endpoint returning 0 exercises — FIXED
 - [x] 500 errors (7 attribute errors) — FIXED and verified
 - [x] "This is the coach notes for Foundation." showing — VERIFIED on device
-- [ ] Session targets receive correct coaching messages per model — NEXT
+- [x] Session targets receive correct coaching messages per model — Phase 3 COMPLETE (models return coaching_message; endpoint uses it)
 
 ### Previous bugs (resolved)
 - [x] Session-targets 500 — NameError: WorkoutSessionExercise not defined

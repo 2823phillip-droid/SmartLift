@@ -8,7 +8,7 @@ This file explains where every type of project knowledge lives and when to use i
 
 ### Repo
 - **Branch:** master
-- **HEAD:** `0f0730b` — "feat: add 6 model classes (Linear, Foundation, Hypertrophy, StrengthA, StrengthB, Maintenance) with compute() methods"
+- **HEAD:** `819dd82` — "feat: Phase 3 - session_targets endpoint uses model.compute() coaching_message"
 - **Remote (GitHub):** clean working tree, all changes pushed. Single Mac Studio M5 Max machine — no second machine to sync with.
 
 ### Frontend

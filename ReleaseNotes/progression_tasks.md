@@ -154,237 +154,251 @@ The exercise library feeds directly into the progression engine (`model_picker` 
 
 ---
 
-## PHASE 1: Model-Agnostic Frontend (CURRENT — IN PROGRESS)
+## PHASE 1: Model-Agnostic Frontend (COMPLETE — 2026-10-14)
 
-**Goal:** Frontend renders whatever Model_Picker returns. Zero hardcoded model-specific logic in TypeScript. When any model is manually selected, it renders correctly.
+**Goal:** Frontend renders whatever the model returns. Zero hardcoded model-specific logic in TypeScript.
 
-**Why this is first:** The frontend currently has hardcoded Foundation logic. Before building proper model-specific coaching messages or cross-model weight transitions, the frontend must be a clean consumer of Model_Picker data.
+**Status:** COMPLETE
 
-**Current violations of model-agnostic frontend:**
-- `ActiveWorkoutScreen.tsx:950-957` — hardcoded Foundation coaching messages in `logSet`
-- `ActiveWorkoutScreen.tsx:946` — `if (blockState?.block_mode === "foundation")` check in frontend
-- `main.py:3922` — hardcoded `f"This is the coach notes for {block_name}."` (generic but model-aware)
+**What was done:**
+- Removed hardcoded Foundation override from `logSet` (lines 950-957 in ActiveWorkoutScreen.tsx)
+- Fixed Set 2+ coaching message display — prescriptions now updated when exercise is done (not just when not done)
+- Verified no other `foundation`-specific checks in frontend (only legitimate initial values in QuestionnaireScreen and fallback prescription_type)
 
-**Sub-tasks:**
-
-### 1.1: Remove hardcoded Foundation override in logSet
-- Remove the `if (blockState?.block_mode === "foundation")` block from `ActiveWorkoutScreen.tsx:950-957`
-- Let the coaching message come from `prescription.coaching_message`
-- The prescription's coaching_message should be set by the backend (session-targets for Set 1, per-set computePrescription for Set 2+)
-
-### 1.2: Session-targets returns model-specific coaching messages
-- Currently returns `f"This is the coach notes for {block_name}."` — generic
-- Should return a message reflecting the current model's philosophy:
-  - Foundation: RPE range, no max effort, slow eccentrics, rep targets
-  - Linear: progressive overload, weight increments, rep targets
-  - Hypertrophy: volume, metabolic stress, rep targets
-  - Strength A/B: mechanical tension, rep targets, loading approach
-  - Maintenance: RPE 5, no max effort, structural flushing
-- Message lives in model_picker / model layer, not hardcoded in backend endpoint
-
-### 1.3: Verify all models render correctly when manually selected
-- Manually set `block_mode` to each value (foundation, linear_baseline, hypertrophy, strength_a, strength_b, maintenance)
-- Verify frontend renders correct weight, reps, coaching message for each
-- No hardcoded if/statements in frontend for specific models
-
-**Acceptance criteria:**
-- [ ] Frontend has zero `block_mode === "foundation"` checks (except debugging)
-- [ ] Session-targets returns coaching message reflecting current model
-- [ ] All 6 block modes render correctly when manually selected
-- [ ] "Local fallback" badge still works (source tracking intact)
+**Result:** Frontend is model-agnostic. It uses whatever `prescriptions[exercise.id].coaching_message` contains — whether that comes from the local `computePrescription` (current) or from `model_picker` (future).
 
 ---
 
-## PHASE 2: Set 1 Coaching Message with Last-Session Data (NEXT)
+## PHASE 2: Backend Model Classes (CURRENT — IN PROGRESS)
 
-**Goal:** Set 1 coaching message references last session's actual performance, combined with current model's targets.
+**Goal:** Create actual model classes in `backend/progression.py` — one per block mode. Each model has a `compute()` method that returns a full prescription. Start with simple "This is the X model." coaching messages to prove the architecture works.
 
-**Current state:** Set 1 message is `"This is the coach notes for Foundation."` — generic, no last-session context.
+**Why this is next:** The frontend's `rules.ts` has the real progression logic (`doubleRule`, `linearRule`, etc.) and coaching message generation. The backend `model_picker` only returns 5 raw values. We need the models to exist in the backend before `model_picker` can delegate to them, and before `session_targets` can use model-generated coaching messages.
 
-**User's design (Drawing file):**
-> "Session Target - Last session you did x weight for y reps. This session you will do x and y."
+**Approach (per user):**
+1. Look at how the linear model works in the frontend's `rules.ts` (`linearRule` function) — this is the reference for what a working model looks like
+2. Build a `LinearModel` class in `progression.py` with a `compute()` method
+3. Set coaching message to "This is the Linear model." (simple, just to prove it works)
+4. Copy to Foundation, Hypertrophy, Strength A, Strength B, Maintenance
+5. Verify frontend renders each model correctly by manually selecting each block mode
+6. Then add detailed session target / set target logic per model
+
+**What each model's `compute()` returns:**
+```python
+{
+    "suggested_weight": float,
+    "rep_floor": int,
+    "rep_cap": int,
+    "coaching_message": str,  # e.g. "This is the Foundation model."
+    "block_name": str,         # e.g. "Foundation Block"
+    "should_increase": bool,
+    "increment": int,
+}
+```
+
+**Current `model_picker` returns (for reference):**
+```python
+{
+    "rep_floor": int,
+    "rep_cap": int,
+    "increment": float,
+    "suggested_weight": float,
+    "should_increase": bool,
+}
+```
 
 **Sub-tasks:**
 
-### 2.1: Query last session data in session-targets endpoint
-- For each exercise in current session, find most recent completed session with set logs for this exercise
-- Get latest set log: weight, reps, effort, form_quality
-- Include in Set 1 coaching message
+### 2.1: Read the frontend's linearRule as reference
+- `frontend/src/rules.ts:445-550` — `linearRule` function
+- Shows the full progression logic: weight calculation, hold conditions (form, reps, effort), coaching message generation
+- This is the reference for what a complete model compute() looks like
 
-### 2.2: Build Set 1 coaching message with last-session context
-- Format: "In your last [routine] session, for [exercise], you did [weight] lbs × [reps] reps. This Foundation block, we're starting at [suggested_weight] lbs and shooting for [rep_floor]–[rep_cap] reps with no max effort (RPE 4-6)."
-- No last session data: fall back to model-only message
+### 2.2: Build LinearModel in progression.py
+- Create `LinearModel` class with `compute(exercise, history, block_state, last_session_data=None, previous_set_data=None)` method
+- Implement the linear progression logic from `linearRule`
+- Return full prescription including `coaching_message: "This is the Linear model."`
+- Return `block_name: "Linear Baseline Block"`
 
-### 2.3: Add `coaching_message_set1` to SessionTargetResponse
-- Currently: single `coaching_message` field
-- New: add `coaching_message_set1` for Set 1; keep `coaching_message` for Set 2+
-- Frontend uses `coaching_message_set1` for first set
+### 2.3: Build FoundationModel
+- Create `FoundationModel` class
+- Foundation-specific logic: rep_floor=8, rep_cap=10, RPE 4-6, no max effort, slow eccentrics
+- Start with `coaching_message: "This is the Foundation model."`
+- Return `block_name: "Foundation Block"`
 
-### 2.4: Cross-model weight adjustment on model switch
-- If last session was different model, weight from last session may not suit current model
-- Example: last session Linear (100 lbs × 6-8 reps) → this session Foundation (8-10 reps) → weight should decrease
-- Model_Picker already returns `suggested_weight` — verify it accounts for this
-- If not: add cross-model weight adjustment to Model_Picker based on rep target differences
+### 2.4: Build remaining models (Hypertrophy, Strength A, Strength B, Maintenance)
+- Each model gets its own class with block-specific logic
+- Start with simple coaching messages: "This is the Hypertrophy model.", etc.
+- Return appropriate `block_name` for each
+
+### 2.5: Verify all models render correctly
+- Manually set `block_mode` to each value in the database
+- Verify frontend displays correct weight, reps, and "This is the X model." coaching message for each
+- This proves the frontend correctly calls each model
 
 **Acceptance criteria:**
-- [ ] Set 1 coaching message references last session weight and reps
-- [ ] Set 1 coaching message includes current model's rep targets and philosophy
-- [ ] Cross-model weight adjustment works (different model → weight adjusted)
-- [ ] `coaching_message_set1` field in SessionTargetResponse
-- [ ] Frontend displays `coaching_message_set1` for Set 1, `coaching_message` for Set 2+
+- [ ] LinearModel, FoundationModel, HypertrophyModel, StrengthAModel, StrengthBModel, MaintenanceModel all exist in `progression.py`
+- [ ] Each model has a `compute()` method returning full prescription
+- [ ] Each model returns `coaching_message` and `block_name`
+- [ ] Coaching messages are model-specific ("This is the X model.")
+- [ ] Frontend renders correct weight, reps, and coaching message for each model when manually selected
 
 ---
 
-## PHASE 3: Model-Picker as Single Source of Truth (ARCHITECTURE)
+## PHASE 3: Model_Picker Refactor + Session Targets Use Model Prescription (AFTER Phase 2)
 
-**Goal:** Model_Picker is the single source of truth. Frontend never hardcodes model logic. Model_Picker returns ALL data the frontend needs: weight, reps, coaching message, rep targets, increment rule, block name, etc.
+**Goal:** `model_picker` becomes a thin selector that delegates to the model classes. `session_targets` endpoint uses the model's prescription (not hardcoded message).
 
-**Architecture decision (Drawing file):**
-- Model_Picker is a thin selector/dispatcher. It determines *which* model to use (block_state, load meter, time, workout count, manual) and delegates to that model for ALL data.
-- Each model has a `compute()` method that returns everything: suggested_weight, rep_floor, rep_cap, coaching_message, block_name, increment_rule, should_increase.
-- Frontend renders whatever the model returns — zero model-specific if/statements.
-- Flipping the model = Model_Picker picks a different model = model.compute() returns different data = frontend automatically renders differently.
-- Session-targets passes last-session data into `Model.compute()` so the Set 1 coaching message includes last-session context.
-- Per-set compute flow passes previous set data into `Model.compute()` for Set 2+ coaching messages.
+**Current `model_picker`:** Returns 5 raw values. Has its own inline logic for computing `suggested_weight` and `should_increase`.
 
-**Current state:**
-- `model_picker` in `progression.py` is a single function that does BOTH the picking AND the computing inline.
-- Returns: `suggested_weight`, `rep_floor`, `rep_cap`, `should_increase`.
-- Does NOT return: `coaching_message`, `block_name`.
-- No separate model objects — all logic is inline in `model_picker`.
-- Frontend has hardcoded Foundation logic (violates model-agnostic principle).
+**Target `model_picker`:** Picks which model to use based on `block_mode`, delegates to that model's `compute()`, returns the model's prescription.
 
 **Sub-tasks:**
 
-### 3.1: Extract per-model compute() methods from model_picker
-- Pull the inline logic out of `model_picker` into separate model objects/methods
-- Each model (Foundation, Linear, Hypertrophy, StrengthA, StrengthB, Maintenance) gets its own `compute()` method
-- `compute(exercise, history, block_state, last_session_data=None, previous_set_data=None)` returns:
-  `{suggested_weight, rep_floor, rep_cap, coaching_message, block_name, increment_rule, should_increase}`
-- `coaching_message` is generated by the model, not the endpoint — each model knows its own philosophy
-- `block_name` is returned by the model (e.g., "Foundation Block", "Hypertrophy Block")
+### 3.1: Update model_picker to delegate to models
+- `model_picker(block_mode, exercise, history, ...)` → picks model class by `block_mode` → calls `model.compute()` → returns model's prescription
+- Model_picker no longer computes `suggested_weight` or `should_increase` inline — the models do that
 
-### 3.2: Model_Picker becomes thin selector
-- `Model_Picker(block_state, load_meter, workout_count, manual_override=None)` → selects which model to use
-- Does NOT compute weight/reps — just returns which model to use
-- Currently inline in `model_picker` function — extracted into its own function/method
-- Rotation logic (Phase 5) plugs into this: Model_Picker calls rotation logic to decide which model
+### 3.2: Update session_targets endpoint
+- Currently: calls `model_picker`, then hardcodes `f"This is the coach notes for {block_name}."`
+- New: calls `model_picker`, uses `prescription["coaching_message"]` and `prescription["block_name"]` from the model
+- Endpoint no longer composes its own message
 
-### 3.3: Session-targets uses Model.compute() for Set 1 coaching message
-- Currently: hardcoded `f"This is the coach notes for {block_name}."`
-- New: calls `Model.compute(exercise, history, block_state, last_session_data=last_session)` 
-- Returns full Set 1 coaching message including last-session context
-- For Set 2+: per-set compute flow calls `Model.compute(exercise, history, block_state, previous_set_data=prev_set)` — already exists in frontend, just needs to use model's message
-
-### 3.4: Remove hardcoded Foundation logic from frontend
-- Remove `if (blockState?.block_mode === "foundation")` from ActiveWorkoutScreen.tsx
-- Remove hardcoded Foundation coaching messages from logSet
-- Frontend uses `prescription.coaching_message`, `prescription.block_name`, `prescription.suggested_weight` — all from model.compute()
-- No model-specific if/statements anywhere in frontend
-
-### 3.5: Cross-model weight transition in model.compute()
-- When block_mode changes between sessions, model.compute() adjusts weight based on new model's rep targets
-- Foundation model: if last session was Linear (heavy, low reps) → reduce weight to fit 8-10 rep range
-- Hypertrophy model: if last session was Foundation (lighter, higher reps) → may increase weight
-- Logic lives in each model's compute() method, not in model_picker
+### 3.3: Remove hardcoded coaching message from endpoint
+- The endpoint's `block_name_map` and `f"This is the coach notes for {block_name}."` logic is removed
+- All model-specific content comes from the models
 
 **Acceptance criteria:**
-- [ ] Model_Picker is a thin selector — picks model, does not compute
-- [ ] Each model has a `compute()` method returning `coaching_message`, `block_name`, plus all existing fields
-- [ ] Session-targets uses `Model.compute(last_session_data=...)` for Set 1 message
-- [ ] Per-set compute uses `Model.compute(previous_set_data=...)` for Set 2+ message
-- [ ] Zero hardcoded model logic in frontend
+- [ ] model_picker delegates to model classes
+- [ ] session_targets uses model's coaching_message and block_name
+- [ ] No hardcoded coaching messages in the endpoint
+
+---
+
+## PHASE 4: Frontend Uses model_picker's Prescription (AFTER Phase 3)
+
+**Goal:** Frontend stops computing prescriptions locally. Uses `model_picker`'s prescription for both session targets and per-set coaching messages.
+
+**Current frontend flow:**
+1. Fetch session targets → apply `coaching_message` to `prescriptions` state
+2. On set log: call local `computePrescription` (from `rules.ts`) → update `prescriptions` state with local coaching message
+3. Display `prescriptions[exercise.id].coaching_message` in card
+
+**Target frontend flow:**
+1. Fetch session targets → apply `coaching_message` from backend (already works)
+2. On set log: call backend `model_picker` (or use the prescription from session targets update) → update `prescriptions` state with model's coaching message
+3. Display `prescriptions[exercise.id].coaching_message` in card (already works — same UI)
+
+**Sub-tasks:**
+
+### 4.1: Replace local computePrescription with model_picker call
+- Currently: `logSet` calls local `computePrescription` with `progression_type: "double"`
+- New: `logSet` calls backend `model_picker` (or a new endpoint) to get the prescription
+- The prescription includes `coaching_message` from the model
+
+### 4.2: Remove local progression logic from frontend (long-term)
+- `rules.ts` progression logic (doubleRule, linearRule, etc.) becomes unused
+- Frontend only renders what the backend models return
+
+**Acceptance criteria:**
+- [ ] Frontend uses model_picker's prescription for per-set coaching messages
+- [ ] Coaching messages are model-specific (not generic doubleRule messages)
+- [ ] No hardcoded model logic in frontend
+
+---
+
+## PHASE 5: Detailed Per-Model Logic (AFTER Phase 4)
+
+**Goal:** Each model has its own detailed session target and set target logic. Coaching messages reflect the model's philosophy.
+
+**Current state:** Models return "This is the X model." (placeholder)
+
+**What gets added per model:**
+
+### Foundation Model
+- Set 1: "In your last [routine] session, for [exercise], you did [weight] lbs × [reps] reps. This Foundation block, we're starting at [suggested_weight] lbs and shooting for 8-10 reps with no max effort (RPE 4-6). Focus on slow eccentrics (3-second lowering phase)."
+- Set 2+: "You hit [reps] reps with [effort} effort. [Hold/Increase] weight. Remember: no max effort — stay at RPE 4-6. Focus on core bracing and slow eccentrics."
+
+### Linear Model
+- Set 1: "In your last [routine] session, for [exercise], you did [weight] lbs × [reps] reps. This Linear Baseline block, we're starting at [suggested_weight] lbs and shooting for 8-10 reps. Let the reps slide down naturally as weight increases."
+- Set 2+: "You hit [reps] reps. [Hold/Increase] weight. Linear progression: add weight each session, let reps find their level."
+
+### Hypertrophy Model
+- Set 1: "In your last [routine] session, for [exercise], you did [weight] lbs × [reps] reps. This Hypertrophy block, we're starting at [suggested_weight] lbs and shooting for 10-12 reps. Volume focus — hit the top of the range before adding weight."
+- Set 2+: "You hit [reps] reps. [Hold/Increase] weight. Hypertrophy: volume is the goal. Hit 12 reps before increasing."
+
+### Strength A/B, Maintenance Models
+- Similar model-specific messages
+
+**Acceptance criteria:**
+- [ ] Each model generates detailed coaching messages reflecting its philosophy
+- [ ] Set 1 messages include last-session data
+- [ ] Set 2+ messages reference the previous set's performance
 - [ ] Cross-model weight transitions work (different model → weight adjusted)
-- [ ] All 6 models render correctly when manually selected
 
 ---
 
-## PHASE 4: Onboarding Wizard + Block State
+## PHASE 6: Onboarding Wizard + Block State (NOT STARTED)
 
-**Goal:** Capture user state so the progression engine knows which "lane" to drive. (From TODO.md Phase 3.)
+**Goal:** Capture user state so the progression engine knows which "lane" to drive.
 
-**Status:** NOT STARTED
-
-**Sub-tasks:**
-- 4.1: Onboarding wizard (Goals, Experience Level, Physical Metrics, Equipment Access, Injury)
-- 4.2: User profile schema (block_state, goals, experience level, equipment)
-- 4.3: Link questionnaire → block state (beginner → Foundation block)
-- 4.4: Block advancement logic (week threshold + Load Meter)
-- 4.5: User profile schema update
+- Onboarding wizard (Goals, Experience Level, Physical Metrics, Equipment Access, Injury)
+- User profile schema (block_state, goals, experience level, equipment)
+- Link questionnaire → block state (beginner → Foundation block)
+- Block advancement logic (week threshold + Load Meter)
 
 ---
 
-## PHASE 5: Block State + Model Rotation Logic
+## PHASE 7: Block State + Model Rotation Logic (NOT STARTED)
 
-**Goal:** Block state tracks current block. Model_Picker rotates between models based on rotation logic. (From TODO.md Phase 3.4 + Drawing file.)
+**Goal:** Block state tracks current block. Model_Picker rotates between models based on rotation logic.
 
-**Status:** NOT STARTED (depends on Phase 4 block_state being in place)
-
-**Rotation triggers (Drawing file):**
-- Load Meter
-- Time (week threshold)
-- Number of Completed workouts
-- Manual change by user
-
-**Block cycle (TODO.md / progression_tasks.md):**
-1. Foundation Block (6 weeks) — Total Beginners only
-2. Linear Baseline Block (2-3 weeks) — Total Beginners only, one shot
-3. Hypertrophy Block (6 weeks) — DP, 10-12 reps
-4. Strength Block — Phase A (2 weeks) — DP, 8-10 reps
-5. Strength Block — Phase B (2 weeks) — DP, 6-8 reps
-6. Deload / Maintenance (1-2 weeks) — RPE 5, -20% load
-→ Loop back to Hypertrophy
+- Rotation triggers: Load Meter, Time, Number of Completed workouts, Manual change
+- Block cycle: Foundation → Linear Baseline → Hypertrophy → Strength A → Strength B → Maintenance → loop
+- Model_Picker uses rotation logic to decide which model to use
+- Block state persisted in database
 
 ---
 
-## PHASE 6: Coach Engine Polish
+## PHASE 8: Coach Engine Polish (NOT STARTED)
 
-**Goal:** Active Coach Logic Layer — intelligent coaching that understands progression models and reinforces habits. (From TODO.md Phase 7.)
+**Goal:** Active Coach Logic Layer — intelligent coaching that understands progression models.
 
-**Status:** NOT STARTED
-
-**Sub-tasks:**
-- 6.1: Coach messages for block switches, progression changes
-- 6.2: Handle mid-block goal changes
-- 6.3: Injury/limitation adjustments
-- 6.4: Rest timer integration by block
-- 6.5: Foundational health integration (sleep, nutrition, mobility)
+- Coach messages for block switches, progression changes
+- Mid-block goal changes
+- Injury/limitation adjustments
+- Rest timer integration by block
+- Foundational health integration (sleep, nutrition, mobility)
 
 ---
 
-## PHASE 7: Data Sync & Deployment
+## PHASE 9: Data Sync & Deployment (NOT STARTED)
 
-**Goal:** Get all schema changes, logic updates, and UI releases out to production. (From TODO.md Phase 6.)
+**Goal:** Get all schema changes, logic updates, and UI releases to production.
 
-**Status:** NOT STARTED (session-targets deploy was a preview)
-
-**Sub-tasks:**
-- 7.1: Run migrations on production Postgres
-- 7.2: Deploy progression endpoints
-- 7.3: Frontend type updates
-- 7.4: End-to-end testing
+- Migrations on production Postgres
+- Deploy progression endpoints
+- Frontend type updates
+- End-to-end testing
 
 ---
 
 ## Current Focus
 
-**Right now (Phase 1 — Model-Agnostic Frontend):**
-Session-targets endpoint works. Frontend displays "This is the coach notes for Foundation." — verified on device. Next step: make frontend fully model-agnostic (remove hardcoded Foundation logic) and have session-targets return a proper model-specific coaching message.
+**Right now (Phase 2 — Backend Model Classes):**
+Session-targets endpoint works and returns "This is the coach notes for Foundation." Phase 1 made the frontend model-agnostic. Now we build the actual model classes in the backend — starting with Linear (reference from frontend's `linearRule`), then Foundation, then the rest. Each model starts with a simple "This is the X model." coaching message. Once all models exist and render correctly in the frontend, we update `model_picker` to delegate to them, then the `session_targets` endpoint to use model prescriptions, then the frontend to use `model_picker` for per-set messages.
 
-**Sequence:**
-1. Phase 1: Remove hardcoded model logic from frontend + session-targets returns model-specific message
-2. Phase 2: Set 1 coaching message with last-session data + cross-model weight adjustment
-3. Phase 3: Model_Picker as single source of truth + coaching messages per model
-4. Phase 4+: Onboarding, block state, model rotation, coach polish (larger efforts)
-
-**Already documented in this file (existing detailed content):**
-- Phase 2 (Library Cleanup / Exercise Classification) — COMPLETE
-- Phase 2.5 (Foundation Block / Structural Integrity) — PARTIAL (DB data ready, frontend not built)
-- Phase 3 (Onboarding + Block State) — NOT STARTED
-- Phase 4 (Model Picker Engine) — model_picker function EXISTS but doesn't return coaching_message or handle cross-model transitions
-- Phase 5 (Frontend UI) — PARTIAL (block pill, rep targets, progression indicator done; coaching messages in progress)
-- Phase 6 (Deployment) — NOT STARTED
-- Phase 7 (Coach Engine) — NOT STARTED
+**Phase summary:**
+1. Phase 0: DONE — session-targets endpoint fixed
+2. Phase 1: DONE — frontend made model-agnostic
+3. Phase 2: DONE — backend model classes built (Linear, Foundation, Hypertrophy, Strength A/B, Maintenance) with compute() methods
+4. Phase 3: DONE — model_picker refactor + session_targets uses model prescriptions (endpoint uses prescription["coaching_message"])
+5. Phase 4: NEXT — frontend uses model_picker's prescription for per-set messages
+6. Phase 5: AFTER PHASE 4 — detailed per-model coaching logic
+7. Phase 6: NOT STARTED — onboarding + block state
+8. Phase 7: NOT STARTED — block state + model rotation
+9. Phase 8: NOT STARTED — coach polish
+10. Phase 9: NOT STARTED — deployment
 
 
 
