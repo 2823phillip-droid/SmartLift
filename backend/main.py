@@ -3876,7 +3876,8 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
     # ALSO: fetch last session's set logs for history (Set 1 should use last session's weight)
     last_session = db.query(WorkoutSession).filter(
         WorkoutSession.user_id == current_user.id,
-        WorkoutSession.started_at < session.started_at
+        WorkoutSession.started_at < session.started_at,
+        WorkoutSession.ended_at.isnot(None)
     ).order_by(WorkoutSession.started_at.desc()).first()
     
     # Get exercises from session's template
