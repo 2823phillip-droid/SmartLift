@@ -3850,6 +3850,7 @@ def get_session_targets(payload: SessionTargetRequest, db: Session = Depends(get
 def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user: User) -> list[SessionTargetResponse]:
     """Inner implementation of get_session_targets — extracted for try/except wrapping."""
     # Get session
+    from models import WorkoutSession
     session = db.query(WorkoutSession).filter(
         WorkoutSession.id == payload.session_id,
         WorkoutSession.user_id == current_user.id
@@ -3866,7 +3867,7 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
     block_week = block_state.week_number if block_state else 1
     
     # Get session exercises with their set logs
-    from models import ExerciseEntry, SetLog, ExerciseLibrary, WorkoutSession
+    from models import ExerciseEntry, SetLog, ExerciseLibrary
     from progression import model_picker, BLOCK_REP_TARGETS
     from rules import compute_load, SetRecord
     
