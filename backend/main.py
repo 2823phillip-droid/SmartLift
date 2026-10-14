@@ -3916,36 +3916,15 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
             reps_target=reps_target,
             increment=preset.get("increment", 5),
         )
-        # TEMP LOG: confirm model_picker delegation
-        print(f"[SESSION_TARGETS] prescription for exercise {exercise_entry.id}: "
-              f"cm={prescription.get('coaching_message')}, "
-              f"bn={prescription.get('block_name')}, "
-              f"sw={prescription.get('suggested_weight')}, "
-              f"rf={prescription.get('rep_floor')}, "
-              f"rc={prescription.get('rep_cap')}, "
-              f"si={prescription.get('should_increase')}, "
-              f"pt={prescription.get('prescription_type')}", flush=True)
-        import sys
-        print(f"[SESSION_TARGETS] prescription for exercise {exercise_entry.id}: "
-              f"cm={prescription.get('coaching_message')}, "
-              f"bn={prescription.get('block_name')}, "
-              f"sw={prescription.get('suggested_weight')}, "
-              f"rf={prescription.get('rep_floor')}, "
-              f"rc={prescription.get('rep_cap')}, "
-              f"si={prescription.get('should_increase')}, "
-              f"pt={prescription.get('prescription_type')}", file=sys.stderr, flush=True)
-        
-        # Generate coaching message based on block mode
-        block_name = block_mode.replace("_", " ").title() if block_mode else "Foundation"
-        coaching_message = f"This is the coach notes for {block_name}."
-        
+        # Phase 3: endpoint uses model.compute() coaching_message
+        # (model_picker delegates to model, model returns coaching_message)
         targets.append(SessionTargetResponse(
             exercise_id=exercise_entry.id,
             exercise_name=exercise_entry.name,
             suggested_weight=prescription["suggested_weight"],
             rep_floor=prescription["rep_floor"],
             rep_cap=prescription["rep_cap"],
-            coaching_message=coaching_message,
+            coaching_message=prescription["coaching_message"],
             block_mode=block_mode,
         ))
     
