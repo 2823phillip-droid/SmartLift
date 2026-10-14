@@ -3909,6 +3909,7 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
             ExerciseEntry.exercise_library_id == exercise.id
         ).all()
         entry_id_values = [e[0] for e in entry_ids] if entry_ids else []
+        last_session_logs = []  # Initialize for debug logging
         
         # Add last session's logs first (older data)
         # Query by exercise_entry_id IN (all entry ids for this exercise) to find logs
@@ -3946,6 +3947,11 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
                     form_quality=log.form_quality,
                     completed_at=completed_at,
                 ))
+        
+        # DEBUG: Log what we're passing to model_picker
+        print(f"[SESSION_TARGETS DEBUG] exercise_id={exercise.id}, name={exercise.name}, last_session_id={last_session.id if last_session else None}, entry_id_values={entry_id_values}, last_session_logs_count={len(last_session_logs) if last_session else 0}, current_session_logs_count={len(set_logs)}, history_count={len(history)}")
+        if history:
+            print(f"[SESSION_TARGETS DEBUG] history[0]={history[0]}, history[-1]={history[-1]}, type={type(history[0])}")
         
         # Get prescription from model_picker
         preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["foundation"])
