@@ -2455,6 +2455,805 @@ def get_block_targets(block_mode: str) -> dict:
     return BLOCK_REP_TARGETS.get(block_mode, {"rep_floor": 8, "rep_cap": 10, "increment": 5})
 
 
+# ---------------------------------------------------------------------------
+# Model classes — one per block mode
+# Each model has a compute() method that returns a full prescription.
+# The frontend's rules.ts (linearRule, doubleRule) is the reference for the
+# progression logic. These models replace that logic in the backend.
+# ---------------------------------------------------------------------------
+
+def _effective_increment(base: float, ai_sensitivity: float | None = None) -> float:
+    """Apply AI progression sensitivity to base increment. Matches frontend effectiveIncrement."""
+    if ai_sensitivity is None:
+        return base
+    return round(base * ai_sensitivity, 1)
+
+
+def _build_prescription(
+    next_weight: float,
+    next_reps: int,
+    next_sets: int,
+    rest_seconds: int,
+    coaching_message: str,
+    workload_status: str,
+    prescription_type: str,
+    is_deload: bool,
+    exercise_name: str = "",
+    routine_name: str = "",
+    is_set_target: bool = False,
+) -> dict:
+    """Build a prescription dict. Matches frontend buildPrescription."""
+    min_weight = 5
+    rounded = round(next_weight / 5) * 5
+    return {
+        "next_weight": max(min_weight, rounded),
+        "next_reps": next_reps,
+        "next_sets": next_sets,
+        "rest_seconds": rest_seconds,
+        "coaching_message": coaching_message,
+        "workload_status": workload_status,
+        "prescription_type": prescription_type,
+        "is_deload": is_deload,
+        "exercise_name": exercise_name,
+        "routine_name": routine_name,
+        "is_set_target": is_set_target,
+    }
+
+
+def _get_top_set(history: list) -> dict | None:
+    """Get the most recent set from history. Returns None if history is empty."""
+    if not history:
+        return None
+    # history items are SetRecord dicts with actual_weight, actual_reps, effort, form_quality
+    return history[-1]
+
+
+def _get_block_name(block_mode: str) -> str:
+    """Get a human-readable block name for a block mode."""
+    return {
+        "foundation": "Foundation Block",
+        "linear_baseline": "Linear Baseline Block",
+        "hypertrophy": "Hypertrophy Block",
+        "strength_a": "Strength Block — Phase A",
+        "strength_b": "Strength Block — Phase B",
+        "maintenance": "Maintenance / Deload Block",
+    }.get(block_mode, f"{block_mode.replace('_', ' ').title()} Block")
+
+
+class LinearModel:
+    """
+    Linear progression model. Reference: frontend rules.ts linearRule (lines 445-551).
+    
+    Linear progression: add weight each session, let reps find their level.
+    Rep targets slide naturally from 8-10 down to 6-8 as weight increases.
+    When reps stall at 6-8, the block ends and auto-switches to Double Progression.
+    """
+    
+    def compute(
+        self,
+        exercise: dict,
+        history: list,
+        block_state: dict | None = None,
+        *,
+        block_mode: str = "linear_baseline",
+        week_number: int = 1,
+        reps_target: int | None = None,
+        increment: int | None = None,
+        context: dict | None = None,
+    ) -> dict:
+        """
+        Compute the prescription for a linear progression exercise.
+        
+        Args:
+            exercise: Exercise data dict with id, name, is_compound attributes
+            history: List of past set logs (dicts with actual_weight, actual_reps, effort, form_quality)
+            block_state: Block state dict (optional)
+            block_mode: Current block mode
+            week_number: Current week number
+            reps_target: Target reps for this exercise
+            increment: Weight increment in lbs
+            context: Optional context dict with:
+                - is_set_target: bool — True when computing for Set 2+ (has seed set)
+                - last_session_data: dict — last session's set log data (for Set 1 message)
+                - previous_set_data: dict — previous set's data (for Set 2+ message)
+        
+        Returns:
+            {
+                suggested_weight: float,
+                rep_floor: int,
+                rep_cap: int,
+                increment: float,
+                coaching_message: str,
+                block_name: str,
+                should_increase: bool,
+                next_weight: float,
+                next_reps: int,
+                next_sets: int,
+                rest_seconds: int,
+                workload_status: str,
+                prescription_type: str,
+                is_deload: bool,
+            }
+        """
+        preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["linear_baseline"])
+        rep_floor = preset.get("rep_floor", 8)
+        rep_cap = preset.get("rep_cap", 10)
+        base_increment = preset.get("increment", 5)
+        inc = _effective_increment(increment if increment is not None else base_increment)
+        
+        top_set = _get_top_set(history)
+        is_set_target = context.get("is_set_target", False) if context else False
+        exercise_name = exercise.get("name", "this exercise") if isinstance(exercise, dict) else getattr(exercise, "name", "this exercise")
+        routine_name = exercise.get("routine_name", None) if isinstance(exercise, dict) else getattr(exercise, "routine_name", None)
+        
+        if not top_set:
+            # No history — first set
+            coaching_message = "This is the Linear model."
+            return {
+                "suggested_weight": 0.0,
+                "rep_floor": rep_floor,
+                "rep_cap": rep_cap,
+                "increment": inc,
+                "coaching_message": coaching_message,
+                "block_name": _get_block_name(block_mode),
+                "should_increase": False,
+                "next_weight": 0.0,
+                "next_reps": reps_target or 6,
+                "next_sets": 3,
+                "rest_seconds": 90,
+                "workload_status": "moderate",
+                "prescription_type": "linear",
+                "is_deload": False,
+            }
+        
+        # Has history — apply linear progression logic
+        weight = top_set.get("actual_weight", 0) or 0.0
+        reps = top_set.get("actual_reps", 0) or 0
+        effort = top_set.get("effort", None)
+        form_quality = top_set.get("form_quality", None)
+        
+        reps_target_val = reps_target if reps_target is not None else 6
+        rep_floor_local = 6 if reps_target_val <= 6 else 8
+        held_weight = round(weight)
+        
+        held = False
+        status = "moderate"
+        next_weight = weight
+        next_reps = reps_target_val
+        
+        # Gate 1: form broke -> hold (hard)
+        if form_quality is not None and form_quality >= 2:
+            held = True
+            status = "hard"
+            next_weight = weight
+            next_reps = reps
+        # Gate 2: form struggled -> hold (moderate)
+        elif form_quality is not None and form_quality == 1:
+            held = True
+            next_weight = weight
+            next_reps = reps
+        # Gate 3 (set 2+ only): reps below rep floor -> hold (hard)
+        elif is_set_target and reps < rep_floor_local:
+            held = True
+            status = "hard"
+            next_weight = weight
+            next_reps = reps
+        # Gate 4: high effort (9-10)
+        elif effort is not None and effort >= 9:
+            if reps <= rep_floor_local + 1:
+                held = True
+                next_weight = weight
+                next_reps = reps
+            else:
+                next_weight = weight + inc
+                next_reps = reps_target_val
+        # Gate 5: easy effort (1-3) -> increase
+        elif effort is not None and effort <= 3:
+            status = "easy"
+            next_weight = weight + inc
+            next_reps = reps_target_val
+        # Gate 6: default -> increase (moderate)
+        else:
+            next_weight = weight + inc
+            next_reps = reps_target_val
+        
+        should_increase = next_weight > weight
+        coaching_message = "This is the Linear model."
+        
+        return {
+            "suggested_weight": round(next_weight, 1),
+            "rep_floor": rep_floor,
+            "rep_cap": rep_cap,
+            "increment": inc,
+            "coaching_message": coaching_message,
+            "block_name": _get_block_name(block_mode),
+            "should_increase": should_increase,
+            "next_weight": round(next_weight, 1),
+            "next_reps": next_reps,
+            "next_sets": 3,
+            "rest_seconds": 90,
+            "workload_status": status,
+            "prescription_type": "linear",
+            "is_deload": False,
+        }
+
+
+class FoundationModel:
+    """
+    Foundation block model. Focus on form, slow eccentrics, no max effort.
+    Rep targets: 8-10 reps. RPE 4-6. Connective tissue and motor learning focus.
+    
+    Heavy compounds replaced or modified to safer variants.
+    Weight only added when hitting ceiling of 10 reps consistently.
+    """
+    
+    def compute(
+        self,
+        exercise: dict,
+        history: list,
+        block_state: dict | None = None,
+        *,
+        block_mode: str = "foundation",
+        week_number: int = 1,
+        reps_target: int | None = None,
+        increment: int | None = None,
+        context: dict | None = None,
+    ) -> dict:
+        """
+        Compute the prescription for a Foundation block exercise.
+        
+        Returns full prescription with Foundation-specific coaching message.
+        """
+        preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["foundation"])
+        rep_floor = preset.get("rep_floor", 8)
+        rep_cap = preset.get("rep_cap", 10)
+        base_increment = preset.get("increment", 5)
+        inc = _effective_increment(increment if increment is not None else base_increment)
+        
+        top_set = _get_top_set(history)
+        is_set_target = context.get("is_set_target", False) if context else False
+        exercise_name = exercise.get("name", "this exercise") if isinstance(exercise, dict) else getattr(exercise, "name", "this exercise")
+        
+        if not top_set:
+            coaching_message = "This is the Foundation model."
+            return {
+                "suggested_weight": 0.0,
+                "rep_floor": rep_floor,
+                "rep_cap": rep_cap,
+                "increment": inc,
+                "coaching_message": coaching_message,
+                "block_name": _get_block_name(block_mode),
+                "should_increase": False,
+                "next_weight": 0.0,
+                "next_reps": reps_target or 8,
+                "next_sets": 3,
+                "rest_seconds": 90,
+                "workload_status": "moderate",
+                "prescription_type": "foundation",
+                "is_deload": False,
+            }
+        
+        weight = top_set.get("actual_weight", 0) or 0.0
+        reps = top_set.get("actual_reps", 0) or 0
+        effort = top_set.get("effort", None)
+        form_quality = top_set.get("form_quality", None)
+        
+        reps_target_val = reps_target if reps_target is not None else 8
+        held_weight = round(weight)
+        
+        held = False
+        status = "moderate"
+        next_weight = weight
+        next_reps = reps_target_val
+        
+        # Foundation-specific gates:
+        # - No max effort (effort >= 9 is a concern in Foundation)
+        # - Form quality gates (same as linear)
+        # - Rep cap (10) hit consistently -> can consider adding weight
+        
+        if form_quality is not None and form_quality >= 2:
+            held = True
+            status = "hard"
+            next_weight = weight
+            next_reps = reps
+        elif form_quality is not None and form_quality == 1:
+            held = True
+            next_weight = weight
+            next_reps = reps
+        elif is_set_target and reps < rep_floor:
+            held = True
+            status = "hard"
+            next_weight = weight
+            next_reps = reps
+        elif effort is not None and effort >= 9:
+            # Foundation: no max effort — hold and remind user
+            held = True
+            status = "hard"
+            next_weight = weight
+            next_reps = reps
+        elif effort is not None and effort <= 3:
+            # Easy effort — can increase, but conservatively in Foundation
+            if reps >= rep_cap:
+                next_weight = weight + inc
+                next_reps = reps_target_val
+            else:
+                next_weight = weight
+                next_reps = reps_target_val
+        else:
+            # Default — moderate effort
+            if reps >= rep_cap:
+                next_weight = weight + inc
+                next_reps = reps_target_val
+            else:
+                next_weight = weight
+                next_reps = reps_target_val
+        
+        should_increase = next_weight > weight
+        coaching_message = "This is the Foundation model."
+        
+        return {
+            "suggested_weight": round(next_weight, 1),
+            "rep_floor": rep_floor,
+            "rep_cap": rep_cap,
+            "increment": inc,
+            "coaching_message": coaching_message,
+            "block_name": _get_block_name(block_mode),
+            "should_increase": should_increase,
+            "next_weight": round(next_weight, 1),
+            "next_reps": next_reps,
+            "next_sets": 3,
+            "rest_seconds": 90,
+            "workload_status": status,
+            "prescription_type": "foundation",
+            "is_deload": False,
+        }
+
+
+class HypertrophyModel:
+    """
+    Hypertrophy block model. Volume focus — hit the top of the rep range before adding weight.
+    Rep targets: 10-12 reps. Increment: 3 lbs. Metabolic stress and capillary density focus.
+    """
+    
+    def compute(
+        self,
+        exercise: dict,
+        history: list,
+        block_state: dict | None = None,
+        *,
+        block_mode: str = "hypertrophy",
+        week_number: int = 1,
+        reps_target: int | None = None,
+        increment: int | None = None,
+        context: dict | None = None,
+    ) -> dict:
+        """
+        Compute the prescription for a Hypertrophy block exercise.
+        
+        Returns full prescription with Hypertrophy-specific coaching message.
+        """
+        preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["hypertrophy"])
+        rep_floor = preset.get("rep_floor", 10)
+        rep_cap = preset.get("rep_cap", 12)
+        base_increment = preset.get("increment", 3)
+        inc = _effective_increment(increment if increment is not None else base_increment)
+        
+        top_set = _get_top_set(history)
+        is_set_target = context.get("is_set_target", False) if context else False
+        exercise_name = exercise.get("name", "this exercise") if isinstance(exercise, dict) else getattr(exercise, "name", "this exercise")
+        
+        if not top_set:
+            coaching_message = "This is the Hypertrophy model."
+            return {
+                "suggested_weight": 0.0,
+                "rep_floor": rep_floor,
+                "rep_cap": rep_cap,
+                "increment": inc,
+                "coaching_message": coaching_message,
+                "block_name": _get_block_name(block_mode),
+                "should_increase": False,
+                "next_weight": 0.0,
+                "next_reps": reps_target or 10,
+                "next_sets": 3,
+                "rest_seconds": 90,
+                "workload_status": "moderate",
+                "prescription_type": "hypertrophy",
+                "is_deload": False,
+            }
+        
+        weight = top_set.get("actual_weight", 0) or 0.0
+        reps = top_set.get("actual_reps", 0) or 0
+        effort = top_set.get("effort", None)
+        form_quality = top_set.get("form_quality", None)
+        
+        reps_target_val = reps_target if reps_target is not None else 10
+        held_weight = round(weight)
+        
+        held = False
+        status = "moderate"
+        next_weight = weight
+        next_reps = reps_target_val
+        
+        if form_quality is not None and form_quality >= 2:
+            held = True
+            status = "hard"
+            next_weight = weight
+            next_reps = reps
+        elif form_quality is not None and form_quality == 1:
+            held = True
+            next_weight = weight
+            next_reps = reps
+        elif is_set_target and reps < rep_floor:
+            held = True
+            status = "hard"
+            next_weight = weight
+            next_reps = reps
+        elif effort is not None and effort >= 9:
+            held = True
+            status = "hard"
+            next_weight = weight
+            next_reps = reps
+        elif effort is not None and effort <= 3:
+            status = "easy"
+            if reps >= rep_cap:
+                next_weight = weight + inc
+                next_reps = reps_target_val
+            else:
+                next_weight = weight
+                next_reps = reps_target_val
+        else:
+            if reps >= rep_cap:
+                next_weight = weight + inc
+                next_reps = reps_target_val
+            else:
+                next_weight = weight
+                next_reps = reps_target_val
+        
+        should_increase = next_weight > weight
+        coaching_message = "This is the Hypertrophy model."
+        
+        return {
+            "suggested_weight": round(next_weight, 1),
+            "rep_floor": rep_floor,
+            "rep_cap": rep_cap,
+            "increment": inc,
+            "coaching_message": coaching_message,
+            "block_name": _get_block_name(block_mode),
+            "should_increase": should_increase,
+            "next_weight": round(next_weight, 1),
+            "next_reps": next_reps,
+            "next_sets": 3,
+            "rest_seconds": 90,
+            "workload_status": status,
+            "prescription_type": "hypertrophy",
+            "is_deload": False,
+        }
+
+
+class StrengthAModel:
+    """
+    Strength Block — Phase A (weeks 1-2). Mechanical tension focus.
+    Rep targets: 8-10 reps. Increment: 5 lbs. Heavier starting point than Hypertrophy.
+    """
+    
+    def compute(
+        self,
+        exercise: dict,
+        history: list,
+        block_state: dict | None = None,
+        *,
+        block_mode: str = "strength_a",
+        week_number: int = 1,
+        reps_target: int | None = None,
+        increment: int | None = None,
+        context: dict | None = None,
+    ) -> dict:
+        """
+        Compute the prescription for a Strength Phase A exercise.
+        
+        Returns full prescription with Strength A-specific coaching message.
+        """
+        preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["strength_a"])
+        rep_floor = preset.get("rep_floor", 8)
+        rep_cap = preset.get("rep_cap", 10)
+        base_increment = preset.get("increment", 5)
+        inc = _effective_increment(increment if increment is not None else base_increment)
+        
+        top_set = _get_top_set(history)
+        is_set_target = context.get("is_set_target", False) if context else False
+        exercise_name = exercise.get("name", "this exercise") if isinstance(exercise, dict) else getattr(exercise, "name", "this exercise")
+        
+        if not top_set:
+            coaching_message = "This is the Strength A model."
+            return {
+                "suggested_weight": 0.0,
+                "rep_floor": rep_floor,
+                "rep_cap": rep_cap,
+                "increment": inc,
+                "coaching_message": coaching_message,
+                "block_name": _get_block_name(block_mode),
+                "should_increase": False,
+                "next_weight": 0.0,
+                "next_reps": reps_target or 8,
+                "next_sets": 3,
+                "rest_seconds": 90,
+                "workload_status": "moderate",
+                "prescription_type": "strength_a",
+                "is_deload": False,
+            }
+        
+        weight = top_set.get("actual_weight", 0) or 0.0
+        reps = top_set.get("actual_reps", 0) or 0
+        effort = top_set.get("effort", None)
+        form_quality = top_set.get("form_quality", None)
+        
+        reps_target_val = reps_target if reps_target is not None else 8
+        held_weight = round(weight)
+        
+        held = False
+        status = "moderate"
+        next_weight = weight
+        next_reps = reps_target_val
+        
+        if form_quality is not None and form_quality >= 2:
+            held = True
+            status = "hard"
+            next_weight = weight
+            next_reps = reps
+        elif form_quality is not None and form_quality == 1:
+            held = True
+            next_weight = weight
+            next_reps = reps
+        elif is_set_target and reps < rep_floor:
+            held = True
+            status = "hard"
+            next_weight = weight
+            next_reps = reps
+        elif effort is not None and effort >= 9:
+            if reps <= rep_floor + 1:
+                held = True
+                next_weight = weight
+                next_reps = reps
+            else:
+                next_weight = weight + inc
+                next_reps = reps_target_val
+        elif effort is not None and effort <= 3:
+            status = "easy"
+            next_weight = weight + inc
+            next_reps = reps_target_val
+        else:
+            next_weight = weight + inc
+            next_reps = reps_target_val
+        
+        should_increase = next_weight > weight
+        coaching_message = "This is the Strength A model."
+        
+        return {
+            "suggested_weight": round(next_weight, 1),
+            "rep_floor": rep_floor,
+            "rep_cap": rep_cap,
+            "increment": inc,
+            "coaching_message": coaching_message,
+            "block_name": _get_block_name(block_mode),
+            "should_increase": should_increase,
+            "next_weight": round(next_weight, 1),
+            "next_reps": next_reps,
+            "next_sets": 3,
+            "rest_seconds": 90,
+            "workload_status": status,
+            "prescription_type": "strength_a",
+            "is_deload": False,
+        }
+
+
+class StrengthBModel:
+    """
+    Strength Block — Phase B (weeks 3-4). Heavier loads. CNS catching up.
+    Rep targets: 6-8 reps. Increment: 5 lbs.
+    """
+    
+    def compute(
+        self,
+        exercise: dict,
+        history: list,
+        block_state: dict | None = None,
+        *,
+        block_mode: str = "strength_b",
+        week_number: int = 1,
+        reps_target: int | None = None,
+        increment: int | None = None,
+        context: dict | None = None,
+    ) -> dict:
+        """
+        Compute the prescription for a Strength Phase B exercise.
+        
+        Returns full prescription with Strength B-specific coaching message.
+        """
+        preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["strength_b"])
+        rep_floor = preset.get("rep_floor", 6)
+        rep_cap = preset.get("rep_cap", 8)
+        base_increment = preset.get("increment", 5)
+        inc = _effective_increment(increment if increment is not None else base_increment)
+        
+        top_set = _get_top_set(history)
+        is_set_target = context.get("is_set_target", False) if context else False
+        exercise_name = exercise.get("name", "this exercise") if isinstance(exercise, dict) else getattr(exercise, "name", "this exercise")
+        
+        if not top_set:
+            coaching_message = "This is the Strength B model."
+            return {
+                "suggested_weight": 0.0,
+                "rep_floor": rep_floor,
+                "rep_cap": rep_cap,
+                "increment": inc,
+                "coaching_message": coaching_message,
+                "block_name": _get_block_name(block_mode),
+                "should_increase": False,
+                "next_weight": 0.0,
+                "next_reps": reps_target or 6,
+                "next_sets": 3,
+                "rest_seconds": 90,
+                "workload_status": "moderate",
+                "prescription_type": "strength_b",
+                "is_deload": False,
+            }
+        
+        weight = top_set.get("actual_weight", 0) or 0.0
+        reps = top_set.get("actual_reps", 0) or 0
+        effort = top_set.get("effort", None)
+        form_quality = top_set.get("form_quality", None)
+        
+        reps_target_val = reps_target if reps_target is not None else 6
+        held_weight = round(weight)
+        
+        held = False
+        status = "moderate"
+        next_weight = weight
+        next_reps = reps_target_val
+        
+        if form_quality is not None and form_quality >= 2:
+            held = True
+            status = "hard"
+            next_weight = weight
+            next_reps = reps
+        elif form_quality is not None and form_quality == 1:
+            held = True
+            next_weight = weight
+            next_reps = reps
+        elif is_set_target and reps < rep_floor:
+            held = True
+            status = "hard"
+            next_weight = weight
+            next_reps = reps
+        elif effort is not None and effort >= 9:
+            if reps <= rep_floor + 1:
+                held = True
+                next_weight = weight
+                next_reps = reps
+            else:
+                next_weight = weight + inc
+                next_reps = reps_target_val
+        elif effort is not None and effort <= 3:
+            status = "easy"
+            next_weight = weight + inc
+            next_reps = reps_target_val
+        else:
+            next_weight = weight + inc
+            next_reps = reps_target_val
+        
+        should_increase = next_weight > weight
+        coaching_message = "This is the Strength B model."
+        
+        return {
+            "suggested_weight": round(next_weight, 1),
+            "rep_floor": rep_floor,
+            "rep_cap": rep_cap,
+            "increment": inc,
+            "coaching_message": coaching_message,
+            "block_name": _get_block_name(block_mode),
+            "should_increase": should_increase,
+            "next_weight": round(next_weight, 1),
+            "next_reps": next_reps,
+            "next_sets": 3,
+            "rest_seconds": 90,
+            "workload_status": status,
+            "prescription_type": "strength_b",
+            "is_deload": False,
+        }
+
+
+class MaintenanceModel:
+    """
+    Maintenance / Deload block model. Recovery and structural flushing.
+    Rep targets: 10-12 reps. RPE 5 cap. Loads reduced by ~20%.
+    No progression — focus on recovery, mobility, and joint health.
+    """
+    
+    def compute(
+        self,
+        exercise: dict,
+        history: list,
+        block_state: dict | None = None,
+        *,
+        block_mode: str = "maintenance",
+        week_number: int = 1,
+        reps_target: int | None = None,
+        increment: int | None = None,
+        context: dict | None = None,
+    ) -> dict:
+        """
+        Compute the prescription for a Maintenance/Deload block exercise.
+        
+        Returns full prescription with reduced loads and Maintenance-specific coaching message.
+        """
+        preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["maintenance"])
+        rep_floor = preset.get("rep_floor", 10)
+        rep_cap = preset.get("rep_cap", 12)
+        base_increment = preset.get("increment", 0)
+        inc = _effective_increment(increment if increment is not None else base_increment)
+        
+        top_set = _get_top_set(history)
+        is_set_target = context.get("is_set_target", False) if context else False
+        exercise_name = exercise.get("name", "this exercise") if isinstance(exercise, dict) else getattr(exercise, "name", "this exercise")
+        
+        # Determine base weight from history (most recent weight)
+        base_weight = 0.0
+        if history:
+            for h in reversed(history):
+                if isinstance(h, dict):
+                    w = h.get("actual_weight", 0)
+                elif hasattr(h, "actual_weight"):
+                    w = h.actual_weight
+                else:
+                    w = 0
+                if w and w > 0:
+                    base_weight = w
+                    break
+        
+        # Apply 20% reduction for deload
+        suggested_weight = round(base_weight * 0.8, 1) if base_weight > 0 else 0.0
+        
+        if not top_set:
+            coaching_message = "This is the Maintenance model."
+            return {
+                "suggested_weight": suggested_weight,
+                "rep_floor": rep_floor,
+                "rep_cap": rep_cap,
+                "increment": 0,
+                "coaching_message": coaching_message,
+                "block_name": _get_block_name(block_mode),
+                "should_increase": False,
+                "next_weight": suggested_weight,
+                "next_reps": reps_target or 10,
+                "next_sets": 3,
+                "rest_seconds": 90,
+                "workload_status": "easy",
+                "prescription_type": "maintenance",
+                "is_deload": True,
+            }
+        
+        reps_target_val = reps_target if reps_target is not None else 10
+        
+        coaching_message = "This is the Maintenance model."
+        
+        return {
+            "suggested_weight": suggested_weight,
+            "rep_floor": rep_floor,
+            "rep_cap": rep_cap,
+            "increment": 0,
+            "coaching_message": coaching_message,
+            "block_name": _get_block_name(block_mode),
+            "should_increase": False,
+            "next_weight": suggested_weight,
+            "next_reps": reps_target_val,
+            "next_sets": 3,
+            "rest_seconds": 90,
+            "workload_status": "easy",
+            "prescription_type": "maintenance",
+            "is_deload": True,
+        }
+
+
 def model_picker(
     exercise: any,
     history: list,
@@ -2464,92 +3263,68 @@ def model_picker(
     week_number: int = 1,
     reps_target: int = None,
     increment: int = None,
+    is_set_target: bool = False,
 ) -> dict:
     """
     Determine progression targets for an exercise based on block state and history.
     
+    Delegates to the appropriate model class based on block_mode.
+    Each model returns a full prescription including coaching_message and block_name.
+    
     Args:
         exercise: Exercise data (dict or object with id, name, is_compound attributes)
-        history: List of past set logs (dicts or objects with weight/actual_weight, reps/actual_reps)
-        block_state: DEPRECATED - Use block_mode and week_number instead (dict with block_mode, week_number)
+        history: List of past set logs (dicts with actual_weight, actual_reps, effort, form_quality)
+        block_state: DEPRECATED - Use block_mode and week_number instead
         block_mode: Current block mode (foundation, hypertrophy, strength_a, etc.)
         week_number: Current week number
         reps_target: Target reps for this exercise (optional, uses block default if not provided)
         increment: Weight increment in lbs (optional, uses block default if not provided)
+        is_set_target: True when computing for Set 2+ (has a seed set from this workout)
     
     Returns:
-        {
-            rep_floor: int,
-            rep_cap: int,
-            increment: float,
-            suggested_weight: float,
-            should_increase: bool,
-        }
+        Model prescription dict with:
+            suggested_weight, rep_floor, rep_cap, increment, coaching_message,
+            block_name, should_increase, next_weight, next_reps, next_sets,
+            rest_seconds, workload_status, prescription_type, is_deload
     """
-    # Handle both old and new signatures
-    if block_state is not None:
-        # Old signature: block_state is a dict
-        if isinstance(block_state, dict):
-            if block_mode is None:
-                block_mode = block_state.get("block_mode", "foundation")
-            if week_number == 1:
-                week_number = block_state.get("week_number", 1)
-    else:
-        # New signature: block_mode and week_number are provided
+    # Resolve block_mode
+    if block_state is not None and isinstance(block_state, dict):
         if block_mode is None:
-            block_mode = "foundation"
-    # Get block-specific targets
-    preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["foundation"])
-    rep_floor = preset.get("rep_floor", 8)
-    rep_cap = preset.get("rep_cap", 10)
-    default_increment = preset.get("increment", 5)
+            block_mode = block_state.get("block_mode", "foundation")
+        if week_number == 1:
+            week_number = block_state.get("week_number", 1)
+    elif block_mode is None:
+        block_mode = "foundation"
     
-    # Use provided increment or block default
-    if increment is None:
-        increment = default_increment
+    # Build context dict for the model
+    context = {"is_set_target": is_set_target} if is_set_target else None
     
-    # Determine current weight from history
-    suggested_weight = 0.0
-    should_increase = False
-    
-    if history:
-        # Get the most recent weight (handle both dict and object)
-        recent_weights = []
-        for h in history:
-            weight = h.get("weight", 0) if isinstance(h, dict) else (h.actual_weight or 0)
-            if weight > 0:
-                recent_weights.append(weight)
-        if recent_weights:
-            suggested_weight = max(recent_weights)
-        
-        # Check if user hit rep cap in recent workouts
-        recent_reps = []
-        for h in history:
-            reps = h.get("reps", 0) if isinstance(h, dict) else (h.actual_reps or 0)
-            if reps > 0:
-                recent_reps.append(reps)
-        if recent_reps:
-            max_reps = max(recent_reps)
-            # If user hit or exceeded rep cap, suggest weight increase
-            if max_reps >= rep_cap and increment > 0:
-                should_increase = True
-                suggested_weight += increment
-    
-    # For maintenance block, no progression
-    if block_mode == "maintenance":
-        should_increase = False
-        increment = 0
-        # Reduce weight by 20% for deload
-        if suggested_weight > 0:
-            suggested_weight = round(suggested_weight * 0.8, 1)
-    
-    return {
-        "rep_floor": rep_floor,
-        "rep_cap": rep_cap,
-        "increment": increment,
-        "suggested_weight": suggested_weight,
-        "should_increase": should_increase,
+    # Delegate to the appropriate model
+    model = _get_model_for_block(block_mode)
+    prescription = model.compute(
+        exercise=exercise,
+        history=history,
+        block_state=block_state,
+        block_mode=block_mode,
+        week_number=week_number,
+        reps_target=reps_target,
+        increment=increment,
+        context=context,
+    )
+    return prescription
+
+
+def _get_model_for_block(block_mode: str) -> Any:
+    """Get the model class for a given block mode."""
+    models = {
+        "foundation": FoundationModel(),
+        "linear_baseline": LinearModel(),
+        "hypertrophy": HypertrophyModel(),
+        "strength_a": StrengthAModel(),
+        "strength_b": StrengthBModel(),
+        "maintenance": MaintenanceModel(),
     }
+    return models.get(block_mode, FoundationModel())
 
 
 def advance_block(block_mode: str) -> str:
