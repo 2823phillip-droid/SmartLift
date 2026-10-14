@@ -825,6 +825,52 @@ export default function ActiveWorkoutScreen({
       loggedSetCountRef.current[currentExercise.id] = (loggedSetCountRef.current[currentExercise.id] || 0) + 1;
       lastLoggedSetRef.current[currentExercise.id] = log;
 
+      // Fetch updated progression for next set after logging
+      try {
+        const calcData = await api.post(`/api/progression/calculate`, {
+          exercise_library_id: currentExercise.exercise_library_id,
+          session_id: sessionId,
+          prev_set_data: {
+            actual_weight: weightLbs,
+            actual_reps: r,
+            set_index: setIndex,
+          },
+        });
+        if (calcData.suggested_weight != null) {
+          const nextWeightLbs = toLbs(calcData.suggested_weight);
+          const nextReps = calcData.next_reps ?? calcData.rep_floor;
+          setExerciseProgression(prev => ({
+            ...prev,
+            [currentExercise.id]: {
+              ...prev[currentExercise.id],
+              suggested_weight: calcData.suggested_weight,
+              next_reps: nextReps,
+              rep_floor: calcData.rep_floor,
+              rep_cap: calcData.rep_cap,
+              should_increase: calcData.should_increase,
+              box_type: calcData.box_type,
+            },
+          }));
+          setPrescriptions(prev => ({
+            ...prev,
+            [currentExercise.id]: {
+              next_weight: Math.round(nextWeightLbs * 10) / 10,
+              next_reps: nextReps,
+              next_sets: resolveDisplayTarget(currentExercise),
+              rest_seconds: currentExercise.rest_seconds ?? 90,
+              coaching_message: prev[currentExercise.id]?.coaching_message ?? "",
+              workload_status: "moderate" as WorkloadStatus,
+              prescription_type: calcData.box_type || "foundation",
+              is_deload: false,
+              should_increase: calcData.should_increase,
+            },
+          }));
+          console.log(`[ActiveWorkoutScreen] Updated progression after set ${setIndex}: weight=${Math.round(nextWeightLbs)}, reps=${nextReps}`);
+        }
+      } catch (err) {
+        console.error("[ActiveWorkoutScreen] Failed to fetch progression after set", err);
+      }
+
       await api.createCoachMessage({
         session_id: sessionId,
         role: "in_workout",
