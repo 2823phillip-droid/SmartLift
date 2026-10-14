@@ -3903,11 +3903,19 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
         # Build history records — include last session's logs + current session's logs
         history = []
         
+        # Get all exercise_entry_ids for this exercise_library (across all sessions)
+        entry_ids = db.query(ExerciseEntry.id).filter(
+            ExerciseEntry.exercise_library_id == exercise.id
+        ).all()
+        entry_id_values = [e[0] for e in entry_ids] if entry_ids else []
+        
         # Add last session's logs first (older data)
-        if last_session:
+        # Query by exercise_entry_id IN (all entry ids for this exercise) to find logs
+        # from the last session that reference this exercise (via any exercise_entry)
+        if last_session and entry_id_values:
             last_session_logs = db.query(SetLog).filter(
                 SetLog.session_id == last_session.id,
-                SetLog.exercise_entry_id == exercise_entry.id
+                SetLog.exercise_entry_id.in_(entry_id_values)
             ).all()
             for log in last_session_logs:
                 if log.completed_at:
