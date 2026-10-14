@@ -3,7 +3,7 @@ last_updated: 2026-10-14
 
 ## Current State (as of this update)
 
-- **Git HEAD:** `eaeb80d` — "docs: update MEMORY-INDEX.md to 1ccaacaf / final state"
+- **Git HEAD:** `a3d75f3` — "docs: update MEMORY-INDEX.md HEAD to f1f20be + Phase 1 status"
 - **Build:** `index-T4rHju19.js` (frontend dist), synced to iOS at `frontend/ios/App/App/public/assets/`
 - **Deploy status:** Backend deployed to Fly (commit `26e9a6b`, build-info timestamp `2026-10-14T15:10:48Z`). Health OK.
 - **Session-targets endpoint:** WORKING. Returns 6 exercises with coaching messages. Fixed 7 attribute errors (library_id, sets_target, name, is_compound, prescription dict access).
