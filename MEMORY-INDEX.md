@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
 last_updated: 2026-10-14
-status: Mac Studio M5 Max only, master branch HEAD `f1f20be`, clean working tree. Backend deployed to Fly (commit `26e9a6b`, build-info.json timestamp 2026-10-14T15:10:48Z). Backend healthy at askeo.fit/healthz. iOS bundle synced: `index-T4rHju19.js` (874KB, Oct 14 10:12) in frontend/ios/App/App/public/assets/. Exercise library fully classified (1359 exercises, 32 columns), equipment toggle system working (coach progression + equipment categories), frontend filtering verified. Session-targets endpoint: model_picker returns dict — bracket access fix applied. Phase 0 (session-target fix) COMPLETE, verified on device. Phase 1 (model-agnostic frontend) IN PROGRESS.
+status: Mac Studio M5 Max only, master branch HEAD `dc5f411`, clean working tree. Backend deployed to Fly (commit `26e9a6b`, build-info.json timestamp 2026-10-14T15:10:48Z). Backend healthy at askeo.fit/healthz. iOS bundle synced: `index-CCMIQoLe.js` (874KB, Oct 14 11:28) in frontend/ios/App/App/public/assets/. Exercise library fully classified (1359 exercises, 32 columns), equipment toggle system working (coach progression + equipment categories), frontend filtering verified. Session-targets endpoint: model_picker returns dict — bracket access fix applied. Phase 0 (session-target fix) COMPLETE, verified on device. Phase 1 (model-agnostic frontend) COMPLETE — hardcoded Foundation override removed from logSet; frontend now uses computePrescription coaching messages.
 
 This file explains where every type of project knowledge lives and when to use it.
 
@@ -8,7 +8,7 @@ This file explains where every type of project knowledge lives and when to use i
 
 ### Repo
 - **Branch:** master
-- **HEAD:** `f1f20be` — "docs: add phased plan (Phase 0-7) and update current status to 2026-10-14"
+- **HEAD:** `dc5f411` — "fix: remove hardcoded Foundation override from logSet (Phase 1 — model-agnostic frontend)"
 - **Remote (GitHub):** clean working tree, all changes pushed. Single Mac Studio M5 Max machine — no second machine to sync with.
 
 ### Frontend
