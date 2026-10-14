@@ -3928,13 +3928,13 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
                     completed_at = log.completed_at
                     if completed_at.tzinfo is None:
                         completed_at = completed_at.replace(tzinfo=timezone.utc)
-                    history.append(SetRecord(
-                        actual_weight=log.actual_weight or 0.0,
-                        actual_reps=log.actual_reps or 0,
-                        effort=log.effort,
-                        form_quality=log.form_quality,
-                        completed_at=completed_at,
-                    ))
+                    history.append({
+                        "actual_weight": log.actual_weight or 0.0,
+                        "actual_reps": log.actual_reps or 0,
+                        "effort": log.effort,
+                        "form_quality": log.form_quality,
+                        "completed_at": completed_at.isoformat() if completed_at else None,
+                    })
         
         # DEBUG: Log what we're passing to model_picker
         print(f"[SESSION_TARGETS DEBUG] exercise_id={exercise.id}, name={exercise.name}, entry_id_values={entry_id_values}, all_logs_count={len(all_logs) if entry_id_values else 0}, history_count={len(history)}")
