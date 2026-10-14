@@ -3916,6 +3916,15 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
             reps_target=reps_target,
             increment=preset.get("increment", 5),
         )
+        # TEMP LOG: confirm model_picker delegation
+        print(f"[SESSION_TARGETS] model_picker prescription for exercise {exercise_entry.id} ({exercise_entry.name}): "
+              f"coaching_message={prescription.get('coaching_message')}, "
+              f"block_name={prescription.get('block_name')}, "
+              f"suggested_weight={prescription.get('suggested_weight')}, "
+              f"rep_floor={prescription.get('rep_floor')}, "
+              f"rep_cap={prescription.get('rep_cap')}, "
+              f"should_increase={prescription.get('should_increase')}, "
+              f"prescription_type={prescription.get('prescription_type')}")
         
         # Generate coaching message based on block mode
         block_name = block_mode.replace("_", " ").title() if block_mode else "Foundation"
