@@ -352,46 +352,12 @@ export default function ActiveWorkoutScreen({
         isBuildingWorkoutRef.current = false;
         return;
       }
-      // Expand the first exercise without computing a new prescription —
-      // it already has one from the loop above (or from a previous expand).
+      // Expand the first exercise — it should already have a prescription
+      // from the build loop (which uses session targets).
+      // If no prescription, the backend failed — leave draft empty.
       setExpandedExerciseId(first.id);
       const p = prescriptions[first.id];
-      if (!p) {
-        // Edge case: first exercise somehow has no prescription yet —
-        // compute one from last session so the card shows something.
-        const sessionResolved = lastSessionByExercise[first.id] || [];
-        const firstSet = sessionResolved.find((l) => l.set_index === 1) || sessionResolved[0];
-        const lastWeight = firstSet
-          ? firstSet.actual_weight
-          : (sessionResolved.length > 0
-            ? Math.max(...sessionResolved.map((s) => s.actual_weight || 0))
-            : first.start_weight);
-        const history = buildPrescriptionHistory(first);
-        const prescription = computePrescription({
-          start_weight: toLbs(lastWeight),
-          reps_target: first.is_compound ? 6 : 8,
-          sets_target: displaySetsTarget[first.id] ?? first.sets_target,
-          rest_seconds: first.rest_seconds ?? 90,
-          progression_type: "linear",
-          history,
-          force_deload: false,
-          exerciseName: first.name,
-          is_compound: first.is_compound ?? true,
-          routineName: template?.name ?? undefined,
-        });
-        prescription.source = "local";
-        setPrescriptions((prev) => ({ ...prev, [first.id]: prescription }));
-        const displayWeight = getUnitsPreference() === "imperial"
-          ? Math.round(prescription.next_weight)
-          : Math.round(lbsToKg(prescription.next_weight));
-        setDraftWeight(String(displayWeight));
-        setDraftReps(String(prescription.next_reps));
-        setDraftEffort(null);
-        setDraftFormQuality(0);
-        setNotesMap((prev) => ({ ...prev, [first.id]: "" }));
-        setShowNotesMap((prev) => ({ ...prev, [first.id]: false }));
-        console.log("[ActiveWorkoutScreen] auto-expand (all done)", displayWeight, "x", prescription.next_reps);
-      } else {
+      if (p) {
         const displayWeight = getUnitsPreference() === "imperial"
           ? Math.round(p.next_weight)
           : Math.round(lbsToKg(p.next_weight));
@@ -403,111 +369,86 @@ export default function ActiveWorkoutScreen({
         setDraftFormQuality(0);
         setNotesMap((prev) => ({ ...prev, [first.id]: "" }));
         setShowNotesMap((prev) => ({ ...prev, [first.id]: false }));
-        console.log("[ActiveWorkoutScreen] auto-expand (all done, reuse)", displayWeight, "x", p.next_reps);
+        console.log("[ActiveWorkoutScreen] auto-expand (from prescription)", displayWeight, "x", p.next_reps, "source:", p.source);
+      } else {
+        // No prescription — backend failed or session targets empty
+        setDraftWeight("");
+        setDraftReps("");
+        setDraftEffort(null);
+        setDraftFormQuality(0);
+        setNotesMap((prev) => ({ ...prev, [first.id]: "" }));
+        setShowNotesMap((prev) => ({ ...prev, [first.id]: false }));
+        console.log("[ActiveWorkoutScreen] auto-expand (no prescription — backend may have failed)");
       }
       setIsBuildingWorkout(false);
       isBuildingWorkoutRef.current = false;
       return;
     }
 
-    // Compute prescriptions for ALL visible exercises so every card shows
-    // its session target / set target box from the start, not just the first.
-    // Pick the FIRST target for auto-expand — a local flag (not a state read)
-    // so the loop doesn't let later iterations win.
+    // Fetch session targets from backend first — these provide the
+    // model-specific weight, reps, and coaching messages for all exercises.
+    // Frontend does NOT compute prescriptions locally — relies entirely on backend.
+    console.log("[ActiveWorkoutScreen] Fetching session targets...");
+    let targetsMap: Record<number, { coaching_message: string; suggested_weight: number; rep_floor: number; rep_cap: number }> = {};
+    try {
+      const targets = await api.getSessionTargets(sessionId);
+      console.log("[ActiveWorkoutScreen] Session targets received:", targets.length, "exercises");
+      for (const t of targets) {
+        targetsMap[t.exercise_id] = {
+          coaching_message: t.coaching_message,
+          suggested_weight: t.suggested_weight,
+          rep_floor: t.rep_floor,
+          rep_cap: t.rep_cap,
+        };
+      }
+    } catch (err) {
+      console.error("[ActiveWorkoutScreen] Failed to fetch session targets — prescriptions will be empty", err);
+    }
+
+    // Build prescriptions from session targets only.
+    // No local fallback — if backend fails, prescriptions stay empty.
     const newPrescriptions: Record<number, Prescription> = {};
     let expanded = false;
     for (const target of targets) {
-      const exerciseLogs = logs.filter((l: SetLog) => l.exercise_entry_id === target.id);
-      const latestLog = exerciseLogs.length > 0 ? exerciseLogs[exerciseLogs.length - 1] : null;
-      const lastWeight = latestLog
-        ? latestLog.actual_weight ?? target.start_weight
-        : (() => {
-            const sessionResolved = lastSessionByExercise[target.id] || [];
-            const firstSet = sessionResolved.find((l) => l.set_index === 1) || sessionResolved[0];
-            return firstSet
-              ? firstSet.actual_weight
-              : (sessionResolved.length > 0
-                ? Math.max(...sessionResolved.map((s) => s.actual_weight || 0))
-                : target.start_weight);
-          })();
+      const targetData = targetsMap[target.id];
+      if (targetData) {
+        const units = getUnitsPreference();
+        const weightInUnits = units === "imperial"
+          ? targetData.suggested_weight
+          : lbsToKg(targetData.suggested_weight);
+        newPrescriptions[target.id] = {
+          next_weight: Math.round(weightInUnits * 10) / 10,
+          next_reps: targetData.rep_floor,
+          next_sets: target.sets_target || 3,
+          rest_seconds: target.rest_seconds ?? 90,
+          coaching_message: targetData.coaching_message,
+          workload_status: "moderate" as WorkloadStatus,
+          prescription_type: "foundation",
+          is_deload: false,
+          source: "backend",
+        };
+      }
+      // If no targetData, skip — prescription stays empty
 
-      const seedSet = latestLog ? {
-        actual_weight: toLbs(latestLog.actual_weight ?? 0),
-        actual_reps: latestLog.actual_reps ?? (target.is_compound ? 6 : 8),
-        effort: latestLog.effort ?? 5,
-        form_quality: latestLog.form_quality ?? 0,
-        completed_at: new Date().toISOString(),
-      } : undefined;
-
-      const history = latestLog ? [] : buildPrescriptionHistory(target);
-      const prescription = computePrescription({
-        start_weight: toLbs(lastWeight),
-        reps_target: target.is_compound ? 6 : 8,
-        sets_target: displaySetsTarget[target.id] ?? target.sets_target,
-        rest_seconds: target.rest_seconds ?? 90,
-        progression_type: "linear",
-        history,
-        seedSet,
-        force_deload: false,
-        exerciseName: target.name,
-        is_compound: target.is_compound ?? true,
-        routineName: template?.name ?? undefined,
-      });
-      prescription.source = "local";
-      newPrescriptions[target.id] = prescription;
-
-      if (!expanded) {
+      if (!expanded && newPrescriptions[target.id]) {
+        const p = newPrescriptions[target.id];
         const displayWeight = getUnitsPreference() === "imperial"
-          ? Math.round(prescription.next_weight)
-          : Math.round(lbsToKg(prescription.next_weight));
+          ? Math.round(p.next_weight)
+          : Math.round(lbsToKg(p.next_weight));
         setDraftWeight(String(displayWeight));
-        setDraftReps(String(prescription.next_reps));
-        setDraftEffort(latestLog?.effort ?? null);
+        setDraftReps(String(p.next_reps));
+        setDraftEffort(null);
         setDraftFormQuality(0);
         setNotesMap((prev) => ({ ...prev, [target.id]: "" }));
         setShowNotesMap((prev) => ({ ...prev, [target.id]: false }));
         setExpandedExerciseId(target.id);
-        console.log("[ActiveWorkoutScreen] auto-expand", displayWeight, "x", prescription.next_reps);
+        console.log("[ActiveWorkoutScreen] auto-expand", displayWeight, "x", p.next_reps, "source:", p.source);
         expanded = true;
       }
     }
     setPrescriptions((prev) => ({ ...prev, ...newPrescriptions }));
     setIsBuildingWorkout(false);
     isBuildingWorkoutRef.current = false;
-
-    // Fetch session targets from backend (model-specific coaching messages)
-    // and update prescriptions with the backend's coaching messages
-    console.log("[ActiveWorkoutScreen] Fetching session targets...");
-    try {
-      const targets = await api.getSessionTargets(sessionId);
-      console.log("[ActiveWorkoutScreen] Session targets received:", targets.length, "exercises");
-      const targetsMap: Record<number, { coaching_message: string }> = {};
-      for (const t of targets) {
-        targetsMap[t.exercise_id] = {
-          coaching_message: t.coaching_message,
-        };
-      }
-      // Update prescriptions with session target coaching messages
-      if (Object.keys(targetsMap).length > 0) {
-        setPrescriptions(prev => {
-          const updated: Record<number, Prescription> = { ...prev };
-          for (const exIdStr of Object.keys(targetsMap)) {
-            const exId = Number(exIdStr);
-            if (updated[exId]) {
-              updated[exId] = {
-                ...updated[exId],
-                coaching_message: targetsMap[exId].coaching_message,
-                source: "backend",
-              };
-            }
-          }
-          return updated;
-        });
-      }
-    } catch (err) {
-      console.error("[ActiveWorkoutScreen] Failed to fetch session targets — using local fallback prescriptions", err);
-      // Prescriptions retain their source: "local" marking from the build loop above
-    }
   })();
   }, [isBuildingWorkout, exercises, logs, lastSessionByExercise, displaySetsTarget, template?.name]);
 
