@@ -3876,7 +3876,7 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
             continue
         
         exercise = db.query(ExerciseLibrary).filter(
-            ExerciseLibrary.id == exercise_entry.library_id
+            ExerciseLibrary.id == exercise_entry.exercise_library_id
         ).first()
         if not exercise:
             continue
