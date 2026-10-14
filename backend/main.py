@@ -3917,14 +3917,23 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
             increment=preset.get("increment", 5),
         )
         # TEMP LOG: confirm model_picker delegation
-        print(f"[SESSION_TARGETS] model_picker prescription for exercise {exercise_entry.id} ({exercise_entry.name}): "
-              f"coaching_message={prescription.get('coaching_message')}, "
-              f"block_name={prescription.get('block_name')}, "
-              f"suggested_weight={prescription.get('suggested_weight')}, "
-              f"rep_floor={prescription.get('rep_floor')}, "
-              f"rep_cap={prescription.get('rep_cap')}, "
-              f"should_increase={prescription.get('should_increase')}, "
-              f"prescription_type={prescription.get('prescription_type')}")
+        print(f"[SESSION_TARGETS] prescription for exercise {exercise_entry.id}: "
+              f"cm={prescription.get('coaching_message')}, "
+              f"bn={prescription.get('block_name')}, "
+              f"sw={prescription.get('suggested_weight')}, "
+              f"rf={prescription.get('rep_floor')}, "
+              f"rc={prescription.get('rep_cap')}, "
+              f"si={prescription.get('should_increase')}, "
+              f"pt={prescription.get('prescription_type')}", flush=True)
+        import sys
+        print(f"[SESSION_TARGETS] prescription for exercise {exercise_entry.id}: "
+              f"cm={prescription.get('coaching_message')}, "
+              f"bn={prescription.get('block_name')}, "
+              f"sw={prescription.get('suggested_weight')}, "
+              f"rf={prescription.get('rep_floor')}, "
+              f"rc={prescription.get('rep_cap')}, "
+              f"si={prescription.get('should_increase')}, "
+              f"pt={prescription.get('prescription_type')}", file=sys.stderr, flush=True)
         
         # Generate coaching message based on block mode
         block_name = block_mode.replace("_", " ").title() if block_mode else "Foundation"
