@@ -1,81 +1,75 @@
 # TODO
-last_updated: 2026-10-12
+last_updated: 2026-10-14
 
-## Latest Build
-- **Git HEAD:** `3a0872a` — "fix: get session exercises from template instead of SetLog"
-- **Build:** `index-mvo2Zzv2.js` (latest)
-- **Build date:** 2026-10-12
-- **Deploy status:** Backend deployed to Fly (v311); frontend built and synced to iOS
-- **Validation status:** Health OK; session-targets endpoint now returns exercises from template
+## Current State (as of this update)
+
+- **Git HEAD:** `eaeb80d` — "docs: update MEMORY-INDEX.md to 1ccaacaf / final state"
+- **Build:** `index-T4rHju19.js` (frontend dist), synced to iOS at `frontend/ios/App/App/public/assets/`
+- **Deploy status:** Backend deployed to Fly (commit `26e9a6b`, build-info timestamp `2026-10-14T15:10:48Z`). Health OK.
+- **Session-targets endpoint:** WORKING. Returns 6 exercises with coaching messages. Fixed 7 attribute errors (library_id, sets_target, name, is_compound, prescription dict access).
+- **iOS bundle in app:** `index-UMYqsEJ_.js` (previous) — user needs Clean Build Folder to pick up `index-T4rHju19.js` or latest.
+- **Backend error logging:** `/app/logs/session_targets_error.log` on server — captures full traceback + session_id + user_id on every 500.
+
+## Session Target Status (CURRENT — just fixed)
+
+- [x] Session-targets endpoint returning 0 exercises — FIXED (use session.template.exercises)
+- [x] 500 errors — FIXED (7 attribute errors resolved: library_id, sets_target, name, is_compound, prescription dict access)
+- [x] Session targets now showing "This is the coach notes for Foundation." — VERIFIED (user confirmed on device)
+- [ ] Coaching messages should be model-specific, not generic — NEXT (Phase 4)
+- [ ] Model indicator should appear in coach notes header — NEXT (Phase 5)
+- [ ] Set 1 coaching message should pull from last session data — NEXT (Phase 4)
+- [ ] Cross-model weight adjustment on model switch — NEXT (Phase 4)
+
+## What We Just Learned (Drawing file analysis)
+
+The session-targets endpoint now works. The frontend displays "This is the coach notes for Foundation." — the generic message from `main.py:3922`. This works, but it's not the full picture. The design notes in the Drawing file (lines 28-56) describe the target architecture:
+
+- **Model_Picker is the single source of truth.** Frontend never hardcodes model logic. It just calls Model_Picker and renders whatever comes back.
+- **Set 1** pulls from last session, uses current model's logic. Weight and reps come from Model_Picker's response.
+- **Set 2+** uses Model_Picker logic with previous set data (already working via per-set `computePrescription` + Foundation override in frontend).
+- **Cross-model transitions** need weight adjustment. If last session was Linear (6-8 reps, heavy) and this is Foundation (8-10 reps, lighter), weight should decrease.
+- **Model rotation** via Load Meter, Time, Workout count, Manual.
+
+**Key insight:** The frontend is currently NOT fully model-agnostic. It has hardcoded Foundation messages in `ActiveWorkoutScreen.tsx` (lines 950-957: "Foundation: You hit 10 reps...") and the backend has a hardcoded generic message. The frontend should just render whatever Model_Picker returns.
 
 ## Bugs to fix
 
-### Session Target Summary (Option B) - IN PROGRESS
-- [ ] Session-targets endpoint returning 0 exercises when no sets logged yet — FIXED (use session.template.exercises)
-- [ ] Verify session targets now show foundation coaching messages after fix
-- [ ] Coaching messages should show "This is the coach notes for Foundation." (or similar)
-- [ ] Model indicator should appear in coach notes header
+### Session Target Summary — CORE FIX (done, verifying)
+- [x] Session-targets endpoint returning 0 exercises — FIXED
+- [x] 500 errors (7 attribute errors) — FIXED and verified
+- [x] "This is the coach notes for Foundation." showing — VERIFIED on device
+- [ ] Session targets receive correct coaching messages per model — NEXT
 
-### Previous bugs (resolved during this session)
-- [x] Session-targets endpoint 500 error — NameError: WorkoutSessionExercise not defined — fixed by removing non-existent model
-- [x] Session-targets endpoint 500 error — ImportError: cannot import name 'WorkoutSessionExercise' — fixed by removing from import
-- [x] Session-targets endpoint returning 0 exercises — fixed by using session.template.exercises instead of SetLog query
-- [x] Fallback prescription computation causing old linear messages — removed entirely
+### Previous bugs (resolved)
+- [x] Session-targets 500 — NameError: WorkoutSessionExercise not defined
+- [x] Session-targets 500 — ImportError: cannot import WorkoutSessionExercise
+- [x] Session-targets returning 0 exercises — FIXED
+- [x] Fallback prescription computation causing old linear messages — removed
 - [x] logSet function using local computePrescription — patched to use model_picker data
-- [x] Foundation coaching messages not showing in session target — pending verification after latest fix
+- [x] Foundation coaching messages not showing — FIXED and verified
+- [x] Set 2 weight reverts to session target on nav away/back — FIXED
+- [x] Rest timer lost on nav away/back — FIXED
 
-### Navigation persistence
-	- [x] **Set 2 weight reverts to session target after navigating away and back** — Set 1 shows Session Target (pulls from last workout, going up 5lbs). Set 2 shows Set Target (matches rest timer, shows last set info, going up 5lbs). Both work during continuous workout. But navigating away (Settings tab → back to Live Workout) caused two things to break: elapsed time resets to 0; Set 2 actual weight reverts to session target instead of set target. Fixed: L274 `useEffect` now uses current `logs` when they exist for the exercise (latest log as seedSet), falling back to `lastSessionByExercise` only on fresh workout start. `workoutStart` persisted to localStorage and restored on remount.
-	- [x] **Rest timer lost on nav away/back** — Fixed: `startRest()` now saves end time to localStorage; mount effect restores it; `clearRestTimer()` + `endWorkout()` + `cancelWorkout()` clean up.
+## Architecture Decision (from Drawing file discussion)
 
-## Features / Wishlist
+### Model_Picker as Single Source of Truth
+- Frontend never hardcodes model-specific logic (no "Foundation:" prefixes in TypeScript)
+- Model_Picker returns ALL data the frontend needs: suggested_weight, rep_floor, rep_cap, coaching_message, block_name, increment_rule, etc.
+- Frontend just renders whatever Model_Picker returns
+- Flipping the model = Model_Picker returns different data = frontend automatically renders differently
 
-### Social
-- [ ] Friend system — add friends in-app, see their workout activity
-- [ ] Share workouts — share completed workout summaries with friends
-- [ ] Status — set and view workout/status updates (lifting, resting, etc.)
+### Set 1 vs Set 2+ Architecture
+- **Set 1 (Session Target):** Pulls from last session data, uses current model's logic. Model_Picker returns the Set 1 coaching message (incorporating last session weight/reps). Weight and reps from Model_Picker response.
+- **Set 2+ (Set Target):** Uses Model_Picker logic with previous set data. Already working via per-set `computePrescription` + block override in frontend. But should ultimately come from Model_Picker too.
 
-### Prebuilt Templates
-- [x] **Redesign questionnaire flow** — Replace "build_mode" choice (template vs custom builder) with streamlined Training Profile: capture goals, equipment, training history, experience level. Goals map directly to progression model. Remove automatic workout generation from questionnaire path. Done in `439c55f`.
-- [ ] **Remove automatic workout builder** — DELETE `POST /api/trainer/generate` endpoint (still live in code — used by AI coach `generate_workout` tool). Retire `QuestionnaireScreen.tsx` template-generation logic, remove build_mode toggle. Questionnaire now only saves profile data to `fitness_profile`.
-- [x] **Shared prebuilt templates** — Create backend library of structured workouts available to ALL users. Done in `439c55f` — prebuilt template model replaces automatic builder.
-- [x] **Template selector UI** — After questionnaire completes, show prebuilt template gallery instead of auto-generated workout. Done in `439c55f`.
+### Cross-Model Transitions
+- Need to track which model the last session used
+- If same model: continue progression from last weight/reps
+- If different model: adjust weight based on new model's rep targets and philosophy
 
-### Notifications
-- [ ] Push notifications — workout reminders, rest timer alerts, coach messages
+## Phase Plan
 
-### Progression Architecture (Block Periodization)
-|||- [~] Phase 2: Library cleanup and classification — COMPLETE. 1359/1359 exercises classified (100%). Database fully classified with 32 columns including base_movement, hitt_worthy, warmup_type, primary_equipment. Equipment categories refined from 8→17. Frontend equipment toggle system built and working. Coach progression toggle added. Muscle groups consolidated. Deload override toggle removed. Questionnaire auto-updates equipment settings. → `ReleaseNotes/progression_tasks.md`
-|- [ ] Phase 3: Onboarding wizard + user profile schema + block state
-|||- [ ] 3.1: Questionnaire flow (existing — `QuestionnaireScreen.tsx` + `config/questionnaire.ts`)
-|||- [ ] 3.2: Create `block_state` table/schema — stores user's current block mode, week number, start date, phase
-|||- [ ] 3.3: Link questionnaire → block state — when beginner selected, auto-create Foundation block (week 1/6)
-|||- [ ] 3.4: Block advancement logic — auto-advance based on week threshold + Load Meter (modified compute_load with session count weighting + progression signal); coach popup at transition: "Ready to progress to next block?"; no manual advancement button
-||||- [ ] 3.4a: Modify compute_load in rules.py — add consistency_score (session count weight), keep effort/volume scores, add progression_bonus from high-effort sessions; target ~12 sessions/21 days for Foundation
-||||- [ ] 3.4b: Advance endpoint/flow — check week threshold + Load Meter >= threshold, determine readiness, return popup prompt; user confirms → advance block, reset week; user declines → stay in block
-|||- [ ] 3.5: User profile schema update — add block_state reference, goals, experience level, equipment
-|- [ ] Phase 4: Model picker engine (`model_picker` function)
-|||- [ ] 4.1: Implement `model_picker(exercise, history, block_state)` → returns (rep_floor, rep_cap, increment_rule)
-|||- [ ] 4.2: Unit test model_picker for each block type (Foundation, Linear, Hypertrophy, Strength A/B, Deload)
-|||- [ ] 4.3: Add `POST /api/progression/calculate` endpoint — takes exercise + history, returns next weight/reps
-|||- [ ] 4.4: Add advancement flow — integrate with Load Meter; check week threshold + Load Meter >= block-specific threshold; return advancement prompt for coach popup; no separate manual advance endpoint needed
-|||- [ ] 4.5: Test Double Progression logic — verify rep cap → weight increase → rep reset works
-||- [ ] Phase 5: Frontend UI (block pill, rep targets, advancement popup)
-||||- [ ] 5.1: Add block pill to workout screen — show block name only (no week count), e.g., "Foundation Block" or "Hypertrophy Block"
-||||- [ ] 5.2: Add rep target display — "Target: 8-10 reps" on exercise cards (from model_picker/calculate)
-||||- [ ] 5.3: Add progression indicator — visual cue when user hits rep cap (ready to increase weight)
-||||- [ ] 5.4: Full-screen overlay popup — coach interruption style; blocks app interaction until acknowledged; shows block purpose, how it works, how long (based on Load Meter), what to focus on; Yes/Not now buttons; "Not now" delays, "Yes" confirms advancement
-|- [ ] Phase 6: Data sync & deployment
-|||- [ ] 6.1: Run migrations on production Postgres (block_state table, etc.)
-|||- [ ] 6.2: Deploy progression endpoints
-|||- [ ] 6.3: Frontend type updates (block state types, progression response types)
-|||- [ ] 6.4: End-to-end testing (see Phase 3 in progression_tasks.md for test plan)
-|- [ ] Phase 7: Coach engine polish (Active Coach Logic Layer)
-|||- [ ] 7.1: Coach messages for block switches, progression changes
-|||- [ ] 7.2: Handle mid-block goal changes
-|||- [ ] 7.3: Injury/limitation adjustments
-|||- [ ] 7.4: Rest timer integration by block
-|||- [ ] 7.5: Foundational health integration (sleep, nutrition, mobility)
+See `ReleaseNotes/progression_tasks.md` for the full detailed phase breakdown. This TODO tracks the working state.
 
 ## Modifications / Tweaks
 
@@ -83,8 +77,25 @@ last_updated: 2026-10-12
 - [ ] Change "This workout" to "Next workout" in all coaching messages (backend `rules.py` + frontend `rules.ts`)
 
 ### Weight display
-- [ ] Audit all frontend weight display paths for consistent kg/lbs conversion (start_weight, draft prefill, `getNextSetTarget()`, coach prescription inputs, recap screens)
-- [ ] **Allow user to override weight** — coach suggests +5lbs progression, but user can enter custom weight for the set. Needed for exercises where gym doesn't have intermediate dumbbell sizes (e.g., lateral raises where 12.5lbs isn't available). Backend progression stays +5lbs default; frontend UI adds override option.
+- [ ] Audit all frontend weight display paths for consistent kg/lbs conversion
+- [ ] Allow user to override weight (coach suggests +5lbs, user can enter custom weight)
 
 ### Layout / UI
-- [ ] **Coach tab layout** — header dead-pinned at top edge on every tab (no safe-area gap, no header drift); chatbox static; only conversation box scrolls inside coach tab. Outer tab should not scroll. Desired: more like Slack. Currently the header scrolls out of sight, chatbox scrolls, conversation box also scrolls.
+- [ ] Coach tab layout — header dead-pinned at top, only conversation box scrolls
+
+## Backlog / Wishlist
+
+### Social
+- [ ] Friend system
+- [ ] Share workouts
+- [ ] Status updates
+
+### Prebuilt Templates
+- [ ] Remove automatic workout builder — DELETE `POST /api/trainer/generate` endpoint
+- [ ] Retire `QuestionnaireScreen.tsx` template-generation logic
+
+### Notifications
+- [ ] Push notifications — workout reminders, rest timer alerts, coach messages
+
+### Coach Tab Layout
+- [ ] Header dead-pinned at top edge on every tab; only conversation box scrolls
