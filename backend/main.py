@@ -2419,6 +2419,7 @@ class ProgressionCalculateResponse(BaseModel):
     block_mode: str
     block_phase: int
     is_block_complete: bool
+    next_reps: int
 
     class Config:
         from_attributes = True
@@ -2526,6 +2527,7 @@ def calculate_progression(
         block_mode=block_mode,
         block_phase=block_state_phase if block_state_phase is not None else (block_state.phase if isinstance(block_state, BlockState) else None),
         is_block_complete=is_block_complete(block_state),
+        next_reps=result.get("next_reps", result.get("rep_floor", 8)),
     )
 
 # Block advancement thresholds and endpoints
@@ -2854,6 +2856,7 @@ class SessionTargetResponse(BaseModel):
     suggested_weight: float
     rep_floor: int
     rep_cap: int
+    next_reps: int
     coaching_message: str
     block_mode: str
 
@@ -3962,6 +3965,7 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
             suggested_weight=prescription["suggested_weight"],
             rep_floor=prescription["rep_floor"],
             rep_cap=prescription["rep_cap"],
+            next_reps=prescription.get("next_reps", prescription.get("rep_floor", 8)),
             coaching_message=prescription["coaching_message"],
             block_mode=block_mode,
         ))

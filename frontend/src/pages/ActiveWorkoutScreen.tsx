@@ -78,10 +78,7 @@ export default function ActiveWorkoutScreen({
 
   // Exercise progression targets (from model_picker/calculate)
   const [exerciseProgression, setExerciseProgression] = useState<
-    Record<number, { rep_floor: number; rep_cap: number; should_increase: boolean; suggested_weight: number; box_type?: string }>
-  >({});
-
-  // Dynamic Workout — option group selection
+    Record<number, { rep_floor: number; rep_cap: number; should_increase: boolean; suggested_weight: number; next_reps?: number; box_type?: string }>>({});
   const [selectedGroups, setSelectedGroups] = useState<Record<string, number>>({});
   const [showGroupPicker, setShowGroupPicker] = useState<string | null>(null);
   const [pendingGroupExercises, setPendingGroupExercises] = useState<ExerciseEntry[]>([]);
@@ -251,7 +248,7 @@ export default function ActiveWorkoutScreen({
   // Fetch progression targets for exercises
   const fetchExerciseProgression = async (exercises: ExerciseEntry[]) => {
     console.log("[ActiveWorkoutScreen] Fetching progression for", exercises.length, "exercises...");
-    const progression: Record<number, { rep_floor: number; rep_cap: number; should_increase: boolean; suggested_weight: number }> = {};
+    const progression: Record<number, { rep_floor: number; rep_cap: number; should_increase: boolean; suggested_weight: number; next_reps?: number }> = {};
     for (const exercise of exercises) {
       try {
         console.log(`[ActiveWorkoutScreen] Calculating for exercise ${exercise.id} (${exercise.name}), library_id=${exercise.exercise_library_id}`);
@@ -391,7 +388,7 @@ export default function ActiveWorkoutScreen({
     // model-specific weight, reps, and coaching messages for all exercises.
     // Frontend does NOT compute prescriptions locally — relies entirely on backend.
     console.log("[ActiveWorkoutScreen] Fetching session targets...");
-    let targetsMap: Record<number, { coaching_message: string; suggested_weight: number; rep_floor: number; rep_cap: number }> = {};
+    let targetsMap: Record<number, { coaching_message: string; suggested_weight: number; rep_floor: number; rep_cap: number; next_reps?: number }> = {};
     try {
       const targets = await api.getSessionTargets(sessionId);
       console.log("[ActiveWorkoutScreen] Session targets received:", targets.length, "exercises");
@@ -401,6 +398,7 @@ export default function ActiveWorkoutScreen({
           suggested_weight: t.suggested_weight,
           rep_floor: t.rep_floor,
           rep_cap: t.rep_cap,
+          next_reps: t.next_reps,
         };
       }
     } catch (err) {
@@ -420,7 +418,7 @@ export default function ActiveWorkoutScreen({
           : lbsToKg(targetData.suggested_weight);
         newPrescriptions[target.id] = {
           next_weight: Math.round(weightInUnits * 10) / 10,
-          next_reps: targetData.rep_floor,
+          next_reps: targetData.next_reps ?? targetData.rep_floor,
           next_sets: target.sets_target || 3,
           rest_seconds: target.rest_seconds ?? 90,
           coaching_message: targetData.coaching_message,
@@ -794,9 +792,7 @@ export default function ActiveWorkoutScreen({
     if (progressionData?.suggested_weight != null) {
       // Use model_picker data from calculate endpoint
       const suggestedWeightLbs = toLbs(progressionData.suggested_weight);
-      const nextReps = progressionData.should_increase
-        ? Math.min(progressionData.rep_cap + 1, progressionData.rep_cap + 2)
-        : progressionData.rep_floor;
+      const nextReps = progressionData.next_reps ?? progressionData.rep_floor;
       prescription = {
         next_weight: suggestedWeightLbs,
         next_reps: nextReps,
