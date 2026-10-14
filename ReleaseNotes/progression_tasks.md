@@ -299,59 +299,35 @@ The exercise library feeds directly into the progression engine (`model_picker` 
 
 Task count: ~34 discrete sub-tasks mapping directly to Phases 2–6. Ready for dev queue population.
 
-## Current Status (Updated 2026-10-08)
+## Current Status (Updated 2026-10-12)
 
-**exercise_v2.db**: Created at `backend/exercise_v2.db` (10MB, 1359 rows). Safe copy of `workout.db` for classification work. **Fully classified and in sync with workout.db.** Backend production Postgres on Fly.io also has all 32 columns with 1359 exercises migrated and verified.
+**Exercise library**: COMPLETE (1359 exercises, 32 columns, fully classified)
 
-**classify_exercises.py**: Built at `backend/classify_exercises.py`. Keyword-based classifier covering 43 movement patterns. Reads exercise_library from DB, classifies each exercise, writes results to `classification_results.json`. **Re-run with fixes: kickback correction, band exercise keywords, shoulder_external_rotation cleanup, cable squatting curl fix, pattern sweep corrections.**
+**Block state**: NOT STARTED
 
-**Classification accuracy**: 1359/1359 classified (100%), 0 exercises pending manual classification.
+**model_picker**: COMPLETE — implemented in `backend/progression.py`. Returns (rep_floor, rep_cap, suggested_weight, should_increase, increment_rule). All blocks use Double Progression logic. Foundation block targets 8-10 reps.
 
-**movement_pattern column**: Added to both `exercise_v2.db` and `workout.db`. Fully populated (1359/1359). All 69 band exercises classified by movement pattern, not equipment. 43 patterns total (including new `grip` and `hip_abduction_adduction`).
+**Progression endpoints**:
+- `POST /api/progression/calculate` — COMPLETE — takes exercise + history, returns next weight/reps using model_picker
+- `POST /api/coach/session-targets` — COMPLETE — returns coaching messages per exercise using model_picker
+- `POST /api/coach/session-summary` — COMPLETE — returns full coach summary using model_picker (Option B)
 
-**Equipment categories**: 17 categories now, "other" eliminated. New categories added: plates, cardio, stretching, roller, sledge, tire, arms_forearm. Empty categories core_abs and hitt_cardio removed. "Gym Weights" preset = plates + dumbbells + barbells (convenience toggle). Deleted 10 poor-quality exercises (7 POV duplicates, 1 female variant, 2 towel rows). 1359 exercises remain.
+**Frontend progression UI**:
+- Block pill: COMPLETE — shows block name (e.g., "Foundation Block")
+- Rep target display: COMPLETE — shows rep floor/rep cap on exercise cards
+- Progression indicator: COMPLETE — "Ready to progress" badge when should_increase=true
+- Session target coaching messages: IN PROGRESS — backend returning messages, frontend applying them
 
-**New columns added (this session)**:
-- `base_movement` TEXT: 33 unique base movements (back_squat, front_squat, bench_press, deadlift, row, pull_up, bicep_curl, tricep_extension, dip, mobility, etc.)
-- `hitt_worthy` INTEGER: 585/1359 flagged (43%). Excludes warmup/cool_down/mobility/pure isolation. Core carries (prehab role) included.
-- `warmup_type` TEXT: 157 exercises classified. Values: dynamic (26), static (55), activation (67), general (9).
+**Option B — Coach Summary Rebuild (2026-10-12)**:
+- Replaced compute_prescription with model_picker calls in coach_chat endpoint
+- Created new session-targets endpoint using model_picker
+- Frontend fetches session targets after initial prescription computation
+- Fallback prescription computation removed (workout now waits for backend data)
+- Multiple backend bugs fixed in session-targets endpoint (model imports, SetLog query, template exercises)
+- Latest fix: session-targets now uses session.template.exercises instead of SetLog (returns exercises even when no sets logged yet)
+- **Current state**: Endpoint fixed, awaiting verification that coaching messages appear
 
-**Movement pattern sweep (this session)**: 16 pattern corrections + 2 new patterns (grip, hip_abduction_adduction) = 43 patterns. 1 misclassification fixed (cable squatting curl). Rear axe kick reclassified as dynamic warmup.
-
-**Frontend changes (this session)**:
-- Equipment toggle system: SettingsScreen has 17 equipment category checkboxes with "Select All" button. Equipment filtering in TemplateEditorScreen and CustomWorkoutBuilderScreen filters by primary_equipment from backend API response. localStorage synced for immediate updates without navigation.
-- Coach progression toggle: New setting in SettingsScreen ("Coach Progression", ON by default). When ON: exercise cards in TemplateEditorScreen show clean UI (no progression toggle, no "Set all progression" buttons). When OFF: full progression UI visible (per-exercise progression toggle + "Set all progression" buttons for workout-level control).
-- Muscle groups consolidated: upper arms + lower arms → "Arms", upper legs + lower legs → "Legs". Filter dropdown now shows 8 groups: Back, Chest, Shoulders, Arms, Legs, Core, Neck, Cardio.
-- Deload override toggle removed from exercise cards.
-- Routine type selector (Strength/HIIT/Active Rest) retained — used when creating/updating templates.
-
-**Final library state**:
-- 1359 exercises, 32 columns, fully classified
-- Exercise roles: 492 accessory, 396 isolation_technical, 31 main_compound, 272 secondary_compound, 11 cool_down, 69 prehab_activation, 88 warmup
-- Movement types: 545 compound, 153 helper, 661 isolation
-- Equipment: 17 categories, all verified and corrected
-- Movement patterns: 43 total, all populated
-- HIT-worthy: 585 exercises (43%)
-- Warmup type: 157 exercises classified
-
-**Next steps** (all DONE):
-1. [DONE] Fix unclassified exercises — 0 remaining
-2. [DONE] Apply movement_pattern to exercise_v2.db
-3. [DONE] Verify v2 classifications — spot-checked, all categories correct
-4. [DONE] Add `movement_pattern` column + migration to production Postgres on Fly.io
-5. [DONE] Run classification against production (migrated 1359 exercises, 0 errors)
-6. [DONE] Update working `workout.db` to match production (added 3 columns, migrated data)
-7. [DONE] Update `movement_type` and `exercise_role` columns — helper/mobility identification complete
-8. [DONE] Drop `coach_relevance_rank` column — utility questionable, removed from exercise_v2.db
-9. [DONE] Add `base_movement` column — 33 unique base movements identified
-10. [DONE] Add `hitt_worthy` column — 585 exercises flagged
-11. [DONE] Add `warmup_type` column — 157 exercises classified
-12. [DONE] Movement pattern sweep — 16 corrections + 2 new patterns
-13. [DONE] Build equipment toggle system — Settings UI + frontend filtering + backend API
-14. [DONE] Add coach progression toggle — Settings UI + frontend conditional rendering
-15. [DONE] Consolidate muscle groups — frontend filter cleanup
-16. [DONE] Remove deload override toggle — simplify exercise cards
-17. [DONE] Questionnaire auto-updates equipment settings
+**End-to-end testing**: NOT STARTED
 
 ---
 

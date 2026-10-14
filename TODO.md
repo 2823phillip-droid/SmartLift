@@ -1,28 +1,28 @@
 # TODO
-last_updated: 2026-10-08
+last_updated: 2026-10-12
 
 ## Latest Build
-- **Git HEAD:** `c5d5bdc` — "feat: equipment toggle system with coach progression control; consolidate muscle groups; remove deload override toggle"
-- **Build:** `index-3C8zlRL3.js` (867,530 bytes) + `index-C0Ze5QzQ.css` (57,620 bytes)
-- **Build date:** 2026-10-08
-- **Deploy status:** Backend deployed to Fly; frontend built and synced to iOS
-- **Validation status:** Health OK, smoke test passed
+- **Git HEAD:** `3a0872a` — "fix: get session exercises from template instead of SetLog"
+- **Build:** `index-mvo2Zzv2.js` (latest)
+- **Build date:** 2026-10-12
+- **Deploy status:** Backend deployed to Fly (v311); frontend built and synced to iOS
+- **Validation status:** Health OK; session-targets endpoint now returns exercises from template
 
 ## Bugs to fix
 
-_(no open bugs right now — add new bugs here when you find something broken during a workout)_
+### Session Target Summary (Option B) - IN PROGRESS
+- [ ] Session-targets endpoint returning 0 exercises when no sets logged yet — FIXED (use session.template.exercises)
+- [ ] Verify session targets now show foundation coaching messages after fix
+- [ ] Coaching messages should show "This is the coach notes for Foundation." (or similar)
+- [ ] Model indicator should appear in coach notes header
 
-## Bugs fixed
-
-	2026-09-27
-		- d28d4ec
-			- [x] **Session target / set target box only showing on first exercise** — Session Target and Set Target suggestion boxes only rendered on the first exercise card, not subsequent ones. Fix: loop over all incomplete exercises, compute prescriptions for each, batch-set in one call. Auto-expand now picks the first incomplete exercise instead of the last. Also fixed missing coach notes on second-half exercises (assisted chest dips, DB seated tricep extension, tricep cable pushdown).
-		- 10ac957
-			- [x] **Session target on set 1** — Set 1 correctly pulls from the previous session. Fixed: workout state persistence across navigation. Confirmed clean — session target and set target both working.
-		- f1c0c14
-			- [x] **Effort persistence across navigation** — Complete set 1 with effort 7, set 2 auto-expands with effort 7 pre-selected. Navigate away (Settings), come back — effort still 7, not unselected. Fixed: `expandExercise` now reads effort from latest log.
-		- 14cef4f
-			- [x] **No set target after last set** — Complete set 4 of an exercise. The Set Target suggestion box disappears entirely; no panel, no "Set Target" label.
+### Previous bugs (resolved during this session)
+- [x] Session-targets endpoint 500 error — NameError: WorkoutSessionExercise not defined — fixed by removing non-existent model
+- [x] Session-targets endpoint 500 error — ImportError: cannot import name 'WorkoutSessionExercise' — fixed by removing from import
+- [x] Session-targets endpoint returning 0 exercises — fixed by using session.template.exercises instead of SetLog query
+- [x] Fallback prescription computation causing old linear messages — removed entirely
+- [x] logSet function using local computePrescription — patched to use model_picker data
+- [x] Foundation coaching messages not showing in session target — pending verification after latest fix
 
 ### Navigation persistence
 	- [x] **Set 2 weight reverts to session target after navigating away and back** — Set 1 shows Session Target (pulls from last workout, going up 5lbs). Set 2 shows Set Target (matches rest timer, shows last set info, going up 5lbs). Both work during continuous workout. But navigating away (Settings tab → back to Live Workout) caused two things to break: elapsed time resets to 0; Set 2 actual weight reverts to session target instead of set target. Fixed: L274 `useEffect` now uses current `logs` when they exist for the exercise (latest log as seedSet), falling back to `lastSessionByExercise` only on fresh workout start. `workoutStart` persisted to localStorage and restored on remount.
