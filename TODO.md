@@ -3,34 +3,39 @@ last_updated: 2026-10-14
 
 ## Current State (as of this update)
 
-- **Git HEAD:** `a3d75f3` — "docs: update MEMORY-INDEX.md HEAD to f1f20be + Phase 1 status"
-- **Build:** `index-T4rHju19.js` (frontend dist), synced to iOS at `frontend/ios/App/App/public/assets/`
+- **Git HEAD:** `a8589cb` — "docs: update MEMORY-INDEX.md to ae85d93 + Phase 1 Set 2+ fix"
+- **Build:** `index-D9MNLi7W.js` (frontend dist), synced to iOS at `frontend/ios/App/App/public/assets/`
 - **Deploy status:** Backend deployed to Fly (commit `26e9a6b`, build-info timestamp `2026-10-14T15:10:48Z`). Health OK.
 - **Session-targets endpoint:** WORKING. Returns 6 exercises with coaching messages. Fixed 7 attribute errors (library_id, sets_target, name, is_compound, prescription dict access).
-- **iOS bundle in app:** `index-UMYqsEJ_.js` (previous) — user needs Clean Build Folder to pick up `index-T4rHju19.js` or latest.
+- **iOS bundle in app:** `index-D9MNLi7W.js` — synced to iOS, user needs Clean Build Folder to pick up latest.
 - **Backend error logging:** `/app/logs/session_targets_error.log` on server — captures full traceback + session_id + user_id on every 500.
 
 ## Session Target Status (CURRENT — just fixed)
 
-- [x] Session-targets endpoint returning 0 exercises — FIXED (use session.template.exercises)
-- [x] 500 errors — FIXED (7 attribute errors resolved: library_id, sets_target, name, is_compound, prescription dict access)
-- [x] Session targets now showing "This is the coach notes for Foundation." — VERIFIED (user confirmed on device)
-- [ ] Coaching messages should be model-specific, not generic — NEXT (Phase 4)
-- [ ] Model indicator should appear in coach notes header — NEXT (Phase 5)
-- [ ] Set 1 coaching message should pull from last session data — NEXT (Phase 4)
-- [ ] Cross-model weight adjustment on model switch — NEXT (Phase 4)
+- [x] Session-targets endpoint returning 0 exercises — FIXED
+- [x] 500 errors — FIXED (7 attribute errors resolved)
+- [x] "This is the coach notes for Foundation." showing — VERIFIED on device
+- [ ] Coaching messages come from backend model classes — NEXT (Phase 2 + Phase 3)
+- [ ] Set 1 coaching message pulls from last session data — NEXT (Phase 5)
+- [ ] Cross-model weight adjustment on model switch — NEXT (Phase 5)
+- [ ] Model indicator appears in coach notes header — NEXT (Phase 5)
 
-## What We Just Learned (Drawing file analysis)
+## What We Just Learned (Drawing file analysis + current state)
 
-The session-targets endpoint now works. The frontend displays "This is the coach notes for Foundation." — the generic message from `main.py:3922`. This works, but it's not the full picture. The design notes in the Drawing file (lines 28-56) describe the target architecture:
+The session-targets endpoint works. The frontend displays "This is the coach notes for Foundation." — a hardcoded message from `main.py:3922`. The frontend is now model-agnostic (Phase 1 done): it removed the hardcoded Foundation override from `logSet` and fixed Set 2+ coaching message display. The frontend uses whatever `prescriptions[exercise.id].coaching_message` contains.
 
-- **Model_Picker is the single source of truth.** Frontend never hardcodes model logic. It just calls Model_Picker and renders whatever comes back.
-- **Set 1** pulls from last session, uses current model's logic. Weight and reps come from Model_Picker's response.
-- **Set 2+** uses Model_Picker logic with previous set data (already working via per-set `computePrescription` + Foundation override in frontend).
-- **Cross-model transitions** need weight adjustment. If last session was Linear (6-8 reps, heavy) and this is Foundation (8-10 reps, lighter), weight should decrease.
-- **Model rotation** via Load Meter, Time, Workout count, Manual.
+But the backend doesn't have model classes yet. The `model_picker` function in `progression.py` returns 5 raw values (rep_floor, rep_cap, increment, suggested_weight, should_increase) — no coaching_message, no block_name. The `session_targets` endpoint hardcodes the coaching message. The frontend's `rules.ts` has the real progression logic (`doubleRule`, `linearRule`) and coaching message generation — but this is about to be moved to the backend.
 
-**Key insight:** The frontend is currently NOT fully model-agnostic. It has hardcoded Foundation messages in `ActiveWorkoutScreen.tsx` (lines 950-957: "Foundation: You hit 10 reps...") and the backend has a hardcoded generic message. The frontend should just render whatever Model_Picker returns.
+**Architecture insight (from Drawing file):** Model_Picker is the single source of truth. Frontend never hardcodes model logic. But for this to work, the models need to exist in the backend first. Model_Picker delegates to models. Models return full prescriptions. Session-targets uses model prescriptions. Frontend uses model_picker's prescriptions.
+
+**Phase order:**
+1. Phase 0: DONE — session-targets endpoint fixed
+2. Phase 1: DONE — frontend model-agnostic
+3. Phase 2: IN PROGRESS — build backend model classes (Linear, Foundation, Hypertrophy, Strength A/B, Maintenance)
+4. Phase 3: AFTER Phase 2 — model_picker delegates to models, session_targets uses model prescriptions
+5. Phase 4: AFTER Phase 3 — frontend uses model_picker's prescription for per-set messages
+6. Phase 5: AFTER Phase 4 — detailed per-model session/set target logic
+7. Phase 6-9: Onboarding, block state, rotation, coach polish, deployment
 
 ## Bugs to fix
 
