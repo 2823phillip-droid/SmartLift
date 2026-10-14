@@ -3924,9 +3924,9 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
         targets.append(SessionTargetResponse(
             exercise_id=exercise_entry.id,
             exercise_name=exercise_entry.name,
-            suggested_weight=prescription.suggested_weight,
-            rep_floor=prescription.rep_floor,
-            rep_cap=prescription.rep_cap,
+            suggested_weight=prescription["suggested_weight"],
+            rep_floor=prescription["rep_floor"],
+            rep_cap=prescription["rep_cap"],
             coaching_message=coaching_message,
             block_mode=block_mode,
         ))
