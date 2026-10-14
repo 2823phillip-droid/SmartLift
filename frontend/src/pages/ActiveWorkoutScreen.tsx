@@ -947,14 +947,6 @@ export default function ActiveWorkoutScreen({
       });
       prescription.should_increase = prescription.next_reps > (prevSet.actual_reps || 0);
     }
-    // Override coaching message based on current block
-    if (blockState?.block_mode === "foundation") {
-      if (prescription.should_increase) {
-        prescription.coaching_message = `Foundation: You hit 10 reps with good form — add 5 lbs next set.`;
-      } else {
-        prescription.coaching_message = `Foundation: Hold weight until you consistently hit 10 reps with good form.`;
-      }
-    }
     prescription.source = "local";
 
     try {
