@@ -3817,12 +3817,29 @@ def get_session_targets(payload: SessionTargetRequest, db: Session = Depends(get
     Returns model-specific coaching messages for each exercise in the session.
     """
     import traceback
+    import io
     try:
         return _do_session_targets(payload, db, current_user)
     except Exception as e:
-        traceback.print_exc()
+        tb = traceback.format_exc()
         print(f"[SESSION_TARGETS ERROR] {type(e).__name__}: {e}")
         print(f"[SESSION_TARGETS ERROR] session_id={payload.session_id}, user_id={current_user.id}")
+        print(f"[SESSION_TARGETS ERROR] traceback:\n{tb}")
+        # Write to server-side log file for persistent inspection
+        try:
+            from pathlib import Path
+            log_dir = Path("/app/logs")
+            log_dir.mkdir(parents=True, exist_ok=True)
+            error_log = log_dir / "session_targets_error.log"
+            with open(error_log, "a") as f:
+                f.write(f"\n{'='*60}\n")
+                f.write(f"Timestamp: {datetime.now(timezone.utc).isoformat()}\n")
+                f.write(f"session_id={payload.session_id}, user_id={current_user.id}\n")
+                f.write(f"Exception: {type(e).__name__}: {e}\n")
+                f.write(f"Traceback:\n{tb}\n")
+            print(f"[SESSION_TARGETS ERROR] Written to {error_log}")
+        except Exception as log_err:
+            print(f"[SESSION_TARGETS ERROR] Failed to write log file: {log_err}")
         raise
 
 
