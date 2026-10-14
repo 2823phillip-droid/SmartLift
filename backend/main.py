@@ -2514,6 +2514,8 @@ def calculate_progression(
     }
     
     result = model_picker(exercise_dict, history, block_state_dict)
+    # TEMP LOG: see what model_picker returns
+    print(f"[CALCULATE] exercise_library_id={payload.exercise_library_id}, block_mode={block_mode}, history_len={len(history)}, suggested_weight={result.get('suggested_weight')}, rep_floor={result.get('rep_floor')}, rep_cap={result.get('rep_cap')}")
     
     return ProgressionCalculateResponse(
         rep_floor=result["rep_floor"],
