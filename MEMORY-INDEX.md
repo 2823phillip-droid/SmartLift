@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
 last_updated: 2026-10-14
-status: Mac Studio M5 Max only, master branch HEAD `bf1b345`, clean working tree. Backend deployed to Fly (commit `284eef6`, build-info.json timestamp 2026-10-14T15:04:43Z). Backend healthy at askeo.fit/healthz. iOS bundle synced: `index-UMYqsEJ_.js` (874KB, Oct 14 10:06) in frontend/ios/App/App/public/assets/. Exercise library fully classified (1359 exercises, 32 columns), equipment toggle system working (coach progression + equipment categories), frontend filtering verified. Session-targets endpoint fixed (field name mismatches resolved).
+status: Mac Studio M5 Max only, master branch HEAD `1ccaacaf`, clean working tree. Backend deployed to Fly (commit `26e9a6b`, build-info.json timestamp 2026-10-14T15:10:48Z). Backend healthy at askeo.fit/healthz. iOS bundle synced: `index-T4rHju19.js` (874KB, Oct 14 10:12) in frontend/ios/App/App/public/assets/. Exercise library fully classified (1359 exercises, 32 columns), equipment toggle system working (coach progression + equipment categories), frontend filtering verified. Session-targets endpoint: model_picker returns dict — bracket access fix applied.
 
 This file explains where every type of project knowledge lives and when to use it.
 
