@@ -50,22 +50,24 @@ The session-targets endpoint now works. The frontend displays "This is the coach
 - [x] Set 2 weight reverts to session target on nav away/back — FIXED
 - [x] Rest timer lost on nav away/back — FIXED
 
-## Architecture Decision (from Drawing file discussion)
+### Architecture Decision (from Drawing file discussion)
 
-### Model_Picker as Single Source of Truth
-- Frontend never hardcodes model-specific logic (no "Foundation:" prefixes in TypeScript)
-- Model_Picker returns ALL data the frontend needs: suggested_weight, rep_floor, rep_cap, coaching_message, block_name, increment_rule, etc.
-- Frontend just renders whatever Model_Picker returns
-- Flipping the model = Model_Picker returns different data = frontend automatically renders differently
+**Model_Picker as Thin Selector:**
+- Model_Picker determines *which* model to use (block_state, load meter, time, workout count, manual) and delegates to that model for ALL data
+- Each model has a `compute()` method that returns everything: suggested_weight, rep_floor, rep_cap, coaching_message, block_name, increment_rule, should_increase
+- Frontend renders whatever the model returns — zero model-specific if/statements
+- Flipping the model = Model_Picker picks a different model = model.compute() returns different data = frontend automatically renders differently
+- Session-targets passes last-session data into `Model.compute()` so Set 1 coaching message includes last-session context
+- Per-set compute flow passes previous set data into `Model.compute()` for Set 2+ coaching messages
 
-### Set 1 vs Set 2+ Architecture
-- **Set 1 (Session Target):** Pulls from last session data, uses current model's logic. Model_Picker returns the Set 1 coaching message (incorporating last session weight/reps). Weight and reps from Model_Picker response.
-- **Set 2+ (Set Target):** Uses Model_Picker logic with previous set data. Already working via per-set `computePrescription` + block override in frontend. But should ultimately come from Model_Picker too.
+**Set 1 vs Set 2+ Architecture:**
+- **Set 1 (Session Target):** Pulls from last session data, uses current model's logic. Model_Picker picks the model, model.compute() returns Set 1 coaching message (incorporating last session weight/reps). Weight and reps from model.compute() response.
+- **Set 2+ (Set Target):** Uses Model_Picker logic with previous set data. Per-set compute flow calls model.compute() with previous_set_data. Already partially working via per-set computePrescription + block override in frontend, but should ultimately use model.compute() for the coaching message.
 
-### Cross-Model Transitions
+**Cross-Model Transitions:**
 - Need to track which model the last session used
 - If same model: continue progression from last weight/reps
-- If different model: adjust weight based on new model's rep targets and philosophy
+- If different model: model.compute() adjusts weight based on new model's rep targets and philosophy
 
 ## Phase Plan
 
