@@ -776,6 +776,7 @@ export default function ActiveWorkoutScreen({
     const suggestions = parseSetSuggestions(currentExercise);
     const existing = logs.filter((l: SetLog) => l.exercise_entry_id === currentExercise.id).length;
     const setIndex = existing + 1;
+    console.log(`[ActiveWorkoutScreen] logSet called for ${currentExercise.name}, setIndex=${setIndex}, weight=${weightLbs}, reps=${r}`);
     const sugg = suggestions[setIndex - 1];
     const isExtraSet = addSetExerciseId === currentExercise.id;
     const nextTarget = getNextSetTarget(currentExercise);
