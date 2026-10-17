@@ -3,6 +3,16 @@ import { api } from "../api";
 import type { SetLog, WorkoutSession } from "../types";
 import { lbsToKg, getUnitsPreference } from "../utils/units";
 
+const PHASE_COACHING: Record<string, string> = {
+  foundation_1: "Foundation 1 — This is where we build your base — movement quality, connective tissue strength, the fundamentals. And honestly, this isn't about going heavy. It's about form, control, getting familiar and comfortable with the weight. We're working in 8-10 reps, and we only add weight when we hit 10 with good form. Keep it smooth, keep it controlled. And take your time getting comfortable with the app too — we'll get there together.",
+  foundation_2: "Foundation 2 — We're transitioning to linear progression now — same foundation focus, but we're adding weight each session and letting reps find their level. 6-8 reps, smooth and controlled. This bridges us from foundation into strength work. You've built the base — now we're building on it. Take your time, keep the form tight, and let's get comfortable with the app together.",
+  hypertrophy: "Hypertrophy block — volume focus for muscle growth. Work in the 10-12 rep range, and only increase weight when you can hit 12 reps with good form. Metabolic stress and time under tension are the priorities. Smaller increments (3 lbs) help smooth progression.",
+  strength_a: "Strength Phase A — building toward heavier loads. Work in the 8-10 rep range with a focus on mechanical tension. Increase weight when you hit the top of the range with solid form. Heavier starting point than hypertrophy — your body is adapting to more demanding work.",
+  strength_b: "Strength Phase B — heavier loads, CNS adaptation. Working in the 6-8 rep range now. Increase weight when you hit 8 reps with solid form. Your nervous system is adapting to heavier work — prioritize recovery between sessions.",
+  strength_peak: "Strength Phase B — heavier loads, CNS adaptation. Working in the 6-8 rep range now. Increase weight when you hit 8 reps with solid form. Your nervous system is adapting to heavier work — prioritize recovery between sessions.",
+  deload: "Deload / Maintenance phase — recovery and structural flushing. Weights are reduced by ~20% from your recent work. Keep reps in the 10-12 range, RPE capped at 5. Focus on mobility, joint health, and active recovery. This is not about progression — it's about coming back stronger next cycle.",
+};
+
 interface RecapExercise {
   name: string;
   setsDone: number;
@@ -28,6 +38,7 @@ export default function PreWorkoutScreen({
 }) {
   const [mood, setMood] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [blockState, setBlockState] = useState<{ block_mode: string; phase: string; week_number: number } | null>(null);
   const [recap, setRecap] = useState<{
     daysAgo: number | null;
     duration: string | null;
@@ -52,6 +63,14 @@ export default function PreWorkoutScreen({
     let cancelled = false;
     const load = async () => {
       try {
+        // Fetch block-state for the FOUNDATION pill
+        try {
+          const bs = await api.getBlockState();
+          setBlockState({ block_mode: bs.block_mode, phase: bs.phase, week_number: bs.week_number });
+        } catch (e) {
+          console.error("[PreWorkoutScreen] Failed to fetch block-state:", e);
+        }
+
         const sessions = await api.getSessions();
         if (cancelled) return;
 
@@ -240,6 +259,23 @@ export default function PreWorkoutScreen({
           Back
         </button>
       </div>
+
+      {/* FOUNDATION pill — phase context */}
+      {blockState && PHASE_COACHING[blockState.phase] && (
+        <div className="rounded-2xl border border-indigo-800 bg-indigo-950/40 px-4 py-3.5">
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] font-semibold text-indigo-400 uppercase tracking-widest">
+              {blockState.block_mode.replace(/_/g, " ").replace(/\b\w/g, l => l.toUpperCase())}
+            </div>
+            <div className="text-[10px] text-indigo-500">
+              Week {blockState.week_number}
+            </div>
+          </div>
+          <div className="text-sm text-slate-300 mt-2 leading-relaxed">
+            {PHASE_COACHING[blockState.phase]}
+          </div>
+        </div>
+      )}
 
       <div className="rounded-2xl border border-indigo-800/60 bg-indigo-950/30 p-4 space-y-3">
         <div className="flex items-center gap-2">
