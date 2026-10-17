@@ -1264,6 +1264,18 @@ export default function ActiveWorkoutScreen({
         </div>
       </div>
 
+      {/* FOUNDATION pill — phase context */}
+      {exercises.length > 0 && sessionTargets[exercises[0].id]?.coaching_message && (
+        <div className="rounded-2xl border border-indigo-800 bg-indigo-950/40 px-4 py-3.5 mb-4">
+          <div className="text-[10px] font-semibold text-indigo-400 uppercase tracking-widest mb-1.5">
+            {blockState?.block_mode?.replace(/_/g, " ")?.replace(/\b\w/g, l => l.toUpperCase()) || "Foundation"}
+          </div>
+          <div className="text-sm text-slate-300 leading-relaxed">
+            {sessionTargets[exercises[0].id].coaching_message}
+          </div>
+        </div>
+      )}
+
       {/* Debug message */}
       {debugMessage && (
         <div className="rounded-xl border border-emerald-800 bg-emerald-950/30 px-4 py-3 flex items-start gap-3">
