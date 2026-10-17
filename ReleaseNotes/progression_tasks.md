@@ -147,10 +147,44 @@ The exercise library feeds directly into the progression engine (`model_picker` 
 - [x] Frontend model-agnostic tracking — `source` field on Prescription type (`local` vs `backend`)
 - [x] Frontend "Local fallback" badge — amber badge when source=local
 - [x] Generic coaching message — "This is the coach notes for Foundation." — VERIFIED on device
+- [x] Session targets not finding last session logs — FIXED (use all exercise_entry_ids from exercise_library, commit 06f1e9a)
+- [x] Session targets including cancelled sessions — FIXED (filter by ended_at.isnot(None), commit c535123)
 
-**User sees now:** Session Target card shows "This is the coach notes for Foundation." Weight and reps correct from model_picker. Full chain verified: backend endpoint → frontend fetch → prescription update → UI render.
+**User sees now:** Session Target card shows coaching messages from the backend. Weight and reps from model_picker. Full chain verified: backend endpoint → frontend fetch → prescription update → UI render.
 
 **Remaining from this phase:** Coaching message is generic. Phase 2 will make it model-specific with last-session data.
+
+**Root Cause of Current Issue (Barbell Deadlift showing 45 lbs):**
+
+The session-targets endpoint has a fundamental design flaw: it queries the last completed session OVERALL (ordered by `started_at.desc()`), not the last completed session for the same template. This works only when the user does the same workout consistently — the "last completed session overall" happens to be the right one.
+
+**Timeline:**
+1. **Phase 3 (commit 819dd82):** session-targets only used current session's logs. For new workouts, history was empty → returned 45 lbs. BUT fetchExerciseProgression called calculate, which returned correct weight (115+ lbs) and overwrote draftWeight. User saw correct weight from calculate.
+
+2. **Race condition fix (commit b744bb9):** Prevented fetchExerciseProgression from overwriting draftWeight after auto-expand. This was meant to fix a different issue, but it also prevented calculate from correcting session-targets' incorrect weight. Now session-targets' 45 lbs stays visible.
+
+3. **Today's fix (commit 06f1e9a):** Tried to fix session-targets by adding last session lookup. But it finds the last completed session OVERALL (session 261, Oct 5, different workout), not the last completed session for the same template (session 125, Sep 11, Back and Bicep). Session 261 doesn't have deadlift logs → still returns 45 lbs.
+
+**Why it worked before:**
+- Before Oct 5, session 125 (Sep 11, Back and Bicep) was the last completed session
+- session-targets found session 125 → got deadlift logs → worked correctly
+- User was doing Back and Bicep consistently, so the "last completed session overall" happened to be the right one
+
+**Why it broke:**
+- User completed session 261 (Oct 5, different template) after the 9-11 Back and Bicep workout
+- Now session 261 is the last completed session overall
+- session-targets finds session 261 → no deadlift logs → returns 45 lbs
+
+**The calculate endpoint doesn't have this problem:**
+- calculate queries ALL user logs for each exercise (not just the last session)
+- It finds the most recent logs for each exercise across all completed sessions
+- This is the correct behavior and what session-targets should do
+
+**Proper fix:**
+Make session-targets query the most recent logs for each exercise across ALL completed sessions (like calculate does), not just the last completed session. This ensures:
+- It finds the correct logs for each exercise regardless of which session is "last completed"
+- It works when switching between different routines
+- It matches what calculate does and what the user experienced before the race condition fix
 
 ---
 
@@ -164,12 +198,17 @@ The exercise library feeds directly into the progression engine (`model_picker` 
 - Removed hardcoded Foundation override from `logSet` (lines 950-957 in ActiveWorkoutScreen.tsx)
 - Fixed Set 2+ coaching message display — prescriptions now updated when exercise is done (not just when not done)
 - Verified no other `foundation`-specific checks in frontend (only legitimate initial values in QuestionnaireScreen and fallback prescription_type)
+- Removed ALL local prescription computation from frontend:
+  - expandExercise fallback (local computePrescription call)
+  - getNextSetTarget fallback (local computePrescription call)
+  - logSet fallback (local computePrescription call)
+- Fixed race condition between progression fetch and auto-expand (state → ref for autoExpandComplete flag)
 
-**Result:** Frontend is model-agnostic. It uses whatever `prescriptions[exercise.id].coaching_message` contains — whether that comes from the local `computePrescription` (current) or from `model_picker` (future).
+**Result:** Frontend is model-agnostic. It uses whatever `prescriptions[exercise.id].coaching_message` contains — from the backend only, no local computation.
 
 ---
 
-## PHASE 2: Backend Model Classes (CURRENT — IN PROGRESS)
+## PHASE 2: Backend Model Classes (COMPLETE — 2026-10-14)
 
 **Goal:** Create actual model classes in `backend/progression.py` — one per block mode. Each model has a `compute()` method that returns a full prescription. Start with simple "This is the X model." coaching messages to prove the architecture works.
 
@@ -577,24 +616,31 @@ Task count: ~34 discrete sub-tasks mapping directly to Phases 2–6. Ready for d
 
 **Exercise library**: COMPLETE (1359 exercises, 32 columns, fully classified)
 
-**Session-target fix (Phase 0)**: COMPLETE — endpoint working, verified on device
+**Session-target fix (Phase 0)**: COMPLETE — endpoint working, verified on device. Additional fixes: session targets now queries ALL completed sessions' logs (like calculate does, commit bed7358), filters out cancelled sessions (commit c535123).
 
-**Phase 1 (Model-Agnostic Frontend)**: IN PROGRESS — frontend has hardcoded Foundation logic to remove
+**Phase 1 (Model-Agnostic Frontend)**: COMPLETE — all local prescription computation removed, frontend relies entirely on backend session targets. Race condition between progression fetch and auto-expand fixed (state → ref).
+
+**Phase 2 (Backend Model Classes)**: COMPLETE — 6 model classes built (Linear, Foundation, Hypertrophy, Strength A/B, Maintenance) with compute() methods.
+
+**Phase 3 (Model_Picker Refactor)**: COMPLETE — model_picker delegates to models, session_targets uses model prescriptions.
+
+**Phase 4 (Frontend Uses model_picker's Prescription)**: IN PROGRESS — local prescriptions removed, frontend now uses `next_reps` from API response (commit b680efb). LogSet now calls calculate endpoint after each set to get updated prescription (commit ef7b115). Current issue: Barbell Deadlift Set 2 shows 11 reps instead of 8. Debug logging added to track what's happening (commit 4f7fb8c), but "logSet called" log not appearing in Safari — needs investigation.
 
 **Block state**: NOT STARTED
 
-**model_picker**: EXISTS (`backend/progression.py`) — returns `suggested_weight`, `rep_floor`, `rep_cap`, `should_increase`. Does NOT return `coaching_message`, `block_name`, or handle cross-model transitions. Phase 3 work needed.
+**model_picker**: EXISTS (`backend/progression.py`) — returns `suggested_weight`, `rep_floor`, `rep_cap`, `should_increase`, `coaching_message`, `block_name`, `next_reps`. Phase 3 COMPLETE.
 
 **Progression endpoints:**
-- `POST /api/progression/calculate` — COMPLETE — uses model_picker
-- `POST /api/coach/session-targets` — COMPLETE — returns coaching messages using model_picker (generic message currently)
+- `POST /api/progression/calculate` — COMPLETE — uses model_picker, returns `next_reps`
+- `POST /api/coach/session-targets` — COMPLETE — returns coaching messages using model_picker, returns `next_reps`
 - `POST /api/coach/session-summary` — COMPLETE — returns full coach summary using model_picker (Option B)
 
 **Frontend progression UI:**
 - Block pill: COMPLETE — shows block name (e.g., "Foundation Block")
 - Rep target display: COMPLETE — shows rep floor/rep cap on exercise cards
 - Progression indicator: COMPLETE — "Ready to progress" badge when should_increase=true
-- Session target coaching messages: IN PROGRESS — backend returning messages, frontend applies them. Hardcoded Foundation logic in logSet to remove.
+- Session target coaching messages: COMPLETE — backend returning messages, frontend applies them. All local computation removed.
+- Per-set prescription update: IN PROGRESS — logSet now calls calculate endpoint after each set, but debug log not appearing
 - Model indicator in coach notes header: NOT STARTED
 
 **Option B — Coach Summary Rebuild:**
@@ -602,11 +648,50 @@ Task count: ~34 discrete sub-tasks mapping directly to Phases 2–6. Ready for d
 - Created new session-targets endpoint using model_picker
 - Frontend fetches session targets after initial prescription computation
 - Fallback prescription computation removed (workout now waits for backend data)
+- Local prescription computation removed from expandExercise, getNextSetTarget, and logSet
+- Race condition fixed: progression fetch no longer overwrites draftWeight after auto-expand
 - Multiple backend bugs fixed in session-targets endpoint
 - Latest fix: session-targets uses session.template.exercises (returns exercises even with no sets logged)
 - **Current state**: Endpoint working, generic coaching message shown. Phase 2 will make messages model-specific.
 
 **End-to-end testing**: NOT STARTED
+
+---
+
+## MODEL SWITCHING & CONDITIONAL INCREMENT LOGIC (2026-10-15)
+
+**Problem:** When switching progression models (e.g., Foundation → Hypertrophy), the model's progression logic may not work correctly because it compares against the wrong rep_cap.
+
+**Example:**
+- Previous session: Foundation, 115×8 (8 reps < 10 rep_cap for Foundation)
+- Current session: Hypertrophy (rep_cap=12)
+- Model's logic: 8 < 12, so no increment. Set 1 = 115.
+- But user wants progression: Set 1 = 120.
+
+**Root Causes Identified and Fixed:**
+1. `calculate` endpoint wasn't passing `reps_target` and `increment` to `model_picker` — FIXED (commit pending deploy)
+2. `_get_top_set` was returning `history[-1]` (oldest set) instead of `history[0]` (most recent set) — FIXED (commit pending deploy)
+3. Session targets endpoint uses the model's progression logic for Set 1 (add increment only if previous session's reps >= rep_cap)
+4. When switching models, the model's logic doesn't know you're starting a new progression arc
+
+**Current Behavior (after fixes):**
+- Set 1 uses the model's logic: add increment only if previous session's last set reps >= current model's rep_cap
+- If previous session reps < rep_cap: Set 1 = same weight as previous session (no progression)
+- If previous session reps >= rep_cap: Set 1 = previous weight + increment (progression)
+
+**Desired Behavior (to be implemented):**
+- **Same model as previous session**: Use the model's progression logic (add increment if reps >= rep_cap)
+- **Different model from previous session**: Always add increment (new progression arc)
+
+**Implementation Questions:**
+1. How do we know what model the previous session used? (Need to query previous session's block_mode from database)
+2. Should the increment be tied to the model's rep_cap, or should it always be a fixed amount?
+3. What's the logic when switching from a model with higher rep_cap to lower rep_cap (e.g., Hypertrophy 10-12 → Foundation 8-10)?
+
+**Files involved:**
+- `backend/main.py` — session_targets and calculate endpoints
+- `backend/progression.py` — model_picker, FoundationModel, _get_top_set
+- `frontend/src/pages/ActiveWorkoutScreen.tsx` — logSet, expandExercise
 
 ---
 

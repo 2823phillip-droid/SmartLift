@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
-last_updated: 2026-10-14
-status: Mac Studio M5 Max only, master branch HEAD `819dd82`, clean working tree. Backend deployed to Fly (commit `819dd82`, build-info.json timestamp `2026-10-14T17:30:19Z`). Backend healthy at askeo.fit/healthz. iOS bundle synced: `index-D9MNLi7W.js` (874KB, Oct 14 11:35) in frontend/ios/App/App/public/assets/. Exercise library fully classified (1359 exercises, 32 columns), equipment toggle system working (coach progression + equipment categories), frontend filtering verified. Session-targets endpoint: model_picker delegates to 6 model classes; endpoint uses model.compute() coaching_message. Phase 0 COMPLETE. Phase 1 COMPLETE. Phase 2 COMPLETE (6 models built). Phase 3 COMPLETE (endpoint uses model prescription). Phase 4 NEXT.
+last_updated: 2026-10-17
+status: Mac Studio M5 Max only, master branch HEAD `e8e2210`, working tree has uncommitted frontend changes. Backend deployed to Fly (commit `e8e2210`, build-info timestamp `2026-10-17T~`). Backend healthy at smartlift-api.fly.dev/healthz. iOS bundle NOT YET SYNCD: latest build needed (frontend changes uncommitted, bundle from Oct 15). Progression system Phase 4 COMPLETE: BlockState phase granularity (String phases), transition function (8 rules), phase advancement triggers (week thresholds), wired into calculate endpoint (auto-advance + transition), models handle new phases (FoundationModel distinguishes foundation_1 vs foundation_2, all models accept phase param). Coaching messages updated for production. Phase 5 NEXT.
 
 This file explains where every type of project knowledge lives and when to use it.
 
@@ -8,8 +8,8 @@ This file explains where every type of project knowledge lives and when to use i
 
 ### Repo
 - **Branch:** master
-- **HEAD:** `819dd82` — "feat: Phase 3 - session_targets endpoint uses model.compute() coaching_message"
-- **Remote (GitHub):** clean working tree, all changes pushed. Single Mac Studio M5 Max machine — no second machine to sync with.
+- **HEAD:** `e8e2210` — "Add phase parameter to all model compute methods"
+- **Remote (GitHub):** committed and pushed. Working tree has uncommitted frontend changes (ActiveWorkoutScreen.tsx debug/prescription updates).
 
 ### Frontend
 - **Build target:** Capacitor iOS app, Xcode project on Mac Studio. Run from Xcode → Product > Run.

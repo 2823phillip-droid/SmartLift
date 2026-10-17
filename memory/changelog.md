@@ -15,7 +15,14 @@ Format: DATE | FILE | TYPE | SUMMARY
 | 2026-10-07 | `Askeo.md` | updated | Fixed exercise library source: `backend/exercisedb_data.json` (was `backend/dist/exercises-hasan.json`). Fixed count: 1384 (was 1318). Added `last_updated: 2026-10-07`. Updated `/api/trainer/generate` description with retirement note. |
 | 2026-10-07 | `memory/ai-coach-capabilities.md` | updated | Added `last_updated: 2026-10-07`. Added note clarifying `generate_workout` tool status post-retirement of automatic builder. |
 | 2026-10-07 | `memory/prebuilt-templates.md` | created | New file documenting the prebuilt template selection flow that replaced the automatic builder in `439c55f`. Covers Training Profile, template library, AI coach tools, and what changed vs old flow. |
-| 2026-10-07 | `memory/README.md` | updated | Added `prebuilt-templates.md` to file catalog. Marked `trainer.md` as archived. |
+|| 2026-10-07 | `memory/README.md` | updated | Added `prebuilt-templates.md` to file catalog. Marked `trainer.md` as archived. |
+
+## 2026-10-15
+
+||||| File | Type | Summary |
+|||||---|---|---|
+||||| 2026-10-15 || `ReleaseNotes/progression_tasks.md` | updated | Added "MODEL SWITCHING & CONDITIONAL INCREMENT LOGIC" section documenting the model switching problem, root causes fixed, current behavior, desired behavior, and implementation questions. Covers: calculate endpoint not passing reps_target/increment to model_picker (fixed), _get_top_set returning wrong history index (fixed), session targets using model logic for Set 1, and conditional logic needed when switching models. |
+|| 2026-10-15 || `memory/progression-glossary.md` | created | New glossary documenting the progression system architecture: model_picker function vs model classes (logical separation despite physical co-location in progression.py), endpoint flows (calculate, session-targets), key concepts (block_mode, history, BLOCK_REP_TARGETS, reps_target, increment), architecture diagram, and common points of confusion. Created to clarify confusion about model_picker and models serving separate functions but existing in one file. |
 
 ## 2026-09-27
 

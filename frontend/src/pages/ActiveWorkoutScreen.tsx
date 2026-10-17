@@ -65,6 +65,7 @@ export default function ActiveWorkoutScreen({
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
   const [showFinishConfirm, setShowFinishConfirm] = useState(false);
   const [prescriptionError, setPrescriptionError] = useState<string | null>(null);
+  const [debugMessage, setDebugMessage] = useState<string | null>(null);
 
   // Advancement popup
   const [showAdvancementPopup, setShowAdvancementPopup] = useState(false);
@@ -92,6 +93,7 @@ export default function ActiveWorkoutScreen({
   const expandTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const toLbs = (lbs: number): number => lbs;
+  console.warn("[ActiveWorkoutScreen] Component rendering");
 
   // Block state
   const [blockState, setBlockState] = useState<{
@@ -765,9 +767,13 @@ export default function ActiveWorkoutScreen({
   };
 
   const logSet = async (): Promise<boolean> => {
+    setDebugMessage(`logSet ENTERED`);
     if (isLogging) return false;
     const currentExercise = getCurrentExercise();
-    if (!currentExercise || !draftWeight || !draftReps) return false;
+    if (!currentExercise || !draftWeight || !draftReps) {
+      setDebugMessage(`logSet early return: isLogging=${isLogging}, exercise=${!!currentExercise}, weight=${!!draftWeight}, reps=${!!draftReps}`);
+      return false;
+    }
     setIsLogging(true);
     const w = parseFloat(draftWeight);
     const r = parseInt(draftReps, 10);
@@ -776,7 +782,7 @@ export default function ActiveWorkoutScreen({
     const suggestions = parseSetSuggestions(currentExercise);
     const existing = logs.filter((l: SetLog) => l.exercise_entry_id === currentExercise.id).length;
     const setIndex = existing + 1;
-    console.log(`[ActiveWorkoutScreen] logSet called for ${currentExercise.name}, setIndex=${setIndex}, weight=${weightLbs}, reps=${r}`);
+    console.warn(`[ActiveWorkoutScreen] logSet called for ${currentExercise.name}, setIndex=${setIndex}, weight=${weightLbs}, reps=${r}`);
     const sugg = suggestions[setIndex - 1];
     const isExtraSet = addSetExerciseId === currentExercise.id;
     const nextTarget = getNextSetTarget(currentExercise);
@@ -788,7 +794,7 @@ export default function ActiveWorkoutScreen({
     // Use model_picker progression data if available, otherwise fall back
     // to local computation.
     const progressionData = exerciseProgression[currentExercise.id];
-    let prescription;
+    let prescription: Prescription | undefined;
     const existingCoachingMessage = prescriptions[currentExercise.id]?.coaching_message ?? "";
     if (progressionData?.suggested_weight != null) {
       // Use model_picker data from calculate endpoint
@@ -808,6 +814,7 @@ export default function ActiveWorkoutScreen({
     }
     // No local fallback — if backend prescription is empty, we just
     // don't update the prescription until backend returns.
+    let updatedPrescription: Prescription | undefined;
     try {
       const suggestedWeightLbs = getUnitsPreference() === "imperial" ? nextTarget.weight : kgToLbs(nextTarget.weight);
       const log = await api.createSetLog({
@@ -852,6 +859,17 @@ export default function ActiveWorkoutScreen({
               box_type: calcData.box_type,
             },
           }));
+          updatedPrescription = {
+            next_weight: Math.round(nextWeightLbs * 10) / 10,
+            next_reps: nextReps,
+            next_sets: resolveDisplayTarget(currentExercise),
+            rest_seconds: currentExercise.rest_seconds ?? 90,
+            coaching_message: existingCoachingMessage,
+            workload_status: "moderate" as WorkloadStatus,
+            prescription_type: calcData.box_type || "foundation",
+            is_deload: false,
+            should_increase: calcData.should_increase,
+          };
           setPrescriptions(prev => ({
             ...prev,
             [currentExercise.id]: {
@@ -866,7 +884,7 @@ export default function ActiveWorkoutScreen({
               should_increase: calcData.should_increase,
             },
           }));
-          console.log(`[ActiveWorkoutScreen] Updated progression after set ${setIndex}: weight=${Math.round(nextWeightLbs)}, reps=${nextReps}`);
+          console.warn(`[ActiveWorkoutScreen] Updated progression after set ${setIndex}: weight=${Math.round(nextWeightLbs)}, reps=${nextReps}`);
         }
       } catch (err) {
         console.error("[ActiveWorkoutScreen] Failed to fetch progression after set", err);
@@ -875,7 +893,7 @@ export default function ActiveWorkoutScreen({
       await api.createCoachMessage({
         session_id: sessionId,
         role: "in_workout",
-        content: prescription?.coaching_message ?? "",
+        content: updatedPrescription?.coaching_message ?? existingCoachingMessage ?? "",
       });
     } catch (err) {
       console.error("Failed to log set", err);
@@ -921,22 +939,24 @@ export default function ActiveWorkoutScreen({
 
     setNotesMap((prev) => ({ ...prev, [currentExercise.id]: "" }));
     if (!workoutIsDone) {
-      setDraftWeight(String(Math.round(prescription.next_weight * 10) / 10));
-      setDraftReps(String(prescription.next_reps));
-      // Update the per-exercise prescription so the card shows the latest
-      // coaching message after each set, not the pre-workout one.
-      setPrescriptions((prev) => ({
-        ...prev,
-        [currentExercise.id]: {
-          ...prev[currentExercise.id],
-          next_weight: prescription.next_weight,
-          next_reps: prescription.next_reps,
-          coaching_message: prescription.coaching_message,
-          workload_status: prescription.workload_status,
-          prescription_type: prescription.prescription_type,
-          is_deload: prescription.is_deload,
-        },
-      }));
+      if (updatedPrescription) {
+        setDraftWeight(String(Math.round(updatedPrescription.next_weight * 10) / 10));
+        setDraftReps(String(updatedPrescription.next_reps));
+        // Update the per-exercise prescription so the card shows the latest
+        // coaching message after each set, not the pre-workout one.
+        setPrescriptions((prev) => ({
+          ...prev,
+          [currentExercise.id]: {
+            ...prev[currentExercise.id],
+            next_weight: updatedPrescription.next_weight,
+            next_reps: updatedPrescription.next_reps,
+            coaching_message: updatedPrescription.coaching_message,
+            workload_status: updatedPrescription.workload_status,
+            prescription_type: updatedPrescription.prescription_type,
+            is_deload: updatedPrescription.is_deload,
+          },
+        }));
+      }
     }
     if (rest > 0) {
       startRest(rest);
@@ -1238,6 +1258,21 @@ export default function ActiveWorkoutScreen({
         </div>
       </div>
 
+      {/* Debug message */}
+      {debugMessage && (
+        <div className="rounded-xl border border-emerald-800 bg-emerald-950/30 px-4 py-3 flex items-start gap-3">
+          <svg className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-xs text-emerald-300 leading-relaxed flex-1">{debugMessage}</p>
+          <button onClick={() => setDebugMessage(null)} className="text-emerald-400 hover:text-emerald-200 shrink-0">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+      )}
+
       {/* Prescription error banner */}
       {prescriptionError && (
         <div className="rounded-xl border border-rose-800 bg-rose-950/30 px-4 py-3 flex items-start gap-3">
@@ -1510,4 +1545,6 @@ export default function ActiveWorkoutScreen({
   </div>
   )
 }
+// MODULE LOAD TEST
+console.warn("[ActiveWorkoutScreen] MODULE LOADED - web bundle is running");
 

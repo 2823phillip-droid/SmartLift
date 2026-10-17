@@ -20,6 +20,7 @@ This directory contains one-file-per-domain lessons learned through debugging an
 || `trainer.md` | Trainer questionnaire schema, workout/meal generation rules, backend endpoints | **Archived** — historical reference only. See `prebuilt-templates.md` for current flow. |
 || `ai-coach-capabilities.md` | AI coach tools, prompts, validation rules, hard limits, domain guardrails | Before changing AI coach behavior, tools, or profile/workout modification logic |
 || `prebuilt-templates.md` | Prebuilt template selection flow (replaces automatic builder) | Before working on questionnaire, template selection, or AI coach generation |
+|| `progression-glossary.md` | Progression system architecture glossary: model_picker, models, endpoints, key concepts | Before working on progression logic, model_picker, or when confused about the architecture |
 || `changelog.md` | History of changes to the knowledge base | When auditing what changed and when |
 
 ## Adding a new domain
