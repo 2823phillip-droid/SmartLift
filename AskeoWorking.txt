@@ -1,0 +1,103 @@
+-----------------------
+|Askeo                |
+|                     |
+|Back and Biecps      |
+| --------------------|
+| |   FOUNDATION     || 
+| --------------------|
+|  ET F C             |
+|---------------------|
+||   Barbell Deadlift||
+||   Session Targert ||
+||      Summary      ||
+||                   ||
+||   Weight  Reps    ||
+||   Effort          ||
+||   Form Qaulity    ||
+||-------------------||
+||-------------------||
+|| Other exercises   ||
+||-------------------||
+-----------------------
+
+
+ET= Elapsed Timer
+F=Finish Button
+C=Cancel Button
+
+#
+Model_Picker=Foundation
+!
+Frontend loads - Calls model picker
+Frontend then calls Foundation model
+Frontend loads foundation active workout progression
+   Session Target
+      Still pulls backend last session for set 1, but uses Foundation model logic.
+      Need a way to determine if last session was foundational or something else.
+         If same model, run progression logic based off last weight and reps
+         If different, than the weight will likely need to change too. If the user did 100 lbs for 6 reps because last session was linear, than if this session is the session that goes to Foundational, and needs 8 reps, then weight will need to decrease. Need to figure that out.
+         Set 1
+            Session Target - Last session you did x weight for y reps. This session you will do x and y.
+            Weight - Matches Session target weight
+            Reps - Matches Session target reps
+   Set Target (for all sets except set 1)
+      Just uses Model_Picker logic to update notes, weight, and reps since this will just use the previous set data.
+
+
+
+Models (Foundation, Linear, Double, any other one)
+   So everything for the models is built here. Frontend just calls model picker, and model picker points to which model to use. then front end just calls the model for all information. Nothing static should be built in the front end. Flipping the model should be as easy as the Model_Picker replying to the call from the front end with any of the Models, and then the frontend produces the correct logic throughout. Notes, weight, and reps.
+
+Model_Picker Logic on rotating models.
+   Load Meter
+   Time
+   Number of Completed workouts
+   Manual Change by the user.
+#
+
+Logs:
+
+
+
+Current Summary:
+SESSION STATE — Progression Transition System
+
+What's done:
+- SetLog.block_mode added (models.py + main.py). Sets automatically from current BlockState on log creation. Enables per-exercise, per-session model tracking.
+- TODO.md updated with full transition system status.
+
+Architecture:
+- models.py = persistence (BlockState tracks current phase/week/start_date, SetLog tracks per-set block_mode)
+- progression.py = engine (models, model_picker, will hold transition function)
+- main.py = orchestration (endpoints call progression.py, check BlockState, apply transitions)
+
+The 8 transitions (all handled by one resolve_model_transition function):
+
+| #   | From → To                   | Model Change    | Weight Adjustment                         |
+|-----|-----------------------------|-----------------|-------------------------------------------|
+| 1   | Foundation_1 → Foundation_2 | Double → Linear | Small increase (linear kicks in)          |
+| 2   | Foundation_2 → Hypertrophy  | Linear → Double | Decrease (higher rep target 6-8 → 10-12)  |
+| 3   | Hypertrophy → Strength A    | Double → Double | Increase (10-12 → 8-10)                   |
+| 4   | Strength A → Strength B     | Double → Double | Increase (8-10 → 6-8)                     |
+| 5   | Strength B → Strength Peak  | Double → Double | Increase (6-8 → 4-6)                      |
+| 6   | Strength Peak → Deload      | Double → None   | -20%                                      |
+| 7   | Deload → Hypertrophy        | None → Double   | Small increase                            |
+| 8   | Any → Foundation_1          | varies → Double | Decrease (re-entry after long break only) |
+
+Normal cycle: Foundation_1 → Foundation_2 → Hypertrophy → Strength_A → Strength_B → Strength_Peak → Deload → loop to Hypertrophy
+
+Transition function design: resolve_model_transition(previous_phase, current_phase, prescription) in progression.py — looks up weight multiplier per (from, to) pair, applies to prescription weight.
+
+What still needs building:
+1. BlockState phase granularity — current phase is 1-6 integer. Need foundation_1, foundation_2, hypertrophy, strength_a, strength_b, strength_peak, deload
+2. Transition function in progression.py (the 8 rules with weight multipliers)
+3. Phase advancement triggers — week thresholds per phase, performance triggers, re-entry detection for transition #8
+4. Wire into endpoints — calculate/session-targets check BlockState, advance phase if needed, apply transition, then call model_picker
+5. Models handle new phase values — FoundationModel needs to distinguish foundation_1 (double, RPE 4-6) vs foundation_2 (linear, reps slide)
+
+SSH: Enabled on Studio. IP: 192.168.1.121, user: phillipwalters, port 22. Firewall off. SSH keys exist. Ready for laptop access.
+
+Files:
+- backend/models.py — BlockState (line 272), SetLog (line 200, block_mode added)
+- backend/progression.py — BLOCK_REP_TARGETS (line 2414), BLOCK_SEQUENCE (line 2424), model_picker (line 3270), model classes
+- backend/main.py — create_set_log (line 1708, block_mode logic added), calculate endpoint (line 2460+)
