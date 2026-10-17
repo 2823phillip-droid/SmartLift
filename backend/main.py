@@ -2421,6 +2421,7 @@ class ProgressionCalculateRequest(BaseModel):
     history: List[dict] = []
     block_mode: Optional[str] = None
     week_number: Optional[int] = None
+    previous_phase: Optional[str] = None
 
 
 class ProgressionCalculateResponse(BaseModel):
@@ -2544,6 +2545,12 @@ def calculate_progression(
         reps_target=reps_target,
         increment=increment,
     )
+    
+    # Apply phase transition if previous_phase is provided and differs from current
+    if payload.previous_phase and block_state_phase and payload.previous_phase != block_state_phase:
+        from progression import resolve_model_transition
+        result = resolve_model_transition(payload.previous_phase, block_state_phase, result)
+        print(f"[CALCULATE] Transition applied: {payload.previous_phase} -> {block_state_phase}, new weight: {result.get('suggested_weight')}")
     # TEMP LOG: see what model_picker returns
     print(f"[CALCULATE] exercise_library_id={payload.exercise_library_id}, block_mode={block_mode}, history_len={len(history)}, suggested_weight={result.get('suggested_weight')}, rep_floor={result.get('rep_floor')}, rep_cap={result.get('rep_cap')}, next_reps={result.get('next_reps', 'N/A')}, should_increase={result.get('should_increase')}")
     # DEBUG: log the top set to understand weight calculation
