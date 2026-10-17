@@ -149,7 +149,7 @@ export default function ActiveWorkoutScreen({
   // After logging a set, logSet() updates prescriptions for the current exercise.
   // SortableExerciseCard reads prescriptions[exercise.id] for its suggestion box.
   const [prescriptions, setPrescriptions] = useState<Record<number, Prescription>>({});
-  const [sessionTargets, setSessionTargets] = useState<Record<number, { coaching_message: string; block_mode: string }>>({});
+  const [sessionTargets, setSessionTargets] = useState<Record<number, { coaching_message: string; block_mode: string; session_target: string }>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -390,13 +390,14 @@ export default function ActiveWorkoutScreen({
     // model-specific weight, reps, and coaching messages for all exercises.
     // Frontend does NOT compute prescriptions locally — relies entirely on backend.
     console.log("[ActiveWorkoutScreen] Fetching session targets...");
-    let targetsMap: Record<number, { coaching_message: string; suggested_weight: number; rep_floor: number; rep_cap: number; next_reps?: number }> = {};
+    let targetsMap: Record<number, { coaching_message: string; session_target: string; suggested_weight: number; rep_floor: number; rep_cap: number; next_reps?: number }> = {};
     try {
       const targets = await api.getSessionTargets(sessionId);
       console.log("[ActiveWorkoutScreen] Session targets received:", targets.length, "exercises");
       for (const t of targets) {
         targetsMap[t.exercise_id] = {
           coaching_message: t.coaching_message,
+          session_target: t.session_target ?? "",
           suggested_weight: t.suggested_weight,
           rep_floor: t.rep_floor,
           rep_cap: t.rep_cap,
@@ -424,6 +425,7 @@ export default function ActiveWorkoutScreen({
           next_sets: target.sets_target || 3,
           rest_seconds: target.rest_seconds ?? 90,
           coaching_message: targetData.coaching_message,
+          session_target: targetData.session_target ?? "",
           workload_status: "moderate" as WorkloadStatus,
           prescription_type: "foundation",
           is_deload: false,
@@ -800,12 +802,14 @@ export default function ActiveWorkoutScreen({
       // Use model_picker data from calculate endpoint
       const suggestedWeightLbs = toLbs(progressionData.suggested_weight);
       const nextReps = progressionData.next_reps ?? progressionData.rep_floor;
+      const existingSessionTarget = prescriptions[currentExercise.id]?.session_target ?? "";
       prescription = {
         next_weight: suggestedWeightLbs,
         next_reps: nextReps,
         next_sets: resolveDisplayTarget(currentExercise),
         rest_seconds: currentExercise.rest_seconds ?? 90,
         coaching_message: existingCoachingMessage,
+        session_target: existingSessionTarget,
         workload_status: "moderate" as WorkloadStatus,
         prescription_type: progressionData.box_type || "foundation",
         is_deload: false,
@@ -865,6 +869,7 @@ export default function ActiveWorkoutScreen({
             next_sets: resolveDisplayTarget(currentExercise),
             rest_seconds: currentExercise.rest_seconds ?? 90,
             coaching_message: existingCoachingMessage,
+            session_target: prescriptions[currentExercise.id]?.session_target ?? "",
             workload_status: "moderate" as WorkloadStatus,
             prescription_type: calcData.box_type || "foundation",
             is_deload: false,
@@ -878,6 +883,7 @@ export default function ActiveWorkoutScreen({
               next_sets: resolveDisplayTarget(currentExercise),
               rest_seconds: currentExercise.rest_seconds ?? 90,
               coaching_message: prev[currentExercise.id]?.coaching_message ?? "",
+              session_target: prev[currentExercise.id]?.session_target ?? "",
               workload_status: "moderate" as WorkloadStatus,
               prescription_type: calcData.box_type || "foundation",
               is_deload: false,

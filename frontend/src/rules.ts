@@ -352,6 +352,7 @@ export interface Prescription {
   next_sets: number;
   rest_seconds: number;
   coaching_message: string;
+  session_target?: string;
   workload_status: WorkloadStatus;
   prescription_type: string;
   is_deload: boolean;

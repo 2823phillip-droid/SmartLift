@@ -377,7 +377,9 @@ export function SortableExerciseCard({
                         : exerciseLogs.length === 0 ? "Session Target" 
                         : "Set Target"}
                     </div>
-                    <div className="text-xs text-slate-300 mt-1 leading-relaxed">{suggestion.coaching_message}</div>
+                    <div className="text-xs text-slate-300 mt-1 leading-relaxed">
+                      {exerciseLogs.length === 0 && suggestion.session_target ? suggestion.session_target : suggestion.coaching_message}
+                    </div>
                     {suggestion.source === "local" && (
                       <div className="text-[10px] text-amber-500/80 mt-1 font-medium">Local fallback — session targets unavailable</div>
                     )}
