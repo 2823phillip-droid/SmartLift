@@ -2710,7 +2710,7 @@ class LinearModel:
         
         if not top_set:
             # No history — first set; use estimated starting weight
-            coaching_message = "This is the Linear model."
+            coaching_message = "Starting your linear progression. Weight will increase each session — reps will find their level. Aim for 8-10 reps to start, and as weight goes up, reps will naturally slide toward 6-8."
             starting_weight = _estimate_starting_weight(exercise)
             return {
                 "suggested_weight": starting_weight,
@@ -2781,7 +2781,7 @@ class LinearModel:
             next_reps = reps_target_val
         
         should_increase = next_weight > weight
-        coaching_message = "This is the Linear model."
+        coaching_message = "Linear progression — add weight each session and let reps find their level. Start with 8-10 reps, and as weight increases, reps will naturally slide toward 6-8. Consistency across sessions is what drives progress here."
         
         return {
             "suggested_weight": round(next_weight, 1),
@@ -2856,7 +2856,7 @@ class FoundationModel:
         exercise_name = exercise.get("name", "this exercise") if isinstance(exercise, dict) else getattr(exercise, "name", "this exercise")
         
         if not top_set:
-            coaching_message = "This is the Foundation model."
+            coaching_message = "Foundation phase — building movement quality and connective tissue strength. Use double progression: work within 8-10 reps, and only increase weight when you can hit 10 reps with good form. Keep RPE around 4-6 — this is not about max effort."
             starting_weight = _estimate_starting_weight(exercise)
             return {
                 "suggested_weight": starting_weight,
@@ -2985,7 +2985,7 @@ class HypertrophyModel:
         
         if not top_set:
             # No history — first set; use estimated starting weight
-            coaching_message = "This is the Hypertrophy model."
+            coaching_message = "Hypertrophy block — volume focus for muscle growth. Work in the 10-12 rep range, and only increase weight when you can hit 12 reps with good form. Metabolic stress and time under tension are the priorities. Smaller increments (3 lbs) help smooth progression."
             starting_weight = _estimate_starting_weight(exercise)
             return {
                 "suggested_weight": starting_weight,
@@ -3053,7 +3053,7 @@ class HypertrophyModel:
                 next_reps = reps_target_val
         
         should_increase = next_weight > weight
-        coaching_message = "This is the Hypertrophy model."
+        coaching_message = "Hypertrophy block — volume focus for muscle growth. Work in the 10-12 rep range, and only increase weight when you can hit 12 reps with good form. Metabolic stress and time under tension are the priorities. Smaller increments (3 lbs) help smooth progression."
         
         return {
             "suggested_weight": round(next_weight, 1),
@@ -3108,7 +3108,7 @@ class StrengthAModel:
         
         if not top_set:
             # No history — first set; use estimated starting weight
-            coaching_message = "This is the Strength A model."
+            coaching_message = "Strength Phase A — building toward heavier loads. Work in the 8-10 rep range with a focus on mechanical tension. Increase weight when you hit the top of the range with solid form. Heavier starting point than hypertrophy — your body is adapting to more demanding work."
             starting_weight = _estimate_starting_weight(exercise)
             return {
                 "suggested_weight": starting_weight,
@@ -3171,7 +3171,7 @@ class StrengthAModel:
             next_reps = reps_target_val
         
         should_increase = next_weight > weight
-        coaching_message = "This is the Strength A model."
+        coaching_message = "Strength Phase A — building toward heavier loads. Work in the 8-10 rep range with a focus on mechanical tension. Increase weight when you hit the top of the range with solid form. Heavier starting point than hypertrophy — your body is adapting to more demanding work."
         
         return {
             "suggested_weight": round(next_weight, 1),
@@ -3226,7 +3226,7 @@ class StrengthBModel:
         
         if not top_set:
             # No history — first set; use estimated starting weight
-            coaching_message = "This is the Strength B model."
+            coaching_message = "Strength Phase B — heavier loads, CNS adaptation. Working in the 6-8 rep range now. Increase weight when you hit 8 reps with solid form. Your nervous system is adapting to heavier work — prioritize recovery between sessions."
             starting_weight = _estimate_starting_weight(exercise)
             return {
                 "suggested_weight": starting_weight,
@@ -3289,7 +3289,7 @@ class StrengthBModel:
             next_reps = reps_target_val
         
         should_increase = next_weight > weight
-        coaching_message = "This is the Strength B model."
+        coaching_message = "Strength Phase B — heavier loads, CNS adaptation. Working in the 6-8 rep range now. Increase weight when you hit 8 reps with solid form. Your nervous system is adapting to heavier work — prioritize recovery between sessions."
         
         return {
             "suggested_weight": round(next_weight, 1),
@@ -3365,7 +3365,7 @@ class MaintenanceModel:
         suggested_weight = round(base_weight * 0.8, 1) if base_weight > 0 else 0.0
         
         if not top_set:
-            coaching_message = "This is the Maintenance model."
+            coaching_message = "Deload / Maintenance phase — recovery and structural flushing. Weights are reduced by ~20% from your recent work. Keep reps in the 10-12 range, RPE capped at 5. Focus on mobility, joint health, and active recovery. This is not about progression — it's about coming back stronger next cycle."
             return {
                 "suggested_weight": suggested_weight,
                 "rep_floor": rep_floor,
@@ -3385,7 +3385,7 @@ class MaintenanceModel:
         
         reps_target_val = reps_target if reps_target is not None else 10
         
-        coaching_message = "This is the Maintenance model."
+        coaching_message = "Deload / Maintenance phase — recovery and structural flushing. Weights are reduced by ~20% from your recent work. Keep reps in the 10-12 range, RPE capped at 5. Focus on mobility, joint health, and active recovery. This is not about progression — it's about coming back stronger next cycle."
         
         return {
             "suggested_weight": suggested_weight,
@@ -3432,7 +3432,7 @@ def resolve_model_transition(previous_phase: str, current_phase: str, prescripti
     if current_phase == "foundation_1" and previous_phase != "foundation_1":
         old_weight = prescription.get("suggested_weight", 0)
         prescription["suggested_weight"] = round(old_weight * 0.85, 1)
-        prescription["coaching_message"] = "Re-entering foundation block. Weight reduced for adaptation."
+        prescription["coaching_message"] = "Re-entering the foundation block after time away. Weight has been reduced by 15% to allow your body to re-adapt to the movement patterns. Focus on form and build back up progressively — this is not a step backward, it's a smart reset."
         if "next_weight" in prescription:
             prescription["next_weight"] = prescription["suggested_weight"]
         return prescription
