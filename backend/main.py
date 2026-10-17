@@ -2352,12 +2352,18 @@ def advance_block_state(data: BlockStateAdvance, db: Session = Depends(get_db), 
             block_state.block_mode = data.new_block_mode
         if data.new_phase:
             block_state.phase = data.new_phase
+            # Update block_mode to match the new phase
+            from progression import get_block_mode_for_phase
+            block_state.block_mode = get_block_mode_for_phase(data.new_phase)
         else:
             # Auto-advance to next phase in sequence
             phase_sequence = ["foundation_1", "foundation_2", "hypertrophy", "strength_a", "strength_b", "strength_peak", "deload"]
             current_idx = phase_sequence.index(block_state.phase) if block_state.phase in phase_sequence else 0
             next_idx = (current_idx + 1) % len(phase_sequence)
             block_state.phase = phase_sequence[next_idx]
+            # Update block_mode to match the new phase
+            from progression import get_block_mode_for_phase
+            block_state.block_mode = get_block_mode_for_phase(block_state.phase)
         block_state.week_number = 1
         block_state.start_date = datetime.now(timezone.utc)
 
