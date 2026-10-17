@@ -149,7 +149,7 @@ export default function ActiveWorkoutScreen({
   // After logging a set, logSet() updates prescriptions for the current exercise.
   // SortableExerciseCard reads prescriptions[exercise.id] for its suggestion box.
   const [prescriptions, setPrescriptions] = useState<Record<number, Prescription>>({});
-  const [sessionTargets, setSessionTargets] = useState<Record<number, { coaching_message: string; block_mode: string; session_target: string }>>({});
+  const [sessionTargets, setSessionTargets] = useState<Record<number, { coaching_message: string; session_target: string }>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -407,6 +407,9 @@ export default function ActiveWorkoutScreen({
     } catch (err) {
       console.error("[ActiveWorkoutScreen] Failed to fetch session targets — prescriptions will be empty", err);
     }
+
+    // Update sessionTargets state for FOUNDATION pill and other uses
+    setSessionTargets(targetsMap);
 
     // Build prescriptions from session targets only.
     // No local fallback — if backend fails, prescriptions stay empty.
