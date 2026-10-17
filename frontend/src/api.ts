@@ -174,8 +174,13 @@ async function probe(base: string): Promise<boolean> {
   try {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 2500);
+    const headers: Record<string, string> = {};
+    if (authToken) {
+      headers["Authorization"] = `Bearer ${authToken}`;
+    }
     const test = await fetch(`${base}/settings/${encodeURIComponent("api_base")}`, {
       signal: controller.signal,
+      headers,
     });
     clearTimeout(timer);
     return test.ok;
