@@ -352,6 +352,9 @@ def _run_migrations():
             if "form_quality" not in scolumns:
                 conn.execute(_text("ALTER TABLE set_logs ADD COLUMN form_quality INTEGER"))
                 conn.commit()
+            if "block_mode" not in scolumns:
+                conn.execute(_text("ALTER TABLE set_logs ADD COLUMN block_mode TEXT"))
+                conn.commit()
 
             # Exercise library classification columns (Phase 2)
             elcols = cols("exercise_library")
