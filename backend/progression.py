@@ -3267,6 +3267,51 @@ class MaintenanceModel:
         }
 
 
+def resolve_model_transition(previous_phase: str, current_phase: str, prescription: dict) -> dict:
+    """
+    Adjust prescription weight based on phase transition rules.
+
+    Args:
+        previous_phase: The phase being transitioned from (e.g., "foundation_1")
+        current_phase: The phase being transitioned to (e.g., "foundation_2")
+        prescription: The prescription dict from model_picker
+
+    Returns:
+        Modified prescription with adjusted suggested_weight
+    """
+    # Weight multipliers for each (from, to) phase pair
+    PHASE_TRANSITION_MULTIPLIERS = {
+        ("foundation_1", "foundation_2"): 1.05,   # Small increase, linear kicks in
+        ("foundation_2", "hypertrophy"): 0.90,    # Decrease for higher rep targets (6-8 -> 10-12)
+        ("hypertrophy", "strength_a"): 1.05,       # Increase (10-12 -> 8-10)
+        ("strength_a", "strength_b"): 1.05,        # Increase (8-10 -> 6-8)
+        ("strength_b", "strength_peak"): 1.05,     # Increase (6-8 -> 4-6)
+        ("strength_peak", "deload"): 0.80,         # -20% deload
+        ("deload", "hypertrophy"): 1.05,           # Small increase coming out of deload
+    }
+
+    # Special case: Any -> Foundation_1 (re-entry after long break)
+    if current_phase == "foundation_1" and previous_phase != "foundation_1":
+        old_weight = prescription.get("suggested_weight", 0)
+        prescription["suggested_weight"] = round(old_weight * 0.85, 1)
+        prescription["coaching_message"] = "Re-entering foundation block. Weight reduced for adaptation."
+        if "next_weight" in prescription:
+            prescription["next_weight"] = prescription["suggested_weight"]
+        return prescription
+
+    # Apply transition multiplier if rule exists
+    key = (previous_phase, current_phase)
+    if key in PHASE_TRANSITION_MULTIPLIERS:
+        multiplier = PHASE_TRANSITION_MULTIPLIERS[key]
+        old_weight = prescription.get("suggested_weight", 0)
+        new_weight = round(old_weight * multiplier, 1)
+        prescription["suggested_weight"] = new_weight
+        if "next_weight" in prescription:
+            prescription["next_weight"] = new_weight
+
+    return prescription
+
+
 def model_picker(
     exercise: any,
     history: list,
