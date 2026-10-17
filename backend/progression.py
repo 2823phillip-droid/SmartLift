@@ -2821,16 +2821,34 @@ class FoundationModel:
         reps_target: int | None = None,
         increment: int | None = None,
         context: dict | None = None,
+        phase: str | None = None,
     ) -> dict:
         """
         Compute the prescription for a Foundation block exercise.
-        
+
+        Args:
+            phase: The specific foundation phase ("foundation_1" or "foundation_2").
+                   foundation_1 = Double progression, RPE 4-6, 8-10 reps.
+                   foundation_2 = Linear progression, reps slide, 6-8 reps.
+
         Returns full prescription with Foundation-specific coaching message.
         """
+        # Determine phase-specific settings
         preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["foundation"])
-        rep_floor = preset.get("rep_floor", 8)
-        rep_cap = preset.get("rep_cap", 10)
-        base_increment = preset.get("increment", 5)
+        if phase == "foundation_2":
+            # Foundation 2: Linear progression, reps slide to 6-8
+            rep_floor = 6
+            rep_cap = 8
+            coaching_message = "Foundation 2 — Linear progression. Focus on consistent reps at increased weight."
+            prescription_type = "foundation_linear"
+            base_increment = 5
+        else:
+            # Foundation 1 (default): Double progression, RPE 4-6, 8-10 reps
+            rep_floor = preset.get("rep_floor", 8)
+            rep_cap = preset.get("rep_cap", 10)
+            coaching_message = "Foundation 1 — Double progression. Hit the top of the rep range before adding weight."
+            prescription_type = "foundation_double"
+            base_increment = preset.get("increment", 5)
         inc = _effective_increment(increment if increment is not None else base_increment)
         
         top_set = _get_top_set(history)
@@ -2853,7 +2871,7 @@ class FoundationModel:
                 "next_sets": 3,
                 "rest_seconds": 90,
                 "workload_status": "moderate",
-                "prescription_type": "foundation",
+                "prescription_type": prescription_type,
                 "is_deload": False,
             }
         
@@ -2913,8 +2931,7 @@ class FoundationModel:
                 next_reps = reps_target_val
         
         should_increase = next_weight > weight
-        coaching_message = "This is the Foundation model."
-        
+
         return {
             "suggested_weight": round(next_weight, 1),
             "rep_floor": rep_floor,
@@ -2928,7 +2945,7 @@ class FoundationModel:
             "next_sets": 3,
             "rest_seconds": 90,
             "workload_status": status,
-            "prescription_type": "foundation",
+            "prescription_type": prescription_type,
             "is_deload": False,
         }
 
@@ -3480,6 +3497,8 @@ def model_picker(
     
     # Delegate to the appropriate model
     model = _get_model_for_block(block_mode)
+    # Extract phase from block_state dict if available
+    phase = block_state.get("phase") if isinstance(block_state, dict) else None
     prescription = model.compute(
         exercise=exercise,
         history=history,
@@ -3489,6 +3508,7 @@ def model_picker(
         reps_target=reps_target,
         increment=increment,
         context=context,
+        phase=phase,
     )
     return prescription
 

@@ -2555,6 +2555,7 @@ def calculate_progression(
     block_state_dict = {
         "block_mode": block_mode,
         "week_number": week_number or 1,
+        "phase": block_state_phase,
     }
 
     result = model_picker(
