@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
 last_updated: 2026-10-17
-status: Mac Studio M5 Max only, master branch HEAD `e8e2210`, working tree has uncommitted frontend changes. Backend deployed to Fly (commit `e8e2210`, build-info timestamp `2026-10-17T~`). Backend healthy at smartlift-api.fly.dev/healthz. iOS bundle NOT YET SYNCD: latest build needed (frontend changes uncommitted, bundle from Oct 15). Progression system Phase 4 COMPLETE: BlockState phase granularity (String phases), transition function (8 rules), phase advancement triggers (week thresholds), wired into calculate endpoint (auto-advance + transition), models handle new phases (FoundationModel distinguishes foundation_1 vs foundation_2, all models accept phase param). Coaching messages updated for production. Phase 5 NEXT.
+status: Mac Studio M5 Max only, master branch HEAD `d22e5a4`, clean working tree. Backend deployed to Fly (commit `d22e5a4`, build-info timestamp `2026-10-17T~`). Backend healthy at smartlift-api.fly.dev/healthz. iOS bundle synced: latest build (Oct 17 15:22) in frontend/ios/App/App/public/assets/. Progression system Phase 4 COMPLETE.
 
 This file explains where every type of project knowledge lives and when to use it.
 
