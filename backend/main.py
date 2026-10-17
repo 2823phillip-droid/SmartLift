@@ -2933,6 +2933,7 @@ class SessionTargetResponse(BaseModel):
     next_reps: int
     coaching_message: str
     block_mode: str
+    session_target: str
 
 
 class CoachHealthResponse(BaseModel):
@@ -4033,6 +4034,40 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
         )
         # Phase 3: endpoint uses model.compute() coaching_message
         # (model_picker delegates to model, model returns coaching_message)
+        # Build session_target from most recent completed set log
+        session_target = ""
+        if all_logs:
+            last_log = all_logs[0]  # Most recent, ordered by completed_at.desc()
+            last_date = ""
+            if last_log.completed_at:
+                from datetime import timezone
+                dt = last_log.completed_at
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                last_date = dt.strftime("%b %d")
+            
+            effort_text = ""
+            if last_log.effort is not None:
+                effort_text = f" effort felt like a {last_log.effort}"
+            
+            notes_text = ""
+            if last_log.notes:
+                notes_text = f' you noted: "{last_log.notes}"'
+            
+            session_target = (
+                f"Last time we did {exercise_entry.name} on {last_date} — "
+                f"{last_log.actual_weight or 0:.0f} lbs for {last_log.actual_reps or 0} reps"
+                f"{effort_text}."
+                f"{notes_text}."
+            )
+            
+            # Add today's target
+            session_target += (
+                f" Today, we're continuing with {prescription['suggested_weight']:.0f} lbs "
+                f"for {prescription.get('next_reps', prescription.get('rep_floor', 8))} reps. "
+                f"{prescription['coaching_message']}"
+            )
+        
         targets.append(SessionTargetResponse(
             exercise_id=exercise_entry.id,
             exercise_name=exercise_entry.name,
@@ -4042,6 +4077,7 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
             next_reps=prescription.get("next_reps", prescription.get("rep_floor", 8)),
             coaching_message=prescription["coaching_message"],
             block_mode=block_mode,
+            session_target=session_target,
         ))
     
     return targets
