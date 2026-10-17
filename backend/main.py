@@ -2452,6 +2452,7 @@ def calculate_progression(
     If history is not provided, uses exercise entry logs from DB.
     """
     # Get block state
+    block_state = None
     block_mode = payload.block_mode
     week_number = payload.week_number
     
@@ -2460,6 +2461,25 @@ def calculate_progression(
         if block_state:
             block_mode = block_state.block_mode
             week_number = block_state.week_number
+            
+            # Auto-advance phase if week threshold is met
+            if block_state.phase:
+                from progression import can_advance_phase, get_next_phase, get_block_mode_for_phase, resolve_model_transition
+                can_advance, reason = can_advance_phase(block_state.phase, block_state.week_number)
+                if can_advance:
+                    previous_phase = block_state.phase
+                    next_phase = get_next_phase(previous_phase)
+                    if next_phase:
+                        # Update block state
+                        block_state.phase = next_phase
+                        block_state.week_number = 1
+                        db.add(block_state)
+                        db.commit()
+                        db.refresh(block_state)
+                        # Update block_mode to match new phase
+                        block_mode = get_block_mode_for_phase(next_phase)
+                        week_number = 1
+                        print(f"[CALCULATE] Auto-advanced: {previous_phase} -> {next_phase}")
         else:
             # Default to foundation
             block_mode = "foundation"
@@ -2546,11 +2566,12 @@ def calculate_progression(
         increment=increment,
     )
     
-    # Apply phase transition if previous_phase is provided and differs from current
-    if payload.previous_phase and block_state_phase and payload.previous_phase != block_state_phase:
+    # Apply phase transition if phase changed (auto-advance or manual)
+    current_phase = block_state.phase if isinstance(block_state, BlockState) and block_state else None
+    if current_phase and block_state_phase and current_phase != block_state_phase:
         from progression import resolve_model_transition
-        result = resolve_model_transition(payload.previous_phase, block_state_phase, result)
-        print(f"[CALCULATE] Transition applied: {payload.previous_phase} -> {block_state_phase}, new weight: {result.get('suggested_weight')}")
+        result = resolve_model_transition(block_state_phase, current_phase, result)
+        print(f"[CALCULATE] Transition applied: {block_state_phase} -> {current_phase}, new weight: {result.get('suggested_weight')}")
     # TEMP LOG: see what model_picker returns
     print(f"[CALCULATE] exercise_library_id={payload.exercise_library_id}, block_mode={block_mode}, history_len={len(history)}, suggested_weight={result.get('suggested_weight')}, rep_floor={result.get('rep_floor')}, rep_cap={result.get('rep_cap')}, next_reps={result.get('next_reps', 'N/A')}, should_increase={result.get('should_increase')}")
     # DEBUG: log the top set to understand weight calculation
