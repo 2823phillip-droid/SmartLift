@@ -4061,11 +4061,27 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
                 f"{notes_text}."
             )
             
-            # Add today's target
+            # Add today's target with the "why"
+            today_weight = prescription['suggested_weight']
+            today_reps = prescription.get('next_reps', prescription.get('rep_floor', 8))
+            last_weight = last_log.actual_weight or 0
+            last_reps = last_log.actual_reps or 0
+
+            if today_weight == last_weight:
+                if today_reps > last_reps:
+                    why = " We're building on that — more reps at the same weight to solidify the movement."
+                elif today_reps == last_reps:
+                    why = " We're continuing to build consistency — same weight, same reps, solidifying the foundation."
+                else:
+                    why = " We're holding here — same weight, working on form and control."
+            elif today_weight > last_weight:
+                why = " We're progressing — you built a solid base, now we're bumping the weight up."
+            else:
+                why = " We're dialing it back — recovering and rebuilding."
+
             session_target += (
-                f" Today, we're continuing with {prescription['suggested_weight']:.0f} lbs "
-                f"for {prescription.get('next_reps', prescription.get('rep_floor', 8))} reps. "
-                f"{prescription['coaching_message']}"
+                f" Today, we're continuing with {today_weight:.0f} lbs "
+                f"for {today_reps} reps.{why}"
             )
         
         targets.append(SessionTargetResponse(
