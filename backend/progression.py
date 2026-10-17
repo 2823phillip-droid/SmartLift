@@ -2440,6 +2440,127 @@ BLOCK_PHASES = {
     "maintenance": 6,
 }
 
+# Phase sequence (ordered list for advancement)
+PHASE_SEQUENCE = [
+    "foundation_1",
+    "foundation_2",
+    "hypertrophy",
+    "strength_a",
+    "strength_b",
+    "strength_peak",
+    "deload",
+]
+
+# Phase advancement thresholds (minimum weeks in phase before allowing advance)
+PHASE_ADVANCEMENT_THRESHOLDS = {
+    "foundation_1": 4,     # Build foundation base
+    "foundation_2": 2,     # Short transition to linear
+    "hypertrophy": 4,      # Volume accumulation
+    "strength_a": 2,       # Transition to lower reps
+    "strength_b": 2,       # Continue strength build
+    "strength_peak": 2,    # Peak strength phase
+    "deload": 1,           # Always short
+}
+
+# Re-entry detection: phases that indicate user is coming back after a break
+# (any phase not in this list transitioning to foundation_1 triggers re-entry)
+REENTRY_PHASES = {
+    "hypertrophy",
+    "strength_a",
+    "strength_b",
+    "strength_peak",
+    "deload",
+}
+
+
+def can_advance_phase(
+    current_phase: str,
+    weeks_in_phase: int,
+    allow_reentry: bool = False,
+) -> tuple[bool, str]:
+    """
+    Check if the current phase can be advanced.
+
+    Args:
+        current_phase: The current phase name
+        weeks_in_phase: Number of weeks spent in current phase
+        allow_reentry: If True, allow transition to foundation_1 from any phase
+
+    Returns:
+        (can_advance, reason) — can_advance is True if phase can advance,
+        reason explains why not if can_advance is False
+    """
+    if current_phase not in PHASE_SEQUENCE:
+        return False, f"Unknown phase: {current_phase}"
+
+    # Check minimum weeks
+    min_weeks = PHASE_ADVANCEMENT_THRESHOLDS.get(current_phase, 2)
+    if weeks_in_phase < min_weeks:
+        return False, f"Need {min_weeks - weeks_in_phase} more week(s) in {current_phase} (have {weeks_in_phase})"
+
+    # Get next phase
+    current_idx = PHASE_SEQUENCE.index(current_phase)
+    if current_idx >= len(PHASE_SEQUENCE) - 1:
+        return False, f"{current_phase} is the final phase"
+
+    return True, "Ready to advance"
+
+
+def get_next_phase(current_phase: str) -> str | None:
+    """
+    Get the next phase in the sequence.
+
+    Args:
+        current_phase: The current phase name
+
+    Returns:
+        The next phase name, or None if current is the final phase
+    """
+    if current_phase not in PHASE_SEQUENCE:
+        return None
+    current_idx = PHASE_SEQUENCE.index(current_phase)
+    if current_idx >= len(PHASE_SEQUENCE) - 1:
+        return None
+    return PHASE_SEQUENCE[current_idx + 1]
+
+
+def is_reentry_to_foundation(previous_phase: str, current_phase: str) -> bool:
+    """
+    Check if transitioning to foundation_1 from a non-foundation phase (re-entry).
+
+    Args:
+        previous_phase: The phase being transitioned from
+        current_phase: The phase being transitioned to
+
+    Returns:
+        True if this is a re-entry transition
+    """
+    if current_phase != "foundation_1":
+        return False
+    return previous_phase in REENTRY_PHASES or previous_phase == "foundation_1"
+
+
+def get_block_mode_for_phase(phase: str) -> str:
+    """
+    Map a phase name to its block_mode for model_picker.
+
+    Args:
+        phase: The phase name (e.g., "foundation_1", "hypertrophy")
+
+    Returns:
+        The corresponding block_mode string
+    """
+    phase_to_block = {
+        "foundation_1": "foundation",
+        "foundation_2": "foundation",
+        "hypertrophy": "hypertrophy",
+        "strength_a": "strength_a",
+        "strength_b": "strength_b",
+        "strength_peak": "strength_b",  # Uses StrengthBModel
+        "deload": "foundation",  # Deload uses foundation model with deload flag
+    }
+    return phase_to_block.get(phase, "foundation")
+
 
 def get_block_targets(block_mode: str) -> dict:
     """
