@@ -2505,7 +2505,8 @@ def _get_top_set(history: list) -> dict | None:
     if not history:
         return None
     # history items are SetRecord dicts with actual_weight, actual_reps, effort, form_quality
-    return history[-1]
+    # History is ordered most-recent-first (from DB query), so [0] is the latest
+    return history[0]
 
 
 def _get_block_name(block_mode: str) -> str:

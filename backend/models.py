@@ -216,6 +216,7 @@ class SetLog(Base):
     form_quality = Column(Integer, nullable=True)  # 0=clean, 1=struggled_held, 2=broke
     notes = Column(Text)
     is_seeded = Column(Boolean, default=False, nullable=False)
+    block_mode = Column(String, nullable=True)
     completed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     user = relationship("User", back_populates="set_logs")
@@ -277,7 +278,7 @@ class BlockState(Base):
     block_mode = Column(String, nullable=False, default="foundation")
     week_number = Column(Integer, default=1)
     start_date = Column(DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
-    phase = Column(Integer, default=1)  # 1=Foundation, 2=Linear, 3=Hypertrophy, 4=Strength A, 5=Strength B, 6=Deload
+    phase = Column(String, default="foundation_1")  # foundation_1, foundation_2, hypertrophy, strength_a, strength_b, strength_peak, deload
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc))
 

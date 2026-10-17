@@ -395,6 +395,12 @@ def _run_migrations():
                 conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN warmup_type TEXT"))
                 conn.commit()
 
+            # BlockState phase column: ensure it's a string type (migration from old INTEGER)
+            bscols = cols("block_state")
+            if "phase" in bscols and dialect != "sqlite":
+                conn.execute(_text("ALTER TABLE block_state ALTER COLUMN phase TYPE VARCHAR(20)"))
+                conn.commit()
+
             if "coach_usage_logs" not in cols("coach_usage_logs"):
                 from models import Base
                 Base.metadata.create_all(bind=engine, tables=[Base.metadata.tables["coach_usage_logs"]])
@@ -576,6 +582,7 @@ class SetLogCreate(BaseModel):
     rpe: Optional[int] = None
     form_quality: Optional[int] = None
     notes: Optional[str] = None
+    block_mode: Optional[str] = None
 
 class SetLogOut(BaseModel):
     id: int
@@ -593,6 +600,7 @@ class SetLogOut(BaseModel):
     rpe: Optional[int]
     form_quality: Optional[int]
     notes: Optional[str]
+    block_mode: Optional[str]
 
     class Config:
         from_attributes = True
@@ -1707,6 +1715,12 @@ def update_set_log(session_id: int, log_id: int, payload: SetLogUpdate, db: Sess
 def create_set_log(payload: SetLogCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     data = payload.model_dump()
     data["user_id"] = current_user.id
+    # Set block_mode from current BlockState if not provided
+    if not data.get("block_mode"):
+        from models import BlockState
+        block_state = db.query(BlockState).filter(BlockState.user_id == current_user.id).first()
+        if block_state:
+            data["block_mode"] = block_state.block_mode
     log = SetLog(**data)
     db.add(log)
     db.commit()
@@ -2262,7 +2276,7 @@ class BlockStateOut(ApiBaseModel):
     block_mode: str
     week_number: int
     start_date: datetime
-    phase: int
+    phase: str
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 
@@ -2273,14 +2287,14 @@ class BlockStateOut(ApiBaseModel):
 class BlockStateCreate(ApiBaseModel):
     block_mode: str = "foundation"
     week_number: int = 1
-    phase: int = 1
+    phase: str = "foundation_1"
 
 
 class BlockStateAdvance(ApiBaseModel):
     advance_week: bool = False
     advance_block: bool = False
     new_block_mode: Optional[str] = None
-    new_phase: Optional[int] = None
+    new_phase: Optional[str] = None
 
 
 @app.get("/api/progression/block-state", response_model=BlockStateOut)
@@ -2339,12 +2353,11 @@ def advance_block_state(data: BlockStateAdvance, db: Session = Depends(get_db), 
         if data.new_phase:
             block_state.phase = data.new_phase
         else:
-            # Auto-advance to next block in sequence
-            block_sequence = ["foundation", "linear_baseline", "hypertrophy", "strength_a", "strength_b", "maintenance"]
-            current_idx = block_sequence.index(block_state.block_mode) if block_state.block_mode in block_sequence else 0
-            next_idx = (current_idx + 1) % len(block_sequence)
-            block_state.block_mode = block_sequence[next_idx]
-            block_state.phase = next_idx + 1
+            # Auto-advance to next phase in sequence
+            phase_sequence = ["foundation_1", "foundation_2", "hypertrophy", "strength_a", "strength_b", "strength_peak", "deload"]
+            current_idx = phase_sequence.index(block_state.phase) if block_state.phase in phase_sequence else 0
+            next_idx = (current_idx + 1) % len(phase_sequence)
+            block_state.phase = phase_sequence[next_idx]
         block_state.week_number = 1
         block_state.start_date = datetime.now(timezone.utc)
 
@@ -2417,7 +2430,7 @@ class ProgressionCalculateResponse(BaseModel):
     suggested_weight: float
     should_increase: bool
     block_mode: str
-    block_phase: int
+    block_phase: str
     is_block_complete: bool
     next_reps: int
 
@@ -2506,17 +2519,38 @@ def calculate_progression(
             if log.actual_weight is not None or log.actual_reps is not None
         ]
     
-    # Call model_picker
+    # Get preset for block mode (same logic as session-targets endpoint)
+    from progression import BLOCK_REP_TARGETS
+    preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["foundation"])
+    # Determine if exercise is compound (same logic as session-targets)
+    is_compound = exercise.is_compound if exercise and hasattr(exercise, "is_compound") else False
+    reps_target = is_compound and preset.get("rep_cap", 8) or preset.get("rep_floor", 8)
+    increment = preset.get("increment", 5)
+
+    # Call model_picker with full parameters (same as session-targets endpoint)
     # Save phase from original block_state before creating dict for model_picker
     block_state_phase = block_state.phase if isinstance(block_state, BlockState) and block_state else None
     block_state_dict = {
         "block_mode": block_mode,
         "week_number": week_number or 1,
     }
-    
-    result = model_picker(exercise_dict, history, block_state_dict)
+
+    result = model_picker(
+        exercise_dict,
+        history,
+        block_state_dict,
+        block_mode=block_mode,
+        week_number=week_number or 1,
+        reps_target=reps_target,
+        increment=increment,
+    )
     # TEMP LOG: see what model_picker returns
     print(f"[CALCULATE] exercise_library_id={payload.exercise_library_id}, block_mode={block_mode}, history_len={len(history)}, suggested_weight={result.get('suggested_weight')}, rep_floor={result.get('rep_floor')}, rep_cap={result.get('rep_cap')}, next_reps={result.get('next_reps', 'N/A')}, should_increase={result.get('should_increase')}")
+    # DEBUG: log the top set to understand weight calculation
+    from progression import _get_top_set
+    top_set = _get_top_set(history)
+    if top_set:
+        print(f"[CALCULATE DEBUG] top_set: weight={top_set.get('actual_weight')}, reps={top_set.get('actual_reps')}, effort={top_set.get('effort')}, form_quality={top_set.get('form_quality')}")
     
     return ProgressionCalculateResponse(
         rep_floor=result["rep_floor"],
