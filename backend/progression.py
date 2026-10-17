@@ -2662,6 +2662,7 @@ class LinearModel:
         reps_target: int | None = None,
         increment: int | None = None,
         context: dict | None = None,
+        phase: str | None = None,
     ) -> dict:
         """
         Compute the prescription for a linear progression exercise.
@@ -2967,6 +2968,7 @@ class HypertrophyModel:
         reps_target: int | None = None,
         increment: int | None = None,
         context: dict | None = None,
+        phase: str | None = None,
     ) -> dict:
         """
         Compute the prescription for a Hypertrophy block exercise.
@@ -3090,6 +3092,7 @@ class StrengthAModel:
         reps_target: int | None = None,
         increment: int | None = None,
         context: dict | None = None,
+        phase: str | None = None,
     ) -> dict:
         """
         Compute the prescription for a Strength Phase A exercise.
@@ -3208,6 +3211,7 @@ class StrengthBModel:
         reps_target: int | None = None,
         increment: int | None = None,
         context: dict | None = None,
+        phase: str | None = None,
     ) -> dict:
         """
         Compute the prescription for a Strength Phase B exercise.
@@ -3327,6 +3331,7 @@ class MaintenanceModel:
         reps_target: int | None = None,
         increment: int | None = None,
         context: dict | None = None,
+        phase: str | None = None,
     ) -> dict:
         """
         Compute the prescription for a Maintenance/Deload block exercise.
