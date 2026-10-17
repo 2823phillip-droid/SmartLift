@@ -2840,14 +2840,14 @@ class FoundationModel:
             # Foundation 2: Linear progression, reps slide to 6-8
             rep_floor = 6
             rep_cap = 8
-            coaching_message = "Foundation 2 — Linear progression. Focus on consistent reps at increased weight."
+            coaching_message = "Foundation 2 — We're transitioning to linear progression now — same foundation focus, but we're adding weight each session and letting reps find their level. 6-8 reps, smooth and controlled. This bridges us from foundation into strength work. You've built the base — now we're building on it. Take your time, keep the form tight, and let's get comfortable with the app together."
             prescription_type = "foundation_linear"
             base_increment = 5
         else:
             # Foundation 1 (default): Double progression, RPE 4-6, 8-10 reps
             rep_floor = preset.get("rep_floor", 8)
             rep_cap = preset.get("rep_cap", 10)
-            coaching_message = "Foundation 1 — Double progression. Hit the top of the rep range before adding weight."
+            coaching_message = "Foundation 1 — This is where we build your base — movement quality, connective tissue strength, the fundamentals. And honestly, this isn't about going heavy. It's about form, control, getting familiar and comfortable with the weight. We're working in 8-10 reps, and we only add weight when we hit 10 with good form. Keep it smooth, keep it controlled. And take your time getting comfortable with the app too — we'll get there together."
             prescription_type = "foundation_double"
             base_increment = preset.get("increment", 5)
         inc = _effective_increment(increment if increment is not None else base_increment)
