@@ -4052,12 +4052,12 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
             
             notes_text = ""
             if last_log.notes:
-                notes_text = f' you noted: "{last_log.notes}"'
+                notes_text = f' You noted: "{last_log.notes}"'
             
             session_target = (
                 f"Last time we did {exercise_entry.name} on {last_date} — "
                 f"{last_log.actual_weight or 0:.0f} lbs for {last_log.actual_reps or 0} reps"
-                f"{effort_text}."
+                f"{effort_text}"
                 f"{notes_text}."
             )
             
