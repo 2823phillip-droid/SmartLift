@@ -2300,6 +2300,19 @@ class BlockStateAdvance(ApiBaseModel):
     new_phase: Optional[str] = None
 
 
+# Map old numeric phases to new descriptive phases
+# Old system: 1=foundation, 2=linear_baseline, 3=hypertrophy, 4=strength_a, 5=strength_b, 6=maintenance
+# New system: foundation_1, foundation_2, hypertrophy, strength_a, strength_b, strength_peak, deload
+NORMALIZE_PHASE = {
+    "1": "foundation_1",
+    "2": "foundation_2",
+    "3": "hypertrophy",
+    "4": "strength_a",
+    "5": "strength_b",
+    "6": "deload",
+}
+
+
 @app.get("/api/progression/block-state", response_model=BlockStateOut)
 def get_block_state(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     """Get the current user's block state."""
@@ -2310,6 +2323,9 @@ def get_block_state(db: Session = Depends(get_db), current_user: User = Depends(
         db.add(block_state)
         db.commit()
         db.refresh(block_state)
+    # Normalize phase: convert old numeric phases to new descriptive phases
+    normalized_phase = NORMALIZE_PHASE.get(str(block_state.phase), str(block_state.phase))
+    setattr(block_state, "phase", normalized_phase)
     return block_state
 
 
