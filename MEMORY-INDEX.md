@@ -1,6 +1,6 @@
 # Askeo Project Knowledge System
 last_updated: 2026-10-17
-status: Mac Studio M5 Max only, master branch HEAD `d22e5a4`, clean working tree. Backend deployed to Fly (commit `d22e5a4`, build-info timestamp `2026-10-17T~`). Backend healthy at smartlift-api.fly.dev/healthz. iOS bundle synced: latest build (Oct 17 15:22) in frontend/ios/App/App/public/assets/. Progression system Phase 4 COMPLETE.
+status: Mac Studio M5 Max only, master branch HEAD `9d5b89a`, clean working tree. Backend deployed to Fly (commit `9d5b89a`, build-info timestamp `2026-10-17T19:04`). Backend healthy at smartlift-api.fly.dev/healthz. iOS bundle synced: latest build (Oct 17 19:04) in frontend/ios/App/App/public/assets/. Progression system Phase 4 COMPLETE. FOUNDATION pill on Ready screen. Probe fix deployed.
 
 This file explains where every type of project knowledge lives and when to use it.
 
@@ -8,11 +8,12 @@ This file explains where every type of project knowledge lives and when to use i
 
 ### Repo
 - **Branch:** master
-- **HEAD:** `e8e2210` — "Add phase parameter to all model compute methods"
-- **Remote (GitHub):** committed and pushed. Working tree has uncommitted frontend changes (ActiveWorkoutScreen.tsx debug/prescription updates).
+- **HEAD:** `9d5b89a` — "Use /healthz for API base probe instead of /settings/api_base"
+- **Remote (GitHub):** committed and pushed. Working tree clean.
 
 ### Frontend
 - **Build target:** Capacitor iOS app, Xcode project on Mac Studio. Run from Xcode → Product > Run.
+- **Build:** Oct 17 19:04, synced to iOS at `frontend/ios/App/App/public/assets/`
 
 ## Knowledge Files
 
@@ -93,7 +94,7 @@ Use this when checking if things are clean:
 | Check | Command | Expected |
 |-------|---------|----------|
 | Repo clean | `cd ~/Projects/askeo/repo && git status` | clean, up to date with origin/master |
-| Backend reachable | `curl -s https://askeo.fit/healthz` | OK |
+| Backend reachable | `curl -s https://smartlift-api.fly.dev/healthz` | OK |
 | Frontend dist current | check `frontend/ios/App/App/public/assets/index-*.js` exists | matches latest build |
 
 ## Ownership and contributor flow
@@ -106,7 +107,7 @@ Use this when checking if things are clean:
 
 Before building from Xcode or testing, verify:
 1. **Repo clean:** `git status` shows no uncommitted changes at HEAD
-2. **Backend health:** `curl -s https://askeo.fit/healthz` returns OK
+2. **Backend health:** `curl -s https://smartlift-api.fly.dev/healthz` returns OK
 3. **No stale files:** no unexpected `.tsx`/`.py` files at repo root
 4. **Frontend dist current:** `frontend/ios/App/App/public/assets/index-*.js` exists and matches latest build
 
@@ -120,7 +121,7 @@ Every session — whether debugging, building, or investigating — follows this
 
 ### Start of session (before any work)
 1. Read bootstrap: `CONTEXT.md`, `PROJECT.md`, `TODO.md`, `MEMORY-INDEX.md` (in that order). This is already in Usage rules §1 — honored every time.
-2. **Run sync audit** (new — this is what was missing): check repo state (`git status` clean, up to date with origin/master), backend health (`curl -s askeo.fit/healthz` returns OK), frontend bundle current (JS in `frontend/ios/App/App/public/assets/` matches latest build). Report results to the user before doing any work. If anything is dirty, flag it explicitly and decide: fix it now, or document why it's pending.
+2. **Run sync audit** (new — this is what was missing): check repo state (`git status` clean, up to date with origin/master), backend health (`curl -s smartlift-api.fly.dev/healthz` returns OK), frontend bundle current (JS in `frontend/ios/App/App/public/assets/` matches latest build). Report results to the user before doing any work. If anything is dirty, flag it explicitly and decide: fix it now, or document why it's pending.
 3. Update `MEMORY-INDEX.md` status line to reflect actual HEAD if it changed since last read.
 4. Check if the session has a clear goal. If not (e.g. "look at logs", "investigate something"), establish one before acting.
 
@@ -212,14 +213,12 @@ Every validated release gets a rollback anchor. The simplest approach:
 The rollback label lives in the commit message. Look for commits starting with `rollback:` — those are the save points. The most recent one is `9787e7d` as of this writing.
 
 ### What this prevents
-
 - Pushing 5 unrelated changes and having no idea which one broke the app
 - "Did the bug fix land, or was it the other thing?" ambiguity
 - Rolling back a whole batch because one item in it was bad
 - Sessions that leave the app in an unknown state
 
 ### What this does NOT require
-
 - Batching — each fix is its own cycle
 - Perfect documentation mid-cycle — document at the end of the validated fix
 - Asking permission — this is the operating model now

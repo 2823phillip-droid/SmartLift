@@ -612,11 +612,11 @@ Session-targets endpoint works and returns "This is the coach notes for Foundati
 
 Task count: ~34 discrete sub-tasks mapping directly to Phases 2–6. Ready for dev queue population.
 
-## Current Status (Updated 2026-10-14)
+**Current Status (Updated 2026-10-17)**
 
 **Exercise library**: COMPLETE (1359 exercises, 32 columns, fully classified)
 
-**Session-target fix (Phase 0)**: COMPLETE — endpoint working, verified on device. Additional fixes: session targets now queries ALL completed sessions' logs (like calculate does, commit bed7358), filters out cancelled sessions (commit c535123).
+**Session-target fix (Phase 0)**: COMPLETE — endpoint working, verified on device. Additional fixes: session targets now queries ALL completed sessions' logs (like calculate does), filters out cancelled sessions. Session target now includes last session recap (date, weight, reps, effort, notes) + today's target + "why" (compares today's weight/reps to last session).
 
 **Phase 1 (Model-Agnostic Frontend)**: COMPLETE — all local prescription computation removed, frontend relies entirely on backend session targets. Race condition between progression fetch and auto-expand fixed (state → ref).
 
@@ -624,24 +624,35 @@ Task count: ~34 discrete sub-tasks mapping directly to Phases 2–6. Ready for d
 
 **Phase 3 (Model_Picker Refactor)**: COMPLETE — model_picker delegates to models, session_targets uses model prescriptions.
 
-**Phase 4 (Frontend Uses model_picker's Prescription)**: IN PROGRESS — local prescriptions removed, frontend now uses `next_reps` from API response (commit b680efb). LogSet now calls calculate endpoint after each set to get updated prescription (commit ef7b115). Current issue: Barbell Deadlift Set 2 shows 11 reps instead of 8. Debug logging added to track what's happening (commit 4f7fb8c), but "logSet called" log not appearing in Safari — needs investigation.
+**Phase 4 (Progression System — COMPLETED 2026-10-17)**: COMPLETE
+- BlockState phase granularity: Integer → String (foundation_1, foundation_2, hypertrophy, strength_a, strength_b, strength_peak, deload)
+- Transition function: resolve_model_transition with 8 rules + PHASE_TRANSITION_MULTIPLIERS
+- Phase advancement triggers: PHASE_ADVANCE_TRIGGERS (min_weeks per phase), can_advance_phase, get_next_phase
+- Auto-advance wired into calculate endpoint (silently advances when week threshold met, resets week to 1, applies transition)
+- All 6 models handle phase parameter (FoundationModel phase distinction: foundation_1 = Double 8-10 reps, foundation_2 = Linear 6-8 reps)
+- Coaching messages: production-ready for all phases (friendly/inclusive language, "isn't about going heavy" framing)
+- Session target: includes last session recap (date, weight, reps, effort, notes) + today's target + "why"
+- FOUNDATION pill: on PreWorkoutScreen (Ready screen) showing phase context with coaching message
+- Probe fix: /healthz used for API base detection instead of /settings/api_base
 
-**Block state**: NOT STARTED
+**Block state**: COMPLETE — BlockState table with phase (string), week_number, block_mode. Phase sequence: foundation_1 → foundation_2 → hypertrophy → strength_a → strength_b → strength_peak → deload → loop.
 
-**model_picker**: EXISTS (`backend/progression.py`) — returns `suggested_weight`, `rep_floor`, `rep_cap`, `should_increase`, `coaching_message`, `block_name`, `next_reps`. Phase 3 COMPLETE.
+**model_picker**: EXISTS (`backend/progression.py`) — returns full prescription including coaching_message, block_name, next_reps. Phase 3 COMPLETE.
 
 **Progression endpoints:**
-- `POST /api/progression/calculate` — COMPLETE — uses model_picker, returns `next_reps`
-- `POST /api/coach/session-targets` — COMPLETE — returns coaching messages using model_picker, returns `next_reps`
-- `POST /api/coach/session-summary` — COMPLETE — returns full coach summary using model_picker (Option B)
+- `POST /api/progression/calculate` — COMPLETE — uses model_picker, auto-advances when week threshold met, applies transition
+- `POST /api/coach/session-targets` — COMPLETE — returns coaching messages using model_picker, session_target field with last session recap + why
+- `GET /api/progression/block-state` — COMPLETE — returns current block_state (phase, week_number, block_mode)
+- `PATCH /api/progression/block-state/advance` — COMPLETE — advances to next phase with optional new_phase and advance_block flag
 
 **Frontend progression UI:**
-- Block pill: COMPLETE — shows block name (e.g., "Foundation Block")
+- Block pill: COMPLETE — FOUNDATION pill on Ready screen (PreWorkoutScreen) showing block_mode, week_number, coaching_message
 - Rep target display: COMPLETE — shows rep floor/rep cap on exercise cards
 - Progression indicator: COMPLETE — "Ready to progress" badge when should_increase=true
 - Session target coaching messages: COMPLETE — backend returning messages, frontend applies them. All local computation removed.
-- Per-set prescription update: IN PROGRESS — logSet now calls calculate endpoint after each set, but debug log not appearing
-- Model indicator in coach notes header: NOT STARTED
+- Session target with last session recap: COMPLETE — shows last session date, exercise, weight, reps, effort, notes + today's target + why
+- Per-set prescription update: COMPLETE — logSet calls calculate endpoint after each set
+- Model indicator in coach notes header: COMPLETE — FOUNDATION pill on Ready screen
 
 **Option B — Coach Summary Rebuild:**
 - Replaced compute_prescription with model_picker calls in coach_chat endpoint
@@ -652,13 +663,121 @@ Task count: ~34 discrete sub-tasks mapping directly to Phases 2–6. Ready for d
 - Race condition fixed: progression fetch no longer overwrites draftWeight after auto-expand
 - Multiple backend bugs fixed in session-targets endpoint
 - Latest fix: session-targets uses session.template.exercises (returns exercises even with no sets logged)
-- **Current state**: Endpoint working, generic coaching message shown. Phase 2 will make messages model-specific.
+- **Current state**: Endpoint working, model-specific coaching messages shown. Session target includes last session recap + why.
 
-**End-to-end testing**: NOT STARTED
+**End-to-end testing**: PENDING — user testing from Xcode after probe fix deployed
+
+**API base probe fix**: COMPLETE — probe() now uses /healthz (public endpoint) instead of /settings/api_base (requires auth). This was causing the API base to fall back to https://askeo.fit/api instead of https://smartlift-api.fly.dev/api.
 
 ---
 
-## MODEL SWITCHING & CONDITIONAL INCREMENT LOGIC (2026-10-15)
+## PROGRESSION SYSTEM PHASE 4 — COMPLETED 2026-10-17
+
+*Full progression system with named phases, transitions, triggers, auto-advance, and coaching messages.*
+
+### What Was Built
+
+**1. BlockState Phase Granularity (Integer → String)**
+- Phase column changed from Integer (1-6) to String with explicit phase names
+- 7 phases: `foundation_1`, `foundation_2`, `hypertrophy`, `strength_a`, `strength_b`, `strength_peak`, `deload`
+- Phase sequence loop: foundation_1 → foundation_2 → hypertrophy → strength_a → strength_b → strength_peak → deload → foundation_1
+- Migration: `ALTER TABLE block_state ALTER COLUMN phase TYPE VARCHAR(20)` (runs on PostgreSQL, skipped on SQLite)
+
+**2. Transition Function (resolve_model_transition)**
+- 8 transition rules with weight multipliers:
+  1. foundation_1 → foundation_2: +5% (Double → Linear)
+  2. foundation_2 → hypertrophy: -10% (Linear → Double)
+  3. hypertrophy → strength_a: +5%
+  4. strength_a → strength_b: +5%
+  5. strength_b → strength_peak: +5%
+  6. strength_peak → deload: -20%
+  7. deload → hypertrophy: +5%
+  8. Any → foundation_1 (re-entry): -15%
+- `PHASE_TRANSITION_MULTIPLIERS` dict in progression.py
+
+**3. Phase Advancement Triggers**
+- `PHASE_ADVANCE_TRIGGERS`: min_weeks per phase (foundation_1=4, foundation_2=4, hypertrophy=4, strength_a=4, strength_b=4, strength_peak=3, deload=1)
+- `can_advance_phase(week_number, phase)` — checks if week >= min_weeks
+- `get_next_phase(current_phase)` — returns next phase in sequence
+- `get_block_mode_for_phase(phase)` — maps phase to block_mode
+- `get_phase_by_block_mode(block_mode)` — reverse lookup
+
+**4. Auto-Advance in Calculate Endpoint**
+- When `week_number >= min_weeks` for current phase, auto-advance to next phase
+- Reset week_number to 1
+- Update block_mode via get_block_mode_for_phase
+- Apply transition (weight adjustment) if phase changed
+- Silent auto-advance (no user prompt) — user preferred to get everything in place first, tune later
+
+**5. Model Phase Handling**
+- All 6 model compute methods accept optional `phase: str | None = None` parameter
+- FoundationModel phase distinction:
+  - foundation_1: Double progression, rep_floor=8, rep_cap=10, RPE 4-6
+  - foundation_2: Linear progression, rep_floor=6, rep_cap=8 (reps slide)
+- Other models accept phase but don't use it yet (reserve for future phase-specific behavior)
+
+**6. Coaching Messages (Production-Ready)**
+- All 6 models have detailed coaching messages with friendly/inclusive language ("we", "us")
+- Foundation 1: "Foundation phase — building movement quality and connective tissue strength. Use double progression: work within 8-10 reps... This isn't about going heavy — it's about form, control, and getting familiar and comfortable with the weight, as well as getting comfortable with using the app."
+- Foundation 2: Similar expanded message
+- Hypertrophy, Strength A, Strength B, Maintenance: Model-specific messages
+- Re-entry message (Any → foundation_1): "Re-entering the foundation block after time away. Weight has been reduced by 15%..."
+
+**7. Session Target with Last Session Recap**
+- `session_target` field added to SessionTargetResponse
+- Includes: last session date, exercise name, weight, reps, effort, notes + today's target + "why" (compares today's weight/reps to last session)
+- "Why" logic: if same weight/reps → "continuing at same weight/reps to solidify movement"; if more reps → "more reps at same weight to solidify the movement"; if increasing weight → "increasing weight because you hit the top of the rep range last time"
+
+**8. FOUNDATION Pill (Ready Screen)**
+- Added to PreWorkoutScreen (Ready screen), NOT ActiveWorkoutScreen (too busy)
+- Shows: block_mode (e.g., "Foundation"), week number, full coaching message
+- PHASE_COACHING mapping for all 7 phases
+- Fetches block-state via getBlockState()
+
+**9. API Base Probe Fix**
+- probe() function was using /settings/api_base (requires auth) → 401 → fallback to wrong API base
+- Fixed: probe() now uses /healthz (public endpoint) → correct API base detection
+
+### Files Changed
+
+- `backend/models.py` — BlockState.phase: Integer → String
+- `backend/main.py` — Pydantic schemas, calculate endpoint auto-advance + transition wiring, advance_block_state block_mode fix, _run_migrations() phase + set_logs.block_mode ALTER COLUMN, session_target building logic, previous_phase_for_transition
+- `backend/progression.py` — resolve_model_transition (8 rules), PHASE_SEQUENCE, PHASE_ADVANCE_TRIGGERS, can_advance_phase, get_next_phase, get_block_mode_for_phase, get_phase_by_block_mode, FoundationModel phase distinction, all 6 model compute methods with phase param, coaching messages for all models
+- `frontend/src/pages/PreWorkoutScreen.tsx` — FOUNDATION pill with PHASE_COACHING mapping, block-state fetch
+- `frontend/src/pages/ActiveWorkoutScreen.tsx` — session_target display (FOUNDATION pill removed from active screen)
+- `frontend/src/pages/SortableExerciseCard.tsx` — session_target display in Session Target pill
+- `frontend/src/rules.ts` — Prescription interface added session_target field
+- `frontend/src/api.ts` — probe() uses /healthz, getBlockState function
+
+### Phase Sequence & Triggers
+
+| Phase | Min Weeks | Block Mode | Rep Range | Notes |
+|-------|-----------|------------|-----------|-------|
+| foundation_1 | 4 | foundation | 8-10 (Double) | RPE 4-6, no max effort |
+| foundation_2 | 4 | foundation | 6-8 (Linear) | Reps slide as weight increases |
+| hypertrophy | 4 | hypertrophy | 10-12 (Double) | Volume focus |
+| strength_a | 4 | strength_a | 8-10 (Double) | Heavier starting point |
+| strength_b | 4 | strength_b | 6-8 (Double) | CNS adaptation |
+| strength_peak | 3 | strength_b | 6-8 (Double) | Peak mechanical tension |
+| deload | 1 | foundation | 8-10 (Double) | -20% weight, RPE 5 cap |
+
+### Transition Multipliers
+
+| From | To | Multiplier |
+|------|----|------------|
+| foundation_1 | foundation_2 | +5% |
+| foundation_2 | hypertrophy | -10% |
+| hypertrophy | strength_a | +5% |
+| strength_a | strength_b | +5% |
+| strength_b | strength_peak | +5% |
+| strength_peak | deload | -20% |
+| deload | hypertrophy | +5% |
+| Any | foundation_1 | -15% |
+
+### Remaining Work
+
+- End-to-end testing from Xcode (user testing)
+- Any tuning the user wants after testing (multipliers, messages, triggers)
 
 **Problem:** When switching progression models (e.g., Foundation → Hypertrophy), the model's progression logic may not work correctly because it compares against the wrong rep_cap.
 
