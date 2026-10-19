@@ -4117,7 +4117,20 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
             increment=preset.get("increment", 5),
         )
         # Apply phase transition if model mismatch detected
-        current_phase = block_state.phase if block_state and block_state.phase else None
+        current_phase_raw = block_state.phase if block_state and block_state.phase else None
+        # Normalize phase: convert numeric phases to descriptive phases
+        current_phase = str(current_phase_raw) if current_phase_raw is not None else None
+        # Map numeric phases to descriptive (same logic as get_block_state)
+        numeric_to_descriptive = {
+            "1": "foundation_1",
+            "2": "linear_baseline",
+            "3": "hypertrophy",
+            "4": "strength_a",
+            "5": "strength_b",
+            "6": "deload",
+        }
+        if current_phase in numeric_to_descriptive:
+            current_phase = numeric_to_descriptive[current_phase]
         transition_from = previous_phase_for_model_check
         if current_phase and transition_from and current_phase != transition_from:
             from progression import resolve_model_transition
