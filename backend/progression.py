@@ -3410,6 +3410,10 @@ class MaintenanceModel:
         }
 
 
+def _round_to_nearest_5(weight: float) -> float:
+    """Round weight to nearest 5 pounds."""
+    return round(weight / 5) * 5
+
 def resolve_model_transition(previous_phase: str, current_phase: str, prescription: dict) -> dict:
     """
     Adjust prescription weight based on phase transition rules.
@@ -3436,7 +3440,7 @@ def resolve_model_transition(previous_phase: str, current_phase: str, prescripti
     # Special case: Any -> Foundation_1 (re-entry after long break)
     if current_phase == "foundation_1" and previous_phase != "foundation_1":
         old_weight = prescription.get("suggested_weight", 0)
-        prescription["suggested_weight"] = round(old_weight * 0.85, 1)
+        prescription["suggested_weight"] = _round_to_nearest_5(old_weight * 0.85)
         prescription["coaching_message"] = "Re-entering the foundation block after time away. Weight has been reduced by 15% to allow your body to re-adapt to the movement patterns. Focus on form and build back up progressively — this is not a step backward, it's a smart reset."
         if "next_weight" in prescription:
             prescription["next_weight"] = prescription["suggested_weight"]
@@ -3447,10 +3451,9 @@ def resolve_model_transition(previous_phase: str, current_phase: str, prescripti
     if key in PHASE_TRANSITION_MULTIPLIERS:
         multiplier = PHASE_TRANSITION_MULTIPLIERS[key]
         old_weight = prescription.get("suggested_weight", 0)
-        new_weight = round(old_weight * multiplier, 1)
-        prescription["suggested_weight"] = new_weight
+        prescription["suggested_weight"] = _round_to_nearest_5(old_weight * multiplier)
         if "next_weight" in prescription:
-            prescription["next_weight"] = new_weight
+            prescription["next_weight"] = prescription["suggested_weight"]
 
     return prescription
 
