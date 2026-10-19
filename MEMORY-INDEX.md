@@ -1,9 +1,9 @@
 # Askeo Project Knowledge System
-last_updated: 2026-10-18
+last_updated: 2026-10-19
 created: 2026-10-17
 tags: [meta]
 related: README.md, TODO.md
-status: Mac Studio M5 Max only, master branch HEAD `25bd70a`, working tree clean. Backend deployed to Fly (commit `9e2134b`, build-info timestamp `2026-10-18T19:30`). Backend healthy at smartlift-api.fly.dev/healthz. iOS bundle: SceneDelegate added for scene lifecycle support. Progression system Phase 4 COMPLETE. FOUNDATION pill fix deployed.
+status: Mac Studio M5 Max only, master branch HEAD `5702796`, working tree clean. Backend deployed to Fly (commit `5702796`, build-info timestamp `2026-10-19T00:47`). Backend healthy at smartlift-api.fly.dev/healthz. iOS: SceneDelegate added for scene lifecycle. Progression system: FOUNDATION pill fix deployed (phase normalization + model transition logic in session-targets endpoint). Weight transition working: Linear → Foundation reduces weight by 15% rounded to nearest 5 lbs.
 
 This file explains where every type of project knowledge lives and when to use it.
 
