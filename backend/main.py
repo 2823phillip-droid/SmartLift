@@ -2481,6 +2481,7 @@ def calculate_progression(
     block_mode = payload.block_mode
     week_number = payload.week_number
     previous_phase_for_transition = None
+    previous_phase_for_model_check = None
     
     if not block_mode:
         block_state = db.query(BlockState).filter(BlockState.user_id == current_user.id).first()
@@ -2565,7 +2566,36 @@ def calculate_progression(
             for log in logs
             if log.actual_weight is not None or log.actual_reps is not None
         ]
-    
+        
+        # Check if last session used a different model (for transition logic)
+        # Look at the most recent log that has a block_mode set
+        last_session_block_mode = None
+        for log in logs:
+            if log.block_mode is not None:
+                last_session_block_mode = log.block_mode
+                break
+        
+        # Map block_mode to phase for comparison
+        # If last session was a different model, we'll apply transition
+        if last_session_block_mode is not None:
+            # Map common block_modes to their phase names
+            block_mode_to_phase = {
+                "foundation": "foundation_1",
+                "linear_baseline": "linear_baseline", 
+                "linear": "linear_baseline",
+                "hypertrophy": "hypertrophy",
+                "strength_a": "strength_a",
+                "strength_b": "strength_b",
+                "strength_peak": "strength_peak",
+                "deload": "deload",
+                "maintenance": "maintenance",
+            }
+            last_session_phase = block_mode_to_phase.get(last_session_block_mode)
+            if last_session_phase:
+                current_phase_name = block_state.phase if isinstance(block_state, BlockState) and block_state and block_state.phase else None
+                if current_phase_name and last_session_phase != current_phase_name:
+                    previous_phase_for_model_check = last_session_phase
+        
     # Get preset for block mode (same logic as session-targets endpoint)
     from progression import BLOCK_REP_TARGETS
     preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["foundation"])
@@ -2593,9 +2623,10 @@ def calculate_progression(
         increment=increment,
     )
     
-    # Apply phase transition if phase changed (auto-advance or manual)
+    # Apply phase transition if phase changed (auto-advance or model mismatch)
     current_phase = block_state.phase if isinstance(block_state, BlockState) and block_state else None
-    transition_from = previous_phase_for_transition or block_state_phase
+    # Use auto-advance transition source, or fall back to model mismatch detection
+    transition_from = previous_phase_for_transition or previous_phase_for_model_check or block_state_phase
     if current_phase and transition_from and current_phase != transition_from:
         from progression import resolve_model_transition
         result = resolve_model_transition(transition_from, current_phase, result)
