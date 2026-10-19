@@ -2569,11 +2569,16 @@ def calculate_progression(
         
         # Check if last session used a different model (for transition logic)
         # Look at the most recent log that has a block_mode set
+        # If no block_mode on any log, default to "linear_baseline" (single-user assumption)
         last_session_block_mode = None
         for log in logs:
             if log.block_mode is not None:
                 last_session_block_mode = log.block_mode
                 break
+        
+        # If no log has a block_mode, assume linear (common predecessor to foundation)
+        if last_session_block_mode is None and logs:
+            last_session_block_mode = "linear"
         
         # Map block_mode to phase for comparison
         # If last session was a different model, we'll apply transition
