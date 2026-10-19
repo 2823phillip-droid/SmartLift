@@ -4076,6 +4076,38 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
         reps_target = exercise.is_compound and preset.get("rep_cap", 8) or preset.get("rep_floor", 8)
         sets_target = exercise_entry.sets_target or 3
         
+        # Check if last session used a different model (for transition logic)
+        # Look at the most recent log that has a block_mode set
+        last_session_block_mode = None
+        for log in all_logs:
+            if log.block_mode is not None:
+                last_session_block_mode = log.block_mode
+                break
+        
+        # If no log has a block_mode, default to "linear" (single-user assumption)
+        if last_session_block_mode is None and all_logs:
+            last_session_block_mode = "linear"
+        
+        # Map block_mode to phase for comparison
+        previous_phase_for_model_check = None
+        if last_session_block_mode is not None:
+            block_mode_to_phase = {
+                "foundation": "foundation_1",
+                "linear_baseline": "linear_baseline",
+                "linear": "linear_baseline",
+                "hypertrophy": "hypertrophy",
+                "strength_a": "strength_a",
+                "strength_b": "strength_b",
+                "strength_peak": "strength_peak",
+                "deload": "deload",
+                "maintenance": "maintenance",
+            }
+            last_session_phase = block_mode_to_phase.get(last_session_block_mode)
+            if last_session_phase:
+                current_phase_name = block_state.phase if block_state and block_state.phase else None
+                if current_phase_name and last_session_phase != current_phase_name:
+                    previous_phase_for_model_check = last_session_phase
+        
         prescription = model_picker(
             exercise=exercise,
             history=history,
@@ -4084,6 +4116,13 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
             reps_target=reps_target,
             increment=preset.get("increment", 5),
         )
+        # Apply phase transition if model mismatch detected
+        current_phase = block_state.phase if block_state and block_state.phase else None
+        transition_from = previous_phase_for_model_check
+        if current_phase and transition_from and current_phase != transition_from:
+            from progression import resolve_model_transition
+            prescription = resolve_model_transition(transition_from, current_phase, prescription)
+            print(f"[SESSION_TARGETS] Transition applied: {transition_from} -> {current_phase}, new weight: {prescription.get('suggested_weight')}")
         # Phase 3: endpoint uses model.compute() coaching_message
         # (model_picker delegates to model, model returns coaching_message)
         # Build session_target from most recent completed set log
