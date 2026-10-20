@@ -55,9 +55,70 @@ last_updated: 2026-10-17 (evening)
    - FOUNDATION pill on Ready screen
    - Probe fix (/healthz)
 
-### Still Needed
+### Phase Details
+
+| Phase | Block | Weeks | Reps (Compound) | Reps (Isolation) | Progression (Compound) | Progression (Isolation) |
+|-------|-------|-------|-----------------|------------------|------------------------|--------------------------|
+| 1 | Foundation | 6 | 8-10 (start at 10) | 8-10 (start at 10) | Double | Double |
+| 2 | Linear Baseline | 2-3 | 8-10 → 6-8 | 8-10 | Linear | Double |
+| 3 | Hypertrophy | 6 | 10-12 | 10-12 | Double | Double |
+| 4 | Strength A | 3 | 8-10 (linear) | 8-10 | Linear | Double |
+| 5 | Strength B | 2 | 6-8 (linear) | 6-8 | Linear | Double |
+| 6 | Strength Peak | 1 | 4-6 (linear) | 4-6 | Linear | Double |
+| 7 | Maintenance | 1-2 | 10-12 | 10-12 | None (RPE 5) | None (RPE 5) |
+
+**Key decisions:**
+- Foundation: all exercises start at 10 reps (rep_cap), double progression for all
+- Linear Baseline & Strength: compound = linear (add weight each session, reps find their level), isolation = double (work within rep range first)
+- Hypertrophy: all double progression
+- Strength A/B/Peak: linear for compound (pushing limits), double for isolation
+
+## GIF/Video Creation
+
+### Strategy
+- Video yourself doing the exercise → Uthana (motion capture) → Bender (avatar animation) → GIF export → add to database
+- Do exercises in one pass: create GIF, then add exercise to database with GIF URL (no placeholder step)
+- Add exercises to database only after GIF is ready
+
+### Warmup GIFs (custom, video → Uthana → Bender → GIF)
+- [ ] Frankensteins (walk forward, kick leg to opposite hand)
+- [ ] Hip rotations (stand, rotate hip in circle)
+- [ ] High knees (run in place, knees to chest)
+- [ ] Butt kicks (run in place, heels to glutes)
+- [ ] Walking lunges (to and back, 10 yards)
+
+### Missing exercises (need custom GIFs)
+- [ ] Lever Leg Press (leverage machine, two legs)
+- [ ] Standing OHP (standing overhead press, dumbbell or barbell)
+- [ ] Smith Machine Hip Thruster
+
+### Existing exercises (no custom GIF needed)
+- [x] Monster walks (id 1020) — already in DB
+- [x] High knee against wall (id 835) — already in DB
+- [x] Walking high knees lunge (id 1270) — already in DB
+
+## Still Needed
 - End-to-end testing from Xcode
 - Any tuning the user wants after testing
+
+## GIF/Video Creation
+
+### Warmup GIFs (custom, video → Uthana → Bender → GIF)
+- [ ] Frankensteins (walk forward, kick leg to opposite hand)
+- [ ] Hip rotations (stand, rotate hip in circle)
+- [ ] High knees (run in place, knees to chest)
+- [ ] Butt kicks (run in place, heels to glutes)
+- [ ] Walking lunges (to and back, 10 yards)
+
+### Missing exercises (need custom GIFs)
+- [ ] Lever Leg Press (leverage machine, two legs)
+- [ ] Standing OHP (standing overhead press, dumbbell or barbell)
+- [ ] Smith Machine Hip Thruster
+
+### Existing exercises (no custom GIF needed)
+- [x] Monster walks (id 1020) — already in DB
+- [x] High knee against wall (id 835) — already in DB
+- [x] Walking high knees lunge (id 1270) — already in DB
 
 ## Bugs to fix
 
