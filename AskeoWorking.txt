@@ -56,7 +56,151 @@ Model_Picker Logic on rotating models.
 #
 
 Logs:
-
+[Warning] [ActiveWorkoutScreen] MODULE LOADED - web bundle is running (index-A5Hi5_QB.js, line 73)
+[Error] Failed to load resource: the server responded with a status of 401 () (api_base, line 0)
+[Error] Failed to load resource: the server responded with a status of 404 () (healthz, line 0)
+[Error] Failed to load resource: the server responded with a status of 404 () (healthz, line 0)
+[Log] [WorkoutsScreen] contexts loaded – 2 (index-A5Hi5_QB.js, line 65)
+[Log] [WorkoutsScreen] templates loaded – 7 (index-A5Hi5_QB.js, line 65)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Fetching block state... (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Block state response: – {id: 3, block_mode: "foundation", week_number: 1, …} (index-A5Hi5_QB.js, line 73)
+{id: 3, block_mode: "foundation", week_number: 1, start_date: "2026-10-10T19:51:08.720252+00:00", phase: "foundation_1", …}Object
+[Log] [ActiveWorkoutScreen] Block state set: – "foundation" (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Fetching progression for – 6 – "exercises..." (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 433 (Barbell Deadlift), library_id=108 (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 433: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 115, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 115 – "x" – 8 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 451 (Lever Narrow Grip Seated Row), library_id=956 (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73, x3)
+[Log] [ActiveWorkoutScreen] Calculate response for 451: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 60, should_increase: true, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 60 – "x" – 8 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 452 (Cable Bar Lateral Pulldown), library_id=272 (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] lastSessionByExercise – {433: Array, 451: Array, 452: Array, …} (index-A5Hi5_QB.js, line 73)
+{433: Array, 451: Array, 452: Array, 453: Array, 454: Array, 455: Array}Object
+[Log] [ActiveWorkoutScreen] Calculate response for 452: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 110, should_increase: true, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 110 – "x" – 8 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 453 (Cable Low Seated Row), library_id=311 (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Fetching session targets... (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 453: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 90, should_increase: true, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 90 – "x" – 8 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 454 (Ez Barbell Close Grip Preacher Curl), library_id=779 (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Session targets received: – 6 – "exercises" (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] auto-expand – 115 – "x" – 10 – "source:" – "backend" (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 454: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 15, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Calculating for exercise 455 (Dumbbell Incline Biceps Curl), library_id=520 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 455: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 30, should_increase: true, …}Object
+[Log] [ActiveWorkoutScreen] Progression data: – {433: Object, 451: Object, 452: Object, …} (index-A5Hi5_QB.js, line 73)
+{433: Object, 451: Object, 452: Object, 453: Object, 454: Object, 455: Object}Object
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73, x230)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [WorkoutsScreen] contexts loaded – 2 (index-A5Hi5_QB.js, line 65)
+[Log] [WorkoutsScreen] templates loaded – 7 (index-A5Hi5_QB.js, line 65)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Fetching block state... (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Block state response: – {id: 3, block_mode: "foundation", week_number: 1, …} (index-A5Hi5_QB.js, line 73)
+{id: 3, block_mode: "foundation", week_number: 1, start_date: "2026-10-10T19:51:08.720252+00:00", phase: "foundation_1", …}Object
+[Log] [ActiveWorkoutScreen] Block state set: – "foundation" (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Fetching progression for – 6 – "exercises..." (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 433 (Barbell Deadlift), library_id=108 (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 433: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 115, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 115 – "x" – 8 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 451 (Lever Narrow Grip Seated Row), library_id=956 (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73, x3)
+[Log] [ActiveWorkoutScreen] Calculate response for 451: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 60, should_increase: true, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 60 – "x" – 8 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 452 (Cable Bar Lateral Pulldown), library_id=272 (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 452: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 110, should_increase: true, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 110 – "x" – 8 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 453 (Cable Low Seated Row), library_id=311 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] lastSessionByExercise – {433: Array, 451: Array, 452: Array, …} (index-A5Hi5_QB.js, line 73)
+{433: Array, 451: Array, 452: Array, 453: Array, 454: Array, 455: Array}Object
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Fetching session targets... (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 453: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 90, should_increase: true, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 90 – "x" – 8 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 454 (Ez Barbell Close Grip Preacher Curl), library_id=779 (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 454: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 15, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 15 – "x" – 8 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 455 (Dumbbell Incline Biceps Curl), library_id=520 (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Session targets received: – 6 – "exercises" (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] auto-expand – 115 – "x" – 10 – "source:" – "backend" (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 455: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 30, should_increase: true, …}Object
+[Log] [ActiveWorkoutScreen] Progression data: – {433: Object, 451: Object, 452: Object, …} (index-A5Hi5_QB.js, line 73)
+{433: Object, 451: Object, 452: Object, 453: Object, 454: Object, 455: Object}Object
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73, x46)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [WorkoutsScreen] contexts loaded – 2 (index-A5Hi5_QB.js, line 65)
+[Log] [WorkoutsScreen] templates loaded – 7 (index-A5Hi5_QB.js, line 65)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Fetching block state... (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Block state response: – {id: 3, block_mode: "foundation", week_number: 1, …} (index-A5Hi5_QB.js, line 73)
+{id: 3, block_mode: "foundation", week_number: 1, start_date: "2026-10-10T19:51:08.720252+00:00", phase: "foundation_1", …}Object
+[Log] [ActiveWorkoutScreen] Block state set: – "foundation" (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Fetching progression for – 6 – "exercises..." (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 433 (Barbell Deadlift), library_id=108 (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 433: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 115, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 115 – "x" – 8 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 451 (Lever Narrow Grip Seated Row), library_id=956 (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73, x3)
+[Log] [ActiveWorkoutScreen] Calculate response for 451: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 60, should_increase: true, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 60 – "x" – 8 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 452 (Cable Bar Lateral Pulldown), library_id=272 (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 452: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 110, should_increase: true, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 110 – "x" – 8 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 453 (Cable Low Seated Row), library_id=311 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] lastSessionByExercise – {433: Array, 451: Array, 452: Array, …} (index-A5Hi5_QB.js, line 73)
+{433: Array, 451: Array, 452: Array, 453: Array, 454: Array, 455: Array}Object
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Fetching session targets... (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 453: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 90, should_increase: true, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 90 – "x" – 8 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 454 (Ez Barbell Close Grip Preacher Curl), library_id=779 (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Session targets received: – 6 – "exercises" (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] auto-expand – 100 – "x" – 10 – "source:" – "backend" (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 454: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 15, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Calculating for exercise 455 (Dumbbell Incline Biceps Curl), library_id=520 (index-A5Hi5_QB.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 455: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 30, should_increase: true, …}Object
+[Log] [ActiveWorkoutScreen] Progression data: – {433: Object, 451: Object, 452: Object, …} (index-A5Hi5_QB.js, line 73)
+{433: Object, 451: Object, 452: Object, 453: Object, 454: Object, 455: Object}Object
+[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73, x12)
 
 
 Current Summary:
