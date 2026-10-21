@@ -1,41 +1,63 @@
 # TODO
-last_updated: 2026-10-17 (evening)
+last_updated: 2026-10-19 (afternoon)
 
 ## Current State (as of this update)
 
-- **Git HEAD:** `9d5b89a` — "Use /healthz for API base probe instead of /settings/api_base"
-- **Build:** latest build (Oct 17 19:04), synced to iOS at `frontend/ios/App/App/public/assets/`
-- **Deploy status:** Backend deployed to Fly (commit `9d5b89a`). Health OK.
-- **Progression system Phase 4:** COMPLETE
-  - BlockState phase: Integer → String (foundation_1, foundation_2, hypertrophy, strength_a, strength_b, strength_peak, deload)
+- **Git HEAD:** `5702796` — "fix: normalize phase in session-targets endpoint"
+- **Build:** latest build synced to iOS at `frontend/ios/App/App/public/assets/`
+- **Deploy status:** Backend deployed to Fly (commit `5702796`). Health OK.
+- **Progression system:** COMPLETE
+  - BlockState phase: String (foundation_1, foundation_2, hypertrophy, strength_a, strength_b, strength_peak, deload)
   - Transition function: resolve_model_transition with 8 rules + PHASE_TRANSITION_MULTIPLIERS
-  - Phase advancement triggers: PHASE_ADVANCE_TRIGGERS (min_weeks per phase), can_advance_phase, get_next_phase
-  - Auto-advance wired into calculate endpoint (silently advances when week threshold met, resets week to 1, applies transition)
-  - All 6 models handle phase parameter (FoundationModel phase distinction: foundation_1 = Double 8-10 reps, foundation_2 = Linear 6-8 reps)
-  - Coaching messages: production-ready for all phases
-  - Session target: includes last session recap (date, weight, reps, effort, notes) + today's target + "why" (compares today's weight/reps to last session)
-  - FOUNDATION pill: on PreWorkoutScreen (Ready screen) showing phase context with coaching message
-  - Probe fix: /healthz used for API base detection instead of /settings/api_base (which requires auth)
+  - Phase advancement triggers: min_weeks per phase, can_advance_phase, get_next_phase
+  - Auto-advance in calculate endpoint
+  - Model comparison logic in calculate + session-targets (detects model mismatch, applies transition)
+  - Phase normalization in get_block_state + session-targets (converts "1" → "foundation_1")
+  - Weight rounding: _round_to_nearest_5 helper
+  - Coaching messages: production-ready
+  - Session target: includes last session recap + today's target + "why"
+  - FOUNDATION pill: on PreWorkoutScreen
 
-## Session Target Status (CURRENT)
+## Vision (Finished Product)
 
-- [x] Session-targets endpoint returning 0 exercises — FIXED
-- [x] 500 errors — FIXED (all attribute errors resolved)
-- [x] Coaching messages come from backend model classes — DONE
-- [x] Session targets use model-generated coaching messages — DONE
-- [x] Session targets queries most recent logs for each exercise across ALL completed sessions — DONE
-- [x] Set 1 coaching message pulls from last session data — DONE (session_target field)
-- [x] Cross-model weight adjustment on model switch — DONE (resolve_model_transition)
-- [x] Model indicator appears in coach notes header — DONE (FOUNDATION pill on Ready screen)
-- [x] BlockState phase granularity — DONE (7 string phases)
-- [x] Phase advancement triggers — DONE (week thresholds)
-- [x] Auto-advance wired into calculate endpoint — DONE
-- [x] All models handle phase parameter — DONE
-- [x] Coaching messages production-ready — DONE
-- [x] Session target includes last session recap + why — DONE
-- [x] FOUNDATION pill on Ready screen — DONE
-- [x] Probe fix (/healthz instead of /settings/api_base) — DONE
-- [ ] Test from Xcode end-to-end — PENDING (user testing)
+A progression-powered workout system:
+
+- **Progression engine** — 7 phases (Foundation, Linear Baseline, Hypertrophy, Strength A/B/Peak, Maintenance), transitions between phases, double/linear progression logic, personalized based on user history
+- **Web interface** — build and plan workouts, view progression, manage phases, exercise library with videos, routine management
+- **iOS app** — execute workouts, set logging, rest timer, session targets, phase context (FOUNDATION pill)
+- **Apple Watch** — companion for execution (quick logging, rest timer, current set info)
+- **Exercise library** — 1384 exercises from ExerciseDB (GIFs), custom videos for gaps (created by user over time), eventual replacement of all ExerciseDB GIFs
+- **Android + Android Watch** — future, after iOS/web/Watch are solid
+
+**Why this is worth building:**
+- Most workout apps don't have a real progression system
+- MuscleWiki has exercise videos + workout builder, but no progression engine
+- Askeo's differentiator is the progression system + personalization + coaching tied to progression
+
+## Progress Markers
+
+**Done:**
+- [x] Progression engine (models, transitions, phase advancement)
+- [x] Phase normalization (numeric → descriptive)
+- [x] Model comparison logic (detects model mismatch, applies transition)
+- [x] Weight rounding to nearest 5 lbs
+- [x] iOS app functional (workout execution, logging, session targets)
+- [x] FOUNDATION pill on Ready screen
+- [x] Session target with last session recap + "why"
+- [x] Coaching messages production-ready
+- [x] Exercise library (1384 exercises from ExerciseDB)
+- [x] Phase details table (weeks, reps split, progression models)
+
+**Next (this year):**
+- [ ] Web interface (workout builder, progression view, exercise library, routine management)
+- [ ] Apple Watch companion (quick logging, rest timer, current set)
+- [ ] Custom videos for missing exercises (lever leg press, standing OHP, smith machine hip thruster, warmup exercises)
+- [ ] End-to-end testing from Xcode (user testing)
+
+**Later (after core is solid):**
+- [ ] Replace ExerciseDB GIFs with custom videos (gradual, over time)
+- [ ] Android app
+- [ ] Android Watch
 
 ## Phase Plan
 
@@ -49,6 +71,9 @@ last_updated: 2026-10-17 (evening)
    - Transition function (resolve_model_transition)
    - Phase advancement triggers (can_advance_phase, min_weeks)
    - Auto-advance in calculate endpoint
+   - Model comparison logic (calculate + session-targets)
+   - Phase normalization (get_block_state + session-targets)
+   - Weight rounding (_round_to_nearest_5)
    - All models handle phase parameter
    - Coaching messages production-ready
    - Session target with last session recap + why
@@ -77,48 +102,34 @@ last_updated: 2026-10-17 (evening)
 
 ### Strategy
 - Video yourself doing the exercise → Uthana (motion capture) → Bender (avatar animation) → GIF export → add to database
-- Do exercises in one pass: create GIF, then add exercise to database with GIF URL (no placeholder step)
-- Add exercises to database only after GIF is ready
+- Do exercises in one pass: create video, then add exercise to database with video URL (no placeholder step)
+- Add exercises to database only after video is ready
+- Eventually replace ExerciseDB GIFs with custom videos (gradual, over time)
 
-### Warmup GIFs (custom, video → Uthana → Bender → GIF)
+### Warmup Videos (custom)
 - [ ] Frankensteins (walk forward, kick leg to opposite hand)
 - [ ] Hip rotations (stand, rotate hip in circle)
 - [ ] High knees (run in place, knees to chest)
 - [ ] Butt kicks (run in place, heels to glutes)
 - [ ] Walking lunges (to and back, 10 yards)
 
-### Missing exercises (need custom GIFs)
+### Missing exercises (need custom videos)
 - [ ] Lever Leg Press (leverage machine, two legs)
 - [ ] Standing OHP (standing overhead press, dumbbell or barbell)
 - [ ] Smith Machine Hip Thruster
 
-### Existing exercises (no custom GIF needed)
+### Existing exercises (no custom video needed)
 - [x] Monster walks (id 1020) — already in DB
 - [x] High knee against wall (id 835) — already in DB
 - [x] Walking high knees lunge (id 1270) — already in DB
 
 ## Still Needed
-- End-to-end testing from Xcode
-- Any tuning the user wants after testing
 
-## GIF/Video Creation
-
-### Warmup GIFs (custom, video → Uthana → Bender → GIF)
-- [ ] Frankensteins (walk forward, kick leg to opposite hand)
-- [ ] Hip rotations (stand, rotate hip in circle)
-- [ ] High knees (run in place, knees to chest)
-- [ ] Butt kicks (run in place, heels to glutes)
-- [ ] Walking lunges (to and back, 10 yards)
-
-### Missing exercises (need custom GIFs)
-- [ ] Lever Leg Press (leverage machine, two legs)
-- [ ] Standing OHP (standing overhead press, dumbbell or barbell)
-- [ ] Smith Machine Hip Thruster
-
-### Existing exercises (no custom GIF needed)
-- [x] Monster walks (id 1020) — already in DB
-- [x] High knee against wall (id 835) — already in DB
-- [x] Walking high knees lunge (id 1270) — already in DB
+- [ ] Web interface (workout builder, progression view, exercise library, routine management)
+- [ ] Apple Watch companion (quick logging, rest timer, current set)
+- [ ] Custom videos for missing exercises (see GIF/Video Creation section)
+- [ ] End-to-end testing from Xcode (user testing)
+- [ ] Any tuning the user wants after testing
 
 ## Bugs to fix
 
@@ -147,6 +158,8 @@ last_updated: 2026-10-17 (evening)
 - The `/api/settings/{key}` endpoint requires auth, so using it for API base probe fails with 401. Use `/healthz` instead — it's a public endpoint that just checks if the API is reachable.
 - The FOUNDATION pill belongs on the Ready screen (PreWorkoutScreen), not the Active Workout screen. The Active Workout screen should be clean: header + elapsed time + exercise cards with session target.
 - The session target should include the "why" — comparing today's weight/reps to last session to explain why we're doing what we're doing.
+- Phase normalization is critical — raw numeric phases ("1", "2") must be converted to descriptive ("foundation_1", "linear_baseline") before passing to resolve_model_transition, or the transition logic won't match.
+- Model comparison logic is needed in both calculate and session-targets endpoints — Set 1 (session-targets) and Set 2+ (calculate) both need to detect model mismatch and apply transition.
 
 ## Architecture Decision
 
