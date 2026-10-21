@@ -3601,3 +3601,49 @@ def is_block_complete(block_state) -> bool:
     }
     return week_number >= max_weeks.get(block_mode, 6)
 
+
+def get_phase_description_for_ready_screen(block_mode: str, phase: str) -> str:
+    """
+    Return the phase description message for the Ready screen.
+
+    This is the message that appears on the Ready screen (PreWorkoutScreen)
+    to explain the current phase. It's pulled from the model's coaching_message
+    logic but exposed as a standalone function for the frontend.
+
+    The frontend should construct the full message from blockState + this description,
+    keeping the frontend model-agnostic.
+
+    Args:
+        block_mode: Current block mode (foundation, hypertrophy, strength_a, etc.)
+        phase: Current phase (foundation_1, foundation_2, hypertrophy, etc.)
+
+    Returns:
+        Phase description message string
+    """
+    # Map block_mode to the appropriate model's coaching message
+    # These messages are the same as what the model returns in compute()
+    if block_mode == "foundation":
+        if phase == "foundation_1":
+            return "Foundation 1 — This is where we build your base — movement quality, connective tissue strength, the fundamentals. And honestly, this isn't about going heavy. It's about form, control, getting familiar and comfortable with the weight. We're working in 8-10 reps, and we only add weight when we hit 10 with good form. Keep it smooth, keep it controlled. And take your time getting comfortable with the app too — we'll get there together."
+        elif phase == "foundation_2":
+            return "Foundation 2 — We're transitioning to linear progression now — same foundation focus, but we're adding weight each session and letting reps find their level. 6-8 reps, smooth and controlled. This bridges us from foundation into strength work. You've built the base — now we're building on it. Take your time, keep the form tight, and let's get comfortable with the app together."
+        else:
+            return "Foundation block — building movement quality and connective tissue strength. Use double progression: work within 8-10 reps, and only increase weight when you can hit 10 reps with good form. Keep RPE around 4-6 — this is not about max effort."
+    elif block_mode == "linear_baseline":
+        return "Linear Baseline — transitioning from foundation to more structured progression. Compound exercises move to linear progression (add weight each session, reps find their level). Isolation exercises stay double progression. Reps slide from 8-10 down to 6-8 as weight increases."
+    elif block_mode == "hypertrophy":
+        if phase == "hypertrophy":
+            return "Hypertrophy block — volume focus for muscle growth. Work in the 10-12 rep range, and only increase weight when you can hit 12 reps with good form. Metabolic stress and time under tension are the priorities. Smaller increments (3 lbs) help smooth progression."
+        else:
+            return "Hypertrophy block — volume focus for muscle growth. Work in the 10-12 rep range, and only increase weight when you can hit 12 reps with good form. Metabolic stress and time under tension are the priorities. Smaller increments (3 lbs) help smooth progression."
+    elif block_mode == "strength_a":
+        return "Strength Phase A — building toward heavier loads. Work in the 8-10 rep range with a focus on mechanical tension. Increase weight when you hit the top of the range with solid form. Heavier starting point than hypertrophy — your body is adapting to more demanding work."
+    elif block_mode == "strength_b":
+        return "Strength Phase B — heavier loads, CNS adaptation. Working in the 6-8 rep range now. Increase weight when you hit 8 reps with solid form. Your nervous system is adapting to heavier work — prioritize recovery between sessions."
+    elif block_mode == "strength_peak":
+        return "Strength Peak — max effort phase. Working in the 4-6 rep range. This is where you push to your limits. Increase weight when you hit 6 reps with solid form. Prioritize recovery — this is demanding work."
+    elif block_mode == "maintenance":
+        return "Deload / Maintenance phase — recovery and structural flushing. Weights are reduced by ~20% from your recent work. Keep reps in the 10-12 range, RPE capped at 5. Focus on mobility, joint health, and active recovery. This is not about progression — it's about coming back stronger next cycle."
+    else:
+        return "Starting a new block. Focus on form, control, and building the foundation. We'll adjust as you progress."
+

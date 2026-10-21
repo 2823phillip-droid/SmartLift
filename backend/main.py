@@ -2280,6 +2280,7 @@ class BlockStateOut(ApiBaseModel):
     week_number: int
     start_date: datetime
     phase: str
+    phase_description: Optional[str] = None
     created_at: Optional[datetime]
     updated_at: Optional[datetime]
 
@@ -2326,6 +2327,14 @@ def get_block_state(db: Session = Depends(get_db), current_user: User = Depends(
     # Normalize phase: convert old numeric phases to new descriptive phases
     normalized_phase = NORMALIZE_PHASE.get(str(block_state.phase), str(block_state.phase))
     setattr(block_state, "phase", normalized_phase)
+    
+    # Get phase description for Ready screen (model-agnostic message for frontend)
+    from progression import get_phase_description_for_ready_screen
+    block_mode_str = str(block_state.block_mode) if block_state.block_mode else "foundation"
+    phase_str = str(block_state.phase) if block_state.phase else "foundation_1"
+    phase_description = get_phase_description_for_ready_screen(block_mode_str, phase_str)
+    # Add a unique marker to verify this came from the backend (not frontend hardcoded)
+    block_state.phase_description = phase_description + " ⟨BACKEND⟩"
     return block_state
 
 
