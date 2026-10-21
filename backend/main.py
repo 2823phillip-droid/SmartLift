@@ -4073,7 +4073,11 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
         
         # Get prescription from model_picker
         preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["foundation"])
-        reps_target = exercise.is_compound and preset.get("rep_cap", 8) or preset.get("rep_floor", 8)
+        # Foundation: all exercises start at rep_cap (10), regardless of compound/isolation
+        if block_mode == "foundation":
+            reps_target = preset.get("rep_cap", 8)
+        else:
+            reps_target = exercise.is_compound and preset.get("rep_cap", 8) or preset.get("rep_floor", 8)
         sets_target = exercise_entry.sets_target or 3
         
         # Check if last session used a different model (for transition logic)
