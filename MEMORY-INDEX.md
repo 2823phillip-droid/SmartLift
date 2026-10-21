@@ -3,7 +3,7 @@ last_updated: 2026-10-19
 created: 2026-10-17
 tags: [meta]
 related: README.md, TODO.md
-status: Mac Studio M5 Max only, master branch HEAD `5702796`, working tree clean. Backend deployed to Fly (commit `5702796`, build-info timestamp `2026-10-19T00:47`). Backend healthy at smartlift-api.fly.dev/healthz. iOS: SceneDelegate added for scene lifecycle. Progression system: FOUNDATION pill fix deployed (phase normalization + model transition logic in session-targets endpoint). Weight transition working: Linear → Foundation reduces weight by 15% rounded to nearest 5 lbs.
+status: Mac Studio M5 Max only, master branch HEAD `9282daa`, working tree clean. Backend deployed to Fly (commit `5702796`, build-info timestamp `2026-10-19T00:47`). Backend healthy at smartlift-api.fly.dev/healthz. iOS: SceneDelegate added for scene lifecycle. Progression system: FOUNDATION pill fix deployed (phase normalization + model transition logic in session-targets endpoint). Weight transition working: Linear → Foundation reduces weight by 15% rounded to nearest 5 lbs. Ready screen: phase description moved to backend (model-agnostic frontend).
 
 This file explains where every type of project knowledge lives and when to use it.
 
