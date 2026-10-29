@@ -4145,10 +4145,21 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
         if current_phase in numeric_to_descriptive:
             current_phase = numeric_to_descriptive[current_phase]
         transition_from = previous_phase_for_model_check
+        is_reentry = False
         if current_phase and transition_from and current_phase != transition_from:
             from progression import resolve_model_transition
             prescription = resolve_model_transition(transition_from, current_phase, prescription)
             print(f"[SESSION_TARGETS] Transition applied: {transition_from} -> {current_phase}, new weight: {prescription.get('suggested_weight')}")
+            # Check if this is a re-entry transition (Any -> foundation_1)
+            # Only apply re-entry coaching_message for Set 1 (session_targets), not Set 2+ (calculate)
+            if current_phase == "foundation_1" and transition_from != "foundation_1":
+                is_reentry = True
+                prescription["coaching_message"] = (
+                    "Re-entering the foundation block after time away. "
+                    "Weight has been reduced by 15% to allow your body to re-adapt to the movement patterns. "
+                    "Focus on form and build back up progressively — this is not a step backward, it's a smart reset."
+                )
+                print(f"[SESSION_TARGETS] Re-entry coaching_message set for Set 1")
         # Phase 3: endpoint uses model.compute() coaching_message
         # (model_picker delegates to model, model returns coaching_message)
         # Build session_target from most recent completed set log
