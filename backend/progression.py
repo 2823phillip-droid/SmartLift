@@ -2932,7 +2932,27 @@ class FoundationModel:
                 next_reps = reps_target_val
         
         should_increase = next_weight > weight
-
+        
+        # Set 2+ coaching message: reference previous set performance + progression guidance
+        if is_set_target:
+            if should_increase:
+                coaching_message = (
+                    f"You hit {reps} reps" + (f" with effort {effort}" if effort is not None else "") + ". "
+                    f"Great work — we're increasing to {next_weight:.0f} lbs. "
+                    f"Foundation: stay in the {rep_floor}-{rep_cap} rep range, RPE 4-6, no max effort. "
+                    f"Focus on form and slow eccentrics."
+                )
+            else:
+                coaching_message = (
+                    f"You hit {reps} reps" + (f" with effort {effort}" if effort is not None else "") + ". "
+                    f"Stay at {next_weight:.0f} lbs — aim for {rep_cap} reps next set. "
+                    f"Foundation: double progression means we hit the top of the range before adding weight. "
+                    f"RPE 4-6, no max effort, focus on form and slow eccentrics."
+                )
+        else:
+            # Set 1 (session target) keeps the phase-appropriate coaching message
+            pass  # coaching_message already set above for Foundation 1 or Foundation 2
+        
         return {
             "suggested_weight": round(next_weight, 1),
             "rep_floor": rep_floor,
