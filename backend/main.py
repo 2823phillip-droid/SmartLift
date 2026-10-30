@@ -23,7 +23,7 @@ from models import (
     Reminder,
     BlockState,
 )
-from progression import model_picker, get_block_targets, advance_block, is_block_complete
+from progression import model_picker, get_block_targets, advance_block, is_block_complete, build_set_target_message
 import secrets
 import hashlib
 import httpx
@@ -2456,6 +2456,7 @@ class ProgressionCalculateRequest(BaseModel):
     block_mode: Optional[str] = None
     week_number: Optional[int] = None
     previous_phase: Optional[str] = None
+    is_set_target: bool = True  # True for Set 2+ (current session), False for next session
 
 
 class ProgressionCalculateResponse(BaseModel):
@@ -2468,6 +2469,7 @@ class ProgressionCalculateResponse(BaseModel):
     block_phase: str
     is_block_complete: bool
     next_reps: int
+    coaching_message: str = ""
 
     class Config:
         from_attributes = True
@@ -2653,6 +2655,29 @@ def calculate_progression(
     if top_set:
         print(f"[CALCULATE DEBUG] top_set: weight={top_set.get('actual_weight')}, reps={top_set.get('actual_reps')}, effort={top_set.get('effort')}, form_quality={top_set.get('form_quality')}")
     
+    # For Set 2+ (calculate endpoint), weight should NOT increase mid-session.
+    # Stay at the same weight for all sets in the current session.
+    # Only the session_targets endpoint (next session) should increase the weight.
+    if payload.is_set_target:
+        # Set 2+ in current session: stay at the same weight (don't increase)
+        result["should_increase"] = False
+    
+    # Build set target message for Set 2+
+    coaching_message = ""
+    if payload.is_set_target and top_set:
+        # Build params dict with phase-specific values from the model result
+        params = {
+            "rep_floor": result.get("rep_floor", 8),
+            "rep_cap": result.get("rep_cap", 10),
+            "increment": result.get("increment", 5),
+            "target_effort": 6,  # Default target effort
+            "phase_name": result.get("block_mode", "Foundation"),
+        }
+        # Try to get phase_name from block_state
+        if block_state_phase:
+            params["phase_name"] = block_state_phase.replace("_", " ").title()
+        coaching_message = build_set_target_message(top_set, result.get("suggested_weight", 0), params, None)
+    
     return ProgressionCalculateResponse(
         rep_floor=result["rep_floor"],
         rep_cap=result["rep_cap"],
@@ -2663,6 +2688,7 @@ def calculate_progression(
         block_phase=block_state_phase if block_state_phase is not None else (block_state.phase if isinstance(block_state, BlockState) else None),
         is_block_complete=is_block_complete(block_state),
         next_reps=result.get("next_reps", result.get("rep_floor", 8)),
+        coaching_message=coaching_message,
     )
 
 # Block advancement thresholds and endpoints

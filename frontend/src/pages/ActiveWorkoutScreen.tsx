@@ -850,6 +850,7 @@ export default function ActiveWorkoutScreen({
             actual_reps: r,
             set_index: setIndex,
           },
+          is_set_target: true, // True for Set 2+ (current session) - don't increase weight mid-session
         });
         if (calcData.suggested_weight != null) {
           const nextWeightLbs = toLbs(calcData.suggested_weight);
