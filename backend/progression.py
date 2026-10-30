@@ -2944,7 +2944,7 @@ def build_session_target_message(
         reps = s.get("reps", 0) or 0
         effort = s.get("effort", None)
         effort_str = f"E-{effort}" if effort is not None else ""
-        set_lines.append(f"   - Set {i}: {weight:.0f} lbs × {reps} reps {effort_str}".strip())
+        set_lines.append(f"   - Set {i}: {weight:.0f} lbs × {reps} reps {effort_str}")
     
     analysis = analyze_session(sets_data, target_reps, params.get("target_effort", 6))
     
