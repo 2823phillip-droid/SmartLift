@@ -4160,57 +4160,51 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
                     "Focus on form and build back up progressively — this is not a step backward, it's a smart reset."
                 )
                 print(f"[SESSION_TARGETS] Re-entry coaching_message set for Set 1")
-        # Phase 3: endpoint uses model.compute() coaching_message
-        # (model_picker delegates to model, model returns coaching_message)
-        # Build session_target from most recent completed set log
+        # Phase 3: Use Foundation logic for session target (Set 1)
+        # Build session_target from ALL sets in the last session, not just the most recent set
         session_target = ""
+        last_session_sets = []
+        
         if all_logs:
-            last_log = all_logs[0]  # Most recent, ordered by completed_at.desc()
-            last_date = ""
-            if last_log.completed_at:
-                from datetime import timezone
-                dt = last_log.completed_at
-                if dt.tzinfo is None:
-                    dt = dt.replace(tzinfo=timezone.utc)
-                last_date = dt.strftime("%b %d")
+            # Filter all_logs to get only the sets from the last completed session
+            last_session_date = last_session.started_at if last_session else None
+            if last_session_date:
+                for log in all_logs:
+                    if log.completed_at and log.completed_at.date() == last_session_date.date():
+                        last_session_sets.append({
+                            "weight": log.actual_weight or 0,
+                            "reps": log.actual_reps or 0,
+                            "effort": log.effort,
+                            "name": exercise_entry.name,
+                            "date": last_session_date.strftime("%b %d"),
+                        })
             
-            effort_text = ""
-            if last_log.effort is not None:
-                effort_text = f" effort felt like a {last_log.effort}"
-            
-            notes_text = ""
-            if last_log.notes:
-                notes_text = f' You noted: "{last_log.notes}"'
-            
-            session_target = (
-                f"Last time we did {exercise_entry.name} on {last_date} — "
-                f"{last_log.actual_weight or 0:.0f} lbs for {last_log.actual_reps or 0} reps"
-                f"{effort_text}"
-                f"{notes_text}."
-            )
-            
-            # Add today's target with the "why"
-            today_weight = prescription['suggested_weight']
-            today_reps = prescription.get('next_reps', prescription.get('rep_floor', 8))
-            last_weight = last_log.actual_weight or 0
-            last_reps = last_log.actual_reps or 0
-
-            if today_weight == last_weight:
-                if today_reps > last_reps:
-                    why = " We're building on that — more reps at the same weight to solidify the movement."
-                elif today_reps == last_reps:
-                    why = " We're continuing to build consistency — same weight, same reps, solidifying the foundation."
-                else:
-                    why = " We're holding here — same weight, working on form and control."
-            elif today_weight > last_weight:
-                why = " We're progressing — you built a solid base, now we're bumping the weight up."
-            else:
-                why = " We're dialing it back — recovering and rebuilding."
-
-            session_target += (
-                f" Today, we're continuing with {today_weight:.0f} lbs "
-                f"for {today_reps} reps.{why}"
-            )
+            if last_session_sets:
+                # Use Foundation logic to calculate next session weight and build message
+                from progression import (
+                    calculate_next_session_weight,
+                    build_session_target_message,
+                    FOUNDATION_PARAMS,
+                )
+                
+                # Calculate next session weight using Foundation logic
+                next_session_weight = calculate_next_session_weight(
+                    last_session_sets,
+                    target_reps=FOUNDATION_PARAMS["target_reps"],
+                    target_effort=FOUNDATION_PARAMS["target_effort"],
+                    increment=FOUNDATION_PARAMS["increment"],
+                )
+                
+                # Build session target message using Foundation logic
+                session_target = build_session_target_message(
+                    last_session_sets,
+                    next_session_weight,
+                    FOUNDATION_PARAMS,
+                )
+                
+                # Use the calculated weight for today's prescription
+                prescription["suggested_weight"] = float(next_session_weight)
+                prescription["next_reps"] = FOUNDATION_PARAMS["target_reps"]
         
         targets.append(SessionTargetResponse(
             exercise_id=exercise_entry.id,
