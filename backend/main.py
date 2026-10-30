@@ -4180,6 +4180,9 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
                         })
             
             if last_session_sets:
+                # Reverse to get chronological order (Set 1 first, Set 4 last)
+                last_session_sets.reverse()
+                
                 # Use Foundation logic to calculate next session weight and build message
                 from progression import (
                     calculate_next_session_weight,
