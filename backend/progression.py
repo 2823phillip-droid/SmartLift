@@ -2944,7 +2944,7 @@ def build_session_target_message(
         reps = s.get("reps", 0) or 0
         effort = s.get("effort", None)
         effort_str = f"E-{effort}" if effort is not None else ""
-        set_lines.append(f"- Set {i}: {weight:.0f} lbs × {reps} reps {effort_str}".strip())
+        set_lines.append(f"   - Set {i}: {weight:.0f} lbs × {reps} reps {effort_str}".strip())
     
     analysis = analyze_session(sets_data, target_reps, params.get("target_effort", 6))
     
@@ -2961,9 +2961,10 @@ def build_session_target_message(
     message = (
         f"Last time we did {first_set.get('name', 'this exercise')} on {last_date}, "
         f"you completed {len(sets_data)} sets:\n"
+        f"{chr(10).join(set_lines)}\n"
+        f"\n"
+        f"Today, {direction_text} for {target_reps} reps."
     )
-    message += "\n".join(set_lines)
-    message += f"\n\nToday, {direction_text} for {target_reps} reps."
     
     if analysis["all_hit_target"] and not analysis["self_progressed"]:
         message += (
