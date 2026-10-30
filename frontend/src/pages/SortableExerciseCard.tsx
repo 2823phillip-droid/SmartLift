@@ -377,7 +377,7 @@ export function SortableExerciseCard({
                         : exerciseLogs.length === 0 ? "Session Target" 
                         : "Set Target"}
                     </div>
-                    <div className="text-xs text-slate-300 mt-1 leading-relaxed">
+                    <div className="text-xs text-slate-300 mt-1 leading-relaxed whitespace-pre-wrap">
                       {exerciseLogs.length === 0 && suggestion.session_target ? suggestion.session_target : suggestion.coaching_message}
                     </div>
                     {suggestion.source === "local" && (
