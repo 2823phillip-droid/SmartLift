@@ -872,7 +872,7 @@ export default function ActiveWorkoutScreen({
             next_reps: nextReps,
             next_sets: resolveDisplayTarget(currentExercise),
             rest_seconds: currentExercise.rest_seconds ?? 90,
-            coaching_message: existingCoachingMessage,
+            coaching_message: calcData.coaching_message ?? existingCoachingMessage ?? "",
             session_target: prescriptions[currentExercise.id]?.session_target ?? "",
             workload_status: "moderate" as WorkloadStatus,
             prescription_type: calcData.box_type || "foundation",
