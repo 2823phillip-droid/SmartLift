@@ -2801,6 +2801,281 @@ class LinearModel:
             "is_deload": False,
         }
 
+# ============================================================================
+# Phase-Agnostic Foundation Logic Functions
+# These functions work for any phase by accepting phase parameters.
+# To use for other phases, just pass different params.
+# ============================================================================
+
+def _round_to_nearest_5_int(weight: float) -> int:
+    """Round weight to nearest 5 lbs and return as int."""
+    return int(round(weight / 5.0) * 5)
+
+
+def calculate_weighted_avg_weight(
+    sets_data: list,
+    target_reps: int = 10,
+    target_effort: int = 6,
+):
+    """
+    Calculate weighted average weight based on effort factors.
+    
+    Only includes sets that hit the target reps. Weights with effort closer
+    to target_effort count more in the average.
+    
+    Args:
+        sets_data: List of dicts with weight, reps, effort keys
+        target_reps: Target reps to consider a set "successful"
+        target_effort: Target effort level (6 for Foundation)
+    
+    Returns:
+        Weighted average weight rounded to nearest 5, or None if no successful sets
+    """
+    successful_sets = [s for s in sets_data if s.get("reps", 0) >= target_reps]
+    
+    if not successful_sets:
+        return None
+    
+    total_weighted = 0.0
+    total_factor = 0.0
+    
+    for s in successful_sets:
+        weight = s.get("weight", 0) or 0.0
+        effort = s.get("effort", 0) or 0
+        factor = 1.0 / (abs(effort - target_effort) + 1.0)
+        total_weighted += weight * factor
+        total_factor += factor
+    
+    if total_factor == 0:
+        return None
+    
+    weighted_avg = total_weighted / total_factor
+    return _round_to_nearest_5_int(weighted_avg)
+
+
+def calculate_next_session_weight(
+    sets_data: list,
+    target_reps: int = 10,
+    target_effort: int = 6,
+    increment: int = 5,
+) -> int:
+    """
+    Calculate starting weight for next session based on current session performance.
+    """
+    if not sets_data:
+        return 0
+    
+    all_hit = all(s.get("reps", 0) >= target_reps for s in sets_data)
+    weighted_avg = calculate_weighted_avg_weight(sets_data, target_reps, target_effort)
+    
+    if weighted_avg is None:
+        return _round_to_nearest_5_int(sets_data[0].get("weight", 0) or 0)
+    
+    if all_hit:
+        return _round_to_nearest_5_int(weighted_avg + increment)
+    else:
+        return weighted_avg
+
+
+def analyze_session(
+    sets_data: list,
+    target_reps: int = 10,
+    target_effort: int = 6,
+):
+    """
+    Analyze a session to determine progression status and messaging context.
+    """
+    if not sets_data:
+        return {
+            "all_hit_target": False,
+            "self_progressed": False,
+            "avg_effort": 0.0,
+            "first_set_effort": None,
+            "first_set_too_heavy": False,
+            "first_set_too_light": False,
+            "last_set_effort": None,
+            "successful_weights": [],
+        }
+    
+    all_hit = all(s.get("reps", 0) >= target_reps for s in sets_data)
+    
+    weights = [s.get("weight", 0) or 0 for s in sets_data]
+    unique_weights = set(weights)
+    self_progressed = len(unique_weights) > 1
+    
+    efforts = [s.get("effort", 0) or 0 for s in sets_data]
+    avg_effort = sum(efforts) / len(efforts) if efforts else 0.0
+    
+    first_effort = sets_data[0].get("effort", None)
+    last_effort = sets_data[-1].get("effort", None)
+    
+    first_too_heavy = first_effort is not None and first_effort >= 8
+    first_too_light = first_effort is not None and first_effort <= 3
+    
+    successful_weights = [s.get("weight", 0) or 0 for s in sets_data if s.get("reps", 0) >= target_reps]
+    
+    return {
+        "all_hit_target": all_hit,
+        "self_progressed": self_progressed,
+        "avg_effort": avg_effort,
+        "first_set_effort": first_effort,
+        "first_set_too_heavy": first_too_heavy,
+        "first_set_too_light": first_too_light,
+        "last_set_effort": last_effort,
+        "successful_weights": successful_weights,
+    }
+
+
+def build_session_target_message(
+    sets_data: list,
+    next_weight: int,
+    params: dict,
+) -> str:
+    """Build session target message (Set 1)."""
+    if not sets_data:
+        return f"Starting {params.get('phase_name', 'Foundation')} — {params.get('phase_goal', '')}"
+    
+    target_reps = params.get("target_reps", 10)
+    phase_name = params.get("phase_name", "Foundation")
+    
+    set_lines = []
+    for i, s in enumerate(sets_data, 1):
+        weight = s.get("weight", 0) or 0
+        reps = s.get("reps", 0) or 0
+        effort = s.get("effort", None)
+        effort_str = f"E-{effort}" if effort is not None else ""
+        set_lines.append(f"- Set {i}: {weight:.0f} lbs × {reps} reps {effort_str}".strip())
+    
+    analysis = analyze_session(sets_data, target_reps, params.get("target_effort", 6))
+    
+    if analysis["all_hit_target"]:
+        direction_text = f"we're increasing to {next_weight} lbs"
+    elif analysis["self_progressed"]:
+        direction_text = f"we're starting at {next_weight} lbs"
+    else:
+        direction_text = f"we're continuing at {next_weight} lbs"
+    
+    first_set = sets_data[0]
+    last_date = first_set.get("date", "recently") or "recently"
+    
+    message = (
+        f"Last time we did {first_set.get('name', 'this exercise')} on {last_date}, "
+        f"you completed {len(sets_data)} sets:\n"
+    )
+    message += "\n".join(set_lines)
+    message += f"\n\nToday, {direction_text} for {target_reps} reps."
+    
+    if analysis["all_hit_target"] and not analysis["self_progressed"]:
+        message += (
+            f"\n\nYou hit {target_reps} reps on all sets — you're progressing. "
+            f"The goal of {phase_name} is to hit {target_reps} reps on ALL sets at the SAME weight, "
+            f"with effort ~{params.get('target_effort', 6)} on the first set. "
+            f"You hit {target_reps} on all sets — let's increase to {next_weight} and build consistency there before moving up again."
+        )
+    elif analysis["self_progressed"]:
+        successful_count = len(analysis["successful_weights"])
+        total_count = len(sets_data)
+        message += (
+            f"\n\nYou worked through {len(set_lines)} different weights this session. "
+            f"You hit {target_reps} reps on {successful_count} of {total_count} sets."
+        )
+        if analysis["all_hit_target"]:
+            message += (
+                f"\n\nThe goal of {phase_name} is to hit {target_reps} reps on ALL sets at the SAME weight, "
+                f"with effort ~{params.get('target_effort', 6)} on the first set. "
+                f"Let's build consistency at {next_weight} before moving up."
+            )
+        else:
+            message += (
+                f"\n\nThe goal of {phase_name} is to hit {target_reps} reps on ALL sets at the SAME weight, "
+                f"with effort ~{params.get('target_effort', 6)} on the first set. "
+                f"You proved {next_weight} works — let's build consistency there before moving up. "
+                f"Remember: in double progression, we keep the same weight for all sets."
+            )
+    else:
+        message += (
+            f"\n\nThe goal of {phase_name} is to hit {target_reps} reps on ALL sets at the SAME weight, "
+            f"with effort ~{params.get('target_effort', 6)} on the first set. "
+            f"Let's build consistency at {next_weight}."
+        )
+    
+    return message
+
+
+def build_set_target_message(
+    prev_set: dict,
+    current_weight: int,
+    params: dict,
+    analysis: dict = None,
+) -> str:
+    """Build set target message (Set 2+)."""
+    rep_floor = params.get("rep_floor", 8)
+    rep_cap = params.get("rep_cap", 10)
+    target_effort = params.get("target_effort", 6)
+    phase_name = params.get("phase_name", "Foundation")
+    
+    weight = prev_set.get("weight", 0) or 0
+    reps = prev_set.get("reps", 0) or 0
+    effort = prev_set.get("effort", None)
+    
+    effort_str = f"E-{effort}" if effort is not None else "E-?"
+    
+    if reps >= rep_cap:
+        next_weight = _round_to_nearest_5_int(current_weight + params.get("increment", 5))
+        action_text = f"Increase to {next_weight} lbs"
+    else:
+        next_weight = current_weight
+        action_text = f"Stay at {current_weight} lbs"
+    
+    message = f"Last set: {weight:.0f} lbs × {reps} reps {effort_str}. {action_text}. Target: {rep_floor}-{rep_cap} reps."
+    
+    if analysis:
+        if analysis.get("first_set_too_heavy"):
+            message += (
+                f"\n\nThat first set felt heavy (effort {analysis.get('first_set_effort')}). "
+                f"{phase_name} targets effort ~{target_effort} on the first set. "
+                f"If you want to build comfort at this weight, stay at {current_weight} and aim for effort ~{target_effort} before we increase next session."
+            )
+        elif analysis.get("first_set_too_light"):
+            message += (
+                f"\n\nThat felt light (effort {analysis.get('first_set_effort')}). "
+                f"{phase_name} targets effort ~{target_effort}. "
+                f"If you felt that was too light, adjust the weight up to where you hit {rep_cap} at effort ~{target_effort}."
+            )
+        elif analysis.get("self_progressed") and not analysis.get("all_hit_target"):
+            successful_weights = analysis.get("successful_weights", [])
+            max_weight = max(successful_weights) if successful_weights else current_weight
+            message += (
+                f"\n\nRemember: in double progression, we keep the same weight for all sets. "
+                f"You worked up to {max_weight} this session — "
+                f"next session, let's start at {current_weight} for all sets and build consistency there before moving up."
+            )
+    
+    return message
+
+
+# ============================================================================
+# Foundation Parameters (for Phase 5 redesign)
+# ============================================================================
+
+FOUNDATION_PARAMS = {
+    "target_reps": 10,
+    "target_effort": 6,
+    "increment": 5,
+    "phase_goal": "hit 10 reps on ALL sets at the SAME weight, with effort ~6 on the first set",
+    "phase_name": "Foundation",
+    "rep_floor": 8,
+    "rep_cap": 10,
+    "prescription_type": "foundation_double",
+}
+
+# ============================================================================
+# End of Phase-Agnostic Foundation Logic Functions
+# ============================================================================
+
+
+
+
 
 class FoundationModel:
     """
