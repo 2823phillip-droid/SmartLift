@@ -846,8 +846,8 @@ export default function ActiveWorkoutScreen({
           exercise_library_id: currentExercise.exercise_library_id,
           session_id: sessionId,
           prev_set_data: {
-            actual_weight: weightLbs,
-            actual_reps: r,
+            weight: weightLbs,
+            reps: r,
             set_index: setIndex,
           },
           is_set_target: true, // True for Set 2+ (current session) - don't increase weight mid-session

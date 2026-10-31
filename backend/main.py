@@ -2660,6 +2660,8 @@ def calculate_progression(
     # Only the session_targets endpoint (next session) should increase the weight.
     if payload.is_set_target:
         # Set 2+ in current session: stay at the same weight (don't increase)
+        previous_weight = top_set.get("actual_weight") if top_set else result.get("suggested_weight", 0)
+        result["suggested_weight"] = previous_weight
         result["should_increase"] = False
     
     # Build set target message for Set 2+
