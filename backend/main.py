@@ -2668,9 +2668,12 @@ def calculate_progression(
     coaching_message = ""
     if payload.is_set_target and top_set:
         # Build params dict with phase-specific values from the model result
+        rep_floor_val = result.get("rep_floor", 8)
+        rep_cap_val = result.get("rep_cap", 10)
+        print(f"[CALCULATE DEBUG] build_set_target_message: rep_floor={rep_floor_val}, rep_cap={rep_cap_val}, suggested_weight={result.get('suggested_weight')}, is_set_target=True")
         params = {
-            "rep_floor": result.get("rep_floor", 8),
-            "rep_cap": result.get("rep_cap", 10),
+            "rep_floor": rep_floor_val,
+            "rep_cap": rep_cap_val,
             "increment": result.get("increment", 5),
             "target_effort": 6,  # Default target effort
             "phase_name": result.get("block_mode", "Foundation"),
