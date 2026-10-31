@@ -3015,8 +3015,9 @@ def build_set_target_message(
     target_effort = params.get("target_effort", 6)
     phase_name = params.get("phase_name", "Foundation")
     
-    weight = prev_set.get("weight", 0) or 0
-    reps = prev_set.get("reps", 0) or 0
+    # Support both "weight"/"reps" (for new calculate endpoint) and "actual_weight"/"actual_reps" (for history from DB)
+    weight = prev_set.get("weight") or prev_set.get("actual_weight") or 0
+    reps = prev_set.get("reps") or prev_set.get("actual_reps") or 0
     effort = prev_set.get("effort", None)
     
     effort_str = f"E-{effort}" if effort is not None else "E-?"
