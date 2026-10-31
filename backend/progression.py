@@ -3014,6 +3014,7 @@ def build_set_target_message(
     rep_cap = params.get("rep_cap", 10)
     target_effort = params.get("target_effort", 6)
     phase_name = params.get("phase_name", "Foundation")
+    is_set_target = params.get("is_set_target", False)
     
     # Support both "weight"/"reps" (for new calculate endpoint) and "actual_weight"/"actual_reps" (for history from DB)
     weight = prev_set.get("weight") or prev_set.get("actual_weight") or 0
@@ -3022,12 +3023,17 @@ def build_set_target_message(
     
     effort_str = f"E-{effort}" if effort is not None else "E-?"
     
-    if reps >= rep_cap:
+    # For Set 2+ (current session), stay at the same weight for all sets.
+    # Only increase weight for next session (is_set_target=False).
+    if is_set_target:
+        next_weight = current_weight
+        action_text = f"Stay at {current_weight:.0f} lbs — hit this next set at the same weight"
+    elif reps >= rep_cap:
         next_weight = _round_to_nearest_5_int(current_weight + params.get("increment", 5))
         action_text = f"Increase to {next_weight} lbs"
     else:
         next_weight = current_weight
-        action_text = f"Stay at {current_weight} lbs"
+        action_text = f"Stay at {current_weight:.0f} lbs"
     
     message = f"Last set: {weight:.0f} lbs × {reps} reps {effort_str}. {action_text}. Target: {rep_floor}-{rep_cap} reps."
     

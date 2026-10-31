@@ -2674,6 +2674,7 @@ def calculate_progression(
             "increment": result.get("increment", 5),
             "target_effort": 6,  # Default target effort
             "phase_name": result.get("block_mode", "Foundation"),
+            "is_set_target": True,  # True for Set 2+ (current session) - stay at same weight
         }
         # Try to get phase_name from block_state
         if block_state_phase:
