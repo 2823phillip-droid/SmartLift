@@ -3035,7 +3035,7 @@ def build_set_target_message(
         next_weight = current_weight
         action_text = f"Stay at {current_weight:.0f} lbs"
     
-    message = f"Last set: {weight:.0f} lbs × {reps} reps {effort_str}. {action_text}. Target: {rep_floor}-{rep_cap} reps."
+    message = f"Last set: {weight:.0f} lbs × {reps} reps {effort_str}. {action_text}. Target: {rep_cap} reps."
     
     if analysis:
         if analysis.get("first_set_too_heavy"):
