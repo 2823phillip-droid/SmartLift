@@ -3,32 +3,39 @@ last_updated: 2026-10-30
 created: 2026-10-17
 tags: [meta]
 related: README.md, TODO.md
-status: Mac Studio M5 Max only, master branch HEAD `5b7924e`. Backend deployed to Fly (commits `ea25108`, `1a3c676`, `37c039a`, `9cf7a94`, `b7a45ee`, `003b158`, `b0df7be`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Oct 30 16:59). iOS: SceneDelegate added for scene lifecycle. Progression system: Phase 4 COMPLETE, Phase 5 Foundation logic redesign IN PROGRESS. 6 bugs found on 2026-10-21 Chest & Triceps test — 3 fixed, 3 pending. Foundation phase logic: weighted average + session target fix deployed and tested. Session target formatting fix deployed to frontend.
+status: Mac Studio M5 Max only, master branch HEAD `72ca366`. Backend deployed to Fly (commits through `72ca366`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Oct 30 17:45). Progression system: Phase 4 COMPLETE, Phase 5 Foundation logic redesign COMPLETE (LATEST KNOWN GOOD POINT). Session target + Set 2+ messaging working correctly. Architecture: phase-agnostic logic functions + phase-specific params for reusability — frontend decoupled from phase logic.
 
 This file explains where every type of project knowledge lives and when to use it.
 
-## Current state (as of this update)
+### Current state (as of this update)
 
-### Repo
+#### Repo
 - **Branch:** master
-- **HEAD:** `1a3c676` — "Foundation: Add Set 2+ coaching messages"
-- **Remote (GitHub):** committed, push pending. Working tree: TODO.md, progression_tasks.md, AskeoWorking.txt, Chest and Triceps log modified.
-- **Deployed to Fly:** `ea25108` (re-entry fix) and `1a3c676` (Set 2+ messaging)
+- **HEAD:** `72ca366` — "Change set target message to show rep_cap (10) instead of rep_floor-rep_cap (8-10)"
+- **Remote (GitHub):** committed, push pending. 
+- **Deployed to Fly:** commits through `72ca366` (latest: `72ca366` — set target message target=10)
 
-### Frontend
+#### Frontend
 - **Build target:** Capacitor iOS app, Xcode project on Mac Studio. Run from Xcode → Product > Run.
-- **Build:** Oct 17 19:04, synced to iOS at `frontend/ios/App/App/public/assets/`
+- **Build:** Oct 30 17:45, synced to iOS at `frontend/ios/App/App/public/assets/`
 
-### Progression System Status
+#### Progression System Status
 - **Phase 4:** COMPLETE — all 6 model classes, transitions, phase advancement, session targets, coaching messages
-- **Phase 5 (Foundation Logic Redesign):** IN PROGRESS
+- **Phase 5 (Foundation Logic Redesign):** COMPLETE — LATEST KNOWN GOOD POINT
   - 6 bugs identified on 2026-10-21 Chest & Triceps test
-  - 2 bugs fixed and deployed (re-entry leak, Set 2+ messaging)
-  - 4 bugs pending (Incline 6 reps, save error, missing exercise, stay/increase/decrease branching)
-  - Foundation phase logic design complete — implementation started
-  - Architecture: phase-agnostic logic functions + phase-specific params for reusability
+  - All bugs related to session target/Set 2+ messaging fixed and deployed
+  - Foundation phase logic design complete and implemented
+  - Architecture: phase-agnostic logic functions (calculate_weighted_avg_weight, calculate_next_session_weight, analyze_session, build_session_target_message, build_set_target_message) + phase-specific params for reusability
   - **Session target fix deployed (commit 37c039a):** Now uses ALL sets from last session, weighted average logic, reps=10
-  - Test results (2026-10-30): Session target shows all 4 sets, next session stays at 135, reps=10 ✓
+  - **Set 2+ messaging deployed (commit dbac000):** Generic set target message using build_set_target_message(), stays at same weight mid-session
+  - **Target shows "10" not "8-10" (commit 72ca366):** rep_cap displayed as target since 10 is the goal to progress
+  - Test results (2026-10-30): Session target shows all 4 sets, next session stays at 135, reps=10 ✓; Set 2+ shows generic message, weight stays at 135 ✓
+  - Architecture verified: frontend decoupled from phase logic — works with "flip of a switch" between models
+
+#### LATEST KNOWN GOOD POINT
+- **Commit:** `72ca366`
+- **State:** Session target and Set 2+ messaging working correctly. Foundation phase logic complete. Architecture supports easy reuse for other phases (Hypertrophy, etc.) by updating only the model/params.
+- **To test:** Clean Build Folder in Xcode (Shift+Cmd+K), rebuild, run on iPhone
 
 ## Knowledge Files
 

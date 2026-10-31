@@ -887,3 +887,217 @@ def model_picker(exercise, history, block_state):
 - model_picker: NOT STARTED
 - Frontend progression UI: NOT STARTED
 - End-to-end testing: NOT STARTED
+
+---
+
+## Foundation Phase Logic Redesign (2026-10-29 — COMPLETE — LATEST KNOWN GOOD POINT)
+
+### Context
+After Phase 4 deployment, user tested Chest & Triceps workout (2026-10-21) and found 6 bugs with session targets and coaching messages. Investigation revealed Foundation phase needs more sophisticated logic than Phase 4 provided. All issues related to session target/Set 2+ messaging have been fixed and deployed.
+
+### 6 Bugs Found
+
+1. **Re-entry message leaks to Set 2** — FIXED (commit ea25108, deployed)
+2. **Foundation 15% reduction not visible** — CONFIRMED CORRECT (reduction applied)
+3. **Stay/increase/decrease branching missing** — IMPLEMENTED via weighted average logic
+4. **Incline at 6 reps (below Foundation range)** — NOT INVESTIGATED
+5. **"Cannot save changes when editing set"** — NOT ADDRESSED (frontend)
+6. **"Need to find arsenal strength fly machine"** — NOT ADDRESSED (exercise lookup)
+
+### Design Requirements
+
+#### Session Target (Set 1) — Generic Across All Phases
+
+- Same template for all phases, values from progression logic
+- "Last time we did [exercise] on [date] — [full set breakdown]. Today, we're [continuing/increasing/decreasing] to [weight] lbs for [reps] reps. [why]"
+- coaching_message is phase-specific from model
+- Uses ALL sets from last session (not just most recent)
+- Weighted average logic for next session weight
+- Reps always 10 for Foundation
+
+#### Set Target (Set 2+) — Generic Across All Phases
+
+- Same structure for all phases, values from progression logic
+- "Last set: [weight] lbs × [reps] reps [effort]. [Hold/Increase] to [next_weight] lbs. Target: [rep_cap] reps."
+- Stays at same weight mid-session (no weight increase between sets)
+- Phase context comes from Set 1 coaching_message, not Set 2+
+- Target shows rep_cap (10) as the goal to progress
+
+#### Foundation-Specific Logic (COMPLETE)
+
+1. **Double progression within session:** Users self-progress weight between sets (Set 1: 135, Set 2: 140, Set 3: 145). Handle via weighted average of all weights used.
+
+2. **Effort-weighted average for next session weight:**
+   - Formula: `factor = 1 / (abs(effort - target_effort) + 1)`
+   - Only count sets that hit target reps
+   - Weights with effort closer to target_effort (6 for Foundation) count more
+   - Round to nearest 5
+
+3. **Rep gate:**
+   - All sets hit target reps → increase next session
+   - Any set misses target → stay (or drop to weighted avg of successful sets)
+
+4. **Starting weight for next session:**
+   - Normal session (same weight all sets): weighted_avg + increment
+   - Self-progression session: weighted_avg of all weights used
+   - If missed target: weighted_avg of successful sets only
+
+5. **Effort context in messaging:**
+   - Set 1 effort 8-10 → flag as potentially too heavy, suggest drop
+   - Set 1 effort 4-7 → "right in the zone"
+   - Set 1 effort 1-3 → "felt light", suggest increase
+   - Later sets: effort increase is normal (fatigue), don't flag
+
+6. **Phase goal messaging:**
+   - "The goal of this phase is to hit 10 reps on ALL sets at the SAME weight, with effort ~6 on the first set. Once you can do that, move up 5 lbs."
+
+7. **Self-progression reminder:**
+   - "In double progression, we keep the same weight for all sets. You worked up to 145 lbs this session — next session, let's start at [weighted_avg] for all sets and build consistency there before moving up."
+
+#### Architecture for Reusability (COMPLETE)
+
+Build phase-agnostic logic functions that accept phase parameters:
+
+```python
+# Phase parameters (Foundation example)
+FOUNDATION_PARAMS = {
+    "target_reps": 10,
+    "target_effort": 6,
+    "increment": 5,
+    "phase_goal": "all sets at same weight, hit 10 reps, effort ~6 on first set",
+    "phase_name": "Foundation",
+    "rep_floor": 8,
+    "rep_cap": 10,
+}
+
+# Phase-agnostic functions
+def calculate_weighted_avg_weight(sets_data, target_reps, target_effort):
+    # Weights × effort factors, only successful sets
+    ...
+
+def calculate_next_session_weight(sets_data, target_reps, target_effort, increment):
+    # Rep gate + weighted avg or avg + increment
+    ...
+
+def build_session_target_message(sets_data, next_weight, params):
+    # Same structure, phase-specific text from params
+    ...
+
+def build_set_target_message(prev_set, current_weight, params, is_set_target=False):
+    # Same structure, phase-specific guidance from params
+    # is_set_target=True: stay at same weight mid-session
+    ...
+```
+
+To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No logic changes needed.
+
+#### Implementation Tasks (COMPLETED)
+
+- [x] Create phase-agnostic logic functions in `backend/progression.py`
+- [x] Create `calculate_weighted_avg_weight()` function
+- [x] Create `calculate_next_session_weight()` function
+- [x] Create `analyze_session()` function
+- [x] Create `build_session_target_message()` function
+- [x] Create `build_set_target_message()` function with is_set_target param
+- [x] Update `session_targets` endpoint in `backend/main.py` to use new logic
+- [x] Update `FoundationModel.compute()` Set 2+ messaging via build_set_target_message
+- [x] Add `is_set_target` field to ProgressionCalculateRequest
+- [x] Add `coaching_message` field to ProgressionCalculateResponse
+- [x] Update calculate endpoint to call build_set_target_message for Set 2+
+- [x] Update frontend to pass `is_set_target: true` for Set 2+ calls
+- [x] Update frontend to use coaching_message from calculate response
+- [x] Update frontend session_target formatting (whitespace-pre-wrap)
+- [x] Update set target message to show rep_cap (10) instead of rep_floor-rep_cap (8-10)
+- [x] Test with user — verified working
+
+### Design Decisions
+
+1. **Rep-based progression gate** — hit target on all sets → increase. Effort is context, not gate.
+2. **Effort-weighted average for starting weight** — weights closer to target_effort count more.
+3. **Only count successful sets in avg** — sets that missed target reps don't count.
+4. **Phase-agnostic logic, phase-specific params** — same functions work for all phases.
+5. **Session target: generic structure + phase-specific coaching_message** — Set 1 has both.
+6. **Set 2+ message: generic structure, no phase-specific coaching_message** — phase context from Set 1.
+7. **Self-progression handling** — weighted avg of all weights used, rounded to nearest 5.
+8. **Target displays rep_cap (10) not rep_floor-rep_cap (8-10)** — 10 is the goal to progress.
+9. **Frontend decoupled from phase logic** — passes `is_set_target: true`, displays backend response. Works with "flip of a switch" between models.
+
+### Message Examples
+
+#### Session Target (Foundation) — All Sets Hit Target
+
+"Last time we did Barbell Bench Press on Oct 21, you completed 4 sets:
+- 135 lbs × 10 reps E-7
+- 135 lbs × 10 reps E-8
+- 135 lbs × 10 reps E-8
+- 135 lbs × 10 reps E-9
+
+Today, we're increasing to 140 lbs for 10 reps. You hit 10 reps on all sets — you're progressing.
+
+The goal of Foundation is to hit 10 reps on ALL sets at the SAME weight, with effort ~6 on the first set. You hit 10 on all sets at 135 lbs — let's increase to 140 and build consistency there before moving up again."
+
+#### Session Target (Foundation) — Self-Progression, Some Sets Missed
+
+"Last time we did Barbell Bench Press on Oct 21:
+- Set 1: 135 lbs × 10 reps E-6
+- Set 2: 140 lbs × 10 reps E-7
+- Set 3: 145 lbs × 8 reps E-9
+
+Today, we're starting at 135 lbs for 10 reps.
+
+You worked through 135, 140, and 145 lbs this session. You hit 10 reps at 135 and 140, but only got 8 at 145. Here's why we're starting at 135:
+
+The goal of Foundation is to hit 10 reps on ALL sets at the SAME weight, with effort ~6 on the first set. You proved 135 works — let's build consistency there before moving up. Once you hit 10 reps on all sets at 135, we'll move to 140.
+
+Remember: in double progression, we keep the same weight for all sets. You progressed within this session — next session, let's start at 135 for all sets and build consistency."
+
+#### Set Target (Foundation) — First Set Effort 8-10
+
+"Last set: 135 lbs × 10 reps E-9. Stay at 135 lbs — hit this next set at the same weight. Target: 10 reps.
+
+That first set felt heavy (effort 9). Foundation targets effort ~6 on the first set. If you want to build comfort at this weight, stay at 135 and aim for effort ~6 before we increase next session."
+
+#### Set Target (Foundation) — First Set Effort 4-7
+
+"Last set: 135 lbs × 10 reps E-6. Stay at 135 lbs — hit this next set at the same weight. Target: 10 reps.
+
+Good start — effort 6 is right in the Foundation zone. Stay at 135, focus on hitting 10 reps on all sets."
+
+#### Set Target (Foundation) — First Set Effort 1-3
+
+"Last set: 135 lbs × 10 reps E-3. Stay at 135 lbs — hit this next set at the same weight. Target: 10 reps.
+
+That felt light (effort 3). Foundation targets effort ~6. If you felt that was too light, adjust the weight up to where you hit 10 at effort ~6."
+
+#### Set Target (Foundation) — Self-Progression Reminder
+
+"Last set: 145 lbs × 8 reps E-9. Stay at [weighted_avg] lbs — hit this next set at the same weight. Target: 10 reps.
+
+Remember: in double progression, we keep the same weight for all sets. You worked up to 145 this session — next session, let's start at [weighted_avg] for all sets and build consistency there before moving up."
+
+### Test Scenarios
+
+1. **Normal session:** 135 × 4 sets, all 10 reps, efforts 6/8/9/9 → avg effort 8, next: 140
+2. **Self-progression, all hit:** 135/140/145 × 10 each, efforts 6/7/9 → weighted avg 140, next: 145
+3. **Self-progression, one missed:** 135/140/145, reps 10/10/8, efforts 6/7/9 → weighted avg of 135+140 = 135, next: 135
+4. **All missed:** 135 × 4 sets, reps 8/8/8/8 → stay at 135
+5. **First set too heavy:** 135 × 10 reps E-9 → flag, suggest drop to 130
+
+### Relationship to Other Phases
+
+This Foundation-specific logic will be parameterized so other phases can reuse:
+- **Hypertrophy:** target_reps=12, target_effort=7, same double progression structure
+- **Linear:** Different logic (no "all sets at same weight" requirement), will need separate implementation
+
+### Files Modified
+
+- `backend/progression.py` — Add phase-agnostic logic functions, update FoundationModel.compute()
+- `backend/main.py` — Update session_targets endpoint, add is_set_target to ProgressionCalculateRequest, add coaching_message to ProgressionCalculateResponse, update calculate endpoint
+- `frontend/src/pages/ActiveWorkoutScreen.tsx` — Pass is_set_target=true for Set 2+, use coaching_message from calculate response
+- `frontend/src/pages/SortableExerciseCard.tsx` — Add whitespace-pre-wrap for session_target formatting
+
+### LATEST KNOWN GOOD POINT
+
+- **Commit:** `72ca366`
+- **State:** Session target and Set 2+ messaging working correctly. Foundation phase logic complete. Architecture supports easy reuse for other phases (Hypertrophy, etc.) by updating only the model/params.
+- **To test:** Clean Build Folder in Xcode (Shift+Cmd+K), rebuild, run on iPhone
