@@ -269,18 +269,23 @@ To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No l
 ### Access & Credentials (for AI troubleshooting)
 
 **Order of operations (tomorrow):**
-1. Start with LastPass — store production DATABASE_URL and identify all other logins needed
-2. Then start working on adding/modifying exercises in the production database
+1. Set up LastPass — store production DATABASE_URL and identify all other logins needed
+2. Install LastPass CLI (optional but recommended): `brew install lastpass-cli`
+3. Then start working on adding/modifying exercises in the production database
 
 **Working now:**
 - GitHub SSH key: `~/.ssh/id_ed25519` (ed25519, added to GitHub as auth key)
 - Fly.io CLI: `~/.fly/config.yml` (access_token, works for `fly` commands)
 - Git remote: `git@github.com:2823phillip-droid/SmartLift.git` (SSH)
 
-**Need to set up:**
-- [ ] **Production DATABASE_URL** — Store full connection string (with password) in LastPass. Currently only visible in Fly.io dashboard (Settings → Secrets → DATABASE_URL). Not exportable via `fly secrets` CLI. Needed to: connect to production Postgres from Mac for troubleshooting, run classification scripts against production, query production data directly.
-- [ ] **LastPass CLI** (`lpass`) — Optional. `brew install lastpass-cli` gives terminal access to stored credentials. Without it, user must copy from LastPass web/browser and paste here.
-- [ ] **App auth token** — The iOS app authenticates to the API. For API testing from terminal (curl, etc.), we need a valid Bearer token. Currently only the app has working auth. Need a way to generate or extract tokens for testing endpoints like `GET /api/exercise-library`, `POST /api/coach/session-targets`, etc.
+**Need to store in LastPass:**
+- [ ] **Production DATABASE_URL** — Full Postgres connection string (with password). Currently only visible in Fly.io dashboard (Settings → Secrets → DATABASE_URL). Not exportable via `fly secrets` CLI. Needed to: connect to production Postgres from Mac for troubleshooting, run classification scripts against production, query production data directly, add/modify exercises in production DB.
+- [ ] **App auth token** — A valid Bearer token for the iOS app's auth system. Needed to: test API endpoints from terminal (curl, python, etc.) like `GET /api/exercise-library`, `POST /api/coach/session-targets`, `POST /api/exercise-library`. Currently only the iOS app has working auth. Options: (a) log into the app and extract the token from network requests, (b) create a test user via the `/api/auth/signup` endpoint and use that token, (c) add a debug/token endpoint to the backend.
+- [ ] **LastPass master password** — If installing `lpass` CLI, the master password is needed to unlock the vault from terminal. Store in LastPass as a secure note (ironic but necessary for CLI access).
+
+**Optional (for future reference):**
+- [ ] **GitHub personal access token** — If SSH key ever stops working, a PAT can be used for HTTPS git operations. Not needed now (SSH working).
+- [ ] **Other Fly.io secrets** — OpenRouter API key, Nous API key, ADMIN_BOOTSTRAP_SECRET, DEBUG_SECRET. These are already injected into the running app. Only needed if debugging from outside the app environment.
 
 **Reference files (don't modify):**
 - `backend/exercisedb_data.json` — Purchased ExercisDB seed (13MB, 1384 exercises). DO NOT MODIFY.
