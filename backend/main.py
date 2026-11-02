@@ -4252,10 +4252,10 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
         # Map numeric phases to descriptive (same logic as get_block_state)
         numeric_to_descriptive = {
             "1": "foundation_1",
-            "2": "foundation_2",
-            "3": "hypertrophy",
-            "4": "strength_a",
-            "5": "strength_b",
+            "2": "hypertrophy",
+            "3": "strength_a",
+            "4": "strength_b",
+            "5": "strength_peak",
             "6": "deload",
         }
         if current_phase in numeric_to_descriptive:
