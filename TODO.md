@@ -268,6 +268,10 @@ To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No l
 
 ### Access & Credentials (for AI troubleshooting)
 
+**Order of operations (tomorrow):**
+1. Start with LastPass — store production DATABASE_URL and identify all other logins needed
+2. Then start working on adding/modifying exercises in the production database
+
 **Working now:**
 - GitHub SSH key: `~/.ssh/id_ed25519` (ed25519, added to GitHub as auth key)
 - Fly.io CLI: `~/.fly/config.yml` (access_token, works for `fly` commands)
