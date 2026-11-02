@@ -266,6 +266,25 @@ To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No l
 
 ## Still Needed
 
+### Access & Credentials (for AI troubleshooting)
+
+**Working now:**
+- GitHub SSH key: `~/.ssh/id_ed25519` (ed25519, added to GitHub as auth key)
+- Fly.io CLI: `~/.fly/config.yml` (access_token, works for `fly` commands)
+- Git remote: `git@github.com:2823phillip-droid/SmartLift.git` (SSH)
+
+**Need to set up:**
+- [ ] **Production DATABASE_URL** — Store full connection string (with password) in LastPass. Currently only visible in Fly.io dashboard (Settings → Secrets → DATABASE_URL). Not exportable via `fly secrets` CLI. Needed to: connect to production Postgres from Mac for troubleshooting, run classification scripts against production, query production data directly.
+- [ ] **LastPass CLI** (`lpass`) — Optional. `brew install lastpass-cli` gives terminal access to stored credentials. Without it, user must copy from LastPass web/browser and paste here.
+- [ ] **App auth token** — The iOS app authenticates to the API. For API testing from terminal (curl, etc.), we need a valid Bearer token. Currently only the app has working auth. Need a way to generate or extract tokens for testing endpoints like `GET /api/exercise-library`, `POST /api/coach/session-targets`, etc.
+
+**Reference files (don't modify):**
+- `backend/exercisedb_data.json` — Purchased ExercisDB seed (13MB, 1384 exercises). DO NOT MODIFY.
+- `backend/exercisedb_gifs/{180,360}/` — Exercise GIFs, served via `/api/exercisedb/gifs/{id}.gif`
+- `backend/classify_exercises.py` and related — Scripts that populate auto-tag fields (is_compound, movement_type, primary_equipment, etc.)
+
+---
+
 - [ ] Web interface (workout builder, progression view, exercise library, routine management)
 - [ ] Apple Watch companion (quick logging, rest timer, current set)
 - [ ] Custom videos for missing exercises (see GIF/Video Creation section)
