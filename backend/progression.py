@@ -2651,7 +2651,7 @@ class LinearModel:
         history: list,
         block_state: dict | None = None,
         *,
-        block_mode: str = "linear_baseline",
+        block_mode: str = "strength_b",
         week_number: int = 1,
         reps_target: int | None = None,
         increment: int | None = None,
@@ -2692,7 +2692,7 @@ class LinearModel:
                 is_deload: bool,
             }
         """
-        preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["linear_baseline"])
+        preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["strength_b"])
         rep_floor = preset.get("rep_floor", 8)
         rep_cap = preset.get("rep_cap", 10)
         base_increment = preset.get("increment", 5)
