@@ -37,6 +37,24 @@ export default function SettingsScreen({ onBack, onOpenDebug }: { onBack: () => 
   const [checkingVersion, setCheckingVersion] = useState(false);
   const [checkMatch, setCheckMatch] = useState<boolean | null>(null);
   const [checkError, setCheckError] = useState<string | null>(null);
+  const [currentPhase, setCurrentPhase] = useState("foundation_1");
+  const [savingPhase, setSavingPhase] = useState(false);
+
+  const handleSetPhase = async () => {
+    setSavingPhase(true);
+    try {
+      await api.patchBlockState({ new_phase: currentPhase });
+      // Also persist to settings for reference
+      await api.setSetting("coach_manual_phase", currentPhase);
+      // Refresh block state to get updated values
+      const bs = await api.getBlockState();
+      if (bs) setCurrentPhase(bs.phase || "foundation_1");
+    } catch (err) {
+      setSettingsError((err as Error)?.message || "Failed to set phase");
+    } finally {
+      setSavingPhase(false);
+    }
+  };
 
   const loadIdRef = useRef(0);
 
@@ -84,6 +102,20 @@ export default function SettingsScreen({ onBack, onOpenDebug }: { onBack: () => 
   useEffect(() => {
     runLoad();
   }, []);
+
+  useEffect(() => {
+    if (!settings || Object.keys(settings).length === 0) return;
+    if (settings["coach_progression"] !== "false") return;
+    const loadPhase = async () => {
+      try {
+        const bs = await api.getBlockState();
+        if (bs) setCurrentPhase(bs.phase || "foundation_1");
+      } catch {
+        setCurrentPhase("foundation_1");
+      }
+    };
+    loadPhase();
+  }, [settings]);
 
   const save = async (key: string, value?: string) => {
     const mode = value ?? settings[key] ?? "";
@@ -327,7 +359,7 @@ export default function SettingsScreen({ onBack, onOpenDebug }: { onBack: () => 
             </svg>
             <div>
               <div className="font-semibold text-sm">Coach Progression</div>
-              <div className="text-xs text-slate-500">Let the AI coach control exercise progression</div>
+              <div className="text-xs text-slate-500">Auto-advance through phases based on weeks + load</div>
             </div>
           </div>
           <button
@@ -352,10 +384,34 @@ export default function SettingsScreen({ onBack, onOpenDebug }: { onBack: () => 
           </span>
           <p className="text-slate-500">
             {settings["coach_progression"] !== "false"
-              ? "Coach decides progression for all exercises"
-              : "You control progression at workout and exercise level"}
+              ? "Coach auto-advances you through phases (Foundation → Hypertrophy → Strength...) based on weeks trained and load threshold. You log sets and the coach moves you forward."
+              : "Progression is manual. You stay in your current phase until you change it. Use the phase selector in settings to switch phases."}
           </p>
         </div>
+        {settings["coach_progression"] === "false" && (
+          <div className="mt-3 pt-3 border-t border-slate-800">
+            <div className="text-xs text-slate-500 mb-2">Current phase: <span className="text-slate-300 font-medium">{currentPhase}</span></div>
+            <select
+              value={currentPhase}
+              onChange={(e) => setCurrentPhase(e.target.value)}
+              className="w-full rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-indigo-500"
+            >
+              <option value="foundation_1">Foundation 1 — Build base (8-10 reps, double progression)</option>
+              <option value="hypertrophy">Hypertrophy — Muscle growth (10-12 reps, double progression)</option>
+              <option value="strength_a">Strength A — Build toward heavy (8-10 reps, linear)</option>
+              <option value="strength_b">Strength B — Heavier loads (6-8 reps, linear)</option>
+              <option value="strength_peak">Strength Peak — Max effort (3-5 reps, linear)</option>
+              <option value="deload">Deload / Maintenance — Recovery (10-12 reps, RPE 5)</option>
+            </select>
+            <button
+              onClick={handleSetPhase}
+              disabled={savingPhase}
+              className="mt-2 w-full rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold hover:bg-indigo-500 disabled:opacity-50 transition-colors"
+            >
+              {savingPhase ? "Saving..." : "Set Phase"}
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Version Check */}

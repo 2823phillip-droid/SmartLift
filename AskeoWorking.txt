@@ -56,192 +56,99 @@ Model_Picker Logic on rotating models.
 #
 
 Logs:
-[Warning] [ActiveWorkoutScreen] MODULE LOADED - web bundle is running (index-A5Hi5_QB.js, line 73)
-[Error] Failed to load resource: the server responded with a status of 401 () (api_base, line 0)
-[Error] Failed to load resource: the server responded with a status of 404 () (healthz, line 0)
-[Error] Failed to load resource: the server responded with a status of 404 () (healthz, line 0)
-[Log] [WorkoutsScreen] contexts loaded – 2 (index-A5Hi5_QB.js, line 65)
-[Log] [WorkoutsScreen] templates loaded – 7 (index-A5Hi5_QB.js, line 65)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Fetching block state... (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Block state response: – {id: 3, block_mode: "foundation", week_number: 1, …} (index-A5Hi5_QB.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] Fetching block state... (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] Block state response: – {id: 3, block_mode: "foundation", week_number: 1, …} (index-DNl_3n3S.js, line 73)
 {id: 3, block_mode: "foundation", week_number: 1, start_date: "2026-10-10T19:51:08.720252+00:00", phase: "foundation_1", …}Object
-[Log] [ActiveWorkoutScreen] Block state set: – "foundation" (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Fetching progression for – 6 – "exercises..." (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 433 (Barbell Deadlift), library_id=108 (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 433: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 115, should_increase: false, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 115 – "x" – 8 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 451 (Lever Narrow Grip Seated Row), library_id=956 (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73, x3)
-[Log] [ActiveWorkoutScreen] Calculate response for 451: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 60, should_increase: true, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 60 – "x" – 8 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 452 (Cable Bar Lateral Pulldown), library_id=272 (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] lastSessionByExercise – {433: Array, 451: Array, 452: Array, …} (index-A5Hi5_QB.js, line 73)
-{433: Array, 451: Array, 452: Array, 453: Array, 454: Array, 455: Array}Object
-[Log] [ActiveWorkoutScreen] Calculate response for 452: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 110, should_increase: true, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 110 – "x" – 8 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 453 (Cable Low Seated Row), library_id=311 (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Fetching session targets... (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 453: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 90, should_increase: true, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 90 – "x" – 8 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 454 (Ez Barbell Close Grip Preacher Curl), library_id=779 (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Session targets received: – 6 – "exercises" (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] auto-expand – 115 – "x" – 10 – "source:" – "backend" (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 454: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 15, should_increase: false, …}Object
-[Log] [ActiveWorkoutScreen] Calculating for exercise 455 (Dumbbell Incline Biceps Curl), library_id=520 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 455: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 30, should_increase: true, …}Object
-[Log] [ActiveWorkoutScreen] Progression data: – {433: Object, 451: Object, 452: Object, …} (index-A5Hi5_QB.js, line 73)
-{433: Object, 451: Object, 452: Object, 453: Object, 454: Object, 455: Object}Object
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73, x230)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [WorkoutsScreen] contexts loaded – 2 (index-A5Hi5_QB.js, line 65)
-[Log] [WorkoutsScreen] templates loaded – 7 (index-A5Hi5_QB.js, line 65)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Fetching block state... (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Block state response: – {id: 3, block_mode: "foundation", week_number: 1, …} (index-A5Hi5_QB.js, line 73)
-{id: 3, block_mode: "foundation", week_number: 1, start_date: "2026-10-10T19:51:08.720252+00:00", phase: "foundation_1", …}Object
-[Log] [ActiveWorkoutScreen] Block state set: – "foundation" (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Fetching progression for – 6 – "exercises..." (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 433 (Barbell Deadlift), library_id=108 (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 433: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 115, should_increase: false, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 115 – "x" – 8 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 451 (Lever Narrow Grip Seated Row), library_id=956 (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73, x3)
-[Log] [ActiveWorkoutScreen] Calculate response for 451: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 60, should_increase: true, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 60 – "x" – 8 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 452 (Cable Bar Lateral Pulldown), library_id=272 (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 452: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 110, should_increase: true, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 110 – "x" – 8 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 453 (Cable Low Seated Row), library_id=311 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] lastSessionByExercise – {433: Array, 451: Array, 452: Array, …} (index-A5Hi5_QB.js, line 73)
-{433: Array, 451: Array, 452: Array, 453: Array, 454: Array, 455: Array}Object
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Fetching session targets... (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 453: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 90, should_increase: true, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 90 – "x" – 8 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 454 (Ez Barbell Close Grip Preacher Curl), library_id=779 (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 454: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 15, should_increase: false, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 15 – "x" – 8 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 455 (Dumbbell Incline Biceps Curl), library_id=520 (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Session targets received: – 6 – "exercises" (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] auto-expand – 115 – "x" – 10 – "source:" – "backend" (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 455: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 30, should_increase: true, …}Object
-[Log] [ActiveWorkoutScreen] Progression data: – {433: Object, 451: Object, 452: Object, …} (index-A5Hi5_QB.js, line 73)
-{433: Object, 451: Object, 452: Object, 453: Object, 454: Object, 455: Object}Object
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73, x46)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [WorkoutsScreen] contexts loaded – 2 (index-A5Hi5_QB.js, line 65)
-[Log] [WorkoutsScreen] templates loaded – 7 (index-A5Hi5_QB.js, line 65)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Fetching block state... (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Block state response: – {id: 3, block_mode: "foundation", week_number: 1, …} (index-A5Hi5_QB.js, line 73)
-{id: 3, block_mode: "foundation", week_number: 1, start_date: "2026-10-10T19:51:08.720252+00:00", phase: "foundation_1", …}Object
-[Log] [ActiveWorkoutScreen] Block state set: – "foundation" (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Fetching progression for – 6 – "exercises..." (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 433 (Barbell Deadlift), library_id=108 (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 433: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 115, should_increase: false, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 115 – "x" – 8 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 451 (Lever Narrow Grip Seated Row), library_id=956 (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73, x3)
-[Log] [ActiveWorkoutScreen] Calculate response for 451: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 60, should_increase: true, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 60 – "x" – 8 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 452 (Cable Bar Lateral Pulldown), library_id=272 (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 452: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 110, should_increase: true, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 110 – "x" – 8 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 453 (Cable Low Seated Row), library_id=311 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] lastSessionByExercise – {433: Array, 451: Array, 452: Array, …} (index-A5Hi5_QB.js, line 73)
-{433: Array, 451: Array, 452: Array, 453: Array, 454: Array, 455: Array}Object
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Fetching session targets... (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 453: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 90, should_increase: true, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 90 – "x" – 8 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 454 (Ez Barbell Close Grip Preacher Curl), library_id=779 (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Session targets received: – 6 – "exercises" (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] auto-expand – 100 – "x" – 10 – "source:" – "backend" (index-A5Hi5_QB.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 454: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 15, should_increase: false, …}Object
-[Log] [ActiveWorkoutScreen] Calculating for exercise 455 (Dumbbell Incline Biceps Curl), library_id=520 (index-A5Hi5_QB.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 455: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-A5Hi5_QB.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 30, should_increase: true, …}Object
-[Log] [ActiveWorkoutScreen] Progression data: – {433: Object, 451: Object, 452: Object, …} (index-A5Hi5_QB.js, line 73)
-{433: Object, 451: Object, 452: Object, 453: Object, 454: Object, 455: Object}Object
-[Warning] [ActiveWorkoutScreen] Component rendering (index-A5Hi5_QB.js, line 73, x12)
+[Log] [ActiveWorkoutScreen] Block state set: – "foundation" (index-DNl_3n3S.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] Fetching progression for – 7 – "exercises..." (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 322 (Barbell Bench Press), library_id=99 (index-DNl_3n3S.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 322: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-DNl_3n3S.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 135, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 135 – "x" – 8 (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 426 (Barbell Incline Bench Press), library_id=131 (index-DNl_3n3S.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73, x3)
+[Log] [ActiveWorkoutScreen] Calculate response for 426: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-DNl_3n3S.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 95, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 95 – "x" – 8 (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 467 (Lever Seated Fly), library_id=977 (index-DNl_3n3S.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] lastSessionByExercise – {322: Array, 426: Array, 427: Array, …} (index-DNl_3n3S.js, line 73)
+{322: Array, 426: Array, 427: Array, 429: Array, 430: Array, 431: Array, 467: Array}Object
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] Fetching session targets... (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 467: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-DNl_3n3S.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 100, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 100 – "x" – 8 (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 427 (Assisted Chest Dip (Kneeling)), library_id=14 (index-DNl_3n3S.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] Session targets received: – 7 – "exercises" (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] auto-expand – 135 – "x" – 10 – "source:" – "backend" (index-DNl_3n3S.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 427: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-DNl_3n3S.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 67.5, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Calculating for exercise 429 (Dumbbell Seated Triceps Extension), library_id=689 (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 429: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-DNl_3n3S.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 50, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Calculating for exercise 430 (Cable Triceps Pushdown (V-Bar)), library_id=410 (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 430: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-DNl_3n3S.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 60, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Calculating for exercise 431 (Walking On Incline Treadmill), library_id=1272 (index-DNl_3n3S.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 431: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-DNl_3n3S.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 10, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Progression data: – {322: Object, 426: Object, 427: Object, …} (index-DNl_3n3S.js, line 73)
+{322: Object, 426: Object, 427: Object, 429: Object, 430: Object, 431: Object, 467: Object}Object
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73, x5)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73, x2)
+[Warning] [ActiveWorkoutScreen] logSet called for Barbell Bench Press, setIndex=1, weight=135, reps=10 (index-DNl_3n3S.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73)
+[Error] Error: Problem parsing d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2.5 0 002.5-2.5L11.5 3H5.5a2.5 0 00-2.5 2.5L1 10.5V19a2 2 0 002 2h12a2 2 0 002-2V10.5L19 7z"
+   wt (index-DNl_3n3S.js:8:5640)
+   Nd (index-DNl_3n3S.js:9:4423)
+   Fd (index-DNl_3n3S.js:9:7835)
+   Pc (index-DNl_3n3S.js:8:86841)
+   Fu (index-DNl_3n3S.js:8:116696)
+   Mu (index-DNl_3n3S.js:8:115962)
+   ku (index-DNl_3n3S.js:8:114964)
+   Ou (index-DNl_3n3S.js:8:114800)
+   gu (index-DNl_3n3S.js:8:111294)
+   cd (index-DNl_3n3S.js:8:123239)
+   D (index-DNl_3n3S.js:1:10353)
+[Warning] [ActiveWorkoutScreen] Updated progression after set 1: weight=140, reps=10 (index-DNl_3n3S.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73, x21)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DNl_3n3S.js, line 73, x52)
 
+Last Summary Given (2026-10-30)
+Done. Updated all three documents to reflect the current state:
 
-Current Summary:
-SESSION STATE — Progression Transition System
+MEMORY-INDEX.md:
+- Updated HEAD to 72ca366
+- Labeled Phase 5 as COMPLETE — LATEST KNOWN GOOD POINT
+- Documented all completed implementation tasks
+- Added LATEST KNOWN GOOD POINT section with test instructions
 
-What's done:
-- SetLog.block_mode added (models.py + main.py). Sets automatically from current BlockState on log creation. Enables per-exercise, per-session model tracking.
-- TODO.md updated with full transition system status.
+TODO.md:
+- Updated Current State section with Phase 5 completion
+- Rewrote Foundation Phase Logic Work section as COMPLETE
+- Added all implementation tasks as completed
+- Documented architecture for reusability
+- Added LATEST KNOWN GOOD POINT section
 
-Architecture:
-- models.py = persistence (BlockState tracks current phase/week/start_date, SetLog tracks per-set block_mode)
-- progression.py = engine (models, model_picker, will hold transition function)
-- main.py = orchestration (endpoints call progression.py, check BlockState, apply transitions)
+progression_tasks.md:
+- Updated Foundation Phase Logic Redesign as COMPLETE
+- Updated all design requirements, implementation tasks, message examples
+- Added LATEST KNOWN GOOD POINT section
 
-The 8 transitions (all handled by one resolve_model_transition function):
+Summary:
+- All Phase 5 Foundation logic redesign work is complete
+- Session target + Set 2+ messaging working correctly
+- Architecture supports easy reuse for other phases
+- Frontend decoupled from phase logic
+- Label: LATEST KNOWN GOOD POINT at commit 72ca366
 
-| #   | From → To                   | Model Change    | Weight Adjustment                         |
-|-----|-----------------------------|-----------------|-------------------------------------------|
-| 1   | Foundation_1 → Foundation_2 | Double → Linear | Small increase (linear kicks in)          |
-| 2   | Foundation_2 → Hypertrophy  | Linear → Double | Decrease (higher rep target 6-8 → 10-12)  |
-| 3   | Hypertrophy → Strength A    | Double → Double | Increase (10-12 → 8-10)                   |
-| 4   | Strength A → Strength B     | Double → Double | Increase (8-10 → 6-8)                     |
-| 5   | Strength B → Strength Peak  | Double → Double | Increase (6-8 → 4-6)                      |
-| 6   | Strength Peak → Deload      | Double → None   | -20%                                      |
-| 7   | Deload → Hypertrophy        | None → Double   | Small increase                            |
-| 8   | Any → Foundation_1          | varies → Double | Decrease (re-entry after long break only) |
-
-Normal cycle: Foundation_1 → Foundation_2 → Hypertrophy → Strength_A → Strength_B → Strength_Peak → Deload → loop to Hypertrophy
-
-Transition function design: resolve_model_transition(previous_phase, current_phase, prescription) in progression.py — looks up weight multiplier per (from, to) pair, applies to prescription weight.
-
-What still needs building:
-1. BlockState phase granularity — current phase is 1-6 integer. Need foundation_1, foundation_2, hypertrophy, strength_a, strength_b, strength_peak, deload
-2. Transition function in progression.py (the 8 rules with weight multipliers)
-3. Phase advancement triggers — week thresholds per phase, performance triggers, re-entry detection for transition #8
-4. Wire into endpoints — calculate/session-targets check BlockState, advance phase if needed, apply transition, then call model_picker
-5. Models handle new phase values — FoundationModel needs to distinguish foundation_1 (double, RPE 4-6) vs foundation_2 (linear, reps slide)
-
-SSH: Enabled on Studio. IP: 192.168.1.121, user: phillipwalters, port 22. Firewall off. SSH keys exist. Ready for laptop access.
-
-Files:
-- backend/models.py — BlockState (line 272), SetLog (line 200, block_mode added)
-- backend/progression.py — BLOCK_REP_TARGETS (line 2414), BLOCK_SEQUENCE (line 2424), model_picker (line 3270), model classes
-- backend/main.py — create_set_log (line 1708, block_mode logic added), calculate endpoint (line 2460+)
+You can test for a few days and report any bugs. When you're ready to move to Hypertrophy, we just need to create the Hypertrophy model with its params and the frontend will work automatically.

@@ -2302,7 +2302,7 @@ class BlockStateAdvance(ApiBaseModel):
 
 
 # Map old numeric phases to new descriptive phases
-# Old system: 1=foundation, 2=linear_baseline, 3=hypertrophy, 4=strength_a, 5=strength_b, 6=maintenance
+# Old system: 1=foundation, 2=hypertrophy, 3=strength_a, 4=strength_b, 5=strength_peak, 6=maintenance
 # New system: foundation_1, foundation_2, hypertrophy, strength_a, strength_b, strength_peak, deload
 NORMALIZE_PHASE = {
     "1": "foundation_1",
@@ -2312,6 +2312,49 @@ NORMALIZE_PHASE = {
     "5": "strength_b",
     "6": "deload",
 }
+
+
+def _check_reentry_to_foundation(db: Session, user_id: int, current_phase: str) -> bool:
+    """Check if user is re-entering foundation after a long gap or phase change.
+    
+    Returns True if:
+    - Current phase is foundation_1, AND
+    - Either: last session was > 180 days ago, OR last session used a different block_mode
+    """
+    if current_phase not in ("foundation_1", "foundation"):
+        return False
+    
+    # Get last completed session
+    last_session = db.query(WorkoutSession).filter(
+        WorkoutSession.user_id == user_id,
+        WorkoutSession.started_at < datetime.now(timezone.utc),
+        WorkoutSession.ended_at.isnot(None)
+    ).order_by(WorkoutSession.started_at.desc()).first()
+    
+    if not last_session:
+        return False
+    
+    # Check for long gap (> 6 months)
+    last_dt = last_session.started_at
+    if last_dt.tzinfo is None:
+        last_dt = last_dt.replace(tzinfo=timezone.utc)
+    days_since = (datetime.now(timezone.utc) - last_dt).days
+    
+    if days_since > 180:
+        return True
+    
+    # Check if last session used a different block_mode
+    # Get the most recent set log with a block_mode for this user
+    from models import SetLog
+    last_log = db.query(SetLog).filter(
+        SetLog.user_id == user_id,
+        SetLog.block_mode.isnot(None)
+    ).order_by(SetLog.completed_at.desc()).first()
+    
+    if last_log and last_log.block_mode != "foundation":
+        return True
+    
+    return False
 
 
 @app.get("/api/progression/block-state", response_model=BlockStateOut)
@@ -2332,7 +2375,9 @@ def get_block_state(db: Session = Depends(get_db), current_user: User = Depends(
     from progression import get_phase_description_for_ready_screen
     block_mode_str = str(block_state.block_mode) if block_state.block_mode else "foundation"
     phase_str = str(block_state.phase) if block_state.phase else "foundation_1"
-    phase_description = get_phase_description_for_ready_screen(block_mode_str, phase_str)
+    # Check if user is re-entering foundation after a long gap or phase change
+    is_reentry = _check_reentry_to_foundation(db, current_user.id, phase_str)
+    phase_description = get_phase_description_for_ready_screen(block_mode_str, phase_str, is_reentry)
     # Add a unique marker to verify this came from the backend (not frontend hardcoded)
     block_state.phase_description = phase_description + " ⟨BACKEND⟩"
     return block_state
@@ -2500,24 +2545,53 @@ def calculate_progression(
             block_mode = block_state.block_mode
             week_number = block_state.week_number
             
-            # Auto-advance phase if week threshold is met
-            if block_state.phase:
+            # Check if user has disabled auto-progression via Settings
+            coach_prog_setting = db.query(AppSetting).filter(
+                AppSetting.key == "coach_progression",
+                AppSetting.user_id == current_user.id
+            ).first()
+            coach_progression_enabled = coach_prog_setting is None or coach_prog_setting.value != "false"
+            
+            # Auto-advance phase if week threshold AND load threshold are met (only when enabled)
+            if coach_progression_enabled and block_state.phase:
                 from progression import can_advance_phase, get_next_phase, get_block_mode_for_phase, resolve_model_transition
+                from rules import compute_load
                 can_advance, reason = can_advance_phase(block_state.phase, block_state.week_number)
                 if can_advance:
-                    previous_phase_for_transition = block_state.phase
-                    next_phase = get_next_phase(previous_phase_for_transition)
-                    if next_phase:
-                        # Update block state
-                        block_state.phase = next_phase
-                        block_state.week_number = 1
-                        db.add(block_state)
-                        db.commit()
-                        db.refresh(block_state)
-                        # Update block_mode to match new phase
-                        block_mode = get_block_mode_for_phase(next_phase)
-                        week_number = 1
-                        print(f"[CALCULATE] Auto-advanced: {previous_phase_for_transition} -> {next_phase}")
+                    # Also require minimum load (consistent effort) before advancing
+                    cutoff = datetime.now(timezone.utc) - timedelta(days=21)
+                    recent_logs = db.query(SetLog).filter(
+                        SetLog.user_id == current_user.id,
+                        SetLog.completed_at >= cutoff,
+                    ).all()
+                    set_records = []
+                    for log in recent_logs:
+                        if log.actual_weight is not None or log.actual_reps is not None:
+                            set_records.append(SetRecord(
+                                actual_weight=log.actual_weight or 0,
+                                actual_reps=log.actual_reps or 0,
+                                effort=log.effort,
+                                completed_at=log.completed_at,
+                                is_seeded=False,
+                            ))
+                    load_pct = compute_load(set_records, window_days=21)
+                    threshold = BLOCK_ADVANCEMENT_THRESHOLDS.get(block_state.block_mode, {"min_weeks": 4, "load_threshold": 60})
+                    if load_pct >= threshold["load_threshold"]:
+                        previous_phase_for_transition = block_state.phase
+                        next_phase = get_next_phase(previous_phase_for_transition)
+                        if next_phase:
+                            # Update block state
+                            block_state.phase = next_phase
+                            block_state.week_number = 1
+                            db.add(block_state)
+                            db.commit()
+                            db.refresh(block_state)
+                            # Update block_mode to match new phase
+                            block_mode = get_block_mode_for_phase(next_phase)
+                            week_number = 1
+                            print(f"[CALCULATE] Auto-advanced: {previous_phase_for_transition} -> {next_phase} (load: {load_pct}%)")
+                    else:
+                        print(f"[CALCULATE] Auto-advance blocked: weeks met but load {load_pct}% < {threshold['load_threshold']}%")
         else:
             # Default to foundation
             block_mode = "foundation"
@@ -2580,7 +2654,7 @@ def calculate_progression(
         
         # Check if last session used a different model (for transition logic)
         # Look at the most recent log that has a block_mode set
-        # If no block_mode on any log, default to "linear_baseline" (single-user assumption)
+        # If no block_mode on any log, default to "foundation" (single-user assumption)
         last_session_block_mode = None
         for log in logs:
             if log.block_mode is not None:
@@ -2597,8 +2671,7 @@ def calculate_progression(
             # Map common block_modes to their phase names
             block_mode_to_phase = {
                 "foundation": "foundation_1",
-                "linear_baseline": "linear_baseline", 
-                "linear": "linear_baseline",
+                "linear": "foundation_1",
                 "hypertrophy": "hypertrophy",
                 "strength_a": "strength_a",
                 "strength_b": "strength_b",
@@ -2700,16 +2773,16 @@ def calculate_progression(
 # Block advancement thresholds and endpoints
 
 BLOCK_ADVANCEMENT_THRESHOLDS = {
-    "foundation": {"min_weeks": 4, "load_threshold": 60},
-    "linear_baseline": {"min_weeks": 2, "load_threshold": 60},
+    "foundation": {"min_weeks": 6, "load_threshold": 60},
     "hypertrophy": {"min_weeks": 4, "load_threshold": 70},
-    "strength_a": {"min_weeks": 2, "load_threshold": 70},
+    "strength_a": {"min_weeks": 3, "load_threshold": 70},
     "strength_b": {"min_weeks": 2, "load_threshold": 75},
+    "strength_peak": {"min_weeks": 1, "load_threshold": 80},
     "maintenance": {"min_weeks": 1, "load_threshold": 50},
 }
 
 ADVANCEMENT_SEQUENCE = [
-    "foundation", "linear_baseline", "hypertrophy", "strength_a", "strength_b", "maintenance",
+    "foundation", "hypertrophy", "strength_a", "strength_b", "strength_peak", "maintenance",
 ]
 
 
@@ -4050,7 +4123,19 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
         WorkoutSession.started_at < session.started_at,
         WorkoutSession.ended_at.isnot(None)
     ).order_by(WorkoutSession.started_at.desc()).first()
-    
+
+    # Check for long gap since last session (> 6 months) — force transition to foundation
+    long_gap_force_foundation = False
+    if last_session and last_session.started_at:
+        now = datetime.now(timezone.utc)
+        last_dt = last_session.started_at
+        if last_dt.tzinfo is None:
+            last_dt = last_dt.replace(tzinfo=timezone.utc)
+        days_since_last = (now - last_dt).days
+        if days_since_last > 180:
+            long_gap_force_foundation = True
+            print(f"[SESSION_TARGETS] Long gap detected: {days_since_last} days since last session. Forcing foundation reset.")
+
     # Get exercises from session's template
     template_exercises = session.template.exercises if session.template else []
     
@@ -4138,8 +4223,7 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
         if last_session_block_mode is not None:
             block_mode_to_phase = {
                 "foundation": "foundation_1",
-                "linear_baseline": "linear_baseline",
-                "linear": "linear_baseline",
+                "linear": "foundation_1",
                 "hypertrophy": "hypertrophy",
                 "strength_a": "strength_a",
                 "strength_b": "strength_b",
@@ -4168,7 +4252,7 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
         # Map numeric phases to descriptive (same logic as get_block_state)
         numeric_to_descriptive = {
             "1": "foundation_1",
-            "2": "linear_baseline",
+            "2": "foundation_2",
             "3": "hypertrophy",
             "4": "strength_a",
             "5": "strength_b",
@@ -4177,6 +4261,16 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
         if current_phase in numeric_to_descriptive:
             current_phase = numeric_to_descriptive[current_phase]
         transition_from = previous_phase_for_model_check
+
+        # If long gap since last session (> 6 months), force transition to foundation_1
+        if long_gap_force_foundation:
+            # Ensure transition_from differs from foundation_1 to trigger re-entry message
+            if current_phase == "foundation_1":
+                transition_from = "deload"
+            else:
+                transition_from = current_phase
+            current_phase = "foundation_1"
+
         is_reentry = False
         if current_phase and transition_from and current_phase != transition_from:
             from progression import resolve_model_transition

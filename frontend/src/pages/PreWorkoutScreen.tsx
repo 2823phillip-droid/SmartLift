@@ -56,7 +56,7 @@ export default function PreWorkoutScreen({
         // Fetch block-state for the FOUNDATION pill
         try {
           const bs = await api.getBlockState();
-          setBlockState({ block_mode: bs.block_mode, phase: bs.phase, week_number: bs.week_number });
+          setBlockState({ block_mode: bs.block_mode, phase: bs.phase, week_number: bs.week_number, phase_description: bs.phase_description });
         } catch (e) {
           console.error("[PreWorkoutScreen] Failed to fetch block-state:", e);
         }

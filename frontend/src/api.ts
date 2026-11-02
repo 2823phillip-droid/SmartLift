@@ -584,6 +584,11 @@ export const api = {
     }),
   logout: () => request("/auth/logout", { method: "POST" }),
   getBlockState: () => request("/api/progression/block-state"),
+  patchBlockState: (data: any) =>
+    request("/api/progression/block-state/advance", {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
   get: (path: string) => request(path),
   post: (path: string, body?: any) =>
     request(path, {

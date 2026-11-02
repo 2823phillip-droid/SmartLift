@@ -2413,17 +2413,16 @@ def generate_meal_plan(profile: UserProfile) -> Optional[dict]:
 # All blocks use Double Progression: work within floor→cap, hit cap → increase weight
 BLOCK_REP_TARGETS = {
     "foundation": {"rep_floor": 8, "rep_cap": 10, "increment": 5},
-    "linear_baseline": {"rep_floor": 8, "rep_cap": 10, "increment": 5},  # reps slide down naturally
     "hypertrophy": {"rep_floor": 10, "rep_cap": 12, "increment": 3},
     "strength_a": {"rep_floor": 8, "rep_cap": 10, "increment": 5},
     "strength_b": {"rep_floor": 6, "rep_cap": 8, "increment": 5},
+    "strength_peak": {"rep_floor": 3, "rep_cap": 5, "increment": 5},
     "maintenance": {"rep_floor": 10, "rep_cap": 12, "increment": 0},  # no progression, RPE 5 cap
 }
 
 # Block cycle order (for advancement)
 BLOCK_SEQUENCE = [
     "foundation",
-    "linear_baseline",
     "hypertrophy",
     "strength_a",
     "strength_b",
@@ -2433,17 +2432,15 @@ BLOCK_SEQUENCE = [
 # Block phase numbers (for display)
 BLOCK_PHASES = {
     "foundation": 1,
-    "linear_baseline": 2,
-    "hypertrophy": 3,
-    "strength_a": 4,
-    "strength_b": 5,
-    "maintenance": 6,
+    "hypertrophy": 2,
+    "strength_a": 3,
+    "strength_b": 4,
+    "maintenance": 5,
 }
 
 # Phase sequence (ordered list for advancement)
 PHASE_SEQUENCE = [
     "foundation_1",
-    "foundation_2",
     "hypertrophy",
     "strength_a",
     "strength_b",
@@ -2453,12 +2450,11 @@ PHASE_SEQUENCE = [
 
 # Phase advancement thresholds (minimum weeks in phase before allowing advance)
 PHASE_ADVANCEMENT_THRESHOLDS = {
-    "foundation_1": 4,     # Build foundation base
-    "foundation_2": 2,     # Short transition to linear
+    "foundation_1": 6,     # Build foundation base - 6 weeks consistent effort
     "hypertrophy": 4,      # Volume accumulation
-    "strength_a": 2,       # Transition to lower reps
-    "strength_b": 2,       # Continue strength build
-    "strength_peak": 2,    # Peak strength phase
+    "strength_a": 3,       # 3 weeks at 8-10 reps
+    "strength_b": 2,       # 2 weeks at 6-8 reps
+    "strength_peak": 1,    # 1 week at 3-5 reps (peak)
     "deload": 1,           # Always short
 }
 
@@ -2552,7 +2548,6 @@ def get_block_mode_for_phase(phase: str) -> str:
     """
     phase_to_block = {
         "foundation_1": "foundation",
-        "foundation_2": "foundation",
         "hypertrophy": "hypertrophy",
         "strength_a": "strength_a",
         "strength_b": "strength_b",
@@ -2634,7 +2629,6 @@ def _get_block_name(block_mode: str) -> str:
     """Get a human-readable block name for a block mode."""
     return {
         "foundation": "Foundation Block",
-        "linear_baseline": "Linear Baseline Block",
         "hypertrophy": "Hypertrophy Block",
         "strength_a": "Strength Block — Phase A",
         "strength_b": "Strength Block — Phase B",
@@ -2782,8 +2776,27 @@ class LinearModel:
             next_reps = reps_target_val
         
         should_increase = next_weight > weight
-        coaching_message = "Linear progression — add weight each session and let reps find their level. Start with 8-10 reps, and as weight increases, reps will naturally slide toward 6-8. Consistency across sessions is what drives progress here."
-        
+        # Set 2+ coaching message: personalized based on actual performance
+        if is_set_target:
+            if should_increase:
+                coaching_message = (
+                    f"You hit {reps} reps" + (f" with effort {effort}" if effort is not None else "") + ". "
+                    f"Great work — we're increasing to {next_weight:.0f} lbs. "
+                    f"Linear progression: add weight each session and let reps find their level. "
+                    f"Start with 8-10 reps, and as weight increases, reps will naturally slide toward 6-8. "
+                    f"Consistency across sessions is what drives progress here."
+                )
+            else:
+                coaching_message = (
+                    f"You hit {reps} reps" + (f" with effort {effort}" if effort is not None else "") + ". "
+                    f"Stay at {next_weight:.0f} lbs — aim for {rep_cap} reps next set. "
+                    f"Linear progression: if reps stall at 6-8, the block ends and we switch to double progression. "
+                    f"Keep pushing — consistency across sessions is what drives progress."
+                )
+        else:
+            # Set 1 (session target) keeps the phase-appropriate coaching message
+            coaching_message = "Linear progression — add weight each session and let reps find their level. Start with 8-10 reps, and as weight increases, reps will naturally slide toward 6-8. Consistency across sessions is what drives progress here."
+
         return {
             "suggested_weight": round(next_weight, 1),
             "rep_floor": rep_floor,
@@ -3110,29 +3123,16 @@ class FoundationModel:
         """
         Compute the prescription for a Foundation block exercise.
 
-        Args:
-            phase: The specific foundation phase ("foundation_1" or "foundation_2").
-                   foundation_1 = Double progression, RPE 4-6, 8-10 reps.
-                   foundation_2 = Linear progression, reps slide, 6-8 reps.
-
         Returns full prescription with Foundation-specific coaching message.
         """
         # Determine phase-specific settings
         preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["foundation"])
-        if phase == "foundation_2":
-            # Foundation 2: Linear progression, reps slide to 6-8
-            rep_floor = 6
-            rep_cap = 8
-            coaching_message = "Foundation 2 — We're transitioning to linear progression now — same foundation focus, but we're adding weight each session and letting reps find their level. 6-8 reps, smooth and controlled. This bridges us from foundation into strength work. You've built the base — now we're building on it. Take your time, keep the form tight, and let's get comfortable with the app together."
-            prescription_type = "foundation_linear"
-            base_increment = 5
-        else:
-            # Foundation 1 (default): Double progression, RPE 4-6, 8-10 reps
-            rep_floor = preset.get("rep_floor", 8)
-            rep_cap = preset.get("rep_cap", 10)
-            coaching_message = "Foundation 1 — This is where we build your base — movement quality, connective tissue strength, the fundamentals. And honestly, this isn't about going heavy. It's about form, control, getting familiar and comfortable with the weight. We're working in 8-10 reps, and we only add weight when we hit 10 with good form. Keep it smooth, keep it controlled. And take your time getting comfortable with the app too — we'll get there together."
-            prescription_type = "foundation_double"
-            base_increment = preset.get("increment", 5)
+        # Foundation: Double progression, RPE 4-6, 8-10 reps
+        rep_floor = preset.get("rep_floor", 8)
+        rep_cap = preset.get("rep_cap", 10)
+        coaching_message = "Foundation 1 — This is where we build your base — movement quality, connective tissue strength, the fundamentals. And honestly, this isn't about going heavy. It's about form, control, getting familiar and comfortable with the weight. We're working in 8-10 reps, and we only add weight when we hit 10 with good form. Keep it smooth, keep it controlled. And take your time getting comfortable with the app too — we'll get there together."
+        prescription_type = "foundation_double"
+        base_increment = preset.get("increment", 5)
         inc = _effective_increment(increment if increment is not None else base_increment)
         
         top_set = _get_top_set(history)
@@ -3358,8 +3358,26 @@ class HypertrophyModel:
                 next_reps = reps_target_val
         
         should_increase = next_weight > weight
-        coaching_message = "Hypertrophy block — volume focus for muscle growth. Work in the 10-12 rep range, and only increase weight when you can hit 12 reps with good form. Metabolic stress and time under tension are the priorities. Smaller increments (3 lbs) help smooth progression."
-        
+        # Set 2+ coaching message: personalized based on actual performance
+        if is_set_target:
+            if should_increase:
+                coaching_message = (
+                    f"You hit {reps} reps" + (f" with effort {effort}" if effort is not None else "") + ". "
+                    f"Great work — we're increasing to {next_weight:.0f} lbs. "
+                    f"Hypertrophy: stay in the {rep_floor}-{rep_cap} rep range, focus on volume and time under tension. "
+                    f"Smaller increments (3 lbs) help smooth progression — control the weight through the full range of motion."
+                )
+            else:
+                coaching_message = (
+                    f"You hit {reps} reps" + (f" with effort {effort}" if effort is not None else "") + ". "
+                    f"Stay at {next_weight:.0f} lbs — aim for {rep_cap} reps next set. "
+                    f"Hypertrophy: double progression means we hit the top of the range before adding weight. "
+                    f"Focus on the mind-muscle connection and controlled eccentrics."
+                )
+        else:
+            # Set 1 (session target) keeps the phase-appropriate coaching message
+            coaching_message = "Hypertrophy block — volume focus for muscle growth. Work in the 10-12 rep range, and only increase weight when you can hit 12 reps with good form. Metabolic stress and time under tension are the priorities. Smaller increments (3 lbs) help smooth progression."
+
         return {
             "suggested_weight": round(next_weight, 1),
             "rep_floor": rep_floor,
@@ -3477,8 +3495,28 @@ class StrengthAModel:
             next_reps = reps_target_val
         
         should_increase = next_weight > weight
-        coaching_message = "Strength Phase A — building toward heavier loads. Work in the 8-10 rep range with a focus on mechanical tension. Increase weight when you hit the top of the range with solid form. Heavier starting point than hypertrophy — your body is adapting to more demanding work."
-        
+        # Set 2+ coaching message: personalized based on actual performance
+        if is_set_target:
+            if should_increase:
+                coaching_message = (
+                    f"You hit {reps} reps" + (f" with effort {effort}" if effort is not None else "") + ". "
+                    f"Great work — we're increasing to {next_weight:.0f} lbs. "
+                    f"Strength Phase A: building toward heavier loads. Work in the {rep_floor}-{rep_cap} rep range "
+                    f"with a focus on mechanical tension. Increase weight when you hit the top of the range with solid form. "
+                    f"Heavier starting point than hypertrophy — your body is adapting to more demanding work."
+                )
+            else:
+                coaching_message = (
+                    f"You hit {reps} reps" + (f" with effort {effort}" if effort is not None else "") + ". "
+                    f"Stay at {next_weight:.0f} lbs — aim for {rep_cap} reps next set. "
+                    f"Strength Phase A: focus on mechanical tension and solid form. "
+                    f"If you can hit the top of the range consistently, we'll push the weight up. "
+                    f"Heavier loads require more recovery — prioritize sleep and nutrition."
+                )
+        else:
+            # Set 1 (session target) keeps the phase-appropriate coaching message
+            coaching_message = "Strength Phase A — building toward heavier loads. Work in the 8-10 rep range with a focus on mechanical tension. Increase weight when you hit the top of the range with solid form. Heavier starting point than hypertrophy — your body is adapting to more demanding work."
+
         return {
             "suggested_weight": round(next_weight, 1),
             "rep_floor": rep_floor,
@@ -3596,8 +3634,28 @@ class StrengthBModel:
             next_reps = reps_target_val
         
         should_increase = next_weight > weight
-        coaching_message = "Strength Phase B — heavier loads, CNS adaptation. Working in the 6-8 rep range now. Increase weight when you hit 8 reps with solid form. Your nervous system is adapting to heavier work — prioritize recovery between sessions."
-        
+        # Set 2+ coaching message: personalized based on actual performance
+        if is_set_target:
+            if should_increase:
+                coaching_message = (
+                    f"You hit {reps} reps" + (f" with effort {effort}" if effort is not None else "") + ". "
+                    f"Great work — we're increasing to {next_weight:.0f} lbs. "
+                    f"Strength Phase B: heavier loads, CNS adaptation. Working in the {rep_floor}-{rep_cap} rep range now. "
+                    f"Increase weight when you hit the top of the range with solid form. "
+                    f"Your nervous system is adapting to heavier work — prioritize recovery between sessions."
+                )
+            else:
+                coaching_message = (
+                    f"You hit {reps} reps" + (f" with effort {effort}" if effort is not None else "") + ". "
+                    f"Stay at {next_weight:.0f} lbs — aim for {rep_cap} reps next set. "
+                    f"Strength Phase B: heavier loads demand more from your CNS. "
+                    f"Focus on recovery between sessions — sleep and nutrition matter more here. "
+                    f"Solid form at this weight builds the foundation for heavier work."
+                )
+        else:
+            # Set 1 (session target) keeps the phase-appropriate coaching message
+            coaching_message = "Strength Phase B — heavier loads, CNS adaptation. Working in the 6-8 rep range now. Increase weight when you hit 8 reps with solid form. Your nervous system is adapting to heavier work — prioritize recovery between sessions."
+
         return {
             "suggested_weight": round(next_weight, 1),
             "rep_floor": rep_floor,
@@ -3731,8 +3789,6 @@ def resolve_model_transition(previous_phase: str, current_phase: str, prescripti
     """
     # Weight multipliers for each (from, to) phase pair
     PHASE_TRANSITION_MULTIPLIERS = {
-        ("foundation_1", "foundation_2"): 1.05,   # Small increase, linear kicks in
-        ("foundation_2", "hypertrophy"): 0.90,    # Decrease for higher rep targets (6-8 -> 10-12)
         ("hypertrophy", "strength_a"): 1.05,       # Increase (10-12 -> 8-10)
         ("strength_a", "strength_b"): 1.05,        # Increase (8-10 -> 6-8)
         ("strength_b", "strength_peak"): 1.05,     # Increase (6-8 -> 4-6)
@@ -3826,14 +3882,160 @@ def model_picker(
     return prescription
 
 
+class StrengthCModel:
+    """
+    Strength Block — Phase C (Peak week). Max effort, CNS pushed to limit.
+    Rep targets: 3-5 reps. Increment: 5 lbs. This is the peak of the strength cycle.
+    """
+
+    def compute(
+        self,
+        exercise: dict,
+        history: list,
+        block_state: dict | None = None,
+        *,
+        block_mode: str = "strength_peak",
+        week_number: int = 1,
+        reps_target: int | None = None,
+        increment: int | None = None,
+        context: dict | None = None,
+        phase: str | None = None,
+    ) -> dict:
+        """
+        Compute the prescription for a Strength Peak (Phase C) exercise.
+
+        Returns full prescription with Peak-specific coaching message.
+        """
+        preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["strength_peak"])
+        rep_floor = preset.get("rep_floor", 3)
+        rep_cap = preset.get("rep_cap", 5)
+        base_increment = preset.get("increment", 5)
+        inc = _effective_increment(increment if increment is not None else base_increment)
+
+        top_set = _get_top_set(history)
+        is_set_target = context.get("is_set_target", False) if context else False
+        exercise_name = exercise.get("name", "this exercise") if isinstance(exercise, dict) else getattr(exercise, "name", "this exercise")
+
+        if not top_set:
+            # No history — first set; use estimated starting weight
+            coaching_message = "Strength Peak — max effort phase. Working in the 3-5 rep range. This is where you push to your limits. Increase weight when you hit 5 reps with solid form. Prioritize recovery — this is demanding work."
+            starting_weight = _estimate_starting_weight(exercise)
+            return {
+                "suggested_weight": starting_weight,
+                "rep_floor": rep_floor,
+                "rep_cap": rep_cap,
+                "increment": inc,
+                "coaching_message": coaching_message,
+                "block_name": _get_block_name(block_mode),
+                "should_increase": False,
+                "next_weight": starting_weight,
+                "next_reps": reps_target or 5,
+                "next_sets": 3,
+                "rest_seconds": 120,
+                "workload_status": "hard",
+                "prescription_type": "strength_peak",
+                "is_deload": False,
+            }
+
+        weight = top_set.get("actual_weight", 0) or 0.0
+        reps = top_set.get("actual_reps", 0) or 0
+        effort = top_set.get("effort", None)
+        form_quality = top_set.get("form_quality", None)
+
+        reps_target_val = reps_target if reps_target is not None else 5
+
+        held = False
+        status = "hard"
+        next_weight = weight
+        next_reps = reps_target_val
+
+        # Peak phase: very low reps, form is critical
+        if form_quality is not None and form_quality >= 2:
+            held = True
+            next_weight = weight
+            next_reps = reps
+        elif form_quality is not None and form_quality == 1:
+            held = True
+            next_weight = weight
+            next_reps = reps
+        elif is_set_target and reps < rep_floor:
+            held = True
+            next_weight = weight
+            next_reps = reps
+        elif effort is not None and effort >= 9:
+            # Near max effort — hold unless reps exceeded floor
+            if reps >= rep_cap:
+                next_weight = weight + inc
+                next_reps = reps_target_val
+            else:
+                held = True
+                next_weight = weight
+                next_reps = reps
+        elif effort is not None and effort <= 3:
+            # Very light — can push harder
+            if reps >= rep_cap:
+                next_weight = weight + inc
+                next_reps = reps_target_val
+            else:
+                next_weight = weight
+                next_reps = reps_target_val
+        else:
+            # Moderate effort — typical for peak phase
+            if reps >= rep_cap:
+                next_weight = weight + inc
+                next_reps = reps_target_val
+            else:
+                next_weight = weight
+                next_reps = reps_target_val
+
+        should_increase = next_weight > weight
+        # Set 2+ coaching message: personalized based on actual performance
+        if is_set_target:
+            if should_increase:
+                coaching_message = (
+                    f"You hit {reps} reps" + (f" with effort {effort}" if effort is not None else "") + ". "
+                    f"Great work — we're increasing to {next_weight:.0f} lbs. "
+                    f"Strength Peak: max effort phase, working in the {rep_floor}-{rep_cap} rep range. "
+                    f"This is where you push to your limits. Increase weight when you hit {rep_cap} reps with solid form. "
+                    f"Prioritize recovery — this is demanding work."
+                )
+            else:
+                coaching_message = (
+                    f"You hit {reps} reps" + (f" with effort {effort}" if effort is not None else "") + ". "
+                    f"Stay at {next_weight:.0f} lbs — aim for {rep_cap} reps next set. "
+                    f"Strength Peak: pushing to your limits. If you can hit {rep_cap} reps with solid form, we'll go heavier. "
+                    f"Prioritize recovery between sessions — this is the most demanding week of the cycle."
+                )
+        else:
+            # Set 1 (session target) keeps the phase-appropriate coaching message
+            coaching_message = "Strength Peak — max effort phase. Working in the 3-5 rep range. This is where you push to your limits. Increase weight when you hit 5 reps with solid form. Prioritize recovery — this is demanding work."
+
+        return {
+            "suggested_weight": round(next_weight, 1),
+            "rep_floor": rep_floor,
+            "rep_cap": rep_cap,
+            "increment": inc,
+            "coaching_message": coaching_message,
+            "block_name": _get_block_name(block_mode),
+            "should_increase": should_increase,
+            "next_weight": round(next_weight, 1),
+            "next_reps": next_reps,
+            "next_sets": 3,
+            "rest_seconds": 120,
+            "workload_status": status,
+            "prescription_type": "strength_peak",
+            "is_deload": False,
+        }
+
+
 def _get_model_for_block(block_mode: str) -> Any:
     """Get the model class for a given block mode."""
     models = {
         "foundation": FoundationModel(),
-        "linear_baseline": LinearModel(),
         "hypertrophy": HypertrophyModel(),
         "strength_a": StrengthAModel(),
         "strength_b": StrengthBModel(),
+        "strength_peak": StrengthCModel(),
         "maintenance": MaintenanceModel(),
     }
     return models.get(block_mode, FoundationModel())
@@ -3898,7 +4100,6 @@ def is_block_complete(block_state) -> bool:
     
     max_weeks = {
         "foundation": 6,
-        "linear_baseline": 3,
         "hypertrophy": 6,
         "strength_a": 2,
         "strength_b": 2,
@@ -3907,7 +4108,7 @@ def is_block_complete(block_state) -> bool:
     return week_number >= max_weeks.get(block_mode, 6)
 
 
-def get_phase_description_for_ready_screen(block_mode: str, phase: str) -> str:
+def get_phase_description_for_ready_screen(block_mode: str, phase: str, is_reentry: bool = False) -> str:
     """
     Return the phase description message for the Ready screen.
 
@@ -3921,6 +4122,7 @@ def get_phase_description_for_ready_screen(block_mode: str, phase: str) -> str:
     Args:
         block_mode: Current block mode (foundation, hypertrophy, strength_a, etc.)
         phase: Current phase (foundation_1, foundation_2, hypertrophy, etc.)
+        is_reentry: True if the user is re-entering foundation after a long gap or phase change
 
     Returns:
         Phase description message string
@@ -3929,13 +4131,17 @@ def get_phase_description_for_ready_screen(block_mode: str, phase: str) -> str:
     # These messages are the same as what the model returns in compute()
     if block_mode == "foundation":
         if phase == "foundation_1":
-            return "Foundation 1 — This is where we build your base — movement quality, connective tissue strength, the fundamentals. And honestly, this isn't about going heavy. It's about form, control, getting familiar and comfortable with the weight. We're working in 8-10 reps, and we only add weight when we hit 10 with good form. Keep it smooth, keep it controlled. And take your time getting comfortable with the app too — we'll get there together."
-        elif phase == "foundation_2":
-            return "Foundation 2 — We're transitioning to linear progression now — same foundation focus, but we're adding weight each session and letting reps find their level. 6-8 reps, smooth and controlled. This bridges us from foundation into strength work. You've built the base — now we're building on it. Take your time, keep the form tight, and let's get comfortable with the app together."
+            base_msg = "Foundation 1 — This is where we build your base — movement quality, connective tissue strength, the fundamentals. And honestly, this isn't about going heavy. It's about form, control, getting familiar and comfortable with the weight. We're working in 8-10 reps, and we only add weight when we hit 10 with good form. Keep it smooth, keep it controlled. And take your time getting comfortable with the app too — we'll get there together."
+            if is_reentry:
+                return (
+                    "Re-entering the foundation block after time away. "
+                    "Weight has been reduced by 15% to allow your body to re-adapt to the movement patterns. "
+                    "Focus on form and build back up progressively — this is not a step backward, it's a smart reset.\n\n"
+                    + base_msg
+                )
+            return base_msg
         else:
             return "Foundation block — building movement quality and connective tissue strength. Use double progression: work within 8-10 reps, and only increase weight when you can hit 10 reps with good form. Keep RPE around 4-6 — this is not about max effort."
-    elif block_mode == "linear_baseline":
-        return "Linear Baseline — transitioning from foundation to more structured progression. Compound exercises move to linear progression (add weight each session, reps find their level). Isolation exercises stay double progression. Reps slide from 8-10 down to 6-8 as weight increases."
     elif block_mode == "hypertrophy":
         if phase == "hypertrophy":
             return "Hypertrophy block — volume focus for muscle growth. Work in the 10-12 rep range, and only increase weight when you can hit 12 reps with good form. Metabolic stress and time under tension are the priorities. Smaller increments (3 lbs) help smooth progression."
@@ -3946,7 +4152,7 @@ def get_phase_description_for_ready_screen(block_mode: str, phase: str) -> str:
     elif block_mode == "strength_b":
         return "Strength Phase B — heavier loads, CNS adaptation. Working in the 6-8 rep range now. Increase weight when you hit 8 reps with solid form. Your nervous system is adapting to heavier work — prioritize recovery between sessions."
     elif block_mode == "strength_peak":
-        return "Strength Peak — max effort phase. Working in the 4-6 rep range. This is where you push to your limits. Increase weight when you hit 6 reps with solid form. Prioritize recovery — this is demanding work."
+        return "Strength Peak — max effort phase. Working in the 3-5 rep range. This is where you push to your limits. Increase weight when you hit 5 reps with solid form. Prioritize recovery — this is demanding work."
     elif block_mode == "maintenance":
         return "Deload / Maintenance phase — recovery and structural flushing. Weights are reduced by ~20% from your recent work. Keep reps in the 10-12 range, RPE capped at 5. Focus on mobility, joint health, and active recovery. This is not about progression — it's about coming back stronger next cycle."
     else:
