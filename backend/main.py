@@ -4291,8 +4291,10 @@ def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user
         last_session_sets = []
         
         if all_logs:
-            # Filter all_logs to get only the sets from the last completed session
-            last_session_date = last_session.started_at if last_session else None
+            # Use the most recent log's date for this exercise (not last_session overall)
+            # This ensures we find the last session that included THIS exercise,
+            # regardless of which template/workout it was in
+            last_session_date = all_logs[0].completed_at if all_logs else (last_session.started_at if last_session else None)
             if last_session_date:
                 for log in all_logs:
                     if log.completed_at and log.completed_at.date() == last_session_date.date():
