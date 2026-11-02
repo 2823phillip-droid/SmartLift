@@ -4072,7 +4072,7 @@ def get_session_targets(payload: SessionTargetRequest, db: Session = Depends(get
         tb = traceback.format_exc()
         print(f"[SESSION_TARGETS ERROR] {type(e).__name__}: {e}")
         print(f"[SESSION_TARGETS ERROR] session_id={payload.session_id}, user_id={current_user.id}")
-        print(f"[SESSION_TARGETS ERROR] traceback:\n{tb}")
+        print(f"[SESSION_TARGETS ERROR] traceback:\\n{tb}")
         # Write to server-side log file for persistent inspection
         try:
             from pathlib import Path
@@ -4088,7 +4088,16 @@ def get_session_targets(payload: SessionTargetRequest, db: Session = Depends(get
             print(f"[SESSION_TARGETS ERROR] Written to {error_log}")
         except Exception as log_err:
             print(f"[SESSION_TARGETS ERROR] Failed to write log file: {log_err}")
-        raise
+        # DEBUG: return error details in response for inspection
+        import json
+        error_detail = {
+            "error": type(e).__name__,
+            "detail": str(e),
+            "traceback": tb.split("\n")[-5:],  # last 5 lines
+            "session_id": payload.session_id,
+            "user_id": current_user.id,
+        }
+        raise HTTPException(status_code=500, detail=json.dumps(error_detail))
 
 
 def _do_session_targets(payload: SessionTargetRequest, db: Session, current_user: User) -> list[SessionTargetResponse]:
