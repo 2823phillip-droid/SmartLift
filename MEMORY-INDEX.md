@@ -3,7 +3,7 @@ last_updated: 2026-10-30
 created: 2026-10-17
 tags: [meta]
 related: README.md, TODO.md
-status: Mac Studio M5 Max only, master branch HEAD `ae7f9a1`. Backend deployed to Fly (commits through `ae7f9a1`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 2). Progression system: Phase 4 COMPLETE, Phase 5 Foundation logic redesign COMPLETE, Foundation 2 removed, linear_baseline removed, coach progression toggle + manual phase selector added, auto-advance now load-gated (6 weeks + 60% load).
+status: Mac Studio M5 Max only, master branch HEAD `45c5868`. Backend deployed to Fly (commits through `45c5868`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 2). Progression system: Phase 4 COMPLETE, Phase 5 Foundation logic redesign COMPLETE, Foundation 2 removed, linear_baseline removed, coach progression toggle + manual phase selector added, auto-advance now load-gated (6 weeks + 60% load). Session targets fix: removed local `from datetime import timezone` that shadowed global import causing UnboundLocalError.
 
 This file explains where every type of project knowledge lives and when to use it.
 
