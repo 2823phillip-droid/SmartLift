@@ -156,36 +156,6 @@ The exercise library feeds directly into the progression engine (`model_picker` 
 
 **Root Cause of Current Issue (Barbell Deadlift showing 45 lbs):**
 
-The session-targets endpoint has a fundamental design flaw: it queries the last completed session OVERALL (ordered by `started_at.desc()`), not the last completed session for the same template. This works only when the user does the same workout consistently — the "last completed session overall" happens to be the right one.
-
-**Timeline:**
-1. **Phase 3 (commit 819dd82):** session-targets only used current session's logs. For new workouts, history was empty → returned 45 lbs. BUT fetchExerciseProgression called calculate, which returned correct weight (115+ lbs) and overwrote draftWeight. User saw correct weight from calculate.
-
-2. **Race condition fix (commit b744bb9):** Prevented fetchExerciseProgression from overwriting draftWeight after auto-expand. This was meant to fix a different issue, but it also prevented calculate from correcting session-targets' incorrect weight. Now session-targets' 45 lbs stays visible.
-
-3. **Today's fix (commit 06f1e9a):** Tried to fix session-targets by adding last session lookup. But it finds the last completed session OVERALL (session 261, Oct 5, different workout), not the last completed session for the same template (session 125, Sep 11, Back and Bicep). Session 261 doesn't have deadlift logs → still returns 45 lbs.
-
-**Why it worked before:**
-- Before Oct 5, session 125 (Sep 11, Back and Bicep) was the last completed session
-- session-targets found session 125 → got deadlift logs → worked correctly
-- User was doing Back and Bicep consistently, so the "last completed session overall" happened to be the right one
-
-**Why it broke:**
-- User completed session 261 (Oct 5, different template) after the 9-11 Back and Bicep workout
-- Now session 261 is the last completed session overall
-- session-targets finds session 261 → no deadlift logs → returns 45 lbs
-
-**The calculate endpoint doesn't have this problem:**
-- calculate queries ALL user logs for each exercise (not just the last session)
-- It finds the most recent logs for each exercise across all completed sessions
-- This is the correct behavior and what session-targets should do
-
-**Proper fix:**
-Make session-targets query the most recent logs for each exercise across ALL completed sessions (like calculate does), not just the last completed session. This ensures:
-- It finds the correct logs for each exercise regardless of which session is "last completed"
-- It works when switching between different routines
-- It matches what calculate does and what the user experienced before the race condition fix
-
 ---
 
 ## PHASE 1: Model-Agnostic Frontend (COMPLETE — 2026-10-14)
@@ -424,16 +394,16 @@ Make session-targets query the most recent logs for each exercise across ALL com
 
 ## Current Focus
 
-**Right now (Phase 2 — Backend Model Classes):**
-Session-targets endpoint works and returns "This is the coach notes for Foundation." Phase 1 made the frontend model-agnostic. Now we build the actual model classes in the backend — starting with Linear (reference from frontend's `linearRule`), then Foundation, then the rest. Each model starts with a simple "This is the X model." coaching message. Once all models exist and render correctly in the frontend, we update `model_picker` to delegate to them, then the `session_targets` endpoint to use model prescriptions, then the frontend to use `model_picker` for per-set messages.
+**Right now (Phase 5 — Foundation Logic Redesign COMPLETE — LATEST KNOWN GOOD POINT):**
+All Phase 5 changes deployed and working. Foundation phase simplified to single 6-week phase with 60% load threshold. Foundation 2 and linear_baseline removed as block modes. Strength Peak/C model added. All models return identical structure with personalized Set 2+ coaching messages. Coach Progression toggle with manual phase selector working. Session targets + auto-expand fixed (UnboundLocalError resolved). Auto-advance now load-gated (6 weeks + 60% load).
 
 **Phase summary:**
 1. Phase 0: DONE — session-targets endpoint fixed
 2. Phase 1: DONE — frontend made model-agnostic
 3. Phase 2: DONE — backend model classes built (Linear, Foundation, Hypertrophy, Strength A/B, Maintenance) with compute() methods
 4. Phase 3: DONE — model_picker refactor + session_targets uses model prescriptions (endpoint uses prescription["coaching_message"])
-5. Phase 4: NEXT — frontend uses model_picker's prescription for per-set messages
-6. Phase 5: AFTER PHASE 4 — detailed per-model coaching logic
+5. Phase 4: COMPLETE — Progression system complete (BlockState phase granularity, transitions, phase advancement, auto-advance, coaching messages)
+6. Phase 5: COMPLETE — Foundation logic redesign (phase-agnostic functions, Foundation 2 removed, linear_baseline removed, Strength Peak/C added, all models with personalized Set 2+ messages, coach progression toggle, session targets fix)
 7. Phase 6: NOT STARTED — onboarding + block state
 8. Phase 7: NOT STARTED — block state + model rotation
 9. Phase 8: NOT STARTED — coach polish
@@ -671,56 +641,55 @@ Task count: ~34 discrete sub-tasks mapping directly to Phases 2–6. Ready for d
 
 ---
 
-## PROGRESSION SYSTEM PHASE 4 — COMPLETED 2026-10-17
+## PROGRESSION SYSTEM — ALL PHASES COMPLETE (2026-11-01)
 
-*Full progression system with named phases, transitions, triggers, auto-advance, and coaching messages.*
+*Full progression system with named phases, transitions, triggers, auto-advance (load-gated), coaching messages, and session targets.*
 
 ### What Was Built
 
 **1. BlockState Phase Granularity (Integer → String)**
 - Phase column changed from Integer (1-6) to String with explicit phase names
-- 7 phases: `foundation_1`, `foundation_2`, `hypertrophy`, `strength_a`, `strength_b`, `strength_peak`, `deload`
-- Phase sequence loop: foundation_1 → foundation_2 → hypertrophy → strength_a → strength_b → strength_peak → deload → foundation_1
-- Migration: `ALTER TABLE block_state ALTER COLUMN phase TYPE VARCHAR(20)` (runs on PostgreSQL, skipped on SQLite)
+- 6 phases: `foundation_1`, `hypertrophy`, `strength_a`, `strength_b`, `strength_peak`, `deload`
+- Phase sequence loop: foundation_1 → hypertrophy → strength_a → strength_b → strength_peak → deload → foundation_1
+- foundation_2 removed (single foundation phase only)
+- linear_baseline removed as block mode (Strength A/B/C implement linear progression)
 
 **2. Transition Function (resolve_model_transition)**
-- 8 transition rules with weight multipliers:
-  1. foundation_1 → foundation_2: +5% (Double → Linear)
-  2. foundation_2 → hypertrophy: -10% (Linear → Double)
-  3. hypertrophy → strength_a: +5%
-  4. strength_a → strength_b: +5%
-  5. strength_b → strength_peak: +5%
-  6. strength_peak → deload: -20%
-  7. deload → hypertrophy: +5%
-  8. Any → foundation_1 (re-entry): -15%
+- Transition rules with weight multipliers:
+  1. foundation_1 → hypertrophy: -10% (Double → Double, rep range shift)
+  2. hypertrophy → strength_a: +5%
+  3. strength_a → strength_b: +5%
+  4. strength_b → strength_peak: +5%
+  5. strength_peak → deload: -20%
+  6. deload → hypertrophy: +5%
+  7. Any → foundation_1 (re-entry after long break): -15%
 - `PHASE_TRANSITION_MULTIPLIERS` dict in progression.py
+- foundation_1 → foundation_2 transition removed (foundation_2 no longer exists)
 
 **3. Phase Advancement Triggers**
-- `PHASE_ADVANCE_TRIGGERS`: min_weeks per phase (foundation_1=4, foundation_2=4, hypertrophy=4, strength_a=4, strength_b=4, strength_peak=3, deload=1)
+- `PHASE_ADVANCEMENT_THRESHOLDS`: min_weeks per phase (foundation_1=6, hypertrophy=4, strength_a=3, strength_b=2, strength_peak=1, deload=1)
+- Load-gated: foundation requires 60% load (21-day consistency window via compute_load)
 - `can_advance_phase(week_number, phase)` — checks if week >= min_weeks
 - `get_next_phase(current_phase)` — returns next phase in sequence
 - `get_block_mode_for_phase(phase)` — maps phase to block_mode
-- `get_phase_by_block_mode(block_mode)` — reverse lookup
 
 **4. Auto-Advance in Calculate Endpoint**
-- When `week_number >= min_weeks` for current phase, auto-advance to next phase
+- When `week_number >= min_weeks` for current phase AND load >= threshold for foundation, auto-advance to next phase
 - Reset week_number to 1
 - Update block_mode via get_block_mode_for_phase
 - Apply transition (weight adjustment) if phase changed
-- Silent auto-advance (no user prompt) — user preferred to get everything in place first, tune later
+- Coach Progression toggle: when "false", skip auto-advance entirely
 
 **5. Model Phase Handling**
 - All 6 model compute methods accept optional `phase: str | None = None` parameter
-- FoundationModel phase distinction:
-  - foundation_1: Double progression, rep_floor=8, rep_cap=10, RPE 4-6
-  - foundation_2: Linear progression, rep_floor=6, rep_cap=8 (reps slide)
+- FoundationModel phase distinction: foundation_1 only (Double 8-10 reps, RPE 4-6)
 - Other models accept phase but don't use it yet (reserve for future phase-specific behavior)
 
 **6. Coaching Messages (Production-Ready)**
 - All 6 models have detailed coaching messages with friendly/inclusive language ("we", "us")
 - Foundation 1: "Foundation phase — building movement quality and connective tissue strength. Use double progression: work within 8-10 reps... This isn't about going heavy — it's about form, control, and getting familiar and comfortable with the weight, as well as getting comfortable with using the app."
-- Foundation 2: Similar expanded message
-- Hypertrophy, Strength A, Strength B, Maintenance: Model-specific messages
+- Foundation 2: REMOVED (no longer exists)
+- Hypertrophy, Strength A, Strength B, Strength Peak/C, Maintenance: Model-specific messages with personalized Set 2+ coaching based on reps/effort/weight
 - Re-entry message (Any → foundation_1): "Re-entering the foundation block after time away. Weight has been reduced by 15%..."
 
 **7. Session Target with Last Session Recap**
@@ -731,42 +700,47 @@ Task count: ~34 discrete sub-tasks mapping directly to Phases 2–6. Ready for d
 **8. FOUNDATION Pill (Ready Screen)**
 - Added to PreWorkoutScreen (Ready screen), NOT ActiveWorkoutScreen (too busy)
 - Shows: block_mode (e.g., "Foundation"), week number, full coaching message
-- PHASE_COACHING mapping for all 7 phases
+- PHASE_COACHING mapping for all 6 phases
 - Fetches block-state via getBlockState()
 
 **9. API Base Probe Fix**
 - probe() function was using /settings/api_base (requires auth) → 401 → fallback to wrong API base
 - Fixed: probe() now uses /healthz (public endpoint) → correct API base detection
 
+**10. Session Targets Fix (UnboundLocalError — 2026-11-01)**
+- **Bug:** `from datetime import timezone` at line 4192 inside `_do_session_targets` function shadowed the global import at line 9
+- **Effect:** Python treated `timezone` as a local variable for the entire function. Line 4139 uses `timezone.utc` before the local import executes → `UnboundLocalError`
+- **Fix:** Removed the redundant local import. Session targets + auto-expand now working.
+
 ### Files Changed
 
 - `backend/models.py` — BlockState.phase: Integer → String
-- `backend/main.py` — Pydantic schemas, calculate endpoint auto-advance + transition wiring, advance_block_state block_mode fix, _run_migrations() phase + set_logs.block_mode ALTER COLUMN, session_target building logic, previous_phase_for_transition
-- `backend/progression.py` — resolve_model_transition (8 rules), PHASE_SEQUENCE, PHASE_ADVANCE_TRIGGERS, can_advance_phase, get_next_phase, get_block_mode_for_phase, get_phase_by_block_mode, FoundationModel phase distinction, all 6 model compute methods with phase param, coaching messages for all models
+- `backend/main.py` — Pydantic schemas, calculate endpoint auto-advance + transition wiring, advance_block_state block_mode fix, _run_migrations() phase + set_logs.block_mode ALTER COLUMN, session_target building logic, previous_phase_for_transition, coach_progression toggle check, long-gap detection (>6 months → foundation), re-entry coaching message for Set 1, session targets fix (remove local timezone import)
+- `backend/progression.py` — resolve_model_transition (transition rules), PHASE_SEQUENCE (foundation_2 removed), PHASE_ADVANCEMENT_THRESHOLDS (foundation_2 removed, foundation_1=6 weeks, strength_a=3 weeks, strength_peak=1 week), can_advance_phase, get_next_phase, get_block_mode_for_phase, FoundationModel phase distinction (foundation_2 removed), all 6 model compute methods with phase param, coaching messages for all models, personalized Set 2+ messages for Hypertrophy/Strength A/B/C, StrengthCModel class, linear_baseline removal from all dicts/sequences/mappings
+- `backend/rules.py` — compute_load function (0-100 score, 21-day window) for auto-advance load check
 - `frontend/src/pages/PreWorkoutScreen.tsx` — FOUNDATION pill with PHASE_COACHING mapping, block-state fetch
 - `frontend/src/pages/ActiveWorkoutScreen.tsx` — session_target display (FOUNDATION pill removed from active screen)
 - `frontend/src/pages/SortableExerciseCard.tsx` — session_target display in Session Target pill
+- `frontend/src/pages/SettingsScreen.tsx` — Coach Progression toggle description updated, phase selector UI added (dropdown + Set Phase button, shown when coach_progression is "false"), currentPhase/savingPhase state, useEffect to load current phase
+- `frontend/src/api.ts` — probe() uses /healthz, getBlockState function, patchBlockState method
 - `frontend/src/rules.ts` — Prescription interface added session_target field
-- `frontend/src/api.ts` — probe() uses /healthz, getBlockState function
 
 ### Phase Sequence & Triggers
 
-| Phase | Min Weeks | Block Mode | Rep Range | Notes |
-|-------|-----------|------------|-----------|-------|
-| foundation_1 | 4 | foundation | 8-10 (Double) | RPE 4-6, no max effort |
-| foundation_2 | 4 | foundation | 6-8 (Linear) | Reps slide as weight increases |
-| hypertrophy | 4 | hypertrophy | 10-12 (Double) | Volume focus |
-| strength_a | 4 | strength_a | 8-10 (Double) | Heavier starting point |
-| strength_b | 4 | strength_b | 6-8 (Double) | CNS adaptation |
-| strength_peak | 3 | strength_b | 6-8 (Double) | Peak mechanical tension |
-| deload | 1 | foundation | 8-10 (Double) | -20% weight, RPE 5 cap |
+| Phase | Min Weeks | Load Threshold | Block Mode | Rep Range | Notes |
+|-------|-----------|----------------|------------|-----------|-------|
+| foundation_1 | 6 | 60% | foundation | 8-10 (Double) | RPE 4-6, no max effort |
+| hypertrophy | 4 | — | hypertrophy | 10-12 (Double) | Volume focus |
+| strength_a | 3 | — | strength_a | 8-10 (Linear) | Heavier starting point |
+| strength_b | 2 | — | strength_b | 6-8 (Linear) | CNS adaptation |
+| strength_peak | 1 | — | strength_b | 3-5 (Linear) | Peak mechanical tension, 120s rest, "hard" workload |
+| deload | 1 | — | foundation | 8-10 (Double) | -20% weight, RPE 5 cap |
 
 ### Transition Multipliers
 
 | From | To | Multiplier |
 |------|----|------------|
-| foundation_1 | foundation_2 | +5% |
-| foundation_2 | hypertrophy | -10% |
+| foundation_1 | hypertrophy | -10% |
 | hypertrophy | strength_a | +5% |
 | strength_a | strength_b | +5% |
 | strength_b | strength_peak | +5% |
@@ -779,114 +753,53 @@ Task count: ~34 discrete sub-tasks mapping directly to Phases 2–6. Ready for d
 - End-to-end testing from Xcode (user testing)
 - Any tuning the user wants after testing (multipliers, messages, triggers)
 
-**Problem:** When switching progression models (e.g., Foundation → Hypertrophy), the model's progression logic may not work correctly because it compares against the wrong rep_cap.
+### Current Status (2026-11-01)
 
-**Example:**
-- Previous session: Foundation, 115×8 (8 reps < 10 rep_cap for Foundation)
-- Current session: Hypertrophy (rep_cap=12)
-- Model's logic: 8 < 12, so no increment. Set 1 = 115.
-- But user wants progression: Set 1 = 120.
+**Exercise library**: COMPLETE (1384 exercises, 15 columns, fully classified)
 
-**Root Causes Identified and Fixed:**
-1. `calculate` endpoint wasn't passing `reps_target` and `increment` to `model_picker` — FIXED (commit pending deploy)
-2. `_get_top_set` was returning `history[-1]` (oldest set) instead of `history[0]` (most recent set) — FIXED (commit pending deploy)
-3. Session targets endpoint uses the model's progression logic for Set 1 (add increment only if previous session's reps >= rep_cap)
-4. When switching models, the model's logic doesn't know you're starting a new progression arc
+**Session-target fix (Phase 0)**: COMPLETE — endpoint working, verified on device. Additional fixes: session targets now queries ALL completed sessions' logs (like calculate does), filters out cancelled sessions. Session target now includes last session recap (date, weight, reps, effort, notes) + today's target + "why" (compares today's weight/reps to last session). Session targets fix (UnboundLocalError): removed local `from datetime import timezone` that shadowed global import.
 
-**Current Behavior (after fixes):**
-- Set 1 uses the model's logic: add increment only if previous session's last set reps >= current model's rep_cap
-- If previous session reps < rep_cap: Set 1 = same weight as previous session (no progression)
-- If previous session reps >= rep_cap: Set 1 = previous weight + increment (progression)
+**Phase 1 (Model-Agnostic Frontend)**: COMPLETE — all local prescription computation removed, frontend relies entirely on backend session targets. Race condition between progression fetch and auto-expand fixed (state → ref).
 
-**Desired Behavior (to be implemented):**
-- **Same model as previous session**: Use the model's progression logic (add increment if reps >= rep_cap)
-- **Different model from previous session**: Always add increment (new progression arc)
+**Phase 2 (Backend Model Classes)**: COMPLETE — 6 model classes built (Linear, Foundation, Hypertrophy, Strength A/B, Maintenance) with compute() methods. StrengthCModel added (3-5 reps, 1 week, linear progression, 120s rest, "hard" workload).
 
-**Implementation Questions:**
-1. How do we know what model the previous session used? (Need to query previous session's block_mode from database)
-2. Should the increment be tied to the model's rep_cap, or should it always be a fixed amount?
-3. What's the logic when switching from a model with higher rep_cap to lower rep_cap (e.g., Hypertrophy 10-12 → Foundation 8-10)?
+**Phase 3 (Model_Picker Refactor)**: COMPLETE — model_picker delegates to models, session_targets uses model prescriptions.
 
-**Files involved:**
-- `backend/main.py` — session_targets and calculate endpoints
-- `backend/progression.py` — model_picker, FoundationModel, _get_top_set
-- `frontend/src/pages/ActiveWorkoutScreen.tsx` — logSet, expandExercise
+**Phase 4 (Progression System — COMPLETED 2026-10-17)**: COMPLETE
 
----
+**Phase 5 (Foundation Logic Redesign — COMPLETED 2026-11-01)**: COMPLETE — LATEST KNOWN GOOD POINT
+- Foundation phase simplified to single 6-week phase with 60% load threshold
+- Foundation 2 removed (single foundation phase only, Foundation 1 → Hypertrophy directly)
+- Linear baseline removed as block mode (Strength A/B/C implement linear progression)
+- Strength Peak/C model added (3-5 reps, 1 week, linear progression, 120s rest, "hard" workload)
+- All models return identical structure with personalized Set 2+ coaching messages
+- Coach Progression toggle + manual phase selector added (ON=auto-advance with weeks+load, OFF=manual phase selector)
+- Auto-advance now load-gated (6 weeks + 60% load, not just time)
+- Session targets fix: removed local `from datetime import timezone` causing UnboundLocalError
 
-## PROGRESSION ENGINE IMPLEMENTATION PLAN (2026-10-09)
+**Block state**: COMPLETE — BlockState table with phase (string), week_number, block_mode. Phase sequence: foundation_1 → hypertrophy → strength_a → strength_b → strength_peak → deload → loop.
 
-The exercise library is complete. Now building the progression engine that uses it.
+**model_picker**: EXISTS (`backend/progression.py`) — returns full prescription including coaching_message, block_name, next_reps. Phase 3 COMPLETE.
 
-### Block Periodization Overview
+**Progression endpoints:**
+- `POST /api/progression/calculate` — COMPLETE — uses model_picker, auto-advances when week threshold + load met, applies transition
+- `POST /api/coach/session-targets` — COMPLETE — returns coaching messages using model_picker, session_target field with last session recap + why. FIXED: UnboundLocalError resolved.
+- `GET /api/progression/block-state` — COMPLETE — returns current block_state (phase, week_number, block_mode)
+- `PATCH /api/progression/block-state/advance` — COMPLETE — advances to next phase with optional new_phase and advance_block flag
 
-**Block Cycle:**
-- Total Beginner: Foundation (6 wks) → Linear Baseline (2-3 wks) → Hypertrophy (6 wks) → Strength A (2 wks) → Strength B (2 wks) → Deload (1-2 wks) → loop to Hypertrophy
-- Intermediate/Advanced: Hypertrophy (6 wks) → Strength A (2 wks) → Strength B (2 wks) → Deload (1-2 wks) → loop to Hypertrophy
+**Frontend progression UI:**
+- Block pill: COMPLETE — FOUNDATION pill on Ready screen (PreWorkoutScreen) showing block_mode, week_number, coaching_message
+- Rep target display: COMPLETE — shows rep floor/rep cap on exercise cards
+- Progression indicator: COMPLETE — "Ready to progress" badge when should_increase=true
+- Session target coaching messages: COMPLETE — backend returning messages, frontend applies them. All local computation removed.
+- Session target with last session recap: COMPLETE — shows last session date, exercise, weight, reps, effort, notes + today's target + why
+- Per-set prescription update: COMPLETE — logSet calls calculate endpoint after each set
+- Model indicator in coach notes header: COMPLETE — FOUNDATION pill on Ready screen
+- Coach Progression toggle + phase selector: COMPLETE — toggle in SettingsScreen, phase selector shown when coach_progression is "false"
 
-**Rep Targets by Block:**
-| Block | Target Reps | Increment |
-|-------|-------------|-----------|
-| Foundation | 8-10 | +5lbs when hitting 10 |
-| Linear Baseline | 8-10 → 6-8 | Slide down naturally; stall → auto-switch |
-| Hypertrophy | 10-12 | +3-5lbs when hitting 12 |
-| Strength A | 8-10 | Double Progression |
-| Strength B | 6-8 | Double Progression |
-| Deload | 10-12 (RPE 5) | -20% load |
+**End-to-end testing**: PENDING — user testing from Xcode after session targets fix deployed
 
-**model_picker function:**
-```python
-def model_picker(exercise, history, block_state):
-    # Returns (target_reps_floor, target_reps_cap, increment_rule)
-    # All blocks use Double Progression
-```
-
-### Implementation Phases
-
-**Phase 3: Onboarding + Block State (Backend)**
-- [ ] 3.1: Questionnaire flow exists (`QuestionnaireScreen.tsx`)
-- [ ] 3.2: Create `block_state` table — user_id, block_mode, week_number, start_date, phase
-- [ ] 3.3: Link questionnaire → block state — beginner → Foundation block (week 1/6)
-- [ ] 3.4: Block advancement — advance week, advance block, auto-switch on stall
-- [ ] 3.5: User profile schema — add block_state reference
-
-**Phase 4: Model Picker Engine (Backend)**
-- [ ] 4.1: Implement `model_picker(exercise, history, block_state)`
-- [ ] 4.2: Unit test for each block type
-- [ ] 4.3: Add `POST /api/progression/calculate` endpoint
-- [ ] 4.4: Add `POST /api/progression/advance` endpoint
-- [ ] 4.5: Test Double Progression logic end-to-end
-
-**Phase 5: Frontend UI**
-- [ ] 5.1: Block pill — "Foundation Block • Week 3/6"
-- [ ] 5.2: Rep target display — "Target: 8-10 reps"
-- [ ] 5.3: Progression indicator — visual cue at rep cap
-- [ ] 5.4: Settings to view/advance block
-
-**Phase 6: Testing (End-to-End)**
-- T1: Beginner questionnaire → Foundation block created
-- T2: First workout → Foundation targets (8-10 reps) displayed
-- T3: Hit rep cap → weight increases (Double Progression)
-- T4: Advance week 6 → Linear Baseline (reps slide 8-10 → 6-8)
-- T5: Stall in Linear → auto-switch to Hypertrophy
-- T6: Advance through Strength A/B → rep targets decrease
-- T7: Deload → loads drop 20%, reps 10-12 RPE 5
-
-**Phase 7: Coach Polish**
-- Coach messages for block switches
-- Mid-block goal change handling
-- Injury/limitation adjustments
-- Rest timer by block
-- Foundational health integration
-
-### Current Status
-- Exercise library: COMPLETE (1359 exercises, 32 columns, fully classified)
-- Equipment system: COMPLETE (17 categories, toggle UI, filtering, questionnaire auto-update)
-- Coach progression toggle: COMPLETE (ON=default hides UI, OFF shows manual controls)
-- Block state: NOT STARTED
-- model_picker: NOT STARTED
-- Frontend progression UI: NOT STARTED
-- End-to-end testing: NOT STARTED
+**API base probe fix**: COMPLETE — probe() now uses /healthz (public endpoint) instead of /settings/api_base (requires auth). This was causing the API base to fall back to https://askeo.fit/api instead of https://smartlift-api.fly.dev/api.
 
 ---
 

@@ -3,21 +3,17 @@ last_updated: 2026-10-19 (afternoon)
 
 ## Current State (as of this update)
 
-- **Git HEAD:** `72ca366` — "Change set target message to show rep_cap (10) instead of rep_floor-rep_cap (8-10)"
-- **Build:** Oct 30 17:45, synced to iOS at `frontend/ios/App/App/public/assets/`
-- **Deploy status:** Backend deployed to Fly (commits through `72ca366`). Health OK.
-- **Progression system:** Phase 4 COMPLETE, Phase 5 Foundation logic redesign COMPLETE (LATEST KNOWN GOOD POINT)
-  - BlockState phase: String (foundation_1, foundation_2, hypertrophy, strength_a, strength_b, strength_peak, deload)
-  - Transition function: resolve_model_transition with 8 rules + PHASE_TRANSITION_MULTIPLIERS
-  - Phase advancement triggers: min_weeks per phase, can_advance_phase, get_next_phase
-  - Auto-advance in calculate endpoint
-  - Model comparison logic in calculate + session-targets (detects model mismatch, applies transition)
-  - Phase normalization in get_block_state + session-targets (converts "1" → "foundation_1")
-  - Weight rounding: _round_to_nearest_5 helper
-  - Coaching messages: production-ready
-  - Session target: includes last session recap + today's target + "why"
-  - FOUNDATION pill: on PreWorkoutScreen
-  - **Phase 5 Foundation logic redesign COMPLETE:**
+- **Git HEAD:** `96bb12f` — "docs: update MEMORY-INDEX status to 45c5868, document session targets UnboundLocalError fix"
+- **Build:** Nov 1, synced to iOS at `frontend/ios/App/App/public/assets/index-DzR_LrvL.js`
+- **Deploy status:** Backend deployed to Fly (commits through `96bb12f`). Health OK.
+- **Progression system:** Phase 4 COMPLETE, Phase 5 Foundation logic redesign COMPLETE. All changes deployed:
+  - Foundation 2 removed — single 6-week foundation phase with 60% load threshold
+  - Linear baseline removed as block mode (Strength A/B/C implement linear progression)
+  - Strength Peak/C model added (3-5 reps, 1 week, linear progression)
+  - Coach Progression toggle + manual phase selector added
+  - Auto-advance now load-gated (6 weeks + 60% load, not just time)
+  - All models return identical structure with personalized Set 2+ coaching messages
+  - Session targets fix: removed local `from datetime import timezone` that shadowed global import causing UnboundLocalError (session targets + auto-expand now working)
     - Phase-agnostic logic functions (calculate_weighted_avg_weight, calculate_next_session_weight, analyze_session, build_session_target_message, build_set_target_message)
     - Session target uses ALL sets from last session, weighted average logic, reps=10
     - Set 2+ messaging: generic message using build_set_target_message(), stays at same weight mid-session
@@ -88,21 +84,23 @@ A progression-powered workout system:
 
 ### Phase Details
 
-| Phase | Block | Weeks | Reps (Compound) | Reps (Isolation) | Progression (Compound) | Progression (Isolation) |
-|-------|-------|-------|-----------------|------------------|------------------------|--------------------------|
-| 1 | Foundation | 6 | 8-10 (start at 10) | 8-10 (start at 10) | Double | Double |
-| 2 | Linear Baseline | 2-3 | 8-10 → 6-8 | 8-10 | Linear | Double |
-| 3 | Hypertrophy | 6 | 10-12 | 10-12 | Double | Double |
-| 4 | Strength A | 3 | 8-10 (linear) | 8-10 | Linear | Double |
-| 5 | Strength B | 2 | 6-8 (linear) | 6-8 | Linear | Double |
-| 6 | Strength Peak | 1 | 4-6 (linear) | 4-6 | Linear | Double |
-| 7 | Maintenance | 1-2 | 10-12 | 10-12 | None (RPE 5) | None (RPE 5) |
+|| Phase | Block | Weeks | Reps (Compound) | Reps (Isolation) | Progression (Compound) | Progression (Isolation) |
+||-------|-------|-------|-----------------|------------------|------------------------|--------------------------|
+|| 1 | Foundation | 6 | 8-10 (start at 10) | 8-10 (start at 10) | Double | Double |
+|| 2 | Hypertrophy | 4 | 10-12 | 10-12 | Double | Double |
+|| 3 | Strength A | 3 | 8-10 (linear) | 8-10 | Linear | Double |
+|| 4 | Strength B | 2 | 6-8 (linear) | 6-8 | Linear | Double |
+|| 5 | Strength Peak | 1 | 3-5 (linear) | 3-5 | Linear | Double |
+|| 6 | Maintenance | 1-2 | 10-12 | 10-12 | None (RPE 5) | None (RPE 5) |
 
 **Key decisions:**
-- Foundation: all exercises start at 10 reps (rep_cap), double progression for all
-- Linear Baseline & Strength: compound = linear (add weight each session, reps find their level), isolation = double (work within rep range first)
-- Hypertrophy: all double progression
-- Strength A/B/Peak: linear for compound (pushing limits), double for isolation
+- Foundation: all exercises start at 10 reps (rep_cap), double progression for all, 6 weeks + 60% load threshold for auto-advance
+- Linear Baseline removed as block mode — Strength A/B/C implement linear progression in their own compute() methods
+- Hypertrophy: all double progression, 4 weeks
+- Strength A/B/C: linear progression for compounds, double for isolations. A (3 weeks, 8-10 reps), B (2 weeks, 6-8 reps), C/Peak (1 week, 3-5 reps, 120s rest, "hard" workload)
+- Maintenance: RPE 5 cap, -20% weight if overloaded
+- Coach Progression toggle: ON (default) = auto-advance with weeks + load check. OFF = manual phase selector in settings
+- Session targets fix: removed local `from datetime import timezone` that shadowed global import causing UnboundLocalError
 
 ### Foundation Phase Logic Work (Phase 5 — COMPLETE — LATEST KNOWN GOOD POINT)
 
@@ -208,6 +206,13 @@ To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No l
 - [x] Update frontend to pass `is_set_target: true` for Set 2+ calls
 - [x] Update frontend to use coaching_message from calculate response
 - [x] Test with user — verified working
+- [x] **Phase 5.1: Foundation 2 removed** — single 6-week foundation phase only. Removed from PHASE_SEQUENCE, PHASE_ADVANCEMENT_THRESHOLDS, FoundationModel.compute(), PHASE_TRANSITION_MULTIPLIERS, get_phase_description_for_ready_screen, get_block_mode_for_phase. Foundation 1 → Hypertrophy directly.
+- [x] **Phase 5.2: Foundation auto-advance load-gated** — requires 6 weeks AND 60% load (21-day consistency window via compute_load). Not just time-based. Auto-advance checks both week threshold and load threshold.
+- [x] **Phase 5.3: linear_baseline removed as block mode** — removed from BLOCK_REP_TARGETS, BLOCK_SEQUENCE, BLOCK_PHASES, _get_block_name, _get_model_for_block, get_phase_description_for_ready_screen, is_block_complete, NORMALIZE_PHASE, block_mode_to_phase, numeric_to_descriptive, BLOCK_ADVANCEMENT_THRESHOLDS, ADVANCEMENT_SEQUENCE. Strength A/B/C implement linear progression in their own compute() methods.
+- [x] **Phase 5.4: Strength Peak/C model added** — new StrengthCModel class (3-5 reps, 1 week, linear progression, 120s rest, "hard" workload). Added to BLOCK_REP_TARGETS, _get_model_for_block, PHASE_ADVANCEMENT_THRESHOLDS (1 week), phase descriptions.
+- [x] **Phase 5.5: All models return identical structure with personalized Set 2+ coaching messages** — HypertrophyModel, LinearModel, StrengthAModel, StrengthBModel all updated to return personalized Set 2+ messages based on reps/effort/weight, matching Foundation pattern.
+- [x] **Phase 5.6: Coach Progression toggle + manual phase selector** — backend check added to auto-advance (skip when "false"), frontend phase selector added to SettingsScreen (dropdown + Set Phase button, shown when coach_progression is "false"), patchBlockState API method added.
+- [x] **Phase 5.7: Session targets fix** — removed local `from datetime import timezone` at line 4192 in `_do_session_targets` that shadowed global import (line 9), causing UnboundLocalError when `timezone.utc` was accessed at line 4139 before the local import executed. Session targets + auto-expand now working.
 
 #### Design Decisions Made
 
@@ -230,8 +235,8 @@ To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No l
 
 #### LATEST KNOWN GOOD POINT
 
-- **Commit:** `72ca366`
-- **State:** Session target and Set 2+ messaging working correctly. Foundation phase logic complete. Architecture supports easy reuse for other phases (Hypertrophy, etc.) by updating only the model/params.
+- **Commit:** `96bb12f`
+- **State:** All Phase 5 changes deployed and working. Foundation phase simplified to single 6-week phase with 60% load threshold. Foundation 2 and linear_baseline removed as block modes. Strength Peak/C model added. All models return identical structure with personalized Set 2+ coaching messages. Coach Progression toggle with manual phase selector working. Session targets + auto-expand fixed (UnboundLocalError resolved). Auto-advance now load-gated (6 weeks + 60% load).
 - **To test:** Clean Build Folder in Xcode (Shift+Cmd+K), rebuild, run on iPhone
 
 ## GIF/Video Creation
