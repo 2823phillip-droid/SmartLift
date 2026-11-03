@@ -383,3 +383,75 @@ See "Foundation Phase Logic Work (Phase 5 — In Progress)" section above for fu
   8. Any → Foundation Phase 1 (re-entry after long break, -15%)
 - BlockState phase values: foundation_1, foundation_2, hypertrophy, strength_a, strength_b, strength_peak, deload — DONE
 - Phase advancement triggers: week thresholds (min_weeks per phase) — DONE
+
+## Dynamic Warmup Feature (for tomorrow)
+
+**Feature:** Dynamic warmup screen accessible from the ready screen
+- "Start Dynamic warmup" button on ready screen (with skip option)
+- Dynamic warmup screen with:
+  - Timer (10 min suggested)
+  - List/tiles of warmup exercises (Frankensteins, butt kicks, lunges, jumping jacks, knee hugs, inchworm, arm circles)
+  - Stretching exercises (to be added later)
+  - No tracking (no sets, no reps, no logging)
+  - User does warmup at their own pace
+- Warmup exercises added to DB with `category` = "warmup" or "mobility"
+- Exercises available for manual selection but not tracked
+
+**Exercises to add (dynamic warmup):**
+1. Frankensteins (walking knee raises) — hips, hamstrings — bodyweight
+2. Butt kicks — quads, knees — bodyweight
+3. Lunges (walking lunges) — hips, legs — bodyweight
+4. Jumping jacks — full body, cardio — bodyweight
+5. Knee hugs — hips, glutes — bodyweight
+6. Inchworm — full body, core — bodyweight
+7. Arm circles — shoulders — bodyweight
+
+**Frontend changes needed:**
+- Ready screen: add "Start Dynamic warmup" button
+- New screen: dynamic warmup with timer + exercise list/tiles
+- Skip option on the warmup screen
+
+---
+
+## Today's Accomplishments (2026-11-02)
+
+**LastPass & Credentials:**
+- Set up LastPass with production DATABASE_URL (stored as "SmartLift Production DATABASE_URL", Password type)
+- lpass CLI installed at `/opt/homebrew/bin/lpass`, login works
+
+**WireGuard & DNS:**
+- Reset WireGuard tunnel on Mac Studio (created new peer `interactive-PhillipacStudio-...`)
+- Logged into Fly.io with Google OAuth (`fly auth login`)
+- Unset `FLY_ACCESS_TOKEN` to use new access token
+- flyctl agent running, WireGuard tunnel up (utun interfaces), but DNS not resolving Fly.io hostname
+- DNS issue: system DNS pointing to local router (`192.168.1.1`), not Fly.io DNS
+- SSH to Fly.io works (via tunnel), but direct Postgres connections from Mac Studio failing
+- Can run commands inside SSH session to access production Postgres
+
+**Production Database:**
+- Confirmed 15 exercises with NULL auto-tag fields (stretching exercises + squat variations)
+- Started classification script for those exercises (background process)
+- Confirmed ability to query user logs in production for troubleshooting
+- Added backup process:
+  - Store backups in `~/Projects/askeo/backups/` on Mac Studio
+  - Manual `pg_dump` before and after changes
+  - Fly.io Postgres is unmanaged — no automated backups
+
+**Documentation:**
+- Updated TODO.md with backup process, dynamic warmup feature, and today's accomplishments
+- Created backup directory: `~/Projects/askeo/backups/`
+- Updated `.gitignore` to exclude `backups/`
+
+**Current Status:**
+- WireGuard tunnel up, flyctl agent running, but DNS not resolving
+- SSH to Fly.io works, can access production Postgres via SSH
+- 15 exercises with NULL auto-tag fields identified, classification in progress
+- Ready to add warmup exercises and start dynamic warmup feature tomorrow
+
+---
+
+- [ ] Web interface (workout builder, progression view, exercise library, routine management)
+- [ ] Apple Watch companion (quick logging, rest timer, current set)
+- [ ] Custom videos for missing exercises (see GIF/Video Creation section)
+- [ ] End-to-end testing from Xcode (user testing)
+- [ ] Any tuning the user wants after testing
