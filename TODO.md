@@ -292,6 +292,14 @@ To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No l
 - `backend/exercisedb_gifs/{180,360}/` — Exercise GIFs, served via `/api/exercisedb/gifs/{id}.gif`
 - `backend/classify_exercises.py` and related — Scripts that populate auto-tag fields (is_compound, movement_type, primary_equipment, etc.)
 
+**Production database backups:**
+- Store backups in `~/Projects/askeo/backups/` on the Mac Studio
+- Before making changes: run `pg_dump` to create a backup (e.g., `smartlift-prod-backup-2026-11-02-1845.sql`)
+- After making changes: run `pg_dump` again to create a backup
+- Use the SSH session to run `pg_dump`: `pg_dump -h pgbouncer.xxx.flympg.net -U fly-user -d fly-db > backup.sql`
+- The Mac Studio has 696 GiB available, so backups (1-5 MB each) are negligible
+- Fly.io Postgres is unmanaged — no automated backups, so manual backups are essential
+
 ---
 
 - [ ] Web interface (workout builder, progression view, exercise library, routine management)

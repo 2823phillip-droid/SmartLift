@@ -35,3 +35,4 @@ android/
 
 # Hermes Agent local config (not part of the project)
 .hermes/
+backups/
