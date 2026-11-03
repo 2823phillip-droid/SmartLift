@@ -68,3 +68,34 @@ cd /Users/phillipwalters/Projects/askeo/repo/backend && fly deploy --app smartli
 - 2026-09-10 — Updated frontmatter `last_updated` to 2026-09-10
 - 2026-08-07 — Added explicit end-of-session routine with frontend build + cap sync step
 - 2026-07-31 — Created from today's troubleshooting session
+
+## Current Status (2026-11-02)
+
+**LastPass & Credentials:**
+- Production DATABASE_URL stored in LastPass as "SmartLift Production DATABASE_URL" (Password type)
+- lpass CLI installed at `/opt/homebrew/bin/lpass`, login works
+
+**WireGuard & DNS:**
+- WireGuard tunnel up on Mac Studio (utun interfaces, flyctl agent running)
+- flewctl agent started with `fly auth login` (Google OAuth)
+- DNS not resolving Fly.io hostname (system DNS pointing to local router, not Fly.io DNS)
+- SSH to Fly.io works via tunnel, can access production Postgres via SSH session
+- Direct Postgres connections from Mac Studio failing (DNS issue)
+
+**Production Database:**
+- 15 exercises with NULL auto-tag fields identified (stretching exercises + squat variations)
+- Classification script running for those exercises
+- Backup process established: `~/Projects/askeo/backups/` on Mac Studio, manual `pg_dump` before/after changes
+- Fly.io Postgres is unmanaged — no automated backups
+
+**Documentation:**
+- TODO.md updated with backup process, dynamic warmup feature, and today's accomplishments
+- deploy.md updated with current status
+- `.gitignore` updated to exclude `backups/`
+- Backup directory created: `~/Projects/askeo/backups/`
+
+**Next Steps:**
+- Fix DNS issue on Mac Studio (so direct Postgres connections work)
+- Complete classification of 15 exercises with NULL auto-tag fields
+- Add warmup exercises for dynamic warmup feature
+- Build dynamic warmup screen in frontend (for tomorrow)
