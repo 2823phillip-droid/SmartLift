@@ -268,7 +268,7 @@ To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No l
 
 ### Access & Credentials (for AI troubleshooting)
 
-**Order of operations (tomorrow):**
+**Order of operations:**
 1. Set up LastPass — store production DATABASE_URL and identify all other logins needed
 2. Install LastPass CLI (optional but recommended): `brew install lastpass-cli`
 3. Then start working on adding/modifying exercises in the production database
@@ -279,7 +279,7 @@ To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No l
 - Git remote: `git@github.com:2823phillip-droid/SmartLift.git` (SSH)
 
 **Need to store in LastPass:**
-- [ ] **Production DATABASE_URL** — Full Postgres connection string (with password). Currently only visible in Fly.io dashboard (Settings → Secrets → DATABASE_URL). Not exportable via `fly secrets` CLI. Needed to: connect to production Postgres from Mac for troubleshooting, run classification scripts against production, query production data directly, add/modify exercises in production DB.
+- [ ] **Production DATABASE_URL** — Full Postgres connection string (with password). Currently only visible in Fly.io dashboard (Settings → Secrets → DATABASE_URL). Not exportable via `fly secrets` CLI. Needed to: connect to production Postgres from the studio for troubleshooting, run classification scripts against production, query production data directly, add/modify exercises in production DB.
 - [ ] **App auth token** — A valid Bearer token for the iOS app's auth system. Needed to: test API endpoints from terminal (curl, python, etc.) like `GET /api/exercise-library`, `POST /api/coach/session-targets`, `POST /api/exercise-library`. Currently only the iOS app has working auth. Options: (a) log into the app and extract the token from network requests, (b) create a test user via the `/api/auth/signup` endpoint and use that token, (c) add a debug/token endpoint to the backend.
 - [ ] **LastPass master password** — If installing `lpass` CLI, the master password is needed to unlock the vault from terminal. Store in LastPass as a secure note (ironic but necessary for CLI access).
 
