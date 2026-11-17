@@ -56,6 +56,7 @@ export default function ActiveWorkoutScreen({
   const [notesMap, setNotesMap] = useState<Record<number, string>>({});
   const [showNotesMap, setShowNotesMap] = useState<Record<number, boolean>>({});
   const [addSetExerciseId, setAddSetExerciseId] = useState<number | null>(null);
+  const [warmupSetTypes, setWarmupSetTypes] = useState<Record<number, boolean>>({});
   const [displaySetsTarget, setDisplaySetsTarget] = useState<Record<number, number>>({});
   const [lastSessionByExercise, setLastSessionByExercise] = useState<Record<number, {set_index: number; actual_weight: number; actual_reps: number; started_at?: string; effort?: number; form_quality?: number | null}[]>>({});
   const [originalExercises, setOriginalExercises] = useState<ExerciseEntry[]>([]);
@@ -526,6 +527,7 @@ export default function ActiveWorkoutScreen({
   const exerciseCompletedCount = useMemo(() => {
     const counts: Record<number, number> = {};
     for (const log of logs) {
+      if (log.is_warmup) continue;
       counts[log.exercise_entry_id] = (counts[log.exercise_entry_id] || 0) + 1;
     }
     return counts;
@@ -785,7 +787,7 @@ export default function ActiveWorkoutScreen({
     const units = getUnitsPreference();
     const weightLbs = units === "imperial" ? w : kgToLbs(w);
     const suggestions = parseSetSuggestions(currentExercise);
-    const existing = logs.filter((l: SetLog) => l.exercise_entry_id === currentExercise.id).length;
+    const existing = logs.filter((l: SetLog) => l.exercise_entry_id === currentExercise.id && !(l.is_warmup ?? false)).length;
     const setIndex = existing + 1;
     console.warn(`[ActiveWorkoutScreen] logSet called for ${currentExercise.name}, setIndex=${setIndex}, weight=${weightLbs}, reps=${r}`);
     const sugg = suggestions[setIndex - 1];
@@ -835,13 +837,21 @@ export default function ActiveWorkoutScreen({
         effort: draftEffort ?? undefined,
         form_quality: draftFormQuality,
         notes: notesMap[currentExercise.id] || undefined,
+        is_warmup: warmupSetTypes[currentExercise.id] ?? false,
       });
       setLogs((l) => [...l, log]);
-      loggedSetCountRef.current[currentExercise.id] = (loggedSetCountRef.current[currentExercise.id] || 0) + 1;
+      // Only count non-warmup sets for rest timer display and progression
+      if (!(log.is_warmup ?? false)) {
+        loggedSetCountRef.current[currentExercise.id] = (loggedSetCountRef.current[currentExercise.id] || 0) + 1;
+      }
       lastLoggedSetRef.current[currentExercise.id] = log;
 
       // Fetch updated progression for next set after logging
       try {
+        // Capture previous set's weight for this exercise (before this set was added)
+        const exerciseLogsBefore = logs.filter((l: SetLog) => l.exercise_entry_id === currentExercise.id);
+        const prevSetWeight = exerciseLogsBefore.length > 0 ? exerciseLogsBefore[exerciseLogsBefore.length - 1].actual_weight : null;
+
         const calcData = await api.post(`/api/progression/calculate`, {
           exercise_library_id: currentExercise.exercise_library_id,
           session_id: sessionId,
@@ -879,6 +889,26 @@ export default function ActiveWorkoutScreen({
             is_deload: false,
             should_increase: calcData.should_increase,
           };
+
+          // Detect weight drop between sets and append acknowledgment
+          const effortMatch = calcData.coaching_message?.match(/effort\s+(\d+)/);
+          const currentEffort = draftEffort ?? (effortMatch ? Number(effortMatch[1]) : null);
+          if (prevSetWeight != null && weightLbs < prevSetWeight && weightLbs > 0) {
+            const dropLbs = prevSetWeight - weightLbs;
+            // Good drop: weight decreased and effort is in target range (4-7) or lower
+            if (currentEffort != null && currentEffort <= 7) {
+              updatedPrescription.coaching_message += `\n\nGood drop — went down ${Math.round(dropLbs)} lbs. `;
+              if (currentEffort >= 5 && currentEffort <= 7) {
+                updatedPrescription.coaching_message += `That's right in the zone for this phase. Stay here and build consistency.`;
+              } else if (currentEffort <= 4) {
+                updatedPrescription.coaching_message += `Feeling easier now — that's expected after the drop. Focus on form and control.`;
+              }
+            } else if (currentEffort != null && currentEffort >= 8) {
+              // Dropped but still hard — acknowledge the adjustment
+              updatedPrescription.coaching_message += `\n\nYou dropped ${Math.round(dropLbs)} lbs but it's still challenging (effort ${currentEffort}). `;
+              updatedPrescription.coaching_message += `That's okay — listen to your body. The goal is effort ~6 on the first set.`;
+            }
+          }
           setPrescriptions(prev => ({
             ...prev,
             [currentExercise.id]: {
@@ -913,13 +943,30 @@ export default function ActiveWorkoutScreen({
 
     const rest = currentRest;
 
+    // Skip rest timer for warmup sets — go straight to next set
+    const isWarmup = warmupSetTypes[currentExercise.id] ?? false;
+
     if (isExtraSet) {
       setAddSetExerciseId(null);
+      setWarmupSetTypes((prev) => {
+        const next = { ...prev };
+        delete next[currentExercise.id];
+        return next;
+      });
       setNotesMap((prev) => ({ ...prev, [currentExercise.id]: "" }));
       setShowNotesMap((prev) => ({ ...prev, [currentExercise.id]: false }));
-      setDraftWeight(String(w));
-      setDraftReps(String(r));
-      if (rest > 0) startRest(rest);
+      // Return to session target for the regular set
+      const p = prescriptions[currentExercise.id];
+      if (p) {
+        const displayWeight = getUnitsPreference() === "imperial"
+          ? Math.round(p.next_weight)
+          : Math.round(lbsToKg(p.next_weight));
+        setDraftWeight(String(displayWeight));
+        setDraftReps(String(p.next_reps));
+      }
+      setDraftEffort(null);
+      setDraftFormQuality(0);
+      if (rest > 0 && !isWarmup) startRest(rest);
       setIsLogging(false);
       return false;
     }
@@ -968,7 +1015,8 @@ export default function ActiveWorkoutScreen({
         }));
       }
     }
-    if (rest > 0) {
+    // Skip rest timer for warmup sets
+    if (rest > 0 && !isWarmup) {
       startRest(rest);
     }
     setIsLogging(false);
@@ -1402,7 +1450,37 @@ export default function ActiveWorkoutScreen({
                     expandExercise(exercise);
                     setAddSetExerciseId(exercise.id);
                   }}
-                  onCancelAddSet={() => setAddSetExerciseId(null)}
+                  onAddSetWithType={(isWarmup) => {
+                    setDisplaySetsTarget((prev) => ({
+                      ...prev,
+                      [exercise.id]: (prev[exercise.id] ?? exercise.sets_target) + 1,
+                    }));
+                    expandExercise(exercise);
+                    setAddSetExerciseId(exercise.id);
+                    setWarmupSetTypes((prev) => ({ ...prev, [exercise.id]: isWarmup }));
+                    if (isWarmup) {
+                      // Set warmup weight to 50% of target, rounded to nearest 5 lbs
+                      const targetWeight = exerciseProgression[exercise.id]?.suggested_weight 
+                        ?? prescriptions[exercise.id]?.next_weight 
+                        ?? exercise.start_weight 
+                        ?? 0;
+                      const warmupWeight = Math.round(targetWeight * 0.5 / 5) * 5;
+                      const displayWeight = getUnitsPreference() === "imperial"
+                        ? warmupWeight
+                        : Math.round(kgToLbs(warmupWeight));
+                      setDraftWeight(String(displayWeight));
+                      // Clear effort for warmup sets (not required)
+                      setDraftEffort(null);
+                    }
+                  }}
+                  onCancelAddSet={() => {
+                    setAddSetExerciseId(null);
+                    setWarmupSetTypes((prev) => {
+                      const next = { ...prev };
+                      delete next[exercise.id];
+                      return next;
+                    });
+                  }}
                   onToggleRestEdit={() => toggleExerciseRestEdit(exercise, !editingRest)}
                   editingRestValue={exerciseRestDraft[exercise.id] ?? String(exercise.rest_seconds)}
                   onRestChange={(val) => {
@@ -1430,6 +1508,7 @@ export default function ActiveWorkoutScreen({
                   repFloor={exerciseProgression[exercise.id]?.rep_floor}
                   repCap={exerciseProgression[exercise.id]?.rep_cap}
                   shouldIncrease={exerciseProgression[exercise.id]?.should_increase}
+                  isWarmupSet={warmupSetTypes[exercise.id] ?? false}
                 />
               );
             })}
