@@ -11,8 +11,8 @@ This file explains where every type of project knowledge lives and when to use i
 
 #### Repo
 - **Branch:** master
-- **HEAD:** `72ca366` — "Change set target message to show rep_cap (10) instead of rep_floor-rep_cap (8-10)"
-- **Remote (GitHub):** committed, push pending. 
+- **HEAD:** `babd957` — "fix: show session prescription weight/reps in exercise card target line"
+- **Remote (GitHub):** committed and pushed. 
 - **Deployed to Fly:** commits through `72ca366` (latest: `72ca366` — set target message target=10)
 
 #### Frontend
