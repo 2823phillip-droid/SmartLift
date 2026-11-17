@@ -2690,7 +2690,11 @@ def calculate_progression(
     preset = BLOCK_REP_TARGETS.get(block_mode, BLOCK_REP_TARGETS["foundation"])
     # Determine if exercise is compound (same logic as session-targets)
     is_compound = exercise.is_compound if exercise and hasattr(exercise, "is_compound") else False
-    reps_target = is_compound and preset.get("rep_cap", 8) or preset.get("rep_floor", 8)
+    # Foundation: all exercises use rep_cap regardless of compound/isolation
+    if block_mode == "foundation":
+        reps_target = preset.get("rep_cap", 8)
+    else:
+        reps_target = is_compound and preset.get("rep_cap", 8) or preset.get("rep_floor", 8)
     increment = preset.get("increment", 5)
 
     # Call model_picker with full parameters (same as session-targets endpoint)

@@ -152,6 +152,35 @@ export default function ActiveWorkoutScreen({
   const [prescriptions, setPrescriptions] = useState<Record<number, Prescription>>({});
   const [sessionTargets, setSessionTargets] = useState<Record<number, { coaching_message: string; session_target: string }>>({});
 
+  // Restore prescriptions from localStorage on mount (survives nav away/back)
+  // If prescriptions are already populated, skip the session targets fetch.
+  const prescriptionStorageKey = `askeo_prescriptions_${sessionId}`;
+  useEffect(() => {
+    if (!sessionId) return;
+    const saved = localStorage.getItem(prescriptionStorageKey);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved) as Record<number, Prescription>;
+        if (Object.keys(parsed).length > 0) {
+          setPrescriptions(parsed);
+          console.log(`[ActiveWorkoutScreen] Restored prescriptions from storage for session ${sessionId}`);
+        }
+      } catch {
+        localStorage.removeItem(prescriptionStorageKey);
+      }
+    }
+  }, [sessionId]);
+
+  // Persist prescriptions to localStorage whenever they change
+  useEffect(() => {
+    if (!sessionId || Object.keys(prescriptions).length === 0) return;
+    try {
+      localStorage.setItem(prescriptionStorageKey, JSON.stringify(prescriptions));
+    } catch {
+      // ignore storage errors
+    }
+  }, [prescriptions, sessionId]);
+
   useEffect(() => {
     let cancelled = false;
     const load = async () => {
@@ -387,77 +416,84 @@ export default function ActiveWorkoutScreen({
       return;
     }
 
-    // Fetch session targets from backend first — these provide the
-    // model-specific weight, reps, and coaching messages for all exercises.
-    // Frontend does NOT compute prescriptions locally — relies entirely on backend.
-    console.log("[ActiveWorkoutScreen] Fetching session targets...");
-    let targetsMap: Record<number, { coaching_message: string; session_target: string; suggested_weight: number; rep_floor: number; rep_cap: number; next_reps?: number }> = {};
-    try {
-      const targets = await api.getSessionTargets(sessionId);
-      console.log("[ActiveWorkoutScreen] Session targets received:", targets.length, "exercises");
-      for (const t of targets) {
-        targetsMap[t.exercise_id] = {
-          coaching_message: t.coaching_message,
-          session_target: t.session_target ?? "",
-          suggested_weight: t.suggested_weight,
-          rep_floor: t.rep_floor,
-          rep_cap: t.rep_cap,
-          next_reps: t.next_reps,
-        };
+    // If prescriptions are already populated (restored from localStorage after nav back),
+    // skip the session targets fetch — re-fetching would overwrite updated prescriptions
+    // with the original session targets.
+    let sessionTargetsData: any[] = [];
+    if (Object.keys(prescriptions).length > 0) {
+      console.log("[ActiveWorkoutScreen] Prescriptions already loaded, skipping session targets fetch");
+    } else {
+      // Fetch session targets from backend first — these provide the
+      // model-specific weight, reps, and coaching messages for all exercises.
+      // Frontend does NOT compute prescriptions locally — relies entirely on backend.
+      console.log("[ActiveWorkoutScreen] Fetching session targets...");
+      let targetsMap: Record<number, { coaching_message: string; session_target: string; suggested_weight: number; rep_floor: number; rep_cap: number; next_reps?: number }> = {};
+      try {
+        sessionTargetsData = await api.getSessionTargets(sessionId);
+        console.log("[ActiveWorkoutScreen] Session targets received:", sessionTargetsData.length, "exercises");
+        for (const t of sessionTargetsData) {
+          targetsMap[t.exercise_id] = {
+            coaching_message: t.coaching_message,
+            session_target: t.session_target ?? "",
+            suggested_weight: t.suggested_weight,
+            rep_floor: t.rep_floor,
+            rep_cap: t.rep_cap,
+            next_reps: t.next_reps,
+          };
+        }
+      } catch (err) {
+        console.error("[ActiveWorkoutScreen] Failed to fetch session targets — prescriptions will be empty", err);
       }
-    } catch (err) {
-      console.error("[ActiveWorkoutScreen] Failed to fetch session targets — prescriptions will be empty", err);
+
+      // Update sessionTargets state for FOUNDATION pill and other uses
+      setSessionTargets(targetsMap);
+
+      // Build prescriptions from session targets only.
+      // No local fallback — if backend fails, prescriptions stay empty.
+      const newPrescriptions: Record<number, Prescription> = {};
+      let expanded = false;
+      for (const target of sessionTargetsData) {
+        const targetData = targetsMap[target.id];
+        if (targetData) {
+          const units = getUnitsPreference();
+          const weightInUnits = units === "imperial"
+            ? targetData.suggested_weight
+            : lbsToKg(targetData.suggested_weight);
+          newPrescriptions[target.id] = {
+            next_weight: Math.round(weightInUnits * 10) / 10,
+            next_reps: targetData.next_reps ?? targetData.rep_floor,
+            next_sets: target.sets_target || 3,
+            rest_seconds: target.rest_seconds ?? 90,
+            coaching_message: targetData.coaching_message,
+            session_target: targetData.session_target ?? "",
+            workload_status: "moderate" as WorkloadStatus,
+            prescription_type: "foundation",
+            is_deload: false,
+            source: "backend",
+          };
+        }
+
+        if (!expanded && newPrescriptions[target.id]) {
+          const p = newPrescriptions[target.id];
+          const displayWeight = getUnitsPreference() === "imperial"
+            ? Math.round(p.next_weight)
+            : Math.round(lbsToKg(p.next_reps));
+          setDraftWeight(String(displayWeight));
+          setDraftReps(String(p.next_reps));
+          setDraftEffort(null);
+          setDraftFormQuality(0);
+          setNotesMap((prev) => ({ ...prev, [target.id]: "" }));
+          setShowNotesMap((prev) => ({ ...prev, [target.id]: false }));
+          setExpandedExerciseId(target.id);
+          autoExpandCompleteRef.current = true;
+          console.log("[ActiveWorkoutScreen] auto-expand", displayWeight, "x", p.next_reps, "source:", p.source);
+          expanded = true;
+        }
+      }
+      setPrescriptions((prev) => ({ ...prev, ...newPrescriptions }));
+      setIsBuildingWorkout(false);
+      isBuildingWorkoutRef.current = false;
     }
-
-    // Update sessionTargets state for FOUNDATION pill and other uses
-    setSessionTargets(targetsMap);
-
-    // Build prescriptions from session targets only.
-    // No local fallback — if backend fails, prescriptions stay empty.
-    const newPrescriptions: Record<number, Prescription> = {};
-    let expanded = false;
-    for (const target of targets) {
-      const targetData = targetsMap[target.id];
-      if (targetData) {
-        const units = getUnitsPreference();
-        const weightInUnits = units === "imperial"
-          ? targetData.suggested_weight
-          : lbsToKg(targetData.suggested_weight);
-        newPrescriptions[target.id] = {
-          next_weight: Math.round(weightInUnits * 10) / 10,
-          next_reps: targetData.next_reps ?? targetData.rep_floor,
-          next_sets: target.sets_target || 3,
-          rest_seconds: target.rest_seconds ?? 90,
-          coaching_message: targetData.coaching_message,
-          session_target: targetData.session_target ?? "",
-          workload_status: "moderate" as WorkloadStatus,
-          prescription_type: "foundation",
-          is_deload: false,
-          source: "backend",
-        };
-      }
-      // If no targetData, skip — prescription stays empty
-
-      if (!expanded && newPrescriptions[target.id]) {
-        const p = newPrescriptions[target.id];
-        const displayWeight = getUnitsPreference() === "imperial"
-          ? Math.round(p.next_weight)
-          : Math.round(lbsToKg(p.next_weight));
-        setDraftWeight(String(displayWeight));
-        setDraftReps(String(p.next_reps));
-        setDraftEffort(null);
-        setDraftFormQuality(0);
-        setNotesMap((prev) => ({ ...prev, [target.id]: "" }));
-        setShowNotesMap((prev) => ({ ...prev, [target.id]: false }));
-        setExpandedExerciseId(target.id);
-        autoExpandCompleteRef.current = true;
-        console.log("[ActiveWorkoutScreen] auto-expand", displayWeight, "x", p.next_reps, "source:", p.source);
-        expanded = true;
-      }
-    }
-    setPrescriptions((prev) => ({ ...prev, ...newPrescriptions }));
-    setIsBuildingWorkout(false);
-    isBuildingWorkoutRef.current = false;
   })();
   }, [isBuildingWorkout, exercises, logs, lastSessionByExercise, displaySetsTarget, template?.name]);
 

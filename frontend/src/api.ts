@@ -409,6 +409,7 @@ export const api = {
     rir?: number | null;
     form_quality?: number | null;
     notes?: string | null;
+    is_warmup?: boolean | null;
   }) =>
     request("/set-logs", { method: "POST", body: JSON.stringify(data) }),
   getSessionSetLogs: (sessionId: number) =>

@@ -103,6 +103,7 @@ export interface SetLog {
   effort?: number;
   form_quality?: number;
   notes?: string;
+  is_warmup?: boolean;
 }
 
 export interface CoachMessage {
