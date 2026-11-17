@@ -20,6 +20,7 @@ export interface SortableExerciseCardProps {
   isResting: boolean;
   onExpand: () => void;
   onAddSet: () => void;
+  onAddSetWithType: (isWarmup: boolean) => void;
   onCancelAddSet: () => void;
   onToggleRestEdit: () => void;
   editingRestValue: string;
@@ -45,6 +46,7 @@ export interface SortableExerciseCardProps {
   repFloor?: number;
   repCap?: number;
   shouldIncrease?: boolean;
+  isWarmupSet?: boolean;
 }
 
 export function SortableExerciseCard({
@@ -60,6 +62,7 @@ export function SortableExerciseCard({
   isResting,
   onExpand,
   onAddSet,
+  onAddSetWithType,
   onCancelAddSet,
   onToggleRestEdit,
   editingRestValue,
@@ -85,6 +88,7 @@ export function SortableExerciseCard({
   repFloor,
   repCap,
   shouldIncrease,
+  isWarmupSet,
 }: SortableExerciseCardProps) {
   const [editingSetId, setEditingSetId] = useState<number | null>(null);
   const [editWeight, setEditWeight] = useState<string>("");
@@ -177,18 +181,14 @@ export function SortableExerciseCard({
           </div>
         ) : (
           <div
-            className={`rounded-2xl border transition-all ${
-              isExpanded
-                ? "border-indigo-800 bg-slate-900/80 shadow-lg shadow-indigo-950/20"
-                : "border-slate-800 bg-slate-900/50 hover:border-slate-700"
-            }`}
+            className={`rounded-2xl border transition-all ${isWarmupSet ? "border-amber-600 bg-amber-950/20 shadow-lg shadow-amber-950/30" : isExpanded ? "border-indigo-800 bg-slate-900/80 shadow-lg shadow-indigo-950/20" : "border-slate-800 bg-slate-900/50 hover:border-slate-700"}`}
           >
             <button
               onClick={onExpand}
               disabled={isResting}
-              className="w-full flex items-center justify-between px-3 py-2 text-left disabled:opacity-60"
+              className="w-full flex flex-col items-start justify-between px-3 py-2 text-left disabled:opacity-60 gap-1.5"
             >
-              <div className="flex items-center gap-2.5 min-w-0">
+              <div className="flex items-center gap-2.5 min-w-0 w-full">
                 {exercise.gif_url ? (
                   <img
                     src={resolveMediaUrl(exercise.gif_url)!}
@@ -200,30 +200,43 @@ export function SortableExerciseCard({
                     }}
                   />
                 ) : null}
-                <div className="flex-1 min-w-0">
-                  <div className="text-xs font-semibold text-slate-200 truncate">{exercise.name}</div>
+                <div className="flex-1">
+                  <div className="text-sm font-semibold text-slate-200 break-words">{exercise.name}</div>
                   <div className="text-[11px] text-slate-500 mt-0.5">
-                    {completed}/{displayTarget} sets · {formatWeight(exercise.start_weight, getUnitsPreference())} × {inferRepsTarget(exercise.is_compound ?? true)} reps target
+                    {completed}/{displayTarget} sets · {formatWeight(suggestion?.next_weight ?? exercise.start_weight, getUnitsPreference())} × {suggestion?.next_reps ?? inferRepsTarget(exercise.is_compound ?? true)} reps target
                   </div>
                 </div>
               </div>
-              <div className="flex items-center gap-1.5 ml-2">
-                {isComplete && (
-                  <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-full px-1.5 py-0.5">
-                    Done
-                  </span>
-                )}
-                {!isResting && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onAddSet();
-                    }}
-                    className="rounded-full border border-slate-700 bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-300 hover:border-slate-600"
-                  >
-                    Add Set
-                  </button>
-                )}
+              <div className="flex items-center gap-2 w-full justify-between">
+                <div className="flex items-center gap-1.5">
+                  {isComplete && (
+                    <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-600/20 text-emerald-400 border border-emerald-700/50 rounded-full px-1.5 py-0.5">
+                      Done
+                    </span>
+                  )}
+                  {!isResting && !addingSet && (
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAddSetWithType(false); // Regular set
+                        }}
+                        className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-all bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600 hover:text-slate-300"
+                      >
+                        Set
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onAddSetWithType(true); // Warmup set
+                        }}
+                        className="rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider transition-all bg-slate-800 text-slate-400 border border-slate-700 hover:border-slate-600 hover:text-slate-300"
+                      >
+                        Warmup
+                      </button>
+                    </div>
+                  )}
+                </div>
                 <div className="flex items-center gap-1">
                   <input
                     type="number"
@@ -266,7 +279,9 @@ export function SortableExerciseCard({
                       editingSetId === log.id ? (
                         <div key={log.id} className="rounded-xl border border-indigo-800/60 bg-indigo-950/20 px-3 py-2.5 space-y-2">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs text-slate-200 font-semibold">Set {log.set_index} · Edit</span>
+                            <span className="text-xs text-slate-200 font-semibold">
+                              {log.is_warmup ? "Warmup" : `Set ${log.set_index}`} · Edit
+                            </span>
                             <button
                               onClick={(e) => { e.stopPropagation(); cancelEditSet(); }}
                               className="text-[10px] text-slate-500 hover:text-slate-300"
@@ -332,7 +347,9 @@ export function SortableExerciseCard({
                         </div>
                       ) : (
                         <div key={log.id} className="flex items-center justify-between rounded-xl bg-slate-950/50 border border-slate-800 px-2.5 py-1.5">
-                          <span className="text-xs text-slate-500 font-semibold">Set {log.set_index}</span>
+                          <span className="text-xs text-slate-500 font-semibold">
+                            {log.is_warmup ? "Warmup" : `Set ${log.set_index}`}
+                          </span>
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-slate-300 font-semibold">
                               {`${formatWeight(log.actual_weight ?? 0, getUnitsPreference())}`} × {log.actual_reps} reps
@@ -440,6 +457,7 @@ export function SortableExerciseCard({
                       </div>
                     </div>
 
+                    {!isWarmupSet && (
                     <div className="space-y-1.5">
                       <label className="text-xs text-slate-500 uppercase tracking-widest font-semibold">
                         Effort {draftEffort !== null ? `${draftEffort}/10` : "—"}
@@ -461,6 +479,7 @@ export function SortableExerciseCard({
                       </div>
                       <p className="text-[10px] text-slate-500">How hard was this set? 1 = easy, 10 = max effort.</p>
                     </div>
+                    )}
 
                     <div className="space-y-1.5">
                       <label className="text-xs text-slate-500 uppercase tracking-widest font-semibold">
@@ -519,7 +538,7 @@ export function SortableExerciseCard({
                       disabled={!canLog || isLogging}
                       className="w-full rounded-2xl bg-emerald-600 px-4 py-3.5 text-base font-semibold hover:bg-emerald-500 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/30 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
                     >
-                      {isLogging ? "Logging..." : "Complete Set"}
+                      {isLogging ? "Logging..." : isWarmupSet ? "Complete Warmup" : "Complete Set"}
                     </button>
                   </>
                 )}
