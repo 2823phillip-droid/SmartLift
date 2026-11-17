@@ -1027,7 +1027,7 @@ export default function ActiveWorkoutScreen({
     if (!restSeconds || restSeconds <= 0) return null;
     const currentExercise = getCurrentExercise();
     if (!currentExercise) return null;
-    const existing = loggedSetCountRef.current[currentExercise.id] || 0;
+    const existing = exerciseCompletedCount[currentExercise.id] || 0;
     const nextSetIndex = existing + 1;
 
     if (nextSetIndex <= resolveDisplayTarget(currentExercise)) {
