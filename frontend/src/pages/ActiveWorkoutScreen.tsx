@@ -1451,10 +1451,14 @@ export default function ActiveWorkoutScreen({
                     setAddSetExerciseId(exercise.id);
                   }}
                   onAddSetWithType={(isWarmup) => {
-                    setDisplaySetsTarget((prev) => ({
-                      ...prev,
-                      [exercise.id]: (prev[exercise.id] ?? exercise.sets_target) + 1,
-                    }));
+                    // Only increment the display target for actual working sets,
+                    // not warmups — warmups don't count toward the exercise target.
+                    if (!isWarmup) {
+                      setDisplaySetsTarget((prev) => ({
+                        ...prev,
+                        [exercise.id]: (prev[exercise.id] ?? exercise.sets_target) + 1,
+                      }));
+                    }
                     expandExercise(exercise);
                     setAddSetExerciseId(exercise.id);
                     setWarmupSetTypes((prev) => ({ ...prev, [exercise.id]: isWarmup }));
