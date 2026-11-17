@@ -11,9 +11,9 @@ This file explains where every type of project knowledge lives and when to use i
 
 #### Repo
 - **Branch:** master
-- **HEAD:** `babd957` — "fix: show session prescription weight/reps in exercise card target line"
-- **Remote (GitHub):** committed and pushed. 
-- **Deployed to Fly:** commits through `72ca366` (latest: `72ca366` — set target message target=10)
+- **HEAD:** `f64802f` — "fix: warmup set tracking, set target display, and rep target bugs"
+- **Remote (GitHub):** committed and pushed.
+- **Deployed to Fly:** commits through `f64802f` (latest: `f64802f` — warmup tracking, set target display, rep target fixes)
 
 #### Frontend
 - **Build target:** Capacitor iOS app, Xcode project on Mac Studio. Run from Xcode → Product > Run.
