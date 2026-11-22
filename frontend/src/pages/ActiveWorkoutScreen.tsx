@@ -459,7 +459,7 @@ export default function ActiveWorkoutScreen({
           const weightInUnits = units === "imperial"
             ? targetData.suggested_weight
             : lbsToKg(targetData.suggested_weight);
-          newPrescriptions[target.id] = {
+          newPrescriptions[target.exercise_id] = {
             next_weight: Math.round(weightInUnits * 10) / 10,
             next_reps: targetData.next_reps ?? targetData.rep_floor,
             next_sets: target.sets_target || 3,
@@ -473,8 +473,8 @@ export default function ActiveWorkoutScreen({
           };
         }
 
-        if (!expanded && newPrescriptions[target.id]) {
-          const p = newPrescriptions[target.id];
+        if (!expanded && newPrescriptions[target.exercise_id]) {
+          const p = newPrescriptions[target.exercise_id];
           const displayWeight = getUnitsPreference() === "imperial"
             ? Math.round(p.next_weight)
             : Math.round(lbsToKg(p.next_weight));
@@ -482,9 +482,9 @@ export default function ActiveWorkoutScreen({
           setDraftReps(String(p.next_reps));
           setDraftEffort(null);
           setDraftFormQuality(0);
-          setNotesMap((prev) => ({ ...prev, [target.id]: "" }));
-          setShowNotesMap((prev) => ({ ...prev, [target.id]: false }));
-          setExpandedExerciseId(target.id);
+          setNotesMap((prev) => ({ ...prev, [target.exercise_id]: "" }));
+          setShowNotesMap((prev) => ({ ...prev, [target.exercise_id]: false }));
+          setExpandedExerciseId(target.exercise_id);
           autoExpandCompleteRef.current = true;
           console.log("[ActiveWorkoutScreen] auto-expand", displayWeight, "x", p.next_reps, "source:", p.source);
           expanded = true;
