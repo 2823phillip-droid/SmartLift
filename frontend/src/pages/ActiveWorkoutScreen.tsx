@@ -882,6 +882,23 @@ export default function ActiveWorkoutScreen({
       }
       lastLoggedSetRef.current[currentExercise.id] = log;
 
+      // Only update progression for working sets — warmups don't affect the
+      // target weight or progression. Logging a warmup set should not change
+      // the prescription for the next set.
+      if (log.is_warmup ?? false) {
+        // Restore draft to target weight after logging a warmup set
+        const targetWeight = exerciseProgression[currentExercise.id]?.suggested_weight
+          ?? prescriptions[currentExercise.id]?.next_weight
+          ?? currentExercise.start_weight
+          ?? 0;
+        const displayWeight = getUnitsPreference() === "imperial"
+          ? targetWeight
+          : Math.round(lbsToKg(targetWeight));
+        setDraftWeight(String(displayWeight));
+        console.log("[ActiveWorkoutScreen] Warmup set logged — skipping progression update, restored draft to target weight:", displayWeight);
+        return;
+      }
+
       // Fetch updated progression for next set after logging
       try {
         // Capture previous set's weight for this exercise (before this set was added)
