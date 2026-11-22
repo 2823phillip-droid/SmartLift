@@ -833,6 +833,7 @@ export default function ActiveWorkoutScreen({
         delete next[currentExercise.id];
         return next;
       });
+      setAddSetExerciseId(null);
       setIsLogging(false);
       console.log("[ActiveWorkoutScreen] Warmup set completed — restored draft to target weight:", displayWeight);
       return true;
@@ -955,6 +956,8 @@ export default function ActiveWorkoutScreen({
               box_type: calcData.box_type,
             },
           }));
+          console.log("[ActiveWorkoutScreen] Set logged — session_target from prescriptions:", prescriptions[currentExercise.id]?.session_target ?? "EMPTY");
+          console.log("[ActiveWorkoutScreen] Set logged — calcData coaching_message:", calcData.coaching_message ?? "EMPTY");
           updatedPrescription = {
             next_weight: Math.round(nextWeightLbs * 10) / 10,
             next_reps: nextReps,
