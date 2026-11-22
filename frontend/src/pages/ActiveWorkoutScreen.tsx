@@ -817,8 +817,10 @@ export default function ActiveWorkoutScreen({
     // Just restore the draft weight to the target and clear the warmup state.
     const currentExercise = getCurrentExercise();
     if (currentExercise && warmupSetTypes[currentExercise.id]) {
-      const targetWeight = exerciseProgression[currentExercise.id]?.suggested_weight
-        ?? prescriptions[currentExercise.id]?.next_weight
+      // Use prescriptions[next_weight] — that's the session target weight.
+      // exerciseProgression[suggested_weight] may be stale (last session's weight).
+      const targetWeight = prescriptions[currentExercise.id]?.next_weight
+        ?? exerciseProgression[currentExercise.id]?.suggested_weight
         ?? currentExercise.start_weight
         ?? 0;
       const displayWeight = getUnitsPreference() === "imperial"
