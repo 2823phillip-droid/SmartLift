@@ -325,7 +325,8 @@ To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No l
 - [x] Auto-expand not working — FIXED (2026-11-22). Root cause: session targets loop used `target.id` instead of `target.exercise_id` to look up in targetsMap. Fixed in ActiveWorkoutScreen.tsx. Also fixed metric weight calc bug (lbsToKg(p.next_reps) -> lbsToKg(p.next_weight)). **Second fix:** newPrescriptions keyed by target.id (undefined) instead of target.exercise_id. Fixed all target.id references in loop.
 - [x] Warmup sets counting as Set 1 — FIXED (2026-11-22). Warmup sets were being logged to backend and affecting progression. Fixed: warmup sets are now UI-only — no logging, no backend call, no progression impact. When Complete Warmup is tapped, just restore draft to target weight and clear warmup state.
 - [ ] "Cannot save changes when trying to edit a set" — Frontend error when editing sets. PARTIALLY ADDRESSED (2026-11-02). Added validation error messages in SortableExerciseCard commitEditSet (weight/reps/effort validation now alerts user instead of silently returning). Still needs testing to identify any API-level failures.
-6. **"Need to find arsenal strength fly machine"** — Missing exercise reference. NOT YET ADDRESSED.
+- [ ] "Need to find arsenal strength fly machine" — Missing exercise reference. NOT YET ADDRESSED.
+- [ ] Custom exercise creation — Users need to create exercises not in the library (e.g., Arsenal Strength Fly Machine). Backend: added user_id and is_custom fields to ExerciseLibrary, POST /api/exercise-library endpoint. Frontend: need to build CustomExerciseCreateScreen with tile-based UI. NOT YET IMPLEMENTED (frontend).
 
 See "Foundation Phase Logic Work (Phase 5 — In Progress)" section above for full details.
 

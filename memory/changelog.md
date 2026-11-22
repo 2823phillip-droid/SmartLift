@@ -177,6 +177,9 @@ Format: DATE | FILE | TYPE | SUMMARY
 | 2026-11-22 | `frontend/src/pages/SortableExerciseCard.tsx` | updated | Added validation error alerts in commitEditSet for weight (non-negative), reps (>=1), effort (1-10). Previously silently returned without feedback. |
 | 2026-11-22 | `frontend/src/pages/ActiveWorkoutScreen.tsx` | updated | Warmup sets are now UI-only: no logging, no backend call, no progression impact. When Complete Warmup is tapped, just restore draft to target weight and clear warmup state. |
 | 2026-11-22 | `MEMORY-INDEX.md` | updated | Status line → `7b14209`. |
+| 2026-11-22 | `backend/models.py` | updated | Added `user_id` and `is_custom` fields to `ExerciseLibrary` model for custom exercise support. |
+| 2026-11-22 | `backend/main.py` | updated | Added DB migration for `user_id` and `is_custom` columns. Added `ExerciseLibraryCreate` model and `POST /api/exercise-library` endpoint for creating custom exercises. Updated `search_exercise_library` to include `is_custom` and `user_id` in response. Fixed Python 3.9 type hints (`User | None` → `Optional[User]`). |
+| 2026-11-22 | `TODO.md` | updated | Added custom exercise creation item to bug list (backend done, frontend pending). |
 
 ---
 
