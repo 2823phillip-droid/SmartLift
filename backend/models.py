@@ -118,7 +118,9 @@ class WorkoutTemplate(Base):
 class ExerciseLibrary(Base):
     __tablename__ = "exercise_library"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, nullable=False, unique=True)
+    name = Column(String, nullable=False)
+    user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
+    is_custom = Column(Boolean, default=False, nullable=False)
     muscle_group = Column(String)  # bodyPart
     equipment = Column(String)
     default_rest_seconds = Column(Integer, default=90)

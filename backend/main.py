@@ -397,6 +397,13 @@ def _run_migrations():
             if "warmup_type" not in elcols:
                 conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN warmup_type TEXT"))
                 conn.commit()
+            # Custom exercise fields
+            if "user_id" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE"))
+                conn.commit()
+            if "is_custom" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN is_custom BOOLEAN DEFAULT FALSE"))
+                conn.commit()
 
             # BlockState phase column: ensure it's a string type (migration from old INTEGER)
             bscols = cols("block_state")
@@ -452,6 +459,8 @@ class ExerciseLibraryOut(BaseModel):
     image_url: Optional[str] = None
     gif_url: Optional[str] = None
     is_compound: bool = True
+    is_custom: bool = False
+    user_id: Optional[int] = None
 
     @field_validator("name", mode="before")
     @classmethod
@@ -505,6 +514,67 @@ class ExerciseEntryOut(BaseModel):
 
     class Config:
         from_attributes = True
+
+
+# --- Exercise Library (for custom exercises) ---
+
+class ExerciseLibraryCreate(BaseModel):
+    name: str
+    is_compound: Optional[bool] = None
+    primary_equipment: Optional[str] = None
+    movement_type: Optional[str] = None
+    exercise_role: Optional[str] = None
+    systemic_fatigue_load: Optional[int] = None
+    structural_safety_score: Optional[int] = None
+    joint_stress_flags: Optional[str] = None
+    movement_pattern: Optional[str] = None
+    risk_score: Optional[int] = None
+    impact_score: Optional[int] = None
+    base_movement: Optional[str] = None
+    hitt_worthy: Optional[int] = None
+    warmup_type: Optional[str] = None
+    muscle_group: Optional[str] = None
+    equipment: Optional[str] = None
+    default_rest_seconds: Optional[int] = None
+
+
+@app.post("/api/exercise-library", response_model=ExerciseLibraryOut)
+def create_exercise_library_entry(payload: ExerciseLibraryCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    """Create a custom exercise in the library. Only available for authenticated users."""
+    existing = db.query(ExerciseLibrary).filter(
+        ExerciseLibrary.name == payload.name,
+        ExerciseLibrary.user_id == current_user.id,
+        ExerciseLibrary.is_custom == True,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="You already have a custom exercise with this name")
+
+    el = ExerciseLibrary(
+        name=payload.name,
+        user_id=current_user.id,
+        is_custom=True,
+        is_compound=payload.is_compound,
+        primary_equipment=payload.primary_equipment,
+        movement_type=payload.movement_type,
+        exercise_role=payload.exercise_role,
+        systemic_fatigue_load=payload.systemic_fatigue_load,
+        structural_safety_score=payload.structural_safety_score,
+        joint_stress_flags=payload.joint_stress_flags,
+        movement_pattern=payload.movement_pattern,
+        risk_score=payload.risk_score,
+        impact_score=payload.impact_score,
+        base_movement=payload.base_movement,
+        hitt_worthy=payload.hitt_worthy,
+        warmup_type=payload.warmup_type,
+        muscle_group=payload.muscle_group,
+        equipment=payload.equipment,
+        default_rest_seconds=payload.default_rest_seconds,
+    )
+    db.add(el)
+    db.commit()
+    db.refresh(el)
+    logging.info(f"Custom exercise created: id={el.id}, name={el.name}, user_id={current_user.id}")
+    return el
 
 class WorkoutTemplateCreate(BaseModel):
     context_id: int
@@ -1413,6 +1483,9 @@ def search_exercise_library(q: str = "", db: Session = Depends(get_db), current_
             video_url=e.video_url,
             image_url=e.image_url,
             gif_url=_normalize_gif_url(e.gif_url),
+            is_compound=getattr(e, "is_compound", True),
+            is_custom=e.is_custom,
+            user_id=e.user_id,
         )
         for e in query.all()
     ]
