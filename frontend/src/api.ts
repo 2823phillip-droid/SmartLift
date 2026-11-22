@@ -310,6 +310,7 @@ export interface SetLog {
   completed?: boolean;
   logged_at?: string | null;
   notes?: string | null;
+  is_warmup?: boolean | null;
 }
 
 export interface SetLogUpdate {
