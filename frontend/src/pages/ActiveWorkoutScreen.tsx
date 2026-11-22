@@ -960,7 +960,11 @@ export default function ActiveWorkoutScreen({
             next_reps: nextReps,
             next_sets: resolveDisplayTarget(currentExercise),
             rest_seconds: currentExercise.rest_seconds ?? 90,
-            coaching_message: calcData.coaching_message ?? existingCoachingMessage ?? "",
+            // For Set 2+, use the session target message from the previous
+            // prescription — not the "Foundation 1" verbiage from the calculate
+            // endpoint. The calculate endpoint returns phase info, but the user
+            // wants the session target message.
+            coaching_message: prescriptions[currentExercise.id]?.session_target ?? calcData.coaching_message ?? existingCoachingMessage ?? "",
             session_target: prescriptions[currentExercise.id]?.session_target ?? "",
             workload_status: "moderate" as WorkloadStatus,
             prescription_type: calcData.box_type || "foundation",
