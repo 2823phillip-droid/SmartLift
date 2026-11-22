@@ -812,7 +812,30 @@ export default function ActiveWorkoutScreen({
   const logSet = async (): Promise<boolean> => {
     setDebugMessage(`logSet ENTERED`);
     if (isLogging) return false;
+
+    // Warmup sets are UI-only — no logging, no backend call, no progression impact.
+    // Just restore the draft weight to the target and clear the warmup state.
     const currentExercise = getCurrentExercise();
+    if (currentExercise && warmupSetTypes[currentExercise.id]) {
+      const targetWeight = exerciseProgression[currentExercise.id]?.suggested_weight
+        ?? prescriptions[currentExercise.id]?.next_weight
+        ?? currentExercise.start_weight
+        ?? 0;
+      const displayWeight = getUnitsPreference() === "imperial"
+        ? targetWeight
+        : Math.round(lbsToKg(targetWeight));
+      setDraftWeight(String(displayWeight));
+      setDraftEffort(null);
+      setWarmupSetTypes((prev) => {
+        const next = { ...prev };
+        delete next[currentExercise.id];
+        return next;
+      });
+      setIsLogging(false);
+      console.log("[ActiveWorkoutScreen] Warmup set completed — restored draft to target weight:", displayWeight);
+      return true;
+    }
+
     if (!currentExercise || !draftWeight || !draftReps) {
       setDebugMessage(`logSet early return: isLogging=${isLogging}, exercise=${!!currentExercise}, weight=${!!draftWeight}, reps=${!!draftReps}`);
       return false;
@@ -896,7 +919,7 @@ export default function ActiveWorkoutScreen({
           : Math.round(lbsToKg(targetWeight));
         setDraftWeight(String(displayWeight));
         console.log("[ActiveWorkoutScreen] Warmup set logged — skipping progression update, restored draft to target weight:", displayWeight);
-        return;
+        return false;
       }
 
       // Fetch updated progression for next set after logging
