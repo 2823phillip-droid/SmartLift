@@ -623,6 +623,8 @@ class SessionHistoryOut(ApiBaseModel):
 
 class SetLogUpdate(BaseModel):
     actual_weight: Optional[float] = None
+    actual_weight_left: Optional[float] = None
+    actual_weight_right: Optional[float] = None
     actual_reps: Optional[int] = None
     effort: Optional[int] = None
     rir: Optional[int] = None
