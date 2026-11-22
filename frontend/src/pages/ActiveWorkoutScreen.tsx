@@ -453,7 +453,7 @@ export default function ActiveWorkoutScreen({
       const newPrescriptions: Record<number, Prescription> = {};
       let expanded = false;
       for (const target of sessionTargetsData) {
-        const targetData = targetsMap[target.id];
+        const targetData = targetsMap[target.exercise_id];
         if (targetData) {
           const units = getUnitsPreference();
           const weightInUnits = units === "imperial"
@@ -477,7 +477,7 @@ export default function ActiveWorkoutScreen({
           const p = newPrescriptions[target.id];
           const displayWeight = getUnitsPreference() === "imperial"
             ? Math.round(p.next_weight)
-            : Math.round(lbsToKg(p.next_reps));
+            : Math.round(lbsToKg(p.next_weight));
           setDraftWeight(String(displayWeight));
           setDraftReps(String(p.next_reps));
           setDraftEffort(null);
