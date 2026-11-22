@@ -175,6 +175,7 @@ Format: DATE | FILE | TYPE | SUMMARY
 | 2026-11-22 | `TODO.md` | updated | Marked bug #4 (Incline at 6 reps) investigated and fixed. Marked bug #5 (edit set save) partially addressed. Added validation error messages in SortableExerciseCard commitEditSet. |
 | 2026-11-22 | `backend/progression.py` | updated | Fixed rep target bug: form_quality/effort gates now keep `next_reps = reps_target_val` instead of overriding with last session's reps. Applied across Foundation, Hypertrophy, Strength A, B, C models. |
 | 2026-11-22 | `frontend/src/pages/SortableExerciseCard.tsx` | updated | Added validation error alerts in commitEditSet for weight (non-negative), reps (>=1), effort (1-10). Previously silently returned without feedback. |
+| 2026-11-22 | `frontend/src/pages/ActiveWorkoutScreen.tsx` | updated | Fixed auto-expand not working: session targets loop used `target.id` instead of `target.exercise_id`. Also fixed metric weight calc bug (lbsToKg(p.next_reps) -> lbsToKg(p.next_weight)). |
 | 2026-11-22 | `MEMORY-INDEX.md` | updated | Status line → `7b14209`. |
 
 ---

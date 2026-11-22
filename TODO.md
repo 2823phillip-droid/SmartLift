@@ -321,8 +321,9 @@ To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No l
 1. **Re-entry message leaks to Set 2** — "Re-entering the foundation block after time away" appears on Set 2, but should only apply to Set 1. FIXED (commit ea25108).
 2. **Foundation 15% reduction not visible** — CONFIRMED CORRECT. Reduction IS applied (120→100 lbs). Session target just needs better messaging.
 3. **Stay/increase/decrease branching missing** — Session target should branch based on last session vs current session comparison. PARTIALLY IMPLEMENTED.
-4. **Incline at 6 reps (below Foundation 1 range of 8-10)** — Set 1 Incline at 6 reps. FIXED (2026-11-02). Root cause: form_quality/effort gates overriding rep target. Fixed in progression.py across all models.
-5. **"Cannot save changes when trying to edit a set"** — Frontend error when editing sets. PARTIALLY ADDRESSED (2026-11-02). Added validation error messages in SortableExerciseCard commitEditSet (weight/reps/effort validation now alerts user instead of silently returning). Still needs testing to identify any API-level failures.
+- [x] Incline at 6 reps (below Foundation range) — FIXED (2026-11-02). Root cause: form_quality/effort gates overriding rep target. Fixed in progression.py across all models.
+- [x] Auto-expand not working — FIXED (2026-11-22). Root cause: session targets loop used `target.id` instead of `target.exercise_id` to look up in targetsMap. Fixed in ActiveWorkoutScreen.tsx. Also fixed metric weight calc bug (lbsToKg(p.next_reps) -> lbsToKg(p.next_weight)).
+- [ ] "Cannot save changes when trying to edit a set" — Frontend error when editing sets. PARTIALLY ADDRESSED (2026-11-02). Added validation error messages in SortableExerciseCard commitEditSet (weight/reps/effort validation now alerts user instead of silently returning). Still needs testing to identify any API-level failures.
 6. **"Need to find arsenal strength fly machine"** — Missing exercise reference. NOT YET ADDRESSED.
 
 See "Foundation Phase Logic Work (Phase 5 — In Progress)" section above for full details.
