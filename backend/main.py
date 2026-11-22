@@ -538,44 +538,6 @@ class ExerciseLibraryCreate(BaseModel):
     default_rest_seconds: Optional[int] = None
 
 
-@app.post("/api/exercise-library", response_model=ExerciseLibraryOut)
-def create_exercise_library_entry(payload: ExerciseLibraryCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
-    """Create a custom exercise in the library. Only available for authenticated users."""
-    existing = db.query(ExerciseLibrary).filter(
-        ExerciseLibrary.name == payload.name,
-        ExerciseLibrary.user_id == current_user.id,
-        ExerciseLibrary.is_custom == True,
-    ).first()
-    if existing:
-        raise HTTPException(status_code=400, detail="You already have a custom exercise with this name")
-
-    el = ExerciseLibrary(
-        name=payload.name,
-        user_id=current_user.id,
-        is_custom=True,
-        is_compound=payload.is_compound,
-        primary_equipment=payload.primary_equipment,
-        movement_type=payload.movement_type,
-        exercise_role=payload.exercise_role,
-        systemic_fatigue_load=payload.systemic_fatigue_load,
-        structural_safety_score=payload.structural_safety_score,
-        joint_stress_flags=payload.joint_stress_flags,
-        movement_pattern=payload.movement_pattern,
-        risk_score=payload.risk_score,
-        impact_score=payload.impact_score,
-        base_movement=payload.base_movement,
-        hitt_worthy=payload.hitt_worthy,
-        warmup_type=payload.warmup_type,
-        muscle_group=payload.muscle_group,
-        equipment=payload.equipment,
-        default_rest_seconds=payload.default_rest_seconds,
-    )
-    db.add(el)
-    db.commit()
-    db.refresh(el)
-    logging.info(f"Custom exercise created: id={el.id}, name={el.name}, user_id={current_user.id}")
-    return el
-
 class WorkoutTemplateCreate(BaseModel):
     context_id: int
     name: str
@@ -948,7 +910,7 @@ def logout(authorization: Optional[str] = Header(None), db: Session = Depends(ge
             db.refresh(user)
     return {"ok": True}
 
-def _user_from_token(token: str, db: Session) -> User | None:
+def _user_from_token(token: str, db: Session) -> Optional[User]:
     token_hash = _token_hash(token)
     user = db.query(User).filter(User.token_hash == token_hash).first()
     if not user:
@@ -992,6 +954,45 @@ def get_current_user_dep(authorization: Optional[str] = Header(None), db: Sessio
     if not user:
         raise HTTPException(status_code=401, detail="Invalid token")
     return user
+
+
+@app.post("/api/exercise-library", response_model=ExerciseLibraryOut)
+def create_exercise_library_entry(payload: ExerciseLibraryCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    """Create a custom exercise in the library. Only available for authenticated users."""
+    existing = db.query(ExerciseLibrary).filter(
+        ExerciseLibrary.name == payload.name,
+        ExerciseLibrary.user_id == current_user.id,
+        ExerciseLibrary.is_custom == True,
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="You already have a custom exercise with this name")
+
+    el = ExerciseLibrary(
+        name=payload.name,
+        user_id=current_user.id,
+        is_custom=True,
+        is_compound=payload.is_compound,
+        primary_equipment=payload.primary_equipment,
+        movement_type=payload.movement_type,
+        exercise_role=payload.exercise_role,
+        systemic_fatigue_load=payload.systemic_fatigue_load,
+        structural_safety_score=payload.structural_safety_score,
+        joint_stress_flags=payload.joint_stress_flags,
+        movement_pattern=payload.movement_pattern,
+        risk_score=payload.risk_score,
+        impact_score=payload.impact_score,
+        base_movement=payload.base_movement,
+        hitt_worthy=payload.hitt_worthy,
+        warmup_type=payload.warmup_type,
+        muscle_group=payload.muscle_group,
+        equipment=payload.equipment,
+        default_rest_seconds=payload.default_rest_seconds,
+    )
+    db.add(el)
+    db.commit()
+    db.refresh(el)
+    logging.info(f"Custom exercise created: id={el.id}, name={el.name}, user_id={current_user.id}")
+    return el
 
 class ProfileUpdateIn(BaseModel):
     model_config = ConfigDict(extra="ignore")
@@ -3316,10 +3317,10 @@ def create_ai_coach_message(conversation_id: int, payload: AiCoachMessageCreate,
 
 
 def _validate_and_apply_changes(
-    current_prescription: list[dict] | None,
+    current_prescription: Optional[list[dict]],
     changes: list[dict],
     exercise_library: dict[str, dict],
-) -> tuple[list[dict] | None, str | None]:
+) -> tuple[Optional[list[dict]], Optional[str]]:
     if not current_prescription:
         return None, "No current prescription found. Start a workout or ask about your current plan first."
     if not changes:
