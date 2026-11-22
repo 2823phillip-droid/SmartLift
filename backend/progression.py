@@ -3181,22 +3181,22 @@ class FoundationModel:
             held = True
             status = "hard"
             next_weight = weight
-            next_reps = reps
+            next_reps = reps_target_val
         elif form_quality is not None and form_quality == 1:
             held = True
             next_weight = weight
-            next_reps = reps
+            next_reps = reps_target_val
         elif is_set_target and reps < rep_floor:
             held = True
             status = "hard"
             next_weight = weight
             next_reps = reps
         elif effort is not None and effort >= 9:
-            # Foundation: no max effort — hold and remind user
+            # Foundation: no max effort — hold weight, but keep rep target in range
             held = True
             status = "hard"
             next_weight = weight
-            next_reps = reps
+            next_reps = reps_target_val
         elif effort is not None and effort <= 3:
             # Easy effort — can increase, but conservatively in Foundation
             if reps >= rep_cap:
@@ -3326,11 +3326,11 @@ class HypertrophyModel:
             held = True
             status = "hard"
             next_weight = weight
-            next_reps = reps
+            next_reps = reps_target_val
         elif form_quality is not None and form_quality == 1:
             held = True
             next_weight = weight
-            next_reps = reps
+            next_reps = reps_target_val
         elif is_set_target and reps < rep_floor:
             held = True
             status = "hard"
@@ -3340,7 +3340,7 @@ class HypertrophyModel:
             held = True
             status = "hard"
             next_weight = weight
-            next_reps = reps
+            next_reps = reps_target_val
         elif effort is not None and effort <= 3:
             status = "easy"
             if reps >= rep_cap:
@@ -3468,11 +3468,11 @@ class StrengthAModel:
             held = True
             status = "hard"
             next_weight = weight
-            next_reps = reps
+            next_reps = reps_target_val
         elif form_quality is not None and form_quality == 1:
             held = True
             next_weight = weight
-            next_reps = reps
+            next_reps = reps_target_val
         elif is_set_target and reps < rep_floor:
             held = True
             status = "hard"
@@ -3482,7 +3482,7 @@ class StrengthAModel:
             if reps <= rep_floor + 1:
                 held = True
                 next_weight = weight
-                next_reps = reps
+                next_reps = reps_target_val
             else:
                 next_weight = weight + inc
                 next_reps = reps_target_val
@@ -3607,11 +3607,11 @@ class StrengthBModel:
             held = True
             status = "hard"
             next_weight = weight
-            next_reps = reps
+            next_reps = reps_target_val
         elif form_quality is not None and form_quality == 1:
             held = True
             next_weight = weight
-            next_reps = reps
+            next_reps = reps_target_val
         elif is_set_target and reps < rep_floor:
             held = True
             status = "hard"
@@ -3621,7 +3621,7 @@ class StrengthBModel:
             if reps <= rep_floor + 1:
                 held = True
                 next_weight = weight
-                next_reps = reps
+                next_reps = reps_target_val
             else:
                 next_weight = weight + inc
                 next_reps = reps_target_val
@@ -3953,11 +3953,11 @@ class StrengthCModel:
         if form_quality is not None and form_quality >= 2:
             held = True
             next_weight = weight
-            next_reps = reps
+            next_reps = reps_target_val
         elif form_quality is not None and form_quality == 1:
             held = True
             next_weight = weight
-            next_reps = reps
+            next_reps = reps_target_val
         elif is_set_target and reps < rep_floor:
             held = True
             next_weight = weight
@@ -3970,7 +3970,7 @@ class StrengthCModel:
             else:
                 held = True
                 next_weight = weight
-                next_reps = reps
+                next_reps = reps_target_val
         elif effort is not None and effort <= 3:
             # Very light — can push harder
             if reps >= rep_cap:

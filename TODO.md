@@ -112,7 +112,11 @@ After deploying Phase 4, user tested Chest & Triceps workout on 2026-10-21 and f
 1. **Re-entry message leaks to Set 2** — "Re-entering the foundation block after time away" appears on Set 2, but should only apply to Set 1. FIXED (commit ea25108).
 2. **Foundation 15% reduction not visible** — Session target shows "continuing with 100 lbs" but doesn't convey the reduction context. CONFIRMED CORRECT — reduction IS applied (120→100 lbs).
 3. **Stay/increase/decrease branching missing** — Session target should branch based on last session vs current session comparison (stay vs increase vs decrease). IMPLEMENTED via weighted average logic.
-4. **Incline at 6 reps (below Foundation 1 range of 8-10)** — Set 1 Incline at 6 reps. NOT YET INVESTIGATED — FoundationModel sets rep_floor=8, rep_cap=10.
+4. **Incline at 6 reps (below Foundation 1 range of 8-10)** — Set 1 Incline at 6 reps. INVESTIGATED AND FIXED.
+
+**Root cause:** In `FoundationModel.compute()` (and HypertrophyModel, Strength A/B/C), the form_quality and effort gates were setting `next_reps = reps` (the actual reps from the last session) instead of `next_reps = reps_target_val` (the block's rep target). If the last session had 6 reps for Incline, the model returned 6 as the target, even though Foundation's rep range is 8-10.
+
+**Fix:** Changed `next_reps = reps` to `next_reps = reps_target_val` in the form_quality >= 2, form_quality == 1, and effort >= 9 gates across all models (Foundation, Hypertrophy, Strength A, Strength B, Strength C). The `is_set_target and reps < rep_floor` gate still uses `next_reps = reps` for Set 2+ (correct — hold at same reps mid-session when below floor).
 5. **"Cannot save changes when trying to edit a set"** — Frontend error when editing sets. NOT YET ADDRESSED.
 6. **"Need to find arsenal strength fly machine"** — Missing exercise reference. NOT YET ADDRESSED.
 
@@ -317,17 +321,15 @@ To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No l
 1. **Re-entry message leaks to Set 2** — "Re-entering the foundation block after time away" appears on Set 2, but should only apply to Set 1. FIXED (commit ea25108).
 2. **Foundation 15% reduction not visible** — CONFIRMED CORRECT. Reduction IS applied (120→100 lbs). Session target just needs better messaging.
 3. **Stay/increase/decrease branching missing** — Session target should branch based on last session vs current session comparison. PARTIALLY IMPLEMENTED.
-4. **Incline at 6 reps (below Foundation 1 range of 8-10)** — Set 1 Incline at 6 reps. NOT YET INVESTIGATED.
-5. **"Cannot save changes when trying to edit a set"** — Frontend error when editing sets. NOT YET ADDRESSED.
+4. **Incline at 6 reps (below Foundation 1 range of 8-10)** — Set 1 Incline at 6 reps. FIXED (2026-11-02). Root cause: form_quality/effort gates overriding rep target. Fixed in progression.py across all models.
+5. **"Cannot save changes when trying to edit a set"** — Frontend error when editing sets. PARTIALLY ADDRESSED (2026-11-02). Added validation error messages in SortableExerciseCard commitEditSet (weight/reps/effort validation now alerts user instead of silently returning). Still needs testing to identify any API-level failures.
 6. **"Need to find arsenal strength fly machine"** — Missing exercise reference. NOT YET ADDRESSED.
-
-#### Foundation Phase Logic Redesign (Phase 5)
 
 See "Foundation Phase Logic Work (Phase 5 — In Progress)" section above for full details.
 
 - [x] Implement weighted average function for starting weight calculation
 - [x] Update session_targets to use new Foundation logic
-- [ ] Update Set 2+ messaging with phase-specific guidance
+- [x] Update Set 2+ messaging with phase-specific guidance
 - [ ] Test with user
 
 ### Previous bugs (resolved)
@@ -346,6 +348,7 @@ See "Foundation Phase Logic Work (Phase 5 — In Progress)" section above for fu
 - [x] Session targets finding wrong session — FIXED (queries all completed sessions' logs)
 - [x] Session targets including cancelled sessions — FIXED (filter by ended_at.isnot(None))
 - [x] probe() failing — FIXED (use /healthz instead of /settings/api_base)
+- [x] Incline at 6 reps (below Foundation range) — FIXED (form_quality/effort gates now keep rep target in range)
 
 ## What We Just Learned
 

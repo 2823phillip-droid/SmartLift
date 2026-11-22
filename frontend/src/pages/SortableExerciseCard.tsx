@@ -115,9 +115,18 @@ export function SortableExerciseCard({
     if (!log) return;
     const w = editWeight === "" ? null : Number(editWeight);
     const r = editReps === "" ? null : Number(editReps);
-    if (w !== null && (Number.isNaN(w) || w < 0)) return;
-    if (r !== null && (Number.isNaN(r) || r < 1)) return;
-    if (editEffort !== null && (Number.isNaN(editEffort) || editEffort < 1 || editEffort > 10)) return;
+    if (w !== null && (Number.isNaN(w) || w < 0)) {
+      alert("Weight must be a non-negative number");
+      return;
+    }
+    if (r !== null && (Number.isNaN(r) || r < 1)) {
+      alert("Reps must be at least 1");
+      return;
+    }
+    if (editEffort !== null && (Number.isNaN(editEffort) || editEffort < 1 || editEffort > 10)) {
+      alert("Effort must be between 1 and 10");
+      return;
+    }
     if (w != null && w !== (log.actual_weight ?? 0)) await onEditSet(log, "actual_weight", w);
     if (r != null && r !== (log.actual_reps ?? 0)) await onEditSet(log, "actual_reps", r);
     if (editEffort !== null && editEffort !== (log.effort ?? null)) await onEditSet(log, "effort", editEffort);
