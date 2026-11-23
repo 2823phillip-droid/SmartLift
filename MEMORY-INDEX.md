@@ -13,7 +13,7 @@ This file explains where every type of project knowledge lives and when to use i
 - **Branch:** master
 - **HEAD:** `096d16f` — "fix: add ctx.resume() for iOS Safari audio playback"
 - **Remote (GitHub):** committed and pushed.
-- **Deployed to Fly:** commits through `1a3e4b3` (backend healthy, set target messages fixed).
+- **Deployed to Fly:** commits through `1a3e4b3` (backend healthy, set target messages fixed). Frontend at `096d16f` — built and synced to iOS.
 
 #### Frontend
 - **Build target:** Capacitor iOS app, Xcode project on Mac Studio. Run from Xcode → Product > Run.
