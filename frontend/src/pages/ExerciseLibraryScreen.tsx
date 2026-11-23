@@ -104,7 +104,7 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
   const selectedExercise = useMemo(() => {
     if (selectedId === null) return null;
     const found = exercises.find((e) => e.id === selectedId);
-    log.debug("selected_exercise_debug", { selectedId, found, exercisesCount: exercises.length });
+    console.log("[exercise] selectedExercise debug", { selectedId, found: found ? found.name : null, exercisesCount: exercises.length });
     return found || null;
   }, [selectedId, exercises]);
 
@@ -220,7 +220,7 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
                 key={ex.id}
                 className="px-4 py-3 flex gap-3 hover:bg-slate-900/50 transition-colors cursor-pointer active:bg-slate-800/50"
                 onClick={() => {
-                  log.debug("exercise_row_click", { id: ex.id, selectedId });
+                  console.log("[exercise] row click", { id: ex.id, selectedId });
                   setSelectedId(selectedId === ex.id ? null : ex.id);
                 }}
               >
