@@ -154,6 +154,7 @@ export default function CustomExerciseCreateScreen({
   onBack?: () => void;
 }) {
   const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
   const [isCompound, setIsCompound] = useState<boolean | null>(null);
   const [movementPattern, setMovementPattern] = useState<string | null>(null);
   const [exerciseRole, setExerciseRole] = useState<string | null>(null);
@@ -210,6 +211,7 @@ export default function CustomExerciseCreateScreen({
     try {
       const payload: any = {
         name: name.trim(),
+        description: description.trim() || null,
         is_compound: isCompound,
         measurement_type: measurementType,
         movement_pattern: movementPattern,
@@ -272,6 +274,17 @@ export default function CustomExerciseCreateScreen({
           onChange={(e) => setName(e.target.value)}
           placeholder="e.g., Arsenal Strength Fly Machine"
           className="w-full rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500/60 focus:outline-none transition-colors"
+        />
+      </div>
+
+      <div className="mb-4">
+        <label className="text-xs font-medium text-slate-400 mb-2 block">Description (optional)</label>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Add notes about form, technique, or what this exercise targets..."
+          rows={3}
+          className="w-full rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500/60 focus:outline-none transition-colors resize-y"
         />
       </div>
 

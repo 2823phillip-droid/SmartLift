@@ -480,6 +480,7 @@ class ExerciseLibraryOut(BaseModel):
     user_id: Optional[int] = None
     measurement_type: Optional[str] = None
     program_worthy: Optional[bool] = None
+    description: Optional[str] = None
 
     @field_validator("name", mode="before")
     @classmethod
@@ -554,6 +555,7 @@ class ExerciseLibraryCreate(BaseModel):
     hitt_worthy: Optional[int] = None
     warmup_type: Optional[str] = None
     program_worthy: Optional[bool] = None
+    description: Optional[str] = None
     muscle_group: Optional[str] = None
     equipment: Optional[str] = None
     default_rest_seconds: Optional[int] = None
@@ -1007,6 +1009,7 @@ def create_exercise_library_entry(payload: ExerciseLibraryCreate, db: Session = 
         hitt_worthy=payload.hitt_worthy,
         warmup_type=payload.warmup_type,
         program_worthy=payload.program_worthy if payload.program_worthy is not None else True,
+        description=payload.description,
         muscle_group=payload.muscle_group,
         equipment=payload.equipment,
         default_rest_seconds=payload.default_rest_seconds,
@@ -1512,6 +1515,7 @@ def search_exercise_library(q: str = "", db: Session = Depends(get_db), current_
             user_id=e.user_id,
             measurement_type=getattr(e, "measurement_type", None),
             program_worthy=getattr(e, "program_worthy", None),
+            description=getattr(e, "description", None),
         )
         for e in query.all()
     ]
