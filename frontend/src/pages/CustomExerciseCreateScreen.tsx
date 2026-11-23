@@ -5,6 +5,7 @@ import { api } from "../api";
 type TileOption = {
   label: string;
   value: string | boolean | number;
+  description?: string;
 };
 
 const COMPOUND_OPTIONS: TileOption[] = [
@@ -33,11 +34,11 @@ const EXERCISE_ROLE_OPTIONS: TileOption[] = [
 ];
 
 const MEASUREMENT_TYPE_OPTIONS: TileOption[] = [
-  { label: "Weight & Reps", value: "weight_reps" },
-  { label: "Inverted Weight & Reps", value: "inverted_weight_reps" },
-  { label: "Time & Reps", value: "time_reps" },
-  { label: "Reps Only", value: "reps_only" },
-  { label: "Distance", value: "distance" },
+  { label: "Weight & Reps", value: "weight_reps", description: "Standard resistance training — add weight to progress" },
+  { label: "Inverted Weight & Reps", value: "inverted_weight_reps", description: "Assistance machines — remove weight to progress (more weight = easier)" },
+  { label: "Time & Reps", value: "time_reps", description: "Endurance holds — increase time or reps to progress" },
+  { label: "Reps Only", value: "reps_only", description: "Bodyweight exercises — increase reps to progress" },
+  { label: "Distance", value: "distance", description: "Cardio — increase distance to progress" },
 ];
 
 type TileGroupProps = {
@@ -69,23 +70,29 @@ function TileGroup({
               ? true
               : selected === opt.value;
           return (
-            <button
-              key={String(opt.value)}
-              onClick={() => {
-                if (multiSelect && onToggleMulti) {
-                  onToggleMulti(opt.value);
-                } else if (onSelect) {
-                  onSelect(opt.value);
-                }
-              }}
-              className={`rounded-xl border px-3 py-2 text-xs transition-colors ${
-                isSelected
-                  ? "border-amber-400 bg-amber-900/40 text-amber-200"
-                  : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-500"
-              }`}
-            >
-              {opt.label}
-            </button>
+            <div key={String(opt.value)} className="flex flex-col">
+              <button
+                onClick={() => {
+                  if (multiSelect && onToggleMulti) {
+                    onToggleMulti(opt.value);
+                  } else if (onSelect) {
+                    onSelect(opt.value);
+                  }
+                }}
+                className={`rounded-xl border px-3 py-2 text-xs transition-colors w-full ${
+                  isSelected
+                    ? "border-amber-400 bg-amber-900/40 text-amber-200"
+                    : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-500"
+                }`}
+              >
+                {opt.label}
+              </button>
+              {opt.description && (
+                <div className="mt-1 text-[10px] text-slate-500 leading-tight">
+                  {opt.description}
+                </div>
+              )}
+            </div>
           );
         })}
       </div>
