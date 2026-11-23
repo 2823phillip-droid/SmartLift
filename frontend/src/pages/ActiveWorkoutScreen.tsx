@@ -422,6 +422,9 @@ export default function ActiveWorkoutScreen({
     let sessionTargetsData: any[] = [];
     if (Object.keys(prescriptions).length > 0) {
       console.log("[ActiveWorkoutScreen] Prescriptions already loaded, skipping session targets fetch");
+      // Prescriptions restored from localStorage — mark building as complete
+      setIsBuildingWorkout(false);
+      isBuildingWorkoutRef.current = false;
     } else {
       // Fetch session targets from backend first — these provide the
       // model-specific weight, reps, and coaching messages for all exercises.
