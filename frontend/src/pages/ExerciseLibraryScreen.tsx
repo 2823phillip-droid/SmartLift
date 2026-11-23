@@ -282,6 +282,7 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
           </div>
         ) : (
           <div className="divide-y divide-slate-800/60">
+            {selectedExercise && <ExerciseDetailView exercise={selectedExercise} resolveMediaUrl={resolveMediaUrl} />}
             {filtered.map((ex) => (
               <div
                 key={ex.id}
@@ -371,9 +372,6 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
           </div>
         )}
       </div>
-
-      {/* Exercise detail view */}
-      {selectedExercise && <ExerciseDetailView exercise={selectedExercise} resolveMediaUrl={resolveMediaUrl} />}
     </div>
   );
 }
