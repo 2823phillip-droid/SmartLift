@@ -215,7 +215,7 @@ export default function CustomExerciseCreateScreen({
         movement_pattern: movementPattern,
         exercise_role: exerciseRole,
         muscle_group: muscleGroup,
-        equipment: equipment,
+        primary_equipment: equipment,
       };
 
       await api.createExerciseLibraryEntry(payload);
@@ -311,7 +311,7 @@ export default function CustomExerciseCreateScreen({
       />
 
       <TileGroup
-        title="Equipment"
+        title="Primary Equipment"
         options={EQUIPMENT_OPTIONS}
         selected={equipment}
         onSelect={(v) => setEquipment(v as string)}
