@@ -11,7 +11,7 @@ This file explains where every type of project knowledge lives and when to use i
 
 #### Repo
 - **Branch:** master
-- **HEAD:** `1a3e4b3` — "fix: normalize phase name in set target messages"
+- **HEAD:** `096d16f` — "fix: add ctx.resume() for iOS Safari audio playback"
 - **Remote (GitHub):** committed and pushed.
 - **Deployed to Fly:** commits through `1a3e4b3` (backend healthy, set target messages fixed).
 
