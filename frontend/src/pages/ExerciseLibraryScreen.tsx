@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { api } from "../api";
+import { api, resolveMediaUrl } from "../api";
 import { log } from "../utils/logger";
 
 type ExerciseLibraryItem = {
@@ -220,7 +220,7 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
                 <div className="shrink-0 w-12 h-12 rounded-xl overflow-hidden bg-slate-800 border border-slate-700">
                   {ex.gif_url ? (
                     <img
-                      src={ex.gif_url}
+                      src={resolveMediaUrl(ex.gif_url)!}
                       alt={ex.name}
                       className="h-full w-full object-cover"
                       loading="lazy"
