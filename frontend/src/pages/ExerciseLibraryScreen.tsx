@@ -58,6 +58,14 @@ const MEASUREMENT_TYPES: FilterItem[] = [
 ];
 
 function ExerciseDetailView({ exercise, resolveMediaUrl, onBack }: { exercise: ExerciseLibraryItem; resolveMediaUrl: (url: string | null | undefined) => string | null; onBack: () => void }) {
+  const contentRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTo({ top: 0, behavior: "instant" });
+    }
+  }, []);
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-950">
       {/* Header */}
@@ -75,7 +83,7 @@ function ExerciseDetailView({ exercise, resolveMediaUrl, onBack }: { exercise: E
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" ref={contentRef}>
         <div className="max-w-2xl mx-auto px-4 py-6">
           {/* Large GIF */}
           <div className="mb-6">
@@ -313,12 +321,7 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
               <div
                 key={ex.id}
                 className="px-4 py-3 flex gap-3 hover:bg-slate-900/50 transition-colors cursor-pointer active:bg-slate-800/50"
-                onClick={() => {
-                if (listRef.current) {
-                  listRef.current.scrollTo({ top: 0, behavior: "instant" });
-                }
-                setTimeout(() => setSelectedId(ex.id), 50);
-              }}
+                onClick={() => setSelectedId(ex.id)}
               >
                 {/* GIF tile */}
                 <div className="shrink-0 w-12 h-12 rounded-xl overflow-hidden bg-slate-800 border border-slate-700">
