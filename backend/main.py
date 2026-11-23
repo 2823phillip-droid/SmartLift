@@ -2804,7 +2804,10 @@ def calculate_progression(
 
     # Call model_picker with full parameters (same as session-targets endpoint)
     # Save phase from original block_state before creating dict for model_picker
-    block_state_phase = block_state.phase if isinstance(block_state, BlockState) and block_state else None
+    # Normalize old numeric phases (1, 2, 3...) to new format (foundation_1, foundation_2...)
+    raw_phase = str(block_state.phase) if isinstance(block_state, BlockState) and block_state and block_state.phase else None
+    normalized_phase = NORMALIZE_PHASE.get(raw_phase, raw_phase) if raw_phase else None
+    block_state_phase = normalized_phase
     block_state_dict = {
         "block_mode": block_mode,
         "week_number": week_number or 1,
@@ -2863,7 +2866,10 @@ def calculate_progression(
         }
         # Try to get phase_name from block_state
         if block_state_phase:
-            params["phase_name"] = block_state_phase.replace("_", " ").title()
+            # Convert "foundation_1" → "Foundation Phase", "hypertrophy" → "Hypertrophy Phase", etc.
+            phase_parts = block_state_phase.replace("_", " ").split()
+            if phase_parts:
+                params["phase_name"] = phase_parts[0].title() + " Phase"
         # Build analysis dict from the just-logged set's effort
         # so build_set_target_message can add context-aware verbiage.
         top_effort = top_set.get("effort")
