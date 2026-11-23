@@ -108,6 +108,8 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
     return found || null;
   }, [selectedId, exercises]);
 
+  console.log("[exercise] render phase", { selectedId, hasSelected: selectedExercise !== null });
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-950">
       {/* Header */}
