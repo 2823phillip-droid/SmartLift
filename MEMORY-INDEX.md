@@ -3,7 +3,7 @@ last_updated: 2026-10-30
 created: 2026-10-17
 tags: [meta]
 related: README.md, TODO.md
-status: Mac Studio M5 Max only, master branch HEAD `e3da32b`. Backend deployed to Fly (commits through `e3da32b`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 23). Custom exercise creation: muscle_group + equipment fields added.
+status: Mac Studio M5 Max only, master branch HEAD `e7895d3`. Backend deployed to Fly (commits through `e7895d3`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 22). Custom exercise creation: muscle_group + primary_equipment fields added.
 
 This file explains where every type of project knowledge lives and when to use it.
 
