@@ -2864,7 +2864,19 @@ def calculate_progression(
         # Try to get phase_name from block_state
         if block_state_phase:
             params["phase_name"] = block_state_phase.replace("_", " ").title()
-        coaching_message = build_set_target_message(top_set, result.get("suggested_weight", 0), params, None)
+        # Build analysis dict from the just-logged set's effort
+        # so build_set_target_message can add context-aware verbiage.
+        top_effort = top_set.get("effort")
+        analysis = None
+        if top_effort is not None:
+            analysis = {}
+            if top_effort >= 8:
+                analysis["first_set_too_heavy"] = True
+                analysis["first_set_effort"] = top_effort
+            elif top_effort <= 3:
+                analysis["first_set_too_light"] = True
+                analysis["first_set_effort"] = top_effort
+        coaching_message = build_set_target_message(top_set, result.get("suggested_weight", 0), params, analysis)
     
     return ProgressionCalculateResponse(
         rep_floor=result["rep_floor"],

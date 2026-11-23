@@ -3020,7 +3020,7 @@ def build_set_target_message(
     prev_set: dict,
     current_weight: int,
     params: dict,
-    analysis: dict = None,
+    analysis: dict | None = None,
 ) -> str:
     """Build set target message (Set 2+)."""
     rep_floor = params.get("rep_floor", 8)
