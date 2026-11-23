@@ -963,11 +963,11 @@ export default function ActiveWorkoutScreen({
             next_reps: nextReps,
             next_sets: resolveDisplayTarget(currentExercise),
             rest_seconds: currentExercise.rest_seconds ?? 90,
-            // For Set 2+, use the session target message from the previous
-            // prescription — not the "Foundation 1" verbiage from the calculate
-            // endpoint. The calculate endpoint returns phase info, but the user
-            // wants the session target message.
-            coaching_message: prescriptions[currentExercise.id]?.session_target ?? calcData.coaching_message ?? existingCoachingMessage ?? "",
+            // For Set 2+, use the set target message from the calculate endpoint.
+            // The calculate endpoint returns a set-specific coaching message
+            // (reps target, weight, effort guidance) — that's what the user wants
+            // after the first set is logged, not the session summary.
+            coaching_message: calcData.coaching_message ?? prescriptions[currentExercise.id]?.session_target ?? existingCoachingMessage ?? "",
             session_target: prescriptions[currentExercise.id]?.session_target ?? "",
             workload_status: "moderate" as WorkloadStatus,
             prescription_type: calcData.box_type || "foundation",
@@ -1001,7 +1001,7 @@ export default function ActiveWorkoutScreen({
               next_reps: nextReps,
               next_sets: resolveDisplayTarget(currentExercise),
               rest_seconds: currentExercise.rest_seconds ?? 90,
-              coaching_message: prev[currentExercise.id]?.coaching_message ?? "",
+              coaching_message: updatedPrescription?.coaching_message ?? prev[currentExercise.id]?.coaching_message ?? "",
               session_target: prev[currentExercise.id]?.session_target ?? "",
               workload_status: "moderate" as WorkloadStatus,
               prescription_type: calcData.box_type || "foundation",
