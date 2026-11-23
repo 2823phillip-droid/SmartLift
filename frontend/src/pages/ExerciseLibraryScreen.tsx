@@ -198,12 +198,6 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
     return exercises.find((e) => e.id === selectedId) || null;
   }, [selectedId, exercises]);
 
-  useEffect(() => {
-    if (selectedId !== null && listRef.current) {
-      listRef.current.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [selectedId]);
-
   if (selectedExercise) {
     return <ExerciseDetailView exercise={selectedExercise} resolveMediaUrl={resolveMediaUrl} onBack={() => setSelectedId(null)} />;
   }
@@ -319,7 +313,12 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
               <div
                 key={ex.id}
                 className="px-4 py-3 flex gap-3 hover:bg-slate-900/50 transition-colors cursor-pointer active:bg-slate-800/50"
-                onClick={() => setSelectedId(ex.id)}
+                onClick={() => {
+                if (listRef.current) {
+                  listRef.current.scrollTo({ top: 0, behavior: "instant" });
+                }
+                setTimeout(() => setSelectedId(ex.id), 50);
+              }}
               >
                 {/* GIF tile */}
                 <div className="shrink-0 w-12 h-12 rounded-xl overflow-hidden bg-slate-800 border border-slate-700">
