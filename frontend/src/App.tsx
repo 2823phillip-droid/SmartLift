@@ -24,6 +24,7 @@ import CustomWorkoutBuilderScreen from "./pages/CustomWorkoutBuilderScreen";
 import TimerScreen from "./pages/TimerScreen";
 import AiTrainerScreen from "./pages/AiTrainerScreen";
 import RemindersScreen from "./pages/RemindersScreen";
+import CustomExerciseCreateScreen from "./pages/CustomExerciseCreateScreen";
 
 type View =
   | "home"
@@ -46,7 +47,8 @@ type View =
   | "custom_builder"
   | "timer"
   | "reminders"
-  | "ai_trainer";
+  | "ai_trainer"
+  | "create_custom_exercise";
 
 const tabRootToView: Record<Tab, View> = {
   home: "home",
@@ -78,6 +80,7 @@ const viewToTab: Record<View, Tab | null> = {
   timer: "home",
   reminders: "home",
   ai_trainer: "ai_trainer",
+  create_custom_exercise: "workouts",
 };
 
 export default function App() {
@@ -555,6 +558,7 @@ export default function App() {
                     setSelectedTemplateId(tplId);
                     navigate("template_editor");
                   }}
+                  onCreateCustomExercise={() => navigate("create_custom_exercise")}
                   onOpenTransitionHistory={() => navigate("transition_history")}
                 />
               )}
@@ -571,6 +575,7 @@ export default function App() {
               {view === "timer" && <TimerScreen onBack={goBack} />}
               {view === "reminders" && <RemindersScreen onBack={goBack} />}
               {view === "ai_trainer" && <AiTrainerScreen onBack={goBack} />}
+              {view === "create_custom_exercise" && <CustomExerciseCreateScreen onBack={goBack} />}
             </ErrorBoundary>
           </div>
         )}

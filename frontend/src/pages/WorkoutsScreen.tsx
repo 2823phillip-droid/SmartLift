@@ -38,6 +38,7 @@ export default function WorkoutsScreen({
   onBack,
   onEditTemplate,
   onOpenTransitionHistory,
+  onCreateCustomExercise,
 }: {
   onStartWorkout: (templateId: number) => void;
   onBuildWorkout: () => void;
@@ -45,6 +46,7 @@ export default function WorkoutsScreen({
   onBack: () => void;
   onEditTemplate?: (templateId: number, contextId: number) => void;
   onOpenTransitionHistory?: () => void;
+  onCreateCustomExercise?: () => void;
 }) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
@@ -375,6 +377,18 @@ export default function WorkoutsScreen({
                   Select a template or create from scratch.
                 </div>
               </button>
+
+              {onCreateCustomExercise && (
+                <button
+                  onClick={onCreateCustomExercise}
+                  className="w-full rounded-2xl border border-amber-800 bg-amber-950/40 hover:border-amber-500/60 px-4 py-4 text-left transition-colors"
+                >
+                  <div className="font-semibold text-sm text-amber-200">Create a Custom Exercise</div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    Add an exercise that's not in the library.
+                  </div>
+                </button>
+              )}
 
               {onOpenTransitionHistory && (
                 <button

@@ -505,6 +505,12 @@ export const api = {
 
   getPhaseRecommendation: () => request("/coach/phase-recommendation"),
 
+  createExerciseLibraryEntry: (data: any) =>
+    request("/api/exercise-library", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
   getSessionTargets: (sessionId: number) =>
     request("/coach/session-targets", {
       method: "POST",
