@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { api, resolveMediaUrl } from "../api";
 import { log } from "../utils/logger";
 
@@ -152,6 +152,7 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
   const [exercises, setExercises] = useState<ExerciseLibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMuscle, setFilterMuscle] = useState<string | null>(null);
   const [filterEquipment, setFilterEquipment] = useState<string | null>(null);
@@ -196,6 +197,12 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
     if (selectedId === null) return null;
     return exercises.find((e) => e.id === selectedId) || null;
   }, [selectedId, exercises]);
+
+  useEffect(() => {
+    if (selectedId !== null && listRef.current) {
+      listRef.current.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }, [selectedId]);
 
   if (selectedExercise) {
     return <ExerciseDetailView exercise={selectedExercise} resolveMediaUrl={resolveMediaUrl} onBack={() => setSelectedId(null)} />;
@@ -297,7 +304,7 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
       </div>
 
       {/* Exercise list */}
-      <div className="flex-1 overflow-y-auto">
+      <div className="flex-1 overflow-y-auto" ref={listRef}>
         {loading ? (
           <div className="flex items-center justify-center py-12 text-slate-500 text-sm">
             Loading library...
