@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { api, resolveMediaUrl } from "../api";
 import { log } from "../utils/logger";
 
@@ -101,6 +101,11 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
     setShowCustomOnly(false);
   };
 
+  const selectedExercise = useMemo(() => {
+    if (selectedId === null) return null;
+    return exercises.find((e) => e.id === selectedId) || null;
+  }, [selectedId, exercises]);
+
   return (
     <div className="flex flex-col min-h-screen bg-slate-950">
       {/* Header */}
@@ -175,11 +180,7 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
 
           <button
             onClick={() => setShowCustomOnly(!showCustomOnly)}
-            className={`rounded-xl border px-3 py-2 text-xs transition-colors ${
-              showCustomOnly
-                ? "border-amber-400 bg-amber-900/40 text-amber-200"
-                : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-500"
-            }`}
+            className={"rounded-xl border px-3 py-2 text-xs transition-colors " + (showCustomOnly ? "border-amber-400 bg-amber-900/40 text-amber-200" : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-500")}
           >
             {showCustomOnly ? "Custom Only" : "All Ex."}
           </button>
@@ -248,11 +249,7 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border uppercase ${
-                        ex.is_custom
-                          ? "text-amber-300 border-amber-700/60 bg-amber-900/30"
-                          : "text-slate-400 border-slate-700 bg-slate-800/50"
-                      }`}>
+                      <span className={"text-xs font-semibold px-2 py-0.5 rounded-full border uppercase " + (ex.is_custom ? "text-amber-300 border-amber-700/60 bg-amber-900/30" : "text-slate-400 border-slate-700 bg-slate-800/50")}>
                         {ex.is_custom ? "Custom" : "Library"}
                       </span>
                       {ex.measurement_type && (
@@ -304,71 +301,67 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
       </div>
 
       {/* Exercise detail view */}
-      {selectedId && (() => {
-        const ex = exercises.find((e) => e.id === selectedId);
-        if (!ex) return null;
-        return (
-          <div className="border-t border-slate-800/80 bg-slate-900/50">
-            <div className="max-w-2xl mx-auto px-4 py-4">
-              <div className="flex gap-4 items-start">
-                {/* Large GIF */}
-                {ex.gif_url ? (
-                  <div className="shrink-0">
-                    <img
-                      src={resolveMediaUrl(ex.gif_url)!}
-                      alt={ex.name}
-                      className="w-32 h-32 rounded-xl object-cover border border-slate-700 bg-slate-800"
-                    />
-                  </div>
-                ) : (
-                  <div className="shrink-0 w-32 h-32 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center">
-                    <span className="text-xs text-slate-500">No GIF</span>
-                  </div>
-                )}
-                <div className="min-w-0 flex-1">
-                  <h3 className="text-base font-semibold text-slate-100">{ex.name}</h3>
-                  <div className="mt-2 space-y-1">
-                    {ex.is_custom && (
-                      <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase text-amber-300 border-amber-700/60 bg-amber-900/30">
-                        Custom
-                      </span>
-                    )}
-                    {ex.measurement_type && (
-                      <span className="text-xs text-slate-400">
-                        Measurement: {ex.measurement_type.replace(/_/g, " ")}
-                      </span>
-                    )}
-                    {ex.muscle_group && (
-                      <span className="text-xs text-slate-400">
-                        Muscle Group: {ex.muscle_group}
-                      </span>
-                    )}
-                    {ex.primary_equipment && (
-                      <span className="text-xs text-slate-400">
-                        Equipment: {ex.primary_equipment}
-                      </span>
-                    )}
-                    {ex.default_rest_seconds !== undefined && (
-                      <span className="text-xs text-slate-400">
-                        Rest: {ex.default_rest_seconds}s
-                      </span>
-                    )}
-                  </div>
-                  {ex.description ? (
-                    <p className="mt-2 text-xs text-slate-400 leading-relaxed border-l-2 border-amber-700/40 pl-3">
-                      {ex.description}
-                    </p>
-                  ) : ex.is_custom ? (
-                    <p className="mt-2 text-[10px] text-slate-600 italic">
-                      No description provided.
-                    </p>
-                  ) : null}
+      {selectedExercise && (
+        <div className="border-t border-slate-800/80 bg-slate-900/50">
+          <div className="max-w-2xl mx-auto px-4 py-4">
+            <div className="flex gap-4 items-start">
+              {/* Large GIF */}
+              {selectedExercise.gif_url ? (
+                <div className="shrink-0">
+                  <img
+                    src={resolveMediaUrl(selectedExercise.gif_url)!}
+                    alt={selectedExercise.name}
+                    className="w-32 h-32 rounded-xl object-cover border border-slate-700 bg-slate-800"
+                  />
                 </div>
+              ) : (
+                <div className="shrink-0 w-32 h-32 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center">
+                  <span className="text-xs text-slate-500">No GIF</span>
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <h3 className="text-base font-semibold text-slate-100">{selectedExercise.name}</h3>
+                <div className="mt-2 space-y-1">
+                  {selectedExercise.is_custom && (
+                    <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase text-amber-300 border-amber-700/60 bg-amber-900/30">
+                      Custom
+                    </span>
+                  )}
+                  {selectedExercise.measurement_type && (
+                    <span className="text-xs text-slate-400">
+                      Measurement: {selectedExercise.measurement_type.replace(/_/g, " ")}
+                    </span>
+                  )}
+                  {selectedExercise.muscle_group && (
+                    <span className="text-xs text-slate-400">
+                      Muscle Group: {selectedExercise.muscle_group}
+                    </span>
+                  )}
+                  {selectedExercise.primary_equipment && (
+                    <span className="text-xs text-slate-400">
+                      Equipment: {selectedExercise.primary_equipment}
+                    </span>
+                  )}
+                  {selectedExercise.default_rest_seconds !== undefined && (
+                    <span className="text-xs text-slate-400">
+                      Rest: {selectedExercise.default_rest_seconds}s
+                    </span>
+                  )}
+                </div>
+                {selectedExercise.description ? (
+                  <p className="mt-2 text-xs text-slate-400 leading-relaxed border-l-2 border-amber-700/40 pl-3">
+                    {selectedExercise.description}
+                  </p>
+                ) : selectedExercise.is_custom ? (
+                  <p className="mt-2 text-[10px] text-slate-600 italic">
+                    No description provided.
+                  </p>
+                ) : null}
               </div>
             </div>
           </div>
-        );
-      })()}
+        </div>
+      )}
     </div>
   );
 }
