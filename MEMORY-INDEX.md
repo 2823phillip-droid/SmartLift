@@ -3,7 +3,7 @@ last_updated: 2026-10-30
 created: 2026-10-17
 tags: [meta]
 related: README.md, TODO.md
-status: Mac Studio M5 Max only, master branch HEAD `9e185ea`. Backend deployed to Fly (commits through `9e185ea`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 22). Progression system: Phase 4 COMPLETE, Phase 5 Foundation logic redesign COMPLETE, Foundation 2 removed, linear_baseline removed, coach progression toggle + manual phase selector added, auto-advance now load-gated (6 weeks + 60% load). Session targets fix: removed local `from datetime import timezone` that shadowed global import causing UnboundLocalError. Custom exercise creation: backend + frontend done.
+status: Mac Studio M5 Max only, master branch HEAD `e3da32b`. Backend deployed to Fly (commits through `e3da32b`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 23). Custom exercise creation: muscle_group + equipment fields added.
 
 This file explains where every type of project knowledge lives and when to use it.
 
