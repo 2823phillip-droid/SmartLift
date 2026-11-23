@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { api, resolveMediaUrl } from "../api";
 import { log } from "../utils/logger";
 
@@ -57,65 +57,91 @@ const MEASUREMENT_TYPES: FilterItem[] = [
   { label: "Distance", value: "distance" },
 ];
 
-function ExerciseDetailView({ exercise, resolveMediaUrl }: { exercise: ExerciseLibraryItem; resolveMediaUrl: (url: string | null | undefined) => string | null }) {
-  console.log("[exercise] detail view rendering", exercise.name);
+function ExerciseDetailView({ exercise, resolveMediaUrl, onBack }: { exercise: ExerciseLibraryItem; resolveMediaUrl: (url: string | null | undefined) => string | null; onBack: () => void }) {
   return (
-    <div className="border-t-4 border-red-500 bg-yellow-400/20">
-      <div className="max-w-2xl mx-auto px-4 py-4">
-        <div className="flex gap-4 items-start">
+    <div className="flex flex-col min-h-screen bg-slate-950">
+      {/* Header */}
+      <div className="sticky top-0 bg-slate-950/95 backdrop-blur-md border-b border-slate-800/80 px-4 py-3 flex items-center justify-between z-10">
+        <button
+          onClick={onBack}
+          className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 transition-colors"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <h2 className="text-lg font-bold text-slate-100">Exercise Details</h2>
+        <div className="w-10" />
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="max-w-2xl mx-auto px-4 py-6">
           {/* Large GIF */}
-          {exercise.gif_url ? (
-            <div className="shrink-0">
+          <div className="mb-6">
+            {exercise.gif_url ? (
               <img
                 src={resolveMediaUrl(exercise.gif_url)!}
                 alt={exercise.name}
-                className="w-32 h-32 rounded-xl object-cover border border-slate-700 bg-slate-800"
+                className="w-64 h-64 rounded-2xl object-cover border-2 border-slate-700 bg-slate-800 shadow-xl"
               />
-            </div>
-          ) : (
-            <div className="shrink-0 w-32 h-32 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center">
-              <span className="text-xs text-slate-500">No GIF</span>
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <h3 className="text-base font-semibold text-slate-100">{exercise.name}</h3>
-            <div className="mt-2 space-y-1">
-              {exercise.is_custom && (
-                <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase text-amber-300 border-amber-700/60 bg-amber-900/30">
-                  Custom
-                </span>
-              )}
-              {exercise.measurement_type && (
-                <span className="text-xs text-slate-400">
-                  Measurement: {exercise.measurement_type.replace(/_/g, " ")}
-                </span>
-              )}
-              {exercise.muscle_group && (
-                <span className="text-xs text-slate-400">
-                  Muscle Group: {exercise.muscle_group}
-                </span>
-              )}
-              {exercise.primary_equipment && (
-                <span className="text-xs text-slate-400">
-                  Equipment: {exercise.primary_equipment}
-                </span>
-              )}
-              {exercise.default_rest_seconds !== undefined && (
-                <span className="text-xs text-slate-400">
-                  Rest: {exercise.default_rest_seconds}s
-                </span>
-              )}
-            </div>
-            {exercise.description ? (
-              <p className="mt-2 text-xs text-slate-400 leading-relaxed border-l-2 border-amber-700/40 pl-3">
+            ) : (
+              <div className="w-64 h-64 rounded-2xl bg-slate-800 border-2 border-slate-700 flex items-center justify-center">
+                <span className="text-xl text-slate-500">No GIF</span>
+              </div>
+            )}
+          </div>
+
+          {/* Exercise name */}
+          <h1 className="text-2xl font-bold text-slate-100 mb-4">{exercise.name}</h1>
+
+          {/* Attributes */}
+          <div className="space-y-3">
+            {exercise.is_custom && (
+              <span className="inline-block text-xs font-semibold px-3 py-1 rounded-full border uppercase text-amber-300 border-amber-700/60 bg-amber-900/30">
+                Custom Exercise
+              </span>
+            )}
+            {exercise.measurement_type && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-400">Measurement:</span>
+                <span className="text-slate-200 capitalize">{exercise.measurement_type.replace(/_/g, " ")}</span>
+              </div>
+            )}
+            {exercise.muscle_group && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-400">Muscle Group:</span>
+                <span className="text-slate-200">{exercise.muscle_group}</span>
+              </div>
+            )}
+            {exercise.primary_equipment && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-400">Equipment:</span>
+                <span className="text-slate-200">{exercise.primary_equipment}</span>
+              </div>
+            )}
+            {exercise.default_rest_seconds !== undefined && (
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-slate-400">Default Rest:</span>
+                <span className="text-slate-200">{exercise.default_rest_seconds}s</span>
+              </div>
+            )}
+          </div>
+
+          {/* Description */}
+          {exercise.description ? (
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">Description</h3>
+              <p className="text-sm text-slate-300 leading-relaxed border-l-4 border-amber-700/40 pl-4">
                 {exercise.description}
               </p>
-            ) : exercise.is_custom ? (
-              <p className="mt-2 text-[10px] text-slate-600 italic">
-                No description provided.
-              </p>
-            ) : null}
-          </div>
+            </div>
+          ) : exercise.is_custom ? (
+            <div className="mt-6">
+              <h3 className="text-sm font-semibold text-slate-400 uppercase tracking-wider mb-2">Description</h3>
+              <p className="text-xs text-slate-600 italic">No description provided.</p>
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
@@ -126,7 +152,6 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
   const [exercises, setExercises] = useState<ExerciseLibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedId, setSelectedId] = useState<number | null>(null);
-  const listRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMuscle, setFilterMuscle] = useState<string | null>(null);
   const [filterEquipment, setFilterEquipment] = useState<string | null>(null);
@@ -169,18 +194,12 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
 
   const selectedExercise = useMemo(() => {
     if (selectedId === null) return null;
-    const found = exercises.find((e) => e.id === selectedId);
-    console.log("[exercise] selectedExercise debug", { selectedId, found: found ? found.name : null, exercisesCount: exercises.length });
-    return found || null;
+    return exercises.find((e) => e.id === selectedId) || null;
   }, [selectedId, exercises]);
 
-  console.log("[exercise] render phase", { selectedId, hasSelected: selectedExercise !== null });
-
-  useEffect(() => {
-    if (selectedId !== null && listRef.current) {
-      listRef.current.scrollTo({ top: 0, behavior: "smooth" });
-    }
-  }, [selectedId]);
+  if (selectedExercise) {
+    return <ExerciseDetailView exercise={selectedExercise} resolveMediaUrl={resolveMediaUrl} onBack={() => setSelectedId(null)} />;
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-slate-950">
@@ -278,7 +297,7 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
       </div>
 
       {/* Exercise list */}
-      <div className="flex-1 overflow-y-auto" ref={listRef}>
+      <div className="flex-1 overflow-y-auto">
         {loading ? (
           <div className="flex items-center justify-center py-12 text-slate-500 text-sm">
             Loading library...
@@ -289,15 +308,11 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
           </div>
         ) : (
           <div className="divide-y divide-slate-800/60">
-            {selectedExercise && <ExerciseDetailView exercise={selectedExercise} resolveMediaUrl={resolveMediaUrl} />}
             {filtered.map((ex) => (
               <div
                 key={ex.id}
                 className="px-4 py-3 flex gap-3 hover:bg-slate-900/50 transition-colors cursor-pointer active:bg-slate-800/50"
-                onClick={() => {
-                  console.log("[exercise] row click", { id: ex.id, selectedId });
-                  setSelectedId(selectedId === ex.id ? null : ex.id);
-                }}
+                onClick={() => setSelectedId(ex.id)}
               >
                 {/* GIF tile */}
                 <div className="shrink-0 w-12 h-12 rounded-xl overflow-hidden bg-slate-800 border border-slate-700">
@@ -350,7 +365,8 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
                     </div>
                     {ex.description && (
                       <button
-                        onClick={() => {
+                        onClick={(e) => {
+                          e.stopPropagation();
                           setExercises((prev) =>
                             prev.map((e) =>
                               e.id === ex.id ? { ...e, _showDescription: !e._showDescription } : e
