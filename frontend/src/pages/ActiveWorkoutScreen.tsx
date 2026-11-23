@@ -655,6 +655,10 @@ export default function ActiveWorkoutScreen({
   const playRestEndChime = () => {
     try {
       const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      // iOS Safari requires resume after user interaction before audio can play
+      if (ctx.state === "suspended") {
+        ctx.resume().catch(() => {});
+      }
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.connect(gain);
