@@ -346,14 +346,6 @@ export default function App() {
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {user && (
-            <button
-              onClick={logout}
-              className="text-xs text-slate-400 hover:text-slate-200 transition-colors px-2 py-1 rounded-lg hover:bg-slate-800/50"
-            >
-              Logout
-            </button>
-          )}
           {sessionId !== null && selectedTemplateId !== null && view !== "active_workout" && (
             <button
               onClick={() => navigate("active_workout")}
@@ -573,6 +565,7 @@ export default function App() {
                     setView("settings");
                     setTab("settings");
                   }}
+                  onLogout={logout}
                   user={user}
                 />
               )}

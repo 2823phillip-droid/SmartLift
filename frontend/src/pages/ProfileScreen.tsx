@@ -18,7 +18,7 @@ type Profile = {
   goals?: string[];
 };
 
-export default function ProfileScreen({ onBack, onOpenSettings, user }: { onBack: () => void; onOpenSettings: () => void; user: { email?: string; first_name?: string; last_name?: string } | null }) {
+export default function ProfileScreen({ onBack, onOpenSettings, onLogout, user }: { onBack: () => void; onOpenSettings: () => void; onLogout?: () => void; user: { email?: string; first_name?: string; last_name?: string } | null }) {
   const [profile, setProfile] = useState<Profile>({
     username: user?.first_name || "",
     email: user?.email || "",
@@ -143,6 +143,15 @@ export default function ProfileScreen({ onBack, onOpenSettings, user }: { onBack
               </div>
             </div>
           </div>
+
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              className="w-full rounded-xl border border-rose-800 bg-rose-950/30 px-4 py-3 text-sm font-semibold text-rose-300 hover:bg-rose-950 hover:border-rose-700 transition-colors"
+            >
+              Logout
+            </button>
+          )}
 
           <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
             <div className="flex items-center justify-between">
