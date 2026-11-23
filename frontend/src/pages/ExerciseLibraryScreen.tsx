@@ -215,7 +215,7 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
             {filtered.map((ex) => (
               <div
                 key={ex.id}
-                className="px-4 py-3 flex gap-3 hover:bg-slate-900/50 transition-colors cursor-pointer"
+                className="px-4 py-3 flex gap-3 hover:bg-slate-900/50 transition-colors cursor-pointer active:bg-slate-800/50"
                 onClick={() => setSelectedId(selectedId === ex.id ? null : ex.id)}
               >
                 {/* GIF tile */}
