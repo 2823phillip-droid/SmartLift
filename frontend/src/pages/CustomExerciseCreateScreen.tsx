@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { api } from "../api";
 
 // Tile option types
@@ -23,14 +23,21 @@ const MOVEMENT_PATTERN_OPTIONS: TileOption[] = [
   { label: "Other", value: "other" },
 ];
 
-const EXERCISE_ROLE_OPTIONS: TileOption[] = [
-  { label: "Main Compound", value: "main_compound" },
-  { label: "Secondary", value: "secondary_compound" },
-  { label: "Accessory", value: "accessory" },
-  { label: "Isolation", value: "isolation_technical" },
-  { label: "Warmup", value: "warmup" },
-  { label: "Prehab", value: "prehab_activation" },
-  { label: "Cool Down", value: "cool_down" },
+const EXERCISE_ROLE_OPTIONS_COMPOUND: TileOption[] = [
+  { label: "Main Compound", value: "main_compound", description: "Primary, heavy compound — the core of the workout" },
+  { label: "Secondary", value: "secondary_compound", description: "Secondary compound movements complementing the main ones" },
+  { label: "Accessory", value: "accessory", description: "Smaller movements targeting specific muscles or weaknesses" },
+  { label: "Warmup", value: "warmup", description: "Pre-workout preparation" },
+  { label: "Prehab", value: "prehab_activation", description: "Injury prevention work" },
+  { label: "Cool Down", value: "cool_down", description: "Post-workout recovery" },
+];
+
+const EXERCISE_ROLE_OPTIONS_ISOLATION: TileOption[] = [
+  { label: "Secondary", value: "secondary_compound", description: "Isolation movement complementing a main compound elsewhere" },
+  { label: "Accessory", value: "accessory", description: "Smaller isolation movements targeting specific muscles" },
+  { label: "Warmup", value: "warmup", description: "Pre-workout preparation" },
+  { label: "Prehab", value: "prehab_activation", description: "Injury prevention work" },
+  { label: "Cool Down", value: "cool_down", description: "Post-workout recovery" },
 ];
 
 const MEASUREMENT_TYPE_OPTIONS: TileOption[] = [
@@ -126,6 +133,15 @@ export default function CustomExerciseCreateScreen({
   const [movementPattern, setMovementPattern] = useState<string | null>(null);
   const [exerciseRole, setExerciseRole] = useState<string | null>(null);
   const [measurementType, setMeasurementType] = useState<string | null>(null);
+
+  // Clear exercise role when compound/isolation changes if role is no longer valid
+  useEffect(() => {
+    if (isCompound === true && exerciseRole === "isolation_technical") {
+      setExerciseRole(null);
+    } else if (isCompound === false && exerciseRole === "main_compound") {
+      setExerciseRole(null);
+    }
+  }, [isCompound, exerciseRole]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -238,7 +254,7 @@ export default function CustomExerciseCreateScreen({
 
       <TileGroup
         title="Exercise Role"
-        options={EXERCISE_ROLE_OPTIONS}
+        options={isCompound ? EXERCISE_ROLE_OPTIONS_COMPOUND : EXERCISE_ROLE_OPTIONS_ISOLATION}
         selected={exerciseRole}
         onSelect={(v) => setExerciseRole(v as string)}
       />
