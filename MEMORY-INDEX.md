@@ -11,7 +11,7 @@ This file explains where every type of project knowledge lives and when to use i
 
 #### Repo
 - **Branch:** master
-- **HEAD:** `096d16f` — "fix: add ctx.resume() for iOS Safari audio playback"
+- **HEAD:** `fb3af23` — "fix: hide loading indicator when prescriptions restored from localStorage"
 - **Remote (GitHub):** committed and pushed.
 - **Deployed to Fly:** commits through `1a3e4b3` (backend healthy, set target messages fixed). Frontend at `096d16f` — built and synced to iOS.
 
