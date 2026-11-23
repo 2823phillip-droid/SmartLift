@@ -60,7 +60,7 @@ const MEASUREMENT_TYPES: FilterItem[] = [
 function ExerciseDetailView({ exercise, resolveMediaUrl }: { exercise: ExerciseLibraryItem; resolveMediaUrl: (url: string | null | undefined) => string | null }) {
   console.log("[exercise] detail view rendering", exercise.name);
   return (
-    <div className="border-t border-slate-800/80 bg-slate-900/50">
+    <div className="border-t-4 border-red-500 bg-yellow-400/20">
       <div className="max-w-2xl mx-auto px-4 py-4">
         <div className="flex gap-4 items-start">
           {/* Large GIF */}
