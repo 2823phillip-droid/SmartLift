@@ -32,83 +32,6 @@ const EXERCISE_ROLE_OPTIONS: TileOption[] = [
   { label: "Cool Down", value: "cool_down" },
 ];
 
-const MUSCLE_GROUP_OPTIONS: TileOption[] = [
-  { label: "Chest", value: "chest" },
-  { label: "Back", value: "back" },
-  { label: "Shoulders", value: "shoulders" },
-  { label: "Arms", value: "arms" },
-  { label: "Legs", value: "legs" },
-  { label: "Core", value: "core" },
-  { label: "Cardio", value: "cardio" },
-  { label: "Full Body", value: "full_body" },
-  { label: "Other", value: "other" },
-];
-
-const EQUIPMENT_OPTIONS: TileOption[] = [
-  { label: "Bodyweight", value: "bodyweight" },
-  { label: "Barbell", value: "barbell" },
-  { label: "Dumbbell", value: "dumbbell" },
-  { label: "Cable", value: "cable" },
-  { label: "Machine", value: "machine" },
-  { label: "Bands", value: "bands" },
-  { label: "Kettlebell", value: "kettlebell" },
-  { label: "Other", value: "other" },
-];
-
-const REST_OPTIONS: TileOption[] = [
-  { label: "30s", value: 30 },
-  { label: "60s", value: 60 },
-  { label: "90s", value: 90 },
-  { label: "120s", value: 120 },
-  { label: "150s", value: 150 },
-  { label: "180s", value: 180 },
-];
-
-const LOAD_SCORE_OPTIONS: TileOption[] = [
-  { label: "0", value: 0 },
-  { label: "1", value: 1 },
-  { label: "2", value: 2 },
-  { label: "3", value: 3 },
-  { label: "4", value: 4 },
-  { label: "5", value: 5 },
-];
-
-const JOINT_OPTIONS: TileOption[] = [
-  { label: "Shoulder", value: "shoulder" },
-  { label: "Elbow", value: "elbow" },
-  { label: "Wrist", value: "wrist" },
-  { label: "Knee", value: "knee" },
-  { label: "Hip", value: "hip" },
-  { label: "Ankle", value: "ankle" },
-  { label: "Spine", value: "spine" },
-];
-
-const MOVEMENT_TYPE_OPTIONS: TileOption[] = [
-  { label: "Compound", value: "compound" },
-  { label: "Isolation", value: "isolation" },
-  { label: "Helper", value: "helper" },
-];
-
-const BASE_MOVEMENT_OPTIONS: TileOption[] = [
-  { label: "Horiz. Push", value: "horizontal_push" },
-  { label: "Horiz. Pull", value: "horizontal_pull" },
-  { label: "Vert. Push", value: "vertical_push" },
-  { label: "Vert. Pull", value: "vertical_pull" },
-  { label: "Squat", value: "squat" },
-  { label: "Hinge", value: "hinge" },
-  { label: "Lunge", value: "lunge" },
-  { label: "Rotation", value: "rotation" },
-  { label: "Carry", value: "carry" },
-  { label: "Other", value: "other" },
-];
-
-const WARMUP_TYPE_OPTIONS: TileOption[] = [
-  { label: "Dynamic", value: "dynamic" },
-  { label: "Static", value: "static" },
-  { label: "Activation", value: "activation" },
-  { label: "General", value: "general" },
-];
-
 type TileGroupProps = {
   title: string;
   options: TileOption[];
@@ -188,23 +111,6 @@ export default function CustomExerciseCreateScreen({
   const [movementPattern, setMovementPattern] = useState<string | null>(null);
   const [exerciseRole, setExerciseRole] = useState<string | null>(null);
 
-  // Optional multi-select
-  const [muscleGroups, setMuscleGroups] = useState<string[]>([]);
-  const [equipment, setEquipment] = useState<string[]>([]);
-  const [jointStress, setJointStress] = useState<string[]>([]);
-
-  // Optional single-select
-  const [primaryEquipment, setPrimaryEquipment] = useState<string | null>(null);
-  const [movementType, setMovementType] = useState<string | null>(null);
-  const [defaultRest, setDefaultRest] = useState<number | null>(null);
-  const [systemicFatigueLoad, setSystemicFatigueLoad] = useState<number | null>(null);
-  const [structuralSafetyScore, setStructuralSafetyScore] = useState<number | null>(null);
-  const [riskScore, setRiskScore] = useState<number | null>(null);
-  const [impactScore, setImpactScore] = useState<number | null>(null);
-  const [baseMovement, setBaseMovement] = useState<string | null>(null);
-  const [hittWorthy, setHittWorthy] = useState<boolean | null>(null);
-  const [warmupType, setWarmupType] = useState<string | null>(null);
-
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
@@ -237,21 +143,6 @@ export default function CustomExerciseCreateScreen({
         movement_pattern: movementPattern,
         exercise_role: exerciseRole,
       };
-
-      // Optional fields
-      if (muscleGroups.length > 0) payload.muscle_group = JSON.stringify(muscleGroups);
-      if (equipment.length > 0) payload.equipment = JSON.stringify(equipment);
-      if (jointStress.length > 0) payload.joint_stress_flags = JSON.stringify(jointStress);
-      if (primaryEquipment) payload.primary_equipment = primaryEquipment;
-      if (movementType) payload.movement_type = movementType;
-      if (defaultRest) payload.default_rest_seconds = defaultRest;
-      if (systemicFatigueLoad !== null) payload.systemic_fatigue_load = systemicFatigueLoad;
-      if (structuralSafetyScore !== null) payload.structural_safety_score = structuralSafetyScore;
-      if (riskScore !== null) payload.risk_score = riskScore;
-      if (impactScore !== null) payload.impact_score = impactScore;
-      if (baseMovement) payload.base_movement = baseMovement;
-      if (hittWorthy !== null) payload.hitt_worthy = hittWorthy ? 1 : 0;
-      if (warmupType) payload.warmup_type = warmupType;
 
       await api.createExerciseLibraryEntry(payload);
       setSaved(true);
@@ -330,137 +221,6 @@ export default function CustomExerciseCreateScreen({
         selected={exerciseRole}
         onSelect={(v) => setExerciseRole(v as string)}
       />
-
-      {/* Optional fields */}
-      <div className="my-6 border-t border-slate-800 pt-4">
-        <button
-          onClick={() => document.getElementById("optional-fields")?.scrollIntoView({ behavior: "smooth" })}
-          className="flex items-center gap-2 text-sm text-amber-400 hover:text-amber-300 transition-colors"
-        >
-          <span className="transition-transform">▼</span>
-          <span className="font-medium">Optional Fields</span>
-        </button>
-      </div>
-
-      <div id="optional-fields" className="space-y-1">
-        <TileGroup
-          title="Muscle Groups (tap in order: primary first)"
-          options={MUSCLE_GROUP_OPTIONS}
-          multiSelect
-          selectedItems={muscleGroups}
-          onToggleMulti={(v) => {
-            if (v === "__clear__") {
-              setMuscleGroups([]);
-            } else if (muscleGroups.includes(v as string)) {
-              setMuscleGroups(muscleGroups.filter((m) => m !== v));
-            } else {
-              setMuscleGroups([...muscleGroups, v as string]);
-            }
-          }}
-        />
-
-        <TileGroup
-          title="Equipment Used"
-          options={EQUIPMENT_OPTIONS}
-          multiSelect
-          selectedItems={equipment}
-          onToggleMulti={(v) => {
-            if (v === "__clear__") {
-              setEquipment([]);
-            } else if (equipment.includes(v as string)) {
-              setEquipment(equipment.filter((e) => e !== v));
-            } else {
-              setEquipment([...equipment, v as string]);
-            }
-          }}
-        />
-
-        <TileGroup
-          title="Primary Equipment"
-          options={EQUIPMENT_OPTIONS.filter((e) => ["barbell", "dumbbell", "cable", "machine", "bodyweight", "bands", "kettlebell"].includes(e.value as string))}
-          selected={primaryEquipment}
-          onSelect={(v) => setPrimaryEquipment(v as string)}
-        />
-
-        <TileGroup
-          title="Movement Type"
-          options={MOVEMENT_TYPE_OPTIONS}
-          selected={movementType}
-          onSelect={(v) => setMovementType(v as string)}
-        />
-
-        <TileGroup
-          title="Default Rest (seconds)"
-          options={REST_OPTIONS}
-          selected={defaultRest}
-          onSelect={(v) => setDefaultRest(v as number)}
-        />
-
-        <TileGroup
-          title="Systemic Fatigue Load (0-5)"
-          options={LOAD_SCORE_OPTIONS}
-          selected={systemicFatigueLoad}
-          onSelect={(v) => setSystemicFatigueLoad(v as number)}
-        />
-
-        <TileGroup
-          title="Structural Safety Score (0-5)"
-          options={LOAD_SCORE_OPTIONS}
-          selected={structuralSafetyScore}
-          onSelect={(v) => setStructuralSafetyScore(v as number)}
-        />
-
-        <TileGroup
-          title="Risk Score (0-5)"
-          options={LOAD_SCORE_OPTIONS}
-          selected={riskScore}
-          onSelect={(v) => setRiskScore(v as number)}
-        />
-
-        <TileGroup
-          title="Impact Score (0-5)"
-          options={LOAD_SCORE_OPTIONS}
-          selected={impactScore}
-          onSelect={(v) => setImpactScore(v as number)}
-        />
-
-        <TileGroup
-          title="Base Movement"
-          options={BASE_MOVEMENT_OPTIONS}
-          selected={baseMovement}
-          onSelect={(v) => setBaseMovement(v as string)}
-        />
-
-        <TileGroup
-          title="HIIT Worthy?"
-          options={[{ label: "Yes", value: true }, { label: "No", value: false }]}
-          selected={hittWorthy}
-          onSelect={(v) => setHittWorthy(v as boolean)}
-        />
-
-        <TileGroup
-          title="Warmup Type"
-          options={WARMUP_TYPE_OPTIONS}
-          selected={warmupType}
-          onSelect={(v) => setWarmupType(v as string)}
-        />
-
-        <TileGroup
-          title="Joint Stress (tap in order)"
-          options={JOINT_OPTIONS}
-          multiSelect
-          selectedItems={jointStress}
-          onToggleMulti={(v) => {
-            if (v === "__clear__") {
-              setJointStress([]);
-            } else if (jointStress.includes(v as string)) {
-              setJointStress(jointStress.filter((j) => j !== v));
-            } else {
-              setJointStress([...jointStress, v as string]);
-            }
-          }}
-        />
-      </div>
 
       {error && (
         <div className="mt-4 rounded-xl border border-red-700/50 bg-red-900/20 p-4 text-sm text-red-300">
