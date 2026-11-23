@@ -127,41 +127,50 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
         />
 
         <div className="flex flex-wrap gap-2">
-          <select
-            value={filterMuscle || ""}
-            onChange={(e) => setFilterMuscle(e.target.value || null)}
-            className="rounded-xl border border-slate-700 bg-slate-800/50 px-3 py-2 text-xs text-slate-200 focus:border-amber-500/60 focus:outline-none"
-          >
-            {MUSCLE_GROUPS.map((m) => (
-              <option key={m.value || "all"} value={m.value || ""}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-slate-500 uppercase tracking-wider">Muscle</label>
+            <select
+              value={filterMuscle || ""}
+              onChange={(e) => setFilterMuscle(e.target.value || null)}
+              className="rounded-xl border border-slate-700 bg-slate-800/50 px-3 py-2 text-xs text-slate-200 focus:border-amber-500/60 focus:outline-none w-24"
+            >
+              {MUSCLE_GROUPS.map((m) => (
+                <option key={m.value || "all"} value={m.value || ""}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            value={filterEquipment || ""}
-            onChange={(e) => setFilterEquipment(e.target.value || null)}
-            className="rounded-xl border border-slate-700 bg-slate-800/50 px-3 py-2 text-xs text-slate-200 focus:border-amber-500/60 focus:outline-none"
-          >
-            {EQUIPMENT.map((e) => (
-              <option key={e.value || "all"} value={e.value || ""}>
-                {e.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-slate-500 uppercase tracking-wider">Equip</label>
+            <select
+              value={filterEquipment || ""}
+              onChange={(e) => setFilterEquipment(e.target.value || null)}
+              className="rounded-xl border border-slate-700 bg-slate-800/50 px-3 py-2 text-xs text-slate-200 focus:border-amber-500/60 focus:outline-none w-20"
+            >
+              {EQUIPMENT.map((e) => (
+                <option key={e.value || "all"} value={e.value || ""}>
+                  {e.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            value={filterMeasurement || ""}
-            onChange={(e) => setFilterMeasurement(e.target.value || null)}
-            className="rounded-xl border border-slate-700 bg-slate-800/50 px-3 py-2 text-xs text-slate-200 focus:border-amber-500/60 focus:outline-none"
-          >
-            {MEASUREMENT_TYPES.map((m) => (
-              <option key={m.value || "all"} value={m.value || ""}>
-                {m.label}
-              </option>
-            ))}
-          </select>
+          <div className="flex items-center gap-2">
+            <label className="text-[10px] text-slate-500 uppercase tracking-wider">Measure</label>
+            <select
+              value={filterMeasurement || ""}
+              onChange={(e) => setFilterMeasurement(e.target.value || null)}
+              className="rounded-xl border border-slate-700 bg-slate-800/50 px-3 py-2 text-xs text-slate-200 focus:border-amber-500/60 focus:outline-none w-24"
+            >
+              {MEASUREMENT_TYPES.map((m) => (
+                <option key={m.value || "all"} value={m.value || ""}>
+                  {m.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           <button
             onClick={() => setShowCustomOnly(!showCustomOnly)}
@@ -205,11 +214,38 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
             {filtered.map((ex) => (
               <div
                 key={ex.id}
-                className="px-4 py-3 flex flex-col gap-1 hover:bg-slate-900/50 transition-colors"
+                className="px-4 py-3 flex gap-3 hover:bg-slate-900/50 transition-colors"
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
+                {/* GIF tile */}
+                <div className="shrink-0 w-12 h-12 rounded-xl overflow-hidden bg-slate-800 border border-slate-700">
+                  {ex.gif_url ? (
+                    <img
+                      src={ex.gif_url}
+                      alt={ex.name}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                  ) : ex.image_url ? (
+                    <img
+                      src={ex.image_url}
+                      alt={ex.name}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                    />
+                  ) : (
+                    <div className="h-full w-full flex items-center justify-center text-xs text-slate-600 bg-slate-800">
+                      {ex.name[0]?.toUpperCase()}
+                    </div>
+                  )}
+                </div>
+
+                {/* Exercise info */}
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
                       <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border uppercase ${
                         ex.is_custom
                           ? "text-amber-300 border-amber-700/60 bg-amber-900/30"
@@ -236,14 +272,13 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
                   {ex.description && (
                     <button
                       onClick={() => {
-                        const currentDesc = ex._showDescription ? null : ex.description;
                         setExercises((prev) =>
                           prev.map((e) =>
                             e.id === ex.id ? { ...e, _showDescription: !e._showDescription } : e
                           )
                         );
                       }}
-                      className="text-xs text-amber-400 hover:text-amber-300 shrink-0 ml-2"
+                      className="text-xs text-amber-400 hover:text-amber-300 shrink-0"
                     >
                       {ex._showDescription ? "hide" : "describe"}
                     </button>
