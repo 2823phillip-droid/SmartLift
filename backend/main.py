@@ -405,8 +405,12 @@ def _run_migrations():
                 conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN is_custom BOOLEAN DEFAULT FALSE"))
                 conn.commit()
             if "measurement_type" not in elcols:
+                logging.info("Migration: adding measurement_type column to exercise_library")
                 conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN measurement_type TEXT"))
                 conn.commit()
+                logging.info("Migration: measurement_type column added successfully")
+            else:
+                logging.info("Migration: measurement_type column already exists, skipping")
 
             # BlockState phase column: ensure it's a string type (migration from old INTEGER)
             bscols = cols("block_state")
