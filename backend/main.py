@@ -397,13 +397,7 @@ def _run_migrations():
             if "warmup_type" not in elcols:
                 conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN warmup_type TEXT"))
                 conn.commit()
-            # Custom exercise fields
-            if "user_id" not in elcols:
-                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN user_id INTEGER REFERENCES users(id) ON DELETE CASCADE"))
-                conn.commit()
-            if "is_custom" not in elcols:
-                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN is_custom BOOLEAN DEFAULT FALSE"))
-                conn.commit()
+            # Custom exercise fields (no dependencies — do these first)
             if "measurement_type" not in elcols:
                 logging.info("Migration: adding measurement_type column to exercise_library")
                 conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN measurement_type TEXT"))
@@ -411,6 +405,21 @@ def _run_migrations():
                 logging.info("Migration: measurement_type column added successfully")
             else:
                 logging.info("Migration: measurement_type column already exists, skipping")
+
+            if "is_custom" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN is_custom BOOLEAN DEFAULT FALSE"))
+                conn.commit()
+                logging.info("Migration: is_custom column added")
+            else:
+                logging.info("Migration: is_custom column already exists, skipping")
+
+            if "user_id" not in elcols:
+                # FK constraint omitted — relationship enforced at app level via current_user.id
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN user_id INTEGER"))
+                conn.commit()
+                logging.info("Migration: user_id column added")
+            else:
+                logging.info("Migration: user_id column already exists, skipping")
 
             # BlockState phase column: ensure it's a string type (migration from old INTEGER)
             bscols = cols("block_state")
@@ -424,8 +433,9 @@ def _run_migrations():
                 conn.commit()
                 logging.info("Created coach_usage_logs table")
 
-    except Exception:
-        pass
+    except Exception as e:
+        logging.error(f"Migration failed: {e}")
+        logging.error(traceback.format_exc())
 
 # --- Schemas ---
 
@@ -465,10 +475,11 @@ class ExerciseLibraryOut(BaseModel):
     video_url: Optional[str] = None
     image_url: Optional[str] = None
     gif_url: Optional[str] = None
-    is_compound: bool = True
+    is_compound: Optional[bool] = True
     is_custom: bool = False
     user_id: Optional[int] = None
     measurement_type: Optional[str] = None
+    program_worthy: Optional[bool] = None
 
     @field_validator("name", mode="before")
     @classmethod
@@ -542,6 +553,7 @@ class ExerciseLibraryCreate(BaseModel):
     base_movement: Optional[str] = None
     hitt_worthy: Optional[int] = None
     warmup_type: Optional[str] = None
+    program_worthy: Optional[bool] = None
     muscle_group: Optional[str] = None
     equipment: Optional[str] = None
     default_rest_seconds: Optional[int] = None
@@ -994,6 +1006,7 @@ def create_exercise_library_entry(payload: ExerciseLibraryCreate, db: Session = 
         base_movement=payload.base_movement,
         hitt_worthy=payload.hitt_worthy,
         warmup_type=payload.warmup_type,
+        program_worthy=payload.program_worthy if payload.program_worthy is not None else True,
         muscle_group=payload.muscle_group,
         equipment=payload.equipment,
         default_rest_seconds=payload.default_rest_seconds,
@@ -1498,6 +1511,7 @@ def search_exercise_library(q: str = "", db: Session = Depends(get_db), current_
             is_custom=e.is_custom,
             user_id=e.user_id,
             measurement_type=getattr(e, "measurement_type", None),
+            program_worthy=getattr(e, "program_worthy", None),
         )
         for e in query.all()
     ]

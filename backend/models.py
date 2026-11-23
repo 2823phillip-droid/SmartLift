@@ -155,6 +155,7 @@ class ExerciseLibrary(Base):
     base_movement = Column(String, nullable=True)
     hitt_worthy = Column(Integer, nullable=True)  # 0/1 flag
     warmup_type = Column(String, nullable=True)  # dynamic | static | activation | general
+    program_worthy = Column(Boolean, nullable=True)  # whether exercise is worthy of inclusion in programmed workouts
     measurement_type = Column(String, nullable=True)  # weight_reps | inverted_weight_reps | time_reps | reps_only | distance
 
 class ExerciseEntry(Base):

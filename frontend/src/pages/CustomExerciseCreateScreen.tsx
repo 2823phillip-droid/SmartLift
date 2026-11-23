@@ -23,6 +23,31 @@ const MOVEMENT_PATTERN_OPTIONS: TileOption[] = [
   { label: "Other", value: "other" },
 ];
 
+const MUSCLE_GROUP_OPTIONS: TileOption[] = [
+  { label: "Chest", value: "chest" },
+  { label: "Back", value: "back" },
+  { label: "Shoulders", value: "shoulders" },
+  { label: "Arms", value: "arms" },
+  { label: "Upper Legs", value: "upper legs" },
+  { label: "Lower Legs", value: "lower legs" },
+  { label: "Core", value: "core" },
+  { label: "Waist", value: "waist" },
+  { label: "Cardio", value: "cardio" },
+  { label: "Full Body", value: "full_body" },
+  { label: "Other", value: "other" },
+];
+
+const EQUIPMENT_OPTIONS: TileOption[] = [
+  { label: "Barbell", value: "barbell" },
+  { label: "Dumbbell", value: "dumbbell" },
+  { label: "Machine", value: "machine" },
+  { label: "Cable", value: "cable" },
+  { label: "Bodyweight", value: "bodyweight" },
+  { label: "Kettlebell", value: "kettlebell" },
+  { label: "Resistance Band", value: "resistance_band" },
+  { label: "Other", value: "other" },
+];
+
 const EXERCISE_ROLE_OPTIONS_COMPOUND: TileOption[] = [
   { label: "Main Compound", value: "main_compound", description: "Primary, heavy compound — the core of the workout" },
   { label: "Secondary", value: "secondary_compound", description: "Secondary compound movements complementing the main ones" },
@@ -133,6 +158,8 @@ export default function CustomExerciseCreateScreen({
   const [movementPattern, setMovementPattern] = useState<string | null>(null);
   const [exerciseRole, setExerciseRole] = useState<string | null>(null);
   const [measurementType, setMeasurementType] = useState<string | null>(null);
+  const [muscleGroup, setMuscleGroup] = useState<string | null>(null);
+  const [equipment, setEquipment] = useState<string | null>(null);
 
   // Clear exercise role when compound/isolation changes if role is no longer valid
   useEffect(() => {
@@ -168,6 +195,14 @@ export default function CustomExerciseCreateScreen({
       setError("Please select a measurement type");
       return;
     }
+    if (muscleGroup === null) {
+      setError("Please select a muscle group");
+      return;
+    }
+    if (equipment === null) {
+      setError("Please select equipment");
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -179,6 +214,8 @@ export default function CustomExerciseCreateScreen({
         measurement_type: measurementType,
         movement_pattern: movementPattern,
         exercise_role: exerciseRole,
+        muscle_group: muscleGroup,
+        equipment: equipment,
       };
 
       await api.createExerciseLibraryEntry(payload);
@@ -264,6 +301,20 @@ export default function CustomExerciseCreateScreen({
         options={MEASUREMENT_TYPE_OPTIONS}
         selected={measurementType}
         onSelect={(v) => setMeasurementType(v as string)}
+      />
+
+      <TileGroup
+        title="Muscle Group"
+        options={MUSCLE_GROUP_OPTIONS}
+        selected={muscleGroup}
+        onSelect={(v) => setMuscleGroup(v as string)}
+      />
+
+      <TileGroup
+        title="Equipment"
+        options={EQUIPMENT_OPTIONS}
+        selected={equipment}
+        onSelect={(v) => setEquipment(v as string)}
       />
 
       {error && (
