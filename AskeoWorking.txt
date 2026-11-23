@@ -56,56 +56,22 @@ Model_Picker Logic on rotating models.
 #
 
 Logs:
-[Warning] [ActiveWorkoutScreen] MODULE LOADED - web bundle is running (index-DzR_LrvL.js, line 73)
-[Error] Failed to load resource: the server responded with a status of 401 () (api_base, line 0)
-[Error] Failed to load resource: the server responded with a status of 404 () (healthz, line 0)
-[Error] Failed to load resource: the server responded with a status of 404 () (healthz, line 0)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] Fetching block state... (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] Block state response: – {id: 3, block_mode: "foundation", week_number: 1, …} (index-DzR_LrvL.js, line 73)
-{id: 3, block_mode: "foundation", week_number: 1, start_date: "2026-10-10T19:51:08.720252+00:00", phase: "foundation_1", …}Object
-[Log] [ActiveWorkoutScreen] Block state set: – "foundation" (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] Fetching progression for – 6 – "exercises..." (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 461 (Dumbbell Bench Press), library_id=473 (index-DzR_LrvL.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 461: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-DzR_LrvL.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 59.999928644964, should_increase: false, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 60 – "x" – 8 (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 462 (Barbell Romanian Deadlift), library_id=183 (index-DzR_LrvL.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-DzR_LrvL.js, line 73, x3)
-[Log] [ActiveWorkoutScreen] Calculate response for 462: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-DzR_LrvL.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 110, should_increase: false, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 110 – "x" – 8 (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 463 (Lever Bent Over Row), library_id=931 (index-DzR_LrvL.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 463: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-DzR_LrvL.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 59.999928644964, should_increase: false, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 60 – "x" – 8 (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 464 (Lever Shoulder Press V. 2), library_id=988 (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] lastSessionByExercise – {461: Array, 462: Array, 463: Array, …} (index-DzR_LrvL.js, line 73)
-{461: Array, 462: Array, 463: Array, 464: Array, 465: Array, 466: Array}Object
-[Warning] [ActiveWorkoutScreen] Component rendering (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] Fetching session targets... (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 464: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-DzR_LrvL.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 39.999952429976, should_increase: false, …}Object
-[Log] [ActiveWorkoutScreen] Updated draft from progression: – 40 – "x" – 8 (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculating for exercise 465 (Lever Preacher Curl), library_id=962 (index-DzR_LrvL.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] Session targets received: – 6 – "exercises" (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] auto-expand – 60 – "x" – 10 – "source:" – "backend" (index-DzR_LrvL.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 465: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-DzR_LrvL.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 29.999964322482, should_increase: false, …}Object
-[Log] [ActiveWorkoutScreen] Calculating for exercise 466 (Dumbbell Seated Triceps Extension), library_id=689 (index-DzR_LrvL.js, line 73)
-[Log] [ActiveWorkoutScreen] Calculate response for 466: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-DzR_LrvL.js, line 73)
-{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 45, should_increase: false, …}Object
-[Log] [ActiveWorkoutScreen] Progression data: – {461: Object, 462: Object, 463: Object, …} (index-DzR_LrvL.js, line 73)
-{461: Object, 462: Object, 463: Object, 464: Object, 465: Object, 466: Object}Object
-[Warning] [ActiveWorkoutScreen] Component rendering (index-DzR_LrvL.js, line 73, x2)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-DzR_LrvL.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-DzR_LrvL.js, line 73, x11)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-DzR_LrvL.js, line 73)
-[Warning] [ActiveWorkoutScreen] Component rendering (index-DzR_LrvL.js, line 73, x5)
+[Log] [WorkoutsScreen] contexts loaded – 4 (index-CJwdgZ-T.js, line 65)
+[Log] [WorkoutsScreen] templates loaded – 9 (index-CJwdgZ-T.js, line 65)
+[Log] [exercise] render phase – {selectedId: null, hasSelected: false} (index-CJwdgZ-T.js, line 73)
+[Log] [exercise] render phase – {selectedId: null, hasSelected: false} (index-CJwdgZ-T.js, line 73)
+[Log] [exercise] row click – {id: 15, selectedId: null} (index-CJwdgZ-T.js, line 73)
+[Log] [exercise] selectedExercise debug – {selectedId: 15, found: "Assisted Hanging Knee Raise", exercisesCount: 1391} (index-CJwdgZ-T.js, line 73)
+[Log] [exercise] render phase – {selectedId: 15, hasSelected: true} (index-CJwdgZ-T.js, line 73)
+[Log] [exercise] detail view rendering – "Assisted Hanging Knee Raise" (index-CJwdgZ-T.js, line 73)
+[Log] [exercise] row click – {id: 16, selectedId: 15} (index-CJwdgZ-T.js, line 73)
+[Log] [exercise] selectedExercise debug – {selectedId: 16, found: "Assisted Hanging Knee Raise With Throw Down", exercisesCount: 1391} (index-CJwdgZ-T.js, line 73)
+[Log] [exercise] render phase – {selectedId: 16, hasSelected: true} (index-CJwdgZ-T.js, line 73)
+[Log] [exercise] detail view rendering – "Assisted Hanging Knee Raise With Throw Down" (index-CJwdgZ-T.js, line 73)
+[Log] [exercise] row click – {id: 17, selectedId: 16} (index-CJwdgZ-T.js, line 73)
+[Log] [exercise] selectedExercise debug – {selectedId: 17, found: "Assisted Lying Calves Stretch", exercisesCount: 1391} (index-CJwdgZ-T.js, line 73)
+[Log] [exercise] render phase – {selectedId: 17, hasSelected: true} (index-CJwdgZ-T.js, line 73)
+[Log] [exercise] detail view rendering – "Assisted Lying Calves Stretch" (index-CJwdgZ-T.js, line 73)
 
 Last Summary Given (2026-10-30)
 Done. Updated all three documents to reflect the current state:

@@ -316,6 +316,9 @@ To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No l
 
 ### Current issues
 
+#### Exercise Library Detail View
+- [ ] Detail view doesn't scroll to top when opened from lower position in list — user has to manually scroll up to see exercise details. The ExerciseDetailView component mounts with scroll position inherited from the list. Need to explicitly reset scroll position on mount.
+
 #### Foundation Phase Bugs (2026-10-21 Chest & Triceps)
 
 1. **Re-entry message leaks to Set 2** — "Re-entering the foundation block after time away" appears on Set 2, but should only apply to Set 1. FIXED (commit ea25108).
