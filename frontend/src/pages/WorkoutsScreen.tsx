@@ -39,6 +39,7 @@ export default function WorkoutsScreen({
   onEditTemplate,
   onOpenTransitionHistory,
   onCreateCustomExercise,
+  onOpenExerciseLibrary,
 }: {
   onStartWorkout: (templateId: number) => void;
   onBuildWorkout: () => void;
@@ -47,6 +48,7 @@ export default function WorkoutsScreen({
   onEditTemplate?: (templateId: number, contextId: number) => void;
   onOpenTransitionHistory?: () => void;
   onCreateCustomExercise?: () => void;
+  onOpenExerciseLibrary?: () => void;
 }) {
   const [groups, setGroups] = useState<Group[]>([]);
   const [loading, setLoading] = useState(true);
@@ -386,6 +388,18 @@ export default function WorkoutsScreen({
                   <div className="font-semibold text-sm text-amber-200">Create a Custom Exercise</div>
                   <div className="text-xs text-slate-500 mt-0.5">
                     Add an exercise that's not in the library.
+                  </div>
+                </button>
+              )}
+
+              {onOpenExerciseLibrary && (
+                <button
+                  onClick={onOpenExerciseLibrary}
+                  className="w-full rounded-2xl border border-indigo-800 bg-indigo-950/40 hover:border-indigo-500/60 px-4 py-4 text-left transition-colors"
+                >
+                  <div className="font-semibold text-sm text-indigo-200">Exercise Library</div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    Browse all exercises and see descriptions.
                   </div>
                 </button>
               )}
