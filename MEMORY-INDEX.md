@@ -11,7 +11,7 @@ This file explains where every type of project knowledge lives and when to use i
 
 #### Repo
 - **Branch:** master
-- **HEAD:** `99a6056` — "feat: move logout button to profile screen"
+- **HEAD:** `1022a7c` — "docs: update MEMORY-INDEX.md to HEAD 99a6056"
 - **Remote (GitHub):** committed and pushed.
 - **Deployed to Fly:** commits through `1a3e4b3` (backend healthy, set target messages fixed). Frontend at `096d16f` — built and synced to iOS.
 
