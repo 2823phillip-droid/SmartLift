@@ -11,9 +11,9 @@ This file explains where every type of project knowledge lives and when to use i
 
 #### Repo
 - **Branch:** master
-- **HEAD:** `366eb7f` — "fix: set target message now shows calcData coaching_message for set 2+"
+- **HEAD:** `1337bfa` — "docs: add Roles and Build & Test Process sections to MEMORY-INDEX.md"
 - **Remote (GitHub):** committed and pushed.
-- **Deployed to Fly:** commits through `f64802f` (backend healthy). Frontend commit `366eb7f` not yet deployed — build+sync needed before testing.
+- **Deployed to Fly:** commits through `f64802f` (backend healthy). Frontend commits `366eb7f` + `1337bfa` not yet deployed — build+sync needed before testing.
 
 #### Frontend
 - **Build target:** Capacitor iOS app, Xcode project on Mac Studio. Run from Xcode → Product > Run.
