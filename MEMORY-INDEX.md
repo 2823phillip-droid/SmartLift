@@ -11,9 +11,9 @@ This file explains where every type of project knowledge lives and when to use i
 
 #### Repo
 - **Branch:** master
-- **HEAD:** `f64802f` — "fix: warmup set tracking, set target display, and rep target bugs"
+- **HEAD:** `366eb7f` — "fix: set target message now shows calcData coaching_message for set 2+"
 - **Remote (GitHub):** committed and pushed.
-- **Deployed to Fly:** commits through `f64802f` (latest: `f64802f` — warmup tracking, set target display, rep target fixes)
+- **Deployed to Fly:** commits through `f64802f` (backend healthy). Frontend commit `366eb7f` not yet deployed — build+sync needed before testing.
 
 #### Frontend
 - **Build target:** Capacitor iOS app, Xcode project on Mac Studio. Run from Xcode → Product > Run.
@@ -124,6 +124,45 @@ Use this when checking if things are clean:
 - Domain-specific additions go to the matching file (or a new `memory/<topic>.md`)
 - Structural changes (new file format, registry schema, merging files) also update `MEMORY-INDEX.md` and `changelog.md`
 - **The session lifecycle process in this file is owned by Memory — it is already being followed.** Every session starts with sync audit, resolves uncommitted changes immediately, cleans stale files before ending, and updates documentation in-session. This is not optional.
+
+## Roles
+
+### Hermes (agent)
+- Owns all terminal operations: git add/commit/push, backend deploy, frontend build, cap sync
+- Runs preflight checks, health checks, sync audits
+- Investigates bugs, implements fixes, commits and pushes
+- Updates documentation (MEMORY-INDEX.md, changelog.md, TODO.md, decisions.md) as part of the work
+- Never asks the user to run terminal commands for deploy/sync/device operations
+
+### User
+- Tests builds on device or simulator in Xcode (Clean Build Folder + Run)
+- Validates fixes: reports whether the bug is fixed, still broken, or surfaced a new issue
+- Only action Hermes cannot do: running the app on the physical device/simulator from Xcode
+
+## Build & Test Process
+
+### Frontend build (Hermes runs)
+```bash
+cd /Users/phillipwalters/Projects/askeo/repo/frontend
+npm run build          # tsc -b && vite build → dist/
+npx cap sync ios       # copies dist/ → frontend/ios/App/App/public/
+```
+
+### Testing in Xcode (user action)
+1. Open `frontend/ios/App.xcworkspace` in Xcode
+2. **Product > Clean Build Folder** (Shift+Cmd+K) — required when JS bundle hash changed
+3. **Product > Run** (Cmd+R) — builds and runs on connected device or simulator
+
+### Full deploy pipeline (Hermes runs, when both frontend and backend changed)
+```bash
+cd /Users/phillipwalters/Projects/askeo/repo && python3 scripts/deploy.py
+```
+Does: preflight → backup → git push → fly deploy backend → health check → npm run build → npx cap sync ios → smoke test
+
+### Backend-only deploy (Hermes runs)
+```bash
+cd /Users/phillipwalters/Projects/askeo/repo/backend && fly deploy --app smartlift-api
+```
 
 ## Pre-Build Check
 
