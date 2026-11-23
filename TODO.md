@@ -326,7 +326,17 @@ To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No l
 - [x] Warmup sets counting as Set 1 — FIXED (2026-11-22). Warmup sets were being logged to backend and affecting progression. Fixed: warmup sets are now UI-only — no logging, no backend call, no progression impact. When Complete Warmup is tapped, just restore draft to target weight and clear warmup state.
 - [ ] "Cannot save changes when trying to edit a set" — Frontend error when editing sets. PARTIALLY ADDRESSED (2026-11-02). Added validation error messages in SortableExerciseCard commitEditSet (weight/reps/effort validation now alerts user instead of silently returning). Still needs testing to identify any API-level failures.
 - [ ] "Need to find arsenal strength fly machine" — Missing exercise reference. NOT YET ADDRESSED.
-- [ ] Custom exercise creation — Users need to create exercises not in the library (e.g., Arsenal Strength Fly Machine). Backend: added user_id and is_custom fields to ExerciseLibrary, POST /api/exercise-library endpoint. Frontend: need to build CustomExerciseCreateScreen with tile-based UI. NOT YET IMPLEMENTED (frontend).
+- [ ] Custom exercise creation — Users need to create exercises not in the library (e.g., Arsenal Strength Fly Machine). Backend: added user_id, is_custom, and measurement_type fields to ExerciseLibrary, POST /api/exercise-library endpoint. Frontend: built CustomExerciseCreateScreen with tile-based UI including Measurement Type field. IMPLEMENTED.
+
+### Existing exercises needing measurement type updates
+
+The following exercises in the library need their measurement_type updated:
+
+- [ ] **Running** — should be `distance`, currently uses default (Weight & Reps)
+- [ ] **Walking** — should be `distance`, currently uses default (Weight & Reps)
+- [ ] **Assisted Pull-Up** — should be `inverted_weight_reps`, currently uses default (Weight & Reps)
+
+These need to be updated via the database or a new endpoint. The progression engine also needs to handle inverted weight (decrease instead of increase) and distance (increase distance over time).
 
 See "Foundation Phase Logic Work (Phase 5 — In Progress)" section above for full details.
 
