@@ -295,6 +295,7 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
                   </p>
                 )}
               </div>
+            </div>
             ))}
           </div>
         )}
