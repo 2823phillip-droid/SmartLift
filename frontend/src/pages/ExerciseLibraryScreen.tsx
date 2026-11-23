@@ -60,6 +60,7 @@ const MEASUREMENT_TYPES: FilterItem[] = [
 export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }) {
   const [exercises, setExercises] = useState<ExerciseLibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedId, setSelectedId] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterMuscle, setFilterMuscle] = useState<string | null>(null);
   const [filterEquipment, setFilterEquipment] = useState<string | null>(null);
@@ -214,7 +215,8 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
             {filtered.map((ex) => (
               <div
                 key={ex.id}
-                className="px-4 py-3 flex gap-3 hover:bg-slate-900/50 transition-colors"
+                className="px-4 py-3 flex gap-3 hover:bg-slate-900/50 transition-colors cursor-pointer"
+                onClick={() => setSelectedId(selectedId === ex.id ? null : ex.id)}
               >
                 {/* GIF tile */}
                 <div className="shrink-0 w-12 h-12 rounded-xl overflow-hidden bg-slate-800 border border-slate-700">
@@ -300,6 +302,73 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
           </div>
         )}
       </div>
+
+      {/* Exercise detail view */}
+      {selectedId && (() => {
+        const ex = exercises.find((e) => e.id === selectedId);
+        if (!ex) return null;
+        return (
+          <div className="border-t border-slate-800/80 bg-slate-900/50">
+            <div className="max-w-2xl mx-auto px-4 py-4">
+              <div className="flex gap-4 items-start">
+                {/* Large GIF */}
+                {ex.gif_url ? (
+                  <div className="shrink-0">
+                    <img
+                      src={resolveMediaUrl(ex.gif_url)!}
+                      alt={ex.name}
+                      className="w-32 h-32 rounded-xl object-cover border border-slate-700 bg-slate-800"
+                    />
+                  </div>
+                ) : (
+                  <div className="shrink-0 w-32 h-32 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center">
+                    <span className="text-xs text-slate-500">No GIF</span>
+                  </div>
+                )}
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-semibold text-slate-100">{ex.name}</h3>
+                  <div className="mt-2 space-y-1">
+                    {ex.is_custom && (
+                      <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase text-amber-300 border-amber-700/60 bg-amber-900/30">
+                        Custom
+                      </span>
+                    )}
+                    {ex.measurement_type && (
+                      <span className="text-xs text-slate-400">
+                        Measurement: {ex.measurement_type.replace(/_/g, " ")}
+                      </span>
+                    )}
+                    {ex.muscle_group && (
+                      <span className="text-xs text-slate-400">
+                        Muscle Group: {ex.muscle_group}
+                      </span>
+                    )}
+                    {ex.primary_equipment && (
+                      <span className="text-xs text-slate-400">
+                        Equipment: {ex.primary_equipment}
+                      </span>
+                    )}
+                    {ex.default_rest_seconds !== undefined && (
+                      <span className="text-xs text-slate-400">
+                        Rest: {ex.default_rest_seconds}s
+                      </span>
+                    )}
+                  </div>
+                  {ex.description ? (
+                    <p className="mt-2 text-xs text-slate-400 leading-relaxed border-l-2 border-amber-700/40 pl-3">
+                      {ex.description}
+                    </p>
+                  ) : ex.is_custom ? (
+                    <p className="mt-2 text-[10px] text-slate-600 italic">
+                      No description provided.
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
