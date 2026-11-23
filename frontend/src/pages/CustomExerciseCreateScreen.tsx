@@ -32,6 +32,14 @@ const EXERCISE_ROLE_OPTIONS: TileOption[] = [
   { label: "Cool Down", value: "cool_down" },
 ];
 
+const MEASUREMENT_TYPE_OPTIONS: TileOption[] = [
+  { label: "Weight & Reps", value: "weight_reps" },
+  { label: "Inverted Weight & Reps", value: "inverted_weight_reps" },
+  { label: "Time & Reps", value: "time_reps" },
+  { label: "Reps Only", value: "reps_only" },
+  { label: "Distance", value: "distance" },
+];
+
 type TileGroupProps = {
   title: string;
   options: TileOption[];
@@ -110,6 +118,7 @@ export default function CustomExerciseCreateScreen({
   const [isCompound, setIsCompound] = useState<boolean | null>(null);
   const [movementPattern, setMovementPattern] = useState<string | null>(null);
   const [exerciseRole, setExerciseRole] = useState<string | null>(null);
+  const [measurementType, setMeasurementType] = useState<string | null>(null);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -132,6 +141,10 @@ export default function CustomExerciseCreateScreen({
       setError("Please select an exercise role");
       return;
     }
+    if (measurementType === null) {
+      setError("Please select a measurement type");
+      return;
+    }
 
     setLoading(true);
     setError("");
@@ -140,6 +153,7 @@ export default function CustomExerciseCreateScreen({
       const payload: any = {
         name: name.trim(),
         is_compound: isCompound,
+        measurement_type: measurementType,
         movement_pattern: movementPattern,
         exercise_role: exerciseRole,
       };
@@ -220,6 +234,13 @@ export default function CustomExerciseCreateScreen({
         options={EXERCISE_ROLE_OPTIONS}
         selected={exerciseRole}
         onSelect={(v) => setExerciseRole(v as string)}
+      />
+
+      <TileGroup
+        title="Measurement Type"
+        options={MEASUREMENT_TYPE_OPTIONS}
+        selected={measurementType}
+        onSelect={(v) => setMeasurementType(v as string)}
       />
 
       {error && (

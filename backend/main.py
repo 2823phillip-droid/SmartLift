@@ -404,6 +404,9 @@ def _run_migrations():
             if "is_custom" not in elcols:
                 conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN is_custom BOOLEAN DEFAULT FALSE"))
                 conn.commit()
+            if "measurement_type" not in elcols:
+                conn.execute(_text("ALTER TABLE exercise_library ADD COLUMN measurement_type TEXT"))
+                conn.commit()
 
             # BlockState phase column: ensure it's a string type (migration from old INTEGER)
             bscols = cols("block_state")
@@ -461,6 +464,7 @@ class ExerciseLibraryOut(BaseModel):
     is_compound: bool = True
     is_custom: bool = False
     user_id: Optional[int] = None
+    measurement_type: Optional[str] = None
 
     @field_validator("name", mode="before")
     @classmethod
@@ -521,6 +525,7 @@ class ExerciseEntryOut(BaseModel):
 class ExerciseLibraryCreate(BaseModel):
     name: str
     is_compound: Optional[bool] = None
+    measurement_type: Optional[str] = None  # weight_reps | inverted_weight_reps | time_reps | reps_only | distance
     primary_equipment: Optional[str] = None
     movement_type: Optional[str] = None
     exercise_role: Optional[str] = None
@@ -972,6 +977,7 @@ def create_exercise_library_entry(payload: ExerciseLibraryCreate, db: Session = 
         user_id=current_user.id,
         is_custom=True,
         is_compound=payload.is_compound,
+        measurement_type=payload.measurement_type,
         primary_equipment=payload.primary_equipment,
         movement_type=payload.movement_type,
         exercise_role=payload.exercise_role,
@@ -1487,6 +1493,7 @@ def search_exercise_library(q: str = "", db: Session = Depends(get_db), current_
             is_compound=getattr(e, "is_compound", True),
             is_custom=e.is_custom,
             user_id=e.user_id,
+            measurement_type=getattr(e, "measurement_type", None),
         )
         for e in query.all()
     ]
