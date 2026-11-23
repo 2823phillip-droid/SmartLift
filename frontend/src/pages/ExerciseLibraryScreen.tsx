@@ -57,6 +57,71 @@ const MEASUREMENT_TYPES: FilterItem[] = [
   { label: "Distance", value: "distance" },
 ];
 
+function ExerciseDetailView({ exercise, resolveMediaUrl }: { exercise: ExerciseLibraryItem; resolveMediaUrl: (url: string | null | undefined) => string | null }) {
+  console.log("[exercise] detail view rendering", exercise.name);
+  return (
+    <div className="border-t border-slate-800/80 bg-slate-900/50">
+      <div className="max-w-2xl mx-auto px-4 py-4">
+        <div className="flex gap-4 items-start">
+          {/* Large GIF */}
+          {exercise.gif_url ? (
+            <div className="shrink-0">
+              <img
+                src={resolveMediaUrl(exercise.gif_url)!}
+                alt={exercise.name}
+                className="w-32 h-32 rounded-xl object-cover border border-slate-700 bg-slate-800"
+              />
+            </div>
+          ) : (
+            <div className="shrink-0 w-32 h-32 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center">
+              <span className="text-xs text-slate-500">No GIF</span>
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <h3 className="text-base font-semibold text-slate-100">{exercise.name}</h3>
+            <div className="mt-2 space-y-1">
+              {exercise.is_custom && (
+                <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase text-amber-300 border-amber-700/60 bg-amber-900/30">
+                  Custom
+                </span>
+              )}
+              {exercise.measurement_type && (
+                <span className="text-xs text-slate-400">
+                  Measurement: {exercise.measurement_type.replace(/_/g, " ")}
+                </span>
+              )}
+              {exercise.muscle_group && (
+                <span className="text-xs text-slate-400">
+                  Muscle Group: {exercise.muscle_group}
+                </span>
+              )}
+              {exercise.primary_equipment && (
+                <span className="text-xs text-slate-400">
+                  Equipment: {exercise.primary_equipment}
+                </span>
+              )}
+              {exercise.default_rest_seconds !== undefined && (
+                <span className="text-xs text-slate-400">
+                  Rest: {exercise.default_rest_seconds}s
+                </span>
+              )}
+            </div>
+            {exercise.description ? (
+              <p className="mt-2 text-xs text-slate-400 leading-relaxed border-l-2 border-amber-700/40 pl-3">
+                {exercise.description}
+              </p>
+            ) : exercise.is_custom ? (
+              <p className="mt-2 text-[10px] text-slate-600 italic">
+                No description provided.
+              </p>
+            ) : null}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }) {
   const [exercises, setExercises] = useState<ExerciseLibraryItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -184,7 +249,7 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
 
           <button
             onClick={() => setShowCustomOnly(!showCustomOnly)}
-            className={"rounded-xl border px-3 py-2 text-xs transition-colors " + (showCustomOnly ? "border-amber-400 bg-amber-900/40 text-amber-200" : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-500")}
+            className={`rounded-xl border px-3 py-2 text-xs transition-colors ${showCustomOnly ? "border-amber-400 bg-amber-900/40 text-amber-200" : "border-slate-700 bg-slate-800/50 text-slate-400 hover:border-slate-500"}`}
           >
             {showCustomOnly ? "Custom Only" : "All Ex."}
           </button>
@@ -256,119 +321,59 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
-                      <span className={"text-xs font-semibold px-2 py-0.5 rounded-full border uppercase " + (ex.is_custom ? "text-amber-300 border-amber-700/60 bg-amber-900/30" : "text-slate-400 border-slate-700 bg-slate-800/50")}>
-                        {ex.is_custom ? "Custom" : "Library"}
-                      </span>
-                      {ex.measurement_type && (
-                        <span className="text-[10px] text-slate-500">
-                          {ex.measurement_type.replace(/_/g, " ")}
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border uppercase ${ex.is_custom ? "text-amber-300 border-amber-700/60 bg-amber-900/30" : "text-slate-400 border-slate-700 bg-slate-800/50"}`}>
+                          {ex.is_custom ? "Custom" : "Library"}
                         </span>
+                        {ex.measurement_type && (
+                          <span className="text-[10px] text-slate-500">
+                            {ex.measurement_type.replace(/_/g, " ")}
+                          </span>
+                        )}
+                      </div>
+                      <h3 className="text-sm font-semibold text-slate-100 mt-0.5">
+                        {ex.name}
+                      </h3>
+                      {ex.muscle_group && (
+                        <span className="text-xs text-slate-500">{ex.muscle_group}</span>
+                      )}
+                      {ex.primary_equipment && (
+                        <span className="text-xs text-slate-500">· {ex.primary_equipment}</span>
                       )}
                     </div>
-                    <h3 className="text-sm font-semibold text-slate-100 mt-0.5">
-                      {ex.name}
-                    </h3>
-                    {ex.muscle_group && (
-                      <span className="text-xs text-slate-500">{ex.muscle_group}</span>
-                    )}
-                    {ex.primary_equipment && (
-                      <span className="text-xs text-slate-500">· {ex.primary_equipment}</span>
+                    {ex.description && (
+                      <button
+                        onClick={() => {
+                          setExercises((prev) =>
+                            prev.map((e) =>
+                              e.id === ex.id ? { ...e, _showDescription: !e._showDescription } : e
+                            )
+                          );
+                        }}
+                        className="text-xs text-amber-400 hover:text-amber-300 shrink-0"
+                      >
+                        {ex._showDescription ? "hide" : "describe"}
+                      </button>
                     )}
                   </div>
-                  {ex.description && (
-                    <button
-                      onClick={() => {
-                        setExercises((prev) =>
-                          prev.map((e) =>
-                            e.id === ex.id ? { ...e, _showDescription: !e._showDescription } : e
-                          )
-                        );
-                      }}
-                      className="text-xs text-amber-400 hover:text-amber-300 shrink-0"
-                    >
-                      {ex._showDescription ? "hide" : "describe"}
-                    </button>
+                  {ex._showDescription && ex.description && (
+                    <p className="text-xs text-slate-400 pl-2 border-l-2 border-amber-700/40 pl-3 mt-1 leading-relaxed">
+                      {ex.description}
+                    </p>
+                  )}
+                  {!ex.description && ex.is_custom && (
+                    <p className="text-[10px] text-slate-600 italic pl-2 border-l-2 border-slate-700/40 pl-3 mt-1">
+                      No description provided.
+                    </p>
                   )}
                 </div>
-                {ex._showDescription && ex.description && (
-                  <p className="text-xs text-slate-400 pl-2 border-l-2 border-amber-700/40 pl-3 mt-1 leading-relaxed">
-                    {ex.description}
-                  </p>
-                )}
-                {!ex.description && ex.is_custom && (
-                  <p className="text-[10px] text-slate-600 italic pl-2 border-l-2 border-slate-700/40 pl-3 mt-1">
-                    No description provided.
-                  </p>
-                )}
               </div>
-            </div>
             ))}
           </div>
         )}
       </div>
 
       {/* Exercise detail view */}
-      {selectedExercise && (
-        <div className="border-t border-slate-800/80 bg-slate-900/50">
-          <div className="max-w-2xl mx-auto px-4 py-4">
-            <div className="flex gap-4 items-start">
-              {/* Large GIF */}
-              {selectedExercise.gif_url ? (
-                <div className="shrink-0">
-                  <img
-                    src={resolveMediaUrl(selectedExercise.gif_url)!}
-                    alt={selectedExercise.name}
-                    className="w-32 h-32 rounded-xl object-cover border border-slate-700 bg-slate-800"
-                  />
-                </div>
-              ) : (
-                <div className="shrink-0 w-32 h-32 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center">
-                  <span className="text-xs text-slate-500">No GIF</span>
-                </div>
-              )}
-              <div className="min-w-0 flex-1">
-                <h3 className="text-base font-semibold text-slate-100">{selectedExercise.name}</h3>
-                <div className="mt-2 space-y-1">
-                  {selectedExercise.is_custom && (
-                    <span className="inline-block text-[10px] font-semibold px-2 py-0.5 rounded-full border uppercase text-amber-300 border-amber-700/60 bg-amber-900/30">
-                      Custom
-                    </span>
-                  )}
-                  {selectedExercise.measurement_type && (
-                    <span className="text-xs text-slate-400">
-                      Measurement: {selectedExercise.measurement_type.replace(/_/g, " ")}
-                    </span>
-                  )}
-                  {selectedExercise.muscle_group && (
-                    <span className="text-xs text-slate-400">
-                      Muscle Group: {selectedExercise.muscle_group}
-                    </span>
-                  )}
-                  {selectedExercise.primary_equipment && (
-                    <span className="text-xs text-slate-400">
-                      Equipment: {selectedExercise.primary_equipment}
-                    </span>
-                  )}
-                  {selectedExercise.default_rest_seconds !== undefined && (
-                    <span className="text-xs text-slate-400">
-                      Rest: {selectedExercise.default_rest_seconds}s
-                    </span>
-                  )}
-                </div>
-                {selectedExercise.description ? (
-                  <p className="mt-2 text-xs text-slate-400 leading-relaxed border-l-2 border-amber-700/40 pl-3">
-                    {selectedExercise.description}
-                  </p>
-                ) : selectedExercise.is_custom ? (
-                  <p className="mt-2 text-[10px] text-slate-600 italic">
-                    No description provided.
-                  </p>
-                ) : null}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {selectedExercise && <ExerciseDetailView exercise={selectedExercise} resolveMediaUrl={resolveMediaUrl} />}
     </div>
   );
 }
