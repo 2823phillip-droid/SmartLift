@@ -142,18 +142,15 @@ export default function TemplateEditorScreen({
           setType(tpl.type);
           setExercises(
             (tpl.exercises || []).map((ex: any) => {
-              // Use exercise's own rest_seconds if it differs from default (90),
-              // meaning the user explicitly set it at the template level.
-              // Otherwise fall back to the global setting.
-              const hasTemplateOverride = ex.rest_seconds !== undefined && ex.rest_seconds !== 90;
+              const key = `server-${ex.id}`;
               return {
-                localId: `server-${ex.id}`,
+                localId: key,
                 id: ex.id,
                 libraryExerciseId: ex.exercise_library_id,
                 name: ex.name ?? "",
                 progression_type: ex.progression_type || "linear",
                 gif_url: ex.gif_url ?? null,
-                rest_seconds: hasTemplateOverride ? ex.rest_seconds : globalRestVal,
+                rest_seconds: globalRestVal,
                 sets: ex.per_set_data
                 ? JSON.parse(ex.per_set_data).map((s: SetRow) => ({
                     weight: getUnitsPreference() === "imperial" ? s.weight ?? 0 : lbsToKg(s.weight ?? 0),
@@ -163,6 +160,12 @@ export default function TemplateEditorScreen({
               };
             })
           );
+          // Initialize all exercises to "Use global rest" mode
+          const restEditingInit: Record<string, boolean> = {};
+          (tpl.exercises || []).forEach((ex: any) => {
+            restEditingInit[`server-${ex.id}`] = true;
+          });
+          setExerciseRestEditing(restEditingInit);
         })
         .catch((e) => log.error("template_load_failed", { template_id: templateId, error: e }))
         .finally(() => setLoading(false));
