@@ -45,6 +45,7 @@ export interface ExerciseEntry {
   reps_target: number;
   start_weight: number;
   rest_seconds: number;
+  is_overridden: boolean;
   order: number;
   notes?: string;
   per_set_data?: string;

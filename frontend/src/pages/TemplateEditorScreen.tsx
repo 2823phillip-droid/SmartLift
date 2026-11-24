@@ -33,6 +33,7 @@ type DraftExercise = {
   name: string;
   sets: SetRow[];
   rest_seconds: number;
+  is_overridden: boolean;
   progression_type?: string;
   gif_url?: string | null;
 };
@@ -151,6 +152,7 @@ export default function TemplateEditorScreen({
                 progression_type: ex.progression_type || "linear",
                 gif_url: ex.gif_url ?? null,
                 rest_seconds: globalRestVal,
+                is_overridden: ex.is_overridden ?? false,
                 sets: ex.per_set_data
                 ? JSON.parse(ex.per_set_data).map((s: SetRow) => ({
                     weight: getUnitsPreference() === "imperial" ? s.weight ?? 0 : lbsToKg(s.weight ?? 0),
@@ -160,10 +162,10 @@ export default function TemplateEditorScreen({
               };
             })
           );
-          // Initialize all exercises to "Use global rest" mode (toggle LEFT, disabled)
+          // Initialize toggle state from exercise's is_overridden flag
           const restEditingInit: Record<string, boolean> = {};
           (tpl.exercises || []).forEach((ex: any) => {
-            restEditingInit[`server-${ex.id}`] = false;
+            restEditingInit[`server-${ex.id}`] = ex.is_overridden ?? false;
           });
           setExerciseRestEditing(restEditingInit);
         })
@@ -299,6 +301,7 @@ export default function TemplateEditorScreen({
           reps_target: ex.sets[0]?.reps || 10,
           start_weight: ex.sets[0]?.weight ?? 0,
           rest_seconds: exerciseRestOverrides[ex.localId] ?? globalRest,
+          is_overridden: exerciseRestEditing[ex.localId] ?? false,
           order: idx,
           per_set_data: perSetData,
           progression_type: exerciseProgressionOverrides[ex.localId] ?? ex.progression_type ?? "linear",
@@ -330,6 +333,7 @@ export default function TemplateEditorScreen({
       gif_url: ex.gif_url ?? null,
       sets: [{ weight: 0, reps: 0 }],
       rest_seconds: globalRest,
+      is_overridden: false,
     };
     setExercises((e) => [...e, newEx]);
     setSearch("");

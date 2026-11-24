@@ -610,10 +610,8 @@ export default function ActiveWorkoutScreen({
     if (currentExercise && exerciseRestOverrides[currentExercise.id] !== undefined) {
       return exerciseRestOverrides[currentExercise.id];
     }
-    // Template-level overrides: if the exercise has a non-default rest_seconds,
-    // it was explicitly set at the template level — use it.
-    const hasTemplateOverride = currentExercise && currentExercise.rest_seconds !== 90;
-    if (currentExercise && hasTemplateOverride) {
+    // Template-level overrides: if is_overridden is true, use the stored rest_seconds
+    if (currentExercise && currentExercise.is_overridden) {
       return currentExercise.rest_seconds;
     }
     // No override — use global setting or fallback to 90

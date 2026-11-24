@@ -170,6 +170,7 @@ class ExerciseEntry(Base):
     reps_target = Column(Integer, nullable=False, default=10)
     start_weight = Column(Float, nullable=False, default=0.0)
     rest_seconds = Column(Integer, nullable=False, default=90)
+    is_overridden = Column(Boolean, nullable=False, default=False)
     order = Column(Integer, default=0)
     notes = Column(Text)
     per_set_data = Column(String, nullable=True)  # JSON: [{weight, reps, effort}, ...]

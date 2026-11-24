@@ -334,6 +334,10 @@ def _run_migrations():
                 conn.execute(_text("CREATE INDEX IF NOT EXISTS ix_exercise_entries_group_id ON exercise_entries (group_id)"))
                 conn.commit()
 
+            if "is_overridden" not in ecols:
+                conn.execute(_text("ALTER TABLE exercise_entries ADD COLUMN is_overridden BOOLEAN DEFAULT FALSE NOT NULL"))
+                conn.commit()
+
             scolumns = cols("set_logs")
             if "rir" not in scolumns:
                 conn.execute(_text("ALTER TABLE set_logs ADD COLUMN rir INTEGER"))
@@ -500,6 +504,7 @@ class ExerciseEntryCreate(BaseModel):
     reps_target: Optional[int] = None
     start_weight: Optional[float] = None
     rest_seconds: Optional[int] = None
+    is_overridden: Optional[bool] = None
     order: Optional[int] = None
     notes: Optional[str] = None
     per_set_data: Optional[str] = None  # JSON string
@@ -516,6 +521,7 @@ class ExerciseEntryOut(BaseModel):
     reps_target: int
     start_weight: float
     rest_seconds: int
+    is_overridden: bool
     order: int
     notes: Optional[str]
     per_set_data: Optional[str] = None
@@ -1302,6 +1308,7 @@ def _template_out(tpl: WorkoutTemplate) -> WorkoutTemplateOut:
                 reps_target=e.reps_target,
                 start_weight=e.start_weight,
                 rest_seconds=e.rest_seconds,
+                is_overridden=e.is_overridden,
                 order=e.order,
                 notes=e.notes,
                 per_set_data=e.per_set_data,
@@ -1411,7 +1418,7 @@ def delete_template(template_id: int, db: Session = Depends(get_db), current_use
 @app.post("/api/exercises", response_model=ExerciseEntryOut)
 def create_exercise(payload: ExerciseEntryCreate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     allowed = {k: v for k, v in payload.dict(exclude_unset=True).items() if k in {
-        "template_id","exercise_library_id","name","sets_target","reps_target","start_weight","rest_seconds","order","notes","per_set_data","group_id"
+        "template_id","exercise_library_id","name","sets_target","reps_target","start_weight","rest_seconds","is_overridden","order","notes","per_set_data","group_id"
     }}
     ex = ExerciseEntry(**allowed, user_id=current_user.id)
     db.add(ex)
@@ -1425,7 +1432,7 @@ def update_exercise(exercise_id: int, payload: ExerciseEntryCreate, db: Session 
     if not ex:
         raise HTTPException(status_code=404, detail="Exercise not found")
     allowed = {k: v for k, v in payload.dict(exclude_unset=True).items() if k in {
-        "template_id","exercise_library_id","name","sets_target","reps_target","start_weight","rest_seconds","order","notes","per_set_data","group_id"
+        "template_id","exercise_library_id","name","sets_target","reps_target","start_weight","rest_seconds","is_overridden","order","notes","per_set_data","group_id"
     }}
     for field, value in allowed.items():
         setattr(ex, field, value)
@@ -1455,6 +1462,7 @@ def list_exercises(db: Session = Depends(get_db), current_user: User = Depends(g
             reps_target=e.reps_target,
             start_weight=e.start_weight,
             rest_seconds=e.rest_seconds,
+            is_overridden=e.is_overridden,
             order=e.order,
             notes=e.notes,
             per_set_data=e.per_set_data,
@@ -1480,6 +1488,7 @@ def list_template_exercises(template_id: int, db: Session = Depends(get_db), cur
             reps_target=e.reps_target,
             start_weight=e.start_weight,
             rest_seconds=e.rest_seconds,
+            is_overridden=e.is_overridden,
             order=e.order,
             notes=e.notes,
             per_set_data=e.per_set_data,
