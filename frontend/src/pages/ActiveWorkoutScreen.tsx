@@ -619,6 +619,20 @@ export default function ActiveWorkoutScreen({
     return globalRest || 90;
   };
 
+  // Resolve rest time for a specific exercise (for display in the exercise list)
+  const resolveExerciseRest = (exercise: ExerciseEntry): number => {
+    // During-workout overrides (set via the rest editor in the workout)
+    if (exerciseRestOverrides[exercise.id] !== undefined) {
+      return exerciseRestOverrides[exercise.id];
+    }
+    // Template-level overrides: if is_overridden is true, use the stored rest_seconds
+    if (exercise.is_overridden) {
+      return exercise.rest_seconds;
+    }
+    // No override — use global setting or fallback to 90
+    return globalRest || 90;
+  };
+
   const currentRest = resolveRest();
 
   const clearRestTimer = () => {
@@ -1582,7 +1596,7 @@ export default function ActiveWorkoutScreen({
                     });
                   }}
                   onToggleRestEdit={() => toggleExerciseRestEdit(exercise, !editingRest)}
-                  editingRestValue={exerciseRestDraft[exercise.id] ?? String(exercise.rest_seconds)}
+                  editingRestValue={exerciseRestDraft[exercise.id] ?? String(resolveExerciseRest(exercise))}
                   onRestChange={(val) => {
                     setExerciseRestDraft((prev) => ({ ...prev, [exercise.id]: val }));
                     commitExerciseRest(exercise, val);
