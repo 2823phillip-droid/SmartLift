@@ -606,7 +606,6 @@ export default function ActiveWorkoutScreen({
 
   const resolveRest = (): number => {
     const currentExercise = getCurrentExercise();
-    console.log("[workout] resolveRest for", currentExercise?.name, "is_overridden:", currentExercise?.is_overridden, "rest_seconds:", currentExercise?.rest_seconds, "globalRest:", globalRest);
     // During-workout overrides (set via the rest editor in the workout)
     if (currentExercise && exerciseRestOverrides[currentExercise.id] !== undefined) {
       return exerciseRestOverrides[currentExercise.id];
