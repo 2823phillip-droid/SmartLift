@@ -3,7 +3,7 @@ last_updated: 2026-10-30
 created: 2026-10-17
 tags: [meta]
 related: README.md, TODO.md
-status: Mac Studio M5 Max only, master branch HEAD `9e3d9b7`. Backend deployed to Fly (commits through `864b839`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 23). Rest timer override system complete:
+status: Mac Studio M5 Max only, master branch HEAD `5a3dd21`. Backend deployed to Fly (commits through `864b839`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 23). Rest timer override system complete:
 - Global rest timer setting in Settings UI
 - Template editor: per-exercise toggle (ON=override, OFF=use global), shows DB value for overridden exercises
 - Active workout: resolves rest time per exercise using is_overridden flag + global setting
@@ -15,9 +15,9 @@ This file explains where every type of project knowledge lives and when to use i
 
 #### Repo
 - **Branch:** master
-- **HEAD:** `9e3d9b7` — "remove: debug logging from resolveRest() that was flooding console"
+- **HEAD:** `5a3dd21` — "docs: update MEMORY-INDEX.md and BUILD-NOTES.md for rest timer feature"
 - **Remote (GitHub):** not yet pushed.
-- **Deployed to Fly:** commits through `864b839` (backend healthy). Frontend at `9e3d9b7` — built and synced to iOS.
+- **Deployed to Fly:** commits through `864b839` (backend healthy). Frontend at `5a3dd21` — built and synced to iOS.
 
 #### Frontend
 - **Build target:** Capacitor iOS app, Xcode project on Mac Studio. Run from Xcode → Product > Run.
