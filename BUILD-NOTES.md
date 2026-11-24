@@ -52,3 +52,19 @@ Each entry records what a build did, so we know what each one contains without d
 3. **Check index.html:** confirm it references the right JS chunk
 4. **Clean old builds:** remove stale index-*.js files from iOS public path before copying new ones
 5. **If minified build breaks a fix:** try unminified first to confirm fix works, then investigate minifier behavior
+
+---
+
+## Build Log
+
+### Build `DICzOLs5` — 2026-11-23
+- **Commit:** `9e3d9b7` (remove: debug logging from resolveRest() that was flooding console)
+- **Minified:** YES (890KB)
+- **What changed:**
+  - Rest timer override system complete
+  - Global rest timer setting in Settings UI
+  - Template editor: per-exercise toggle (ON=override, OFF=use global), shows DB value for overridden exercises
+  - Active workout: resolves rest time per exercise using is_overridden flag + global setting
+  - Exercise list displays resolved rest time (not DB value)
+  - Debug logging removed from resolveRest()
+- **Verified:** Exercise list shows correct rest times (override=75, global=30) when global timer changed
