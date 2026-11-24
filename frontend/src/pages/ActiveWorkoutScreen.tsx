@@ -606,12 +606,17 @@ export default function ActiveWorkoutScreen({
 
   const resolveRest = (): number => {
     const currentExercise = getCurrentExercise();
+    // During-workout overrides (set via the rest editor in the workout)
     if (currentExercise && exerciseRestOverrides[currentExercise.id] !== undefined) {
       return exerciseRestOverrides[currentExercise.id];
     }
-    if (currentExercise && currentExercise.rest_seconds) {
+    // Template-level overrides: if the exercise has a non-default rest_seconds,
+    // it was explicitly set at the template level — use it.
+    const hasTemplateOverride = currentExercise && currentExercise.rest_seconds !== 90;
+    if (currentExercise && hasTemplateOverride) {
       return currentExercise.rest_seconds;
     }
+    // No override — use global setting or fallback to 90
     return globalRest || 90;
   };
 
