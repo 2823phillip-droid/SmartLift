@@ -3,7 +3,7 @@ last_updated: 2026-10-30
 created: 2026-10-17
 tags: [meta]
 related: README.md, TODO.md
-status: Mac Studio M5 Max only, master branch HEAD `de0c48a`. Backend deployed to Fly (commits through `1a3e4b3`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 23). Global rest timer setting added to Settings UI. Template editor rest input now disabled when toggle is ON.
+status: Mac Studio M5 Max only, master branch HEAD `fbabf16`. Backend deployed to Fly (commits through `1a3e4b3`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 23). Global rest timer setting added to Settings UI. Template editor toggles now default to OFF (left, global mode).
 
 This file explains where every type of project knowledge lives and when to use it.
 
