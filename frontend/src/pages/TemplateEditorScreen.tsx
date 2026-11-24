@@ -160,10 +160,10 @@ export default function TemplateEditorScreen({
               };
             })
           );
-          // Initialize all exercises to "Use global rest" mode
+          // Initialize all exercises to "Use global rest" mode (toggle LEFT, disabled)
           const restEditingInit: Record<string, boolean> = {};
           (tpl.exercises || []).forEach((ex: any) => {
-            restEditingInit[`server-${ex.id}`] = true;
+            restEditingInit[`server-${ex.id}`] = false;
           });
           setExerciseRestEditing(restEditingInit);
         })
@@ -298,7 +298,7 @@ export default function TemplateEditorScreen({
           sets_target: ex.sets.length,
           reps_target: ex.sets[0]?.reps || 10,
           start_weight: ex.sets[0]?.weight ?? 0,
-          rest_seconds: exerciseRestOverrides[ex.localId] ?? (exerciseRestEditing[ex.localId] ? globalRest : ex.rest_seconds),
+          rest_seconds: exerciseRestOverrides[ex.localId] ?? globalRest,
           order: idx,
           per_set_data: perSetData,
           progression_type: exerciseProgressionOverrides[ex.localId] ?? ex.progression_type ?? "linear",
@@ -729,7 +729,7 @@ export default function TemplateEditorScreen({
                     <div className="flex items-center gap-1">
                       <input
                         type="number"
-                        value={exerciseRestDraft[ex.localId] ?? String(exerciseRestEditing[ex.localId] ? globalRest : ex.rest_seconds)}
+                        value={exerciseRestDraft[ex.localId] ?? String(exerciseRestEditing[ex.localId] ? ex.rest_seconds : globalRest)}
                         disabled={exerciseRestEditing[ex.localId]}
                         onChange={(e) => {
                           commitExerciseRest(ex, e.target.value);
@@ -749,7 +749,7 @@ export default function TemplateEditorScreen({
                             ? "border-indigo-500 bg-indigo-600 justify-end"
                             : "border-slate-700 bg-slate-800 justify-start"
                         }`}
-                        title={exerciseRestEditing[ex.localId] ? "Use global rest" : "Override rest"}
+                        title={exerciseRestEditing[ex.localId] ? "Override rest" : "Use global rest"}
                       >
                         <div className="h-3 w-3 rounded-full bg-white shadow-sm" />
                       </button>
