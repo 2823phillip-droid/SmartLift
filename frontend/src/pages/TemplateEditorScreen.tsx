@@ -141,21 +141,27 @@ export default function TemplateEditorScreen({
           setName(tpl.name);
           setType(tpl.type);
           setExercises(
-            (tpl.exercises || []).map((ex: any) => ({
-              localId: `server-${ex.id}`,
-              id: ex.id,
-              libraryExerciseId: ex.exercise_library_id,
-              name: ex.name ?? "",
-              progression_type: ex.progression_type || "linear",
-              gif_url: ex.gif_url ?? null,
-              rest_seconds: globalRestVal,
-              sets: ex.per_set_data
+            (tpl.exercises || []).map((ex: any) => {
+              // Use exercise's own rest_seconds if it differs from default (90),
+              // meaning the user explicitly set it at the template level.
+              // Otherwise fall back to the global setting.
+              const hasTemplateOverride = ex.rest_seconds !== undefined && ex.rest_seconds !== 90;
+              return {
+                localId: `server-${ex.id}`,
+                id: ex.id,
+                libraryExerciseId: ex.exercise_library_id,
+                name: ex.name ?? "",
+                progression_type: ex.progression_type || "linear",
+                gif_url: ex.gif_url ?? null,
+                rest_seconds: hasTemplateOverride ? ex.rest_seconds : globalRestVal,
+                sets: ex.per_set_data
                 ? JSON.parse(ex.per_set_data).map((s: SetRow) => ({
                     weight: getUnitsPreference() === "imperial" ? s.weight ?? 0 : lbsToKg(s.weight ?? 0),
                     reps: s.reps ?? 10,
                   }))
                 : [{ weight: getUnitsPreference() === "imperial" ? ex.start_weight || 0 : lbsToKg(ex.start_weight || 0), reps: ex.reps_target || 10 }],
-            }))
+              };
+            })
           );
         })
         .catch((e) => log.error("template_load_failed", { template_id: templateId, error: e }))
