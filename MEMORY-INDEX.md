@@ -3,7 +3,7 @@ last_updated: 2026-10-30
 created: 2026-10-17
 tags: [meta]
 related: README.md, TODO.md
-status: Mac Studio M5 Max only, master branch HEAD `cf21a92`. Backend deployed to Fly (commits through `cf21a92`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 22). Custom exercise creation: muscle_group + primary_equipment + description fields added. Exercise Library screen with GIF tiles, filter labels, and full-screen tap-to-view detail screen with back button.
+status: Mac Studio M5 Max only, master branch HEAD `13c18eb`. Backend deployed to Fly (commits through `1a3e4b3`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 23). Global rest timer setting added to Settings UI.
 
 This file explains where every type of project knowledge lives and when to use it.
 
