@@ -293,6 +293,7 @@ export default function TemplateEditorScreen({
         const perSetData = JSON.stringify(
           ex.sets.map((s) => ({ weight: s.weight, reps: s.reps }))
         );
+        console.log("[editor] saving exercise", { id: ex.id, localId: ex.localId, is_overridden: exerciseRestEditing[ex.localId], rest_seconds: exerciseRestOverrides[ex.localId] ?? globalRest });
         const base = {
           template_id: tpl.id,
           name: ex.name,
