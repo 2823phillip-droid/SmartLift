@@ -151,7 +151,7 @@ export default function TemplateEditorScreen({
                 name: ex.name ?? "",
                 progression_type: ex.progression_type || "linear",
                 gif_url: ex.gif_url ?? null,
-                rest_seconds: globalRestVal,
+                rest_seconds: ex.is_overridden ? ex.rest_seconds : globalRestVal,
                 is_overridden: ex.is_overridden ?? false,
                 sets: ex.per_set_data
                 ? JSON.parse(ex.per_set_data).map((s: SetRow) => ({
