@@ -16,7 +16,7 @@ This file explains where every type of project knowledge lives and when to use i
 #### Repo
 - **Branch:** master
 - **HEAD:** `5a3dd21` — "docs: update MEMORY-INDEX.md and BUILD-NOTES.md for rest timer feature"
-- **Remote (GitHub):** committed and pushed (df6a7c2).
+- **Remote (GitHub):** committed and pushed (9d64ffb).
 - **Deployed to Fly:** commits through `864b839` (backend healthy). Frontend at `5a3dd21` — built and synced to iOS.
 
 #### Frontend
