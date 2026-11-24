@@ -3,7 +3,7 @@ last_updated: 2026-10-30
 created: 2026-10-17
 tags: [meta]
 related: README.md, TODO.md
-status: Mac Studio M5 Max only, master branch HEAD `d60ffb2`. Backend deployed to Fly (commits through `864b839`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 23). Global rest timer setting added to Settings UI. Template editor now uses is_overridden flag to distinguish global vs override exercises. Debug logging added to template save.
+status: Mac Studio M5 Max only, master branch HEAD `07195a2`. Backend deployed to Fly (commits through `864b839`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 23). Template editor now shows DB override value for is_overridden exercises. Debug logging added to active workout resolveRest.
 
 This file explains where every type of project knowledge lives and when to use it.
 
