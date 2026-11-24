@@ -730,7 +730,7 @@ export default function TemplateEditorScreen({
                       <input
                         type="number"
                         value={exerciseRestDraft[ex.localId] ?? String(exerciseRestEditing[ex.localId] ? ex.rest_seconds : globalRest)}
-                        disabled={exerciseRestEditing[ex.localId]}
+                        disabled={!exerciseRestEditing[ex.localId]}
                         onChange={(e) => {
                           commitExerciseRest(ex, e.target.value);
                           setExerciseRestDraft((prev) => ({ ...prev, [ex.localId]: e.target.value }));
