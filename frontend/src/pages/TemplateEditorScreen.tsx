@@ -295,7 +295,7 @@ export default function TemplateEditorScreen({
           sets_target: ex.sets.length,
           reps_target: ex.sets[0]?.reps || 10,
           start_weight: ex.sets[0]?.weight ?? 0,
-          rest_seconds: exerciseRestOverrides[ex.localId] ?? ex.rest_seconds,
+          rest_seconds: exerciseRestOverrides[ex.localId] ?? (exerciseRestEditing[ex.localId] ? globalRest : ex.rest_seconds),
           order: idx,
           per_set_data: perSetData,
           progression_type: exerciseProgressionOverrides[ex.localId] ?? ex.progression_type ?? "linear",
@@ -726,7 +726,7 @@ export default function TemplateEditorScreen({
                     <div className="flex items-center gap-1">
                       <input
                         type="number"
-                        value={exerciseRestDraft[ex.localId] ?? String(ex.rest_seconds)}
+                        value={exerciseRestDraft[ex.localId] ?? String(exerciseRestEditing[ex.localId] ? globalRest : ex.rest_seconds)}
                         disabled={!exerciseRestEditing[ex.localId]}
                         onChange={(e) => {
                           commitExerciseRest(ex, e.target.value);
