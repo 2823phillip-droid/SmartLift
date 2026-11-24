@@ -283,6 +283,47 @@ export default function SettingsScreen({ onBack, onOpenDebug }: { onBack: () => 
         </div>
       </div>
 
+      {/* Global Rest Timer */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
+        <div className="flex items-center gap-2">
+          <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <div>
+            <div className="font-semibold text-sm">Global Rest Timer</div>
+            <div className="text-xs text-slate-500">Default rest time between sets across all workouts</div>
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <input
+            type="number"
+            min={0}
+            value={settings["global_rest_seconds"] ?? ""}
+            onChange={(e) => setSettings((s) => ({ ...s, global_rest_seconds: e.target.value }))}
+            placeholder="Seconds"
+            className="flex-1 rounded-xl border border-slate-700 bg-slate-950 px-4 py-3 text-sm"
+          />
+          <button
+            onClick={() => {
+              const val = settings["global_rest_seconds"];
+              if (val !== undefined && val !== null && val !== "") {
+                save("global_rest_seconds", String(val));
+              }
+            }}
+            disabled={saving === "global_rest_seconds"}
+            className={`rounded-xl px-5 py-3 text-sm font-semibold transition-all ${settings["global_rest_seconds"] ? "bg-indigo-600 hover:bg-indigo-500 active:scale-95" : "bg-slate-700 text-slate-500 cursor-not-allowed"} disabled:opacity-50`}
+          >
+            {saving === "global_rest_seconds" ? "Saving..." : settings["global_rest_seconds"] ? "Save" : "Enter value"}
+          </button>
+        </div>
+        {saved === "global_rest_seconds" && (
+          <p className="text-xs text-emerald-400 text-center">Saved</p>
+        )}
+        {settingsError && (
+          <p className="text-xs text-rose-400 text-center">{settingsError}</p>
+        )}
+      </div>
+
       {/* Equipment Toggles */}
       <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
         <div className="flex items-center justify-between">
