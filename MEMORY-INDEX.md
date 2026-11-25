@@ -3,7 +3,7 @@ last_updated: 2026-10-30
 created: 2026-10-17
 tags: [meta]
 related: README.md, TODO.md
-status: Mac Studio M5 Max only, master branch HEAD `9c9409c`. Backend deployed to Fly (commits through `9c9409c`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 24). Rest timer override system complete:
+status: Mac Studio M5 Max only, master branch HEAD `49423e3`. Backend deployed to Fly (commits through `49423e3`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 24). Rest timer override system complete:
 - Global rest timer setting in Settings UI
 - Template editor: per-exercise toggle (ON=override, OFF=use global), shows DB value for overridden exercises
 - Active workout: resolves rest time per exercise using is_overridden flag + global setting
