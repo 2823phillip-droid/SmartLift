@@ -8,7 +8,7 @@ status: Mac Studio M5 Max only, master branch HEAD `9c9409c`. Backend deployed t
 - Template editor: per-exercise toggle (ON=override, OFF=use global), shows DB value for overridden exercises
 - Active workout: resolves rest time per exercise using is_overridden flag + global setting
 - Exercise list displays resolved rest time (not DB value)
-- Custom exercise image upload: POST /api/exercise-library/{id}/image + GET /api/exercise-library/images/{filename}, saves to exercisedb_gifs/custom/, displayed in exercise tile. Accepts JPEG and HEIC (iPhone), converts HEIC to JPEG on upload.
+- Custom exercise image upload: POST /api/exercise-library/{id}/image + GET /api/exercise-library/images/{filename}, saves to exercisedb_gifs/custom/, displayed in exercise tile. Accepts JPEG and HEIC (iPhone), converts HEIC to JPEG on upload. Fixed FormData upload to use fetch directly (Content-Type conflict).
 - Custom exercise delete: DELETE /api/exercise-library/{id} - only custom exercises (is_custom=True), removes image file
 
 This file explains where every type of project knowledge lives and when to use it.
