@@ -57,7 +57,7 @@ const MEASUREMENT_TYPES: FilterItem[] = [
   { label: "Distance", value: "distance" },
 ];
 
-function ExerciseDetailView({ exercise, resolveMediaUrl, onBack }: { exercise: ExerciseLibraryItem; resolveMediaUrl: (url: string | null | undefined) => string | null; onBack: () => void }) {
+function ExerciseDetailView({ exercise, resolveMediaUrl, onBack, onDelete }: { exercise: ExerciseLibraryItem; resolveMediaUrl: (url: string | null | undefined) => string | null; onBack: () => void; onDelete: () => void }) {
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -156,6 +156,16 @@ function ExerciseDetailView({ exercise, resolveMediaUrl, onBack }: { exercise: E
               <p className="text-xs text-slate-600 italic">No description provided.</p>
             </div>
           ) : null}
+
+          {/* Delete button for custom exercises */}
+          {exercise.is_custom && (
+            <button
+              onClick={onDelete}
+              className="mt-6 w-full rounded-2xl border border-red-700/60 bg-red-900/20 px-4 py-3 text-sm font-medium text-red-300 hover:bg-red-900/40 transition-colors"
+            >
+              Delete Exercise
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -212,8 +222,18 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
     return exercises.find((e) => e.id === selectedId) || null;
   }, [selectedId, exercises]);
 
+  const handleDelete = async () => {
+    if (!selectedExercise) return;
+    try {
+      await api.deleteExerciseLibraryEntry(selectedExercise.id);
+      setSelectedId(null);
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Failed to delete exercise");
+    }
+  };
+
   if (selectedExercise) {
-    return <ExerciseDetailView exercise={selectedExercise} resolveMediaUrl={resolveMediaUrl} onBack={() => setSelectedId(null)} />;
+    return <ExerciseDetailView exercise={selectedExercise} resolveMediaUrl={resolveMediaUrl} onBack={() => setSelectedId(null)} onDelete={handleDelete} />;
   }
 
   return (
