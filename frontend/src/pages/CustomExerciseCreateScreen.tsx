@@ -182,9 +182,9 @@ export default function CustomExerciseCreateScreen({
         setError("Please select an image file");
         return;
       }
-      // Validate JPEG (accept image/jpeg and image/jpg)
-      if (file.type !== "image/jpeg" && file.type !== "image/jpg") {
-        setError("Only JPEG images are supported");
+      // Validate JPEG or PNG (accept image/jpeg, image/jpg, image/png)
+      if (file.type !== "image/jpeg" && file.type !== "image/jpg" && file.type !== "image/png") {
+        setError("Only JPEG or PNG images are supported");
         return;
       }
       // Cap file size at 5MB
@@ -365,13 +365,13 @@ export default function CustomExerciseCreateScreen({
             <input
               id="exercise-image-input"
               type="file"
-              accept="image/jpeg,image/jpg"
+              accept="image/jpeg,image/jpg,image/png"
               onChange={handleImageSelect}
               className="hidden"
             />
             <div className="text-2xl mb-1">📷</div>
             <div className="text-xs text-slate-400">Tap to add a photo</div>
-            <div className="text-[10px] text-slate-500 mt-1">JPEG only, max 5MB</div>
+            <div className="text-[10px] text-slate-500 mt-1">JPEG or PNG, max 5MB</div>
           </div>
         )}
       </div>

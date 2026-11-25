@@ -1646,7 +1646,7 @@ def serve_exercisedb_gif(filename: str):
 
 CUSTOM_IMAGES_DIR = os.path.join(os.path.dirname(__file__), "exercisedb_gifs", "custom")
 
-ALLOWED_IMAGE_TYPES = ("image/jpeg", "image/jpg", "image/heic", "image/heic-sequence")
+ALLOWED_IMAGE_TYPES = ("image/jpeg", "image/jpg", "image/png", "image/heic", "image/heic-sequence")
 
 
 @app.post("/api/exercise-library/{exercise_id}/image")
@@ -1683,13 +1683,13 @@ def upload_exercise_image(
     # Read the uploaded file
     image_data = file.file.read()
     
-    # If HEIC, convert to JPEG using Pillow
-    if file.content_type in ("image/heic", "image/heic-sequence"):
+    # If HEIC or PNG, convert to JPEG using Pillow
+    if file.content_type in ("image/heic", "image/heic-sequence", "image/png"):
         from PIL import Image
         import io
         img = Image.open(io.BytesIO(image_data))
-        # Convert to RGB (HEIC may have alpha channel)
-        if img.mode in ("RGBA", "P"):
+        # Convert to RGB (HEIC/PNG may have alpha channel)
+        if img.mode in ("RGBA", "P", "LA"):
             img = img.convert("RGB")
         elif img.mode != "RGB":
             img = img.convert("RGB")
