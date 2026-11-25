@@ -514,10 +514,20 @@ export const api = {
   uploadExerciseImage: (exerciseId: number, file: File) => {
     const formData = new FormData();
     formData.append("file", file);
-    return request(`/api/exercise-library/${exerciseId}/image`, {
+    const apiBase = getApiBase();
+    const url = `${apiBase}/api/exercise-library/${exerciseId}/image`;
+    return fetch(url, {
       method: "POST",
       body: formData,
-      headers: {},
+      headers: {
+        "Authorization": `Bearer ${getAuthToken()}`,
+      },
+    }).then(async (res) => {
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`API error ${res.status}: ${text}`);
+      }
+      return res.json();
     });
   },
 
