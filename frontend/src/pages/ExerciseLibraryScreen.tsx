@@ -226,6 +226,8 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
     if (!selectedExercise) return;
     try {
       await api.deleteExerciseLibraryEntry(selectedExercise.id);
+      // Remove from local state
+      setExercises((prev) => prev.filter((e) => e.id !== selectedExercise.id));
       setSelectedId(null);
     } catch (err: any) {
       alert(err.response?.data?.detail || "Failed to delete exercise");
