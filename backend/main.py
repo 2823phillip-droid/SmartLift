@@ -1646,6 +1646,9 @@ def serve_exercisedb_gif(filename: str):
 
 CUSTOM_IMAGES_DIR = os.path.join(os.path.dirname(__file__), "exercisedb_gifs", "custom")
 
+ALLOWED_IMAGE_TYPES = ("image/jpeg", "image/jpg", "image/heic", "image/heic-sequence")
+
+
 @app.post("/api/exercise-library/{exercise_id}/image")
 def upload_exercise_image(
     exercise_id: int,
@@ -1653,7 +1656,8 @@ def upload_exercise_image(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user_dep),
 ):
-    """Upload an image for a custom exercise. Saves to exercisedb_gifs/custom/ and updates the exercise's image_url."""
+    """Upload an image for a custom exercise. Saves to exercisedb_gifs/custom/ and updates the exercise's image_url.
+    Accepts JPEG and HEIC (iPhone) formats. HEIC is converted to JPEG on upload."""
     # Verify exercise exists and belongs to user
     exercise = db.query(ExerciseLibrary).filter(
         ExerciseLibrary.id == exercise_id,
@@ -1666,20 +1670,34 @@ def upload_exercise_image(
     if not file.content_type or not file.content_type.startswith("image/"):
         raise HTTPException(status_code=400, detail="File must be an image")
     
-    # Only allow JPEG for now
-    if file.content_type not in ("image/jpeg", "image/jpg"):
-        raise HTTPException(status_code=400, detail="Only JPEG images are supported")
+    if file.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail=f"Image type {file.content_type} not supported. Use JPEG or HEIC.")
     
     # Create custom images directory if it doesn't exist
     os.makedirs(CUSTOM_IMAGES_DIR, exist_ok=True)
     
-    # Save file with exercise_id as filename
+    # Save file - always as JPEG
     filename = f"{exercise_id}.jpg"
     filepath = os.path.join(CUSTOM_IMAGES_DIR, filename)
     
-    # Read and write file
-    with open(filepath, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # Read the uploaded file
+    image_data = file.file.read()
+    
+    # If HEIC, convert to JPEG using Pillow
+    if file.content_type in ("image/heic", "image/heic-sequence"):
+        from PIL import Image
+        import io
+        img = Image.open(io.BytesIO(image_data))
+        # Convert to RGB (HEIC may have alpha channel)
+        if img.mode in ("RGBA", "P"):
+            img = img.convert("RGB")
+        elif img.mode != "RGB":
+            img = img.convert("RGB")
+        img.save(filepath, "JPEG", quality=85)
+    else:
+        # Already JPEG, just save it
+        with open(filepath, "wb") as buffer:
+            buffer.write(image_data)
     
     # Update exercise with image URL
     image_url = f"/api/exercise-library/images/{filename}"
