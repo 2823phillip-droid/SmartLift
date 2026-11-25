@@ -312,6 +312,70 @@ To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No l
 - [ ] End-to-end testing from Xcode (user testing)
 - [ ] Any tuning the user wants after testing
 
+## Exercise Library Enhancements
+
+### Clone Exercise Feature
+
+**Flow:**
+- [ ] Add "Clone Existing Exercise" button on Workouts tab (under "Create Custom Exercise")
+- [ ] Tapping opens Exercise Library with top note: "Choose similar exercise"
+- [ ] User searches/browses, taps an exercise to view it
+- [ ] Bottom button: "Clone Exercise"
+- [ ] Opens Create Custom Exercise screen with:
+  - [ ] Name prepopulated: "Copy of <Exercise Name>"
+  - [ ] All attributes inherited from source (muscle group, compound/isolation, movement pattern, exercise role, measurement type, equipment, etc.)
+  - [ ] User can modify any attribute before saving
+- [ ] Backend: POST /api/exercise-library/clone/{id} — copies exercise, sets is_custom=True, appends "(Copy)" to name
+- [ ] Name uniqueness: backend already rejects duplicate names — show error popup "Name already exists" if user tries to save with a duplicate
+- [ ] Frontend reuses CustomExerciseCreateScreen component with initial values passed as props
+
+**UX note:** Show inherited attributes pre-selected so user can see what they're getting and adjust. No blocking warning popup — just a small note "Cloned from <Exercise Name> — review attributes below."
+
+### Image Upload for Custom Exercises
+
+**Format:** JPEG (iOS camera defaults to HEIC — convert on upload or configure image picker for JPEG)
+
+**Flow:**
+- [x] Add "Add Photo" option to CustomExerciseCreateScreen
+- [x] Image picker: camera or photo library
+- [x] Capture/select → upload as multipart to backend
+- [x] Backend saves to Fly.io volume (e.g., /app/exercisedb_gifs/custom/ or similar)
+- [x] Backend returns image URL, stored on exercise record
+- [x] Image displayed in exercise tile where GIF would go (already supported — image_url field exists in ExerciseLibrary model and ExerciseLibraryOut schema)
+- [x] Cap file size (~2-5MB), resize if needed
+
+**Backend:**
+- [x] Add image upload endpoint: POST /api/exercise-library/{id}/image
+- [x] Add serve endpoint: GET /api/exercise-library/images/{filename}
+- [ ] Add image_url to ExerciseLibraryCreate schema (or handle via separate upload)
+
+**Storage:** Use existing Fly.io mounted volume pattern (see fly.toml — exercisedb_gifs mount at /app/exercisedb_gifs)
+
+### HIIT / Workout Template Structure (larger feature — separate build)
+
+**Concept:** Templates as gym-specific folders containing multiple workouts (strength + HIIT mixed or separated)
+
+**Structure:**
+- [ ] Template = folder/directory for a gym location (e.g., "YMCA Nashville", "YMCA Clarksville")
+- [ ] Each template contains multiple workouts:
+  - [ ] Strength workouts (traditional sets × reps × weight)
+  - [ ] HIIT For Time workouts (countdown timer, AMRAP or fixed workout)
+  - [ ] HIIT For Rounds workouts (count up, complete X rounds)
+- [ ] Users can mix strength and HIIT in one template, or separate them
+- [ ] Custom exercises with proper measurement types feed into these workouts
+
+**HIIT Formats:**
+- [ ] For Time:
+  - [ ] AMRAP (as many rounds/reps as possible in X minutes)
+  - [ ] Fixed workout against countdown clock
+- [ ] For Rounds:
+  - [ ] Clock counts up
+  - [ ] Complete X rounds of circuit
+
+**Backend:** WorkoutTemplate type enum already has `hiit` — UI needs to support creating HIIT workouts with these structures
+
+**Status:** Separate build — after clone + image upload are done
+
 ## Bugs to fix
 
 ### Current issues

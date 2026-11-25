@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Header, Request, Query
+from fastapi import FastAPI, Depends, HTTPException, Header, Request, Query, UploadFile, File
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse, PlainTextResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.trustedhost import TrustedHostMiddleware
@@ -28,6 +28,7 @@ import secrets
 import hashlib
 import httpx
 import asyncio
+import shutil
 import dataclasses
 from collections import defaultdict
 from logging.handlers import RotatingFileHandler
@@ -528,6 +529,7 @@ class ExerciseEntryOut(BaseModel):
     progression_type: Optional[str] = None
     deload_override: Optional[bool] = None
     gif_url: Optional[str] = None
+    image_url: Optional[str] = None
     group_id: Optional[str] = None
     is_compound: Optional[bool] = None
 
@@ -565,6 +567,7 @@ class ExerciseLibraryCreate(BaseModel):
     muscle_group: Optional[str] = None
     equipment: Optional[str] = None
     default_rest_seconds: Optional[int] = None
+    image_url: Optional[str] = None  # URL of uploaded image (set after upload)
 
 
 class WorkoutTemplateCreate(BaseModel):
@@ -1315,6 +1318,7 @@ def _template_out(tpl: WorkoutTemplate) -> WorkoutTemplateOut:
                 progression_type=getattr(e, "progression_type", None),
                 deload_override=getattr(e, "deload_override", None),
                 gif_url=_normalize_gif_url(getattr(getattr(e, "exercise_library", None), "gif_url", None)),
+                image_url=_normalize_gif_url(getattr(getattr(e, "exercise_library", None), "image_url", None)),
             )
             for e in exercises
         ],
@@ -1471,6 +1475,7 @@ def list_exercises(db: Session = Depends(get_db), current_user: User = Depends(g
             group_id=e.group_id,
             is_compound=getattr(e.exercise_library, "is_compound", True) if e.exercise_library else True,
             gif_url=_normalize_gif_url(getattr(getattr(e, "exercise_library", None), "gif_url", None)),
+            image_url=_normalize_gif_url(getattr(getattr(e, "exercise_library", None), "image_url", None)),
         )
         for e in entries
     ]
@@ -1497,6 +1502,7 @@ def list_template_exercises(template_id: int, db: Session = Depends(get_db), cur
             group_id=e.group_id,
             is_compound=getattr(e.exercise_library, "is_compound", True) if e.exercise_library else True,
             gif_url=_normalize_gif_url(getattr(getattr(e, "exercise_library", None), "gif_url", None)),
+            image_url=_normalize_gif_url(getattr(getattr(e, "exercise_library", None), "image_url", None)),
         )
         for e in entries
     ]
@@ -1610,6 +1616,67 @@ def serve_exercisedb_gif(filename: str):
         if os.path.exists(path):
             return FileResponse(path, media_type="image/gif")
     raise HTTPException(status_code=404, detail="GIF not found")
+
+# --- Custom Exercise Image Upload ---
+
+CUSTOM_IMAGES_DIR = os.path.join(os.path.dirname(__file__), "exercisedb_gifs", "custom")
+
+@app.post("/api/exercise-library/{exercise_id}/image")
+def upload_exercise_image(
+    exercise_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user_dep),
+):
+    """Upload an image for a custom exercise. Saves to exercisedb_gifs/custom/ and updates the exercise's image_url."""
+    # Verify exercise exists and belongs to user
+    exercise = db.query(ExerciseLibrary).filter(
+        ExerciseLibrary.id == exercise_id,
+        ExerciseLibrary.user_id == current_user.id,
+    ).first()
+    if not exercise:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+    
+    # Validate file type
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image")
+    
+    # Only allow JPEG for now
+    if file.content_type not in ("image/jpeg", "image/jpg"):
+        raise HTTPException(status_code=400, detail="Only JPEG images are supported")
+    
+    # Create custom images directory if it doesn't exist
+    os.makedirs(CUSTOM_IMAGES_DIR, exist_ok=True)
+    
+    # Save file with exercise_id as filename
+    filename = f"{exercise_id}.jpg"
+    filepath = os.path.join(CUSTOM_IMAGES_DIR, filename)
+    
+    # Read and write file
+    with open(filepath, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)
+    
+    # Update exercise with image URL
+    image_url = f"/api/exercise-library/images/{filename}"
+    exercise.image_url = image_url
+    db.commit()
+    
+    logging.info(f"Image uploaded for exercise {exercise_id}: {filename}")
+    return {"image_url": image_url}
+
+
+@app.get("/api/exercise-library/images/{filename}")
+def serve_exercise_image(filename: str):
+    """Serve custom exercise images from local filesystem."""
+    # Security: prevent directory traversal
+    if ".." in filename or "/" in filename or "\\" in filename:
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    
+    filepath = os.path.join(CUSTOM_IMAGES_DIR, filename)
+    if not os.path.exists(filepath):
+        raise HTTPException(status_code=404, detail="Image not found")
+    
+    return FileResponse(filepath, media_type="image/jpeg")
 
 # --- Sessions ---
 
@@ -5290,6 +5357,7 @@ def list_settings(db: Session = Depends(get_db), current_user: User = Depends(ge
                 order=e.order,
                 notes=e.notes,
                 per_set_data=e.per_set_data,
+                image_url=_normalize_gif_url(getattr(getattr(e, "exercise_library", None), "image_url", None)),
             )
             for e in exercises
         ],

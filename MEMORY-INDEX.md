@@ -8,6 +8,7 @@ status: Mac Studio M5 Max only, master branch HEAD `5a3dd21`. Backend deployed t
 - Template editor: per-exercise toggle (ON=override, OFF=use global), shows DB value for overridden exercises
 - Active workout: resolves rest time per exercise using is_overridden flag + global setting
 - Exercise list displays resolved rest time (not DB value)
+- Custom exercise image upload: POST /api/exercise-library/{id}/image + GET /api/exercise-library/images/{filename}, saves to exercisedb_gifs/custom/, displayed in exercise tile
 
 This file explains where every type of project knowledge lives and when to use it.
 

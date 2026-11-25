@@ -54,7 +54,19 @@ Format: DATE | FILE | TYPE | SUMMARY
 |||| 2026-09-10 || `PROJECT.md` | updated | Added `/todo` URL to Domain & DNS section; Deploy section already updated by sibling subagent ||
 |||| 2026-09-10 || `memory/deploy.md` | updated | Rewrote Step 4 with SSH-to-MacBook deploy as primary command; corrected health URL; added IPv6 dedicated-IP note; updated frontmatter date ||
 |||| 2026-09-10 || `backend/roadmap.html` | updated | Updated "Last updated" from 2026-08-02 to 2026-09-10 ||
-|||| 2026-09-10 || `MEMORY-INDEX.md` | updated | Rewrote bootstrap order (CONTEXT → PROJECT → TODO → memory file; PERSONA/Askeo/changelog moved to reference); added "Current state" section; removed broken `sync-check.sh` reference and replaced with manual pre-build check; updated usage rules; updated frontmatter date ||
+||||| 2026-09-10 || `MEMORY-INDEX.md` | updated | Rewrote bootstrap order (CONTEXT → PROJECT → TODO → memory file; PERSONA/Askeo/changelog moved to reference); added "Current state" section; removed broken `sync-check.sh` reference and replaced with manual pre-build check; updated usage rules; updated frontmatter date ||
+
+---
+
+## 2026-11-24
+
+|| File | Type | Summary |
+|---|---|---|
+|| `backend/main.py` | added | Custom exercise image upload endpoints: POST /api/exercise-library/{id}/image (multipart upload, saves to exercisedb_gifs/custom/, updates image_url) and GET /api/exercise-library/images/{filename} (serves images). Added UploadFile, File, shutil imports. Added image_url to ExerciseLibraryCreate schema. |
+|| `frontend/src/api.ts` | added | uploadExerciseImage function: multipart form data upload to /api/exercise-library/{id}/image. |
+|| `frontend/src/pages/CustomExerciseCreateScreen.tsx` | updated | Added image upload UI: file input with JPEG validation, 5MB size cap, image preview with remove button. After exercise creation, uploads image if selected. Shows "Image uploaded successfully" confirmation. |
+|| `TODO.md` | updated | Added Exercise Library Enhancements section with Clone Exercise, Image Upload, and HIIT/Template Structure features. |
+|| `MEMORY-INDEX.md` | updated | Added image upload feature to status line. |
 
 ---
 

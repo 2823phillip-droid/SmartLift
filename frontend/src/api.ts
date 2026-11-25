@@ -511,6 +511,16 @@ export const api = {
       body: JSON.stringify(data),
     }),
 
+  uploadExerciseImage: (exerciseId: number, file: File) => {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request(`/api/exercise-library/${exerciseId}/image`, {
+      method: "POST",
+      body: formData,
+      headers: {},
+    });
+  },
+
   getSessionTargets: (sessionId: number) =>
     request("/coach/session-targets", {
       method: "POST",

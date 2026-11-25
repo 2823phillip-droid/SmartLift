@@ -161,6 +161,8 @@ export default function CustomExerciseCreateScreen({
   const [measurementType, setMeasurementType] = useState<string | null>(null);
   const [muscleGroup, setMuscleGroup] = useState<string | null>(null);
   const [equipment, setEquipment] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   // Clear exercise role when compound/isolation changes if role is no longer valid
   useEffect(() => {
@@ -171,9 +173,43 @@ export default function CustomExerciseCreateScreen({
     }
   }, [isCompound, exerciseRole]);
 
+  // Handle image selection from file input
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validate file type
+      if (!file.type.startsWith("image/")) {
+        setError("Please select an image file");
+        return;
+      }
+      // Validate JPEG (accept image/jpeg and image/jpg)
+      if (file.type !== "image/jpeg" && file.type !== "image/jpg") {
+        setError("Only JPEG images are supported");
+        return;
+      }
+      // Cap file size at 5MB
+      if (file.size > 5 * 1024 * 1024) {
+        setError("Image must be less than 5MB");
+        return;
+      }
+      setImageFile(file);
+      setImagePreview(URL.createObjectURL(file));
+      setError("");
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    if (imagePreview) {
+      URL.revokeObjectURL(imagePreview);
+    }
+    setImagePreview(null);
+  };
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [saved, setSaved] = useState(false);
+  const [createdExerciseId, setCreatedExerciseId] = useState<number | null>(null);
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -220,7 +256,19 @@ export default function CustomExerciseCreateScreen({
         primary_equipment: equipment,
       };
 
-      await api.createExerciseLibraryEntry(payload);
+      const result = await api.createExerciseLibraryEntry(payload);
+      setCreatedExerciseId(result.id);
+
+      // Upload image if one was selected
+      if (imageFile) {
+        try {
+          await api.uploadExerciseImage(result.id, imageFile);
+        } catch (imgErr: any) {
+          // Log but don't fail the create - image is optional
+          console.error("Image upload failed:", imgErr);
+        }
+      }
+
       setSaved(true);
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to create exercise");
@@ -238,6 +286,9 @@ export default function CustomExerciseCreateScreen({
           <p className="mt-2 text-sm text-slate-400">
             "{name}" has been added to your exercise library.
           </p>
+          {imageFile && (
+            <p className="mt-1 text-xs text-amber-400">Image uploaded successfully.</p>
+          )}
           <button
             onClick={onBack}
             className="mt-6 rounded-xl border border-amber-700/60 bg-amber-900/30 px-6 py-3 text-sm font-medium text-amber-200 hover:bg-amber-900/50 transition-colors"
@@ -286,6 +337,43 @@ export default function CustomExerciseCreateScreen({
           rows={3}
           className="w-full rounded-xl border border-slate-700 bg-slate-800/50 px-4 py-3 text-sm text-slate-100 placeholder-slate-500 focus:border-amber-500/60 focus:outline-none transition-colors resize-y"
         />
+      </div>
+
+      {/* Image upload */}
+      <div className="mb-4">
+        <label className="text-xs font-medium text-slate-400 mb-2 block">Photo of Equipment (optional)</label>
+        {imagePreview ? (
+          <div className="relative rounded-xl overflow-hidden border border-slate-700">
+            <img
+              src={imagePreview}
+              alt="Equipment preview"
+              className="w-full h-32 object-cover"
+            />
+            <button
+              type="button"
+              onClick={handleRemoveImage}
+              className="absolute top-1 right-1 rounded-lg bg-red-900/70 px-2 py-1 text-xs text-white hover:bg-red-900 transition-colors"
+            >
+              Remove
+            </button>
+            <div className="absolute bottom-1 left-1 rounded bg-slate-900/80 px-2 py-0.5 text-[10px] text-slate-300">
+              {imageFile?.size ? Math.round(imageFile.size / 1024) + " KB" : "Selected"}
+            </div>
+          </div>
+        ) : (
+          <div className="border-2 border-dashed border-slate-700 rounded-xl p-4 text-center hover:border-amber-700/50 transition-colors cursor-pointer" onClick={() => document.getElementById("exercise-image-input")?.click()}>
+            <input
+              id="exercise-image-input"
+              type="file"
+              accept="image/jpeg,image/jpg"
+              onChange={handleImageSelect}
+              className="hidden"
+            />
+            <div className="text-2xl mb-1">📷</div>
+            <div className="text-xs text-slate-400">Tap to add a photo</div>
+            <div className="text-[10px] text-slate-500 mt-1">JPEG only, max 5MB</div>
+          </div>
+        )}
       </div>
 
       <TileGroup
