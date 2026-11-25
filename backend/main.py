@@ -1535,6 +1535,31 @@ def search_exercise_library(q: str = "", db: Session = Depends(get_db), current_
         for e in query.all()
     ]
 
+@app.delete("/api/exercise-library/{exercise_id}")
+def delete_custom_exercise(exercise_id: int, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    """Delete a custom exercise from the library. Only custom exercises (is_custom=True) can be deleted."""
+    exercise = db.query(ExerciseLibrary).filter(
+        ExerciseLibrary.id == exercise_id,
+        ExerciseLibrary.user_id == current_user.id,
+    ).first()
+    if not exercise:
+        raise HTTPException(status_code=404, detail="Exercise not found")
+    
+    if not exercise.is_custom:
+        raise HTTPException(status_code=403, detail="Cannot delete built-in exercises")
+    
+    # Delete the image file if one exists
+    if exercise.image_url:
+        filename = os.path.basename(exercise.image_url)
+        image_path = os.path.join(CUSTOM_IMAGES_DIR, filename)
+        if os.path.exists(image_path):
+            os.remove(image_path)
+    
+    db.delete(exercise)
+    db.commit()
+    logging.info(f"Custom exercise deleted: id={exercise_id}, name={exercise.name}")
+    return {"ok": True}
+
 @app.post("/api/exercise-library/sync")
 def sync_exercise_library(db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     """Re-seed exercise_library from local ExerciseDB JSON."""

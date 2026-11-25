@@ -521,6 +521,11 @@ export const api = {
     });
   },
 
+  deleteExerciseLibraryEntry: (exerciseId: number) =>
+    request(`/api/exercise-library/${exerciseId}`, {
+      method: "DELETE",
+    }),
+
   getSessionTargets: (sessionId: number) =>
     request("/coach/session-targets", {
       method: "POST",
