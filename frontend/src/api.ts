@@ -515,7 +515,7 @@ export const api = {
     const formData = new FormData();
     formData.append("file", file);
     const apiBase = getApiBase();
-    const url = `${apiBase}/api/exercise-library/${exerciseId}/image`;
+    const url = `${apiBase}/exercise-library/${exerciseId}/image`;
     return fetch(url, {
       method: "POST",
       body: formData,
