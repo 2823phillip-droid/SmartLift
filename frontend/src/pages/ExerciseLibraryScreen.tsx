@@ -57,7 +57,7 @@ const MEASUREMENT_TYPES: FilterItem[] = [
   { label: "Distance", value: "distance" },
 ];
 
-function ExerciseDetailView({ exercise, resolveMediaUrl, onBack, onDelete }: { exercise: ExerciseLibraryItem; resolveMediaUrl: (url: string | null | undefined) => string | null; onBack: () => void; onDelete: () => void }) {
+function ExerciseDetailView({ exercise, resolveMediaUrl, onBack, onDelete, onUpload, onUploadPhoto }: { exercise: ExerciseLibraryItem; resolveMediaUrl: (url: string | null | undefined) => string | null; onBack: () => void; onDelete: () => void; onUpload: () => void; onUploadPhoto: (e: React.ChangeEvent<HTMLInputElement>) => void }) {
   const contentRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -157,6 +157,24 @@ function ExerciseDetailView({ exercise, resolveMediaUrl, onBack, onDelete }: { e
             </div>
           ) : null}
 
+          {/* Upload photo for custom exercises */}
+          {exercise.is_custom && (
+            <label className="mb-4 block">
+              <span className="text-xs font-medium text-slate-400 mb-2 block">Add Photo</span>
+              <div className="border-2 border-dashed border-slate-700 rounded-xl p-4 text-center hover:border-amber-700/50 transition-colors cursor-pointer" onClick={onUpload}>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/jpg,image/png"
+                  onChange={(e) => onUploadPhoto(e)}
+                  className="hidden"
+                />
+                <div className="text-2xl mb-1">📷</div>
+                <div className="text-xs text-slate-400">Tap to add or change photo</div>
+                <div className="text-[10px] text-slate-500 mt-1">JPEG or PNG, max 5MB</div>
+              </div>
+            </label>
+          )}
+
           {/* Delete button for custom exercises */}
           {exercise.is_custom && (
             <button
@@ -234,8 +252,44 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
     }
   };
 
+  const handleUploadClick = () => {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = "image/jpeg,image/jpg,image/png";
+    input.onchange = ((e: Event) => handleUploadPhoto(e as unknown as React.ChangeEvent<HTMLInputElement>)) as any;
+    input.click();
+  };
+
+  const handleUploadPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedExercise) return;
+
+    // Validate file type
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
+      return;
+    }
+    if (file.type !== "image/jpeg" && file.type !== "image/jpg" && file.type !== "image/png") {
+      alert("Only JPEG or PNG images are supported");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image must be less than 5MB");
+      return;
+    }
+
+    try {
+      await api.uploadExerciseImage(selectedExercise.id, file);
+      // Refresh the exercise list to show the new image
+      const updatedExercises = await api.searchExerciseLibrary("");
+      setExercises(updatedExercises.map((item: ExerciseLibraryItem) => ({ ...item, _showDescription: false })));
+    } catch (err: any) {
+      alert(err.response?.data?.detail || "Failed to upload image");
+    }
+  };
+
   if (selectedExercise) {
-    return <ExerciseDetailView exercise={selectedExercise} resolveMediaUrl={resolveMediaUrl} onBack={() => setSelectedId(null)} onDelete={handleDelete} />;
+    return <ExerciseDetailView exercise={selectedExercise} resolveMediaUrl={resolveMediaUrl} onBack={() => setSelectedId(null)} onDelete={handleDelete} onUpload={handleUploadClick} onUploadPhoto={handleUploadPhoto} />;
   }
 
   return (
