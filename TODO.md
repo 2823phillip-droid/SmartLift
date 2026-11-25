@@ -351,6 +351,37 @@ To add Hypertrophy support: define HYPERTROPHY_PARAMS, call same functions. No l
 
 **Storage:** Use existing Fly.io mounted volume pattern (see fly.toml — exercisedb_gifs mount at /app/exercisedb_gifs)
 
+### Dynamic Warmup Feature
+
+**Flow:**
+- [x] Add "Start Warmup" button on ready screen (PreWorkoutScreen)
+- [x] Warmup screen with:
+  - [x] Timer (10 min total: 5 min dynamic warmups + 5 min stretches)
+  - [x] Dynamic warmups section: large tiles with GIFs, do as many as you can in 5 min
+  - [x] Stretches section: large tiles with GIFs, stretch for 5 min
+  - [x] No logging — just follow the routine
+  - [x] "Complete Warmup" button → back to ready screen
+- [x] Create warmup exercises in global ExerciseDB list:
+  - [x] High Knees
+  - [x] Butt Kicks
+  - [x] Lunges with a Twist
+  - [x] Leg Swings
+  - [x] Arm Circles
+  - [x] Carioca (Grapevine)
+  - [x] Frankensteins
+  - [x] Side Shuffles
+  - [x] Bounding
+  - [x] Jumping Jacks
+  - [ ] Plus stretches (to be determined) — using existing stretches for now
+- [ ] Record videos of each exercise, convert to GIFs (2-3 sec loop)
+- [ ] Upload GIFs to global exercise list (exercisedb_gifs/)
+- [ ] Exercise detail view shows large GIF for warmup exercises
+
+**GIF Creation:**
+- [ ] Record video of each exercise
+- [ ] Convert to 2-3 second looping GIF
+- [ ] Upload to backend (similar to custom exercise image upload, but for global exercises)
+
 ### HIIT / Workout Template Structure (larger feature — separate build)
 
 **Concept:** Templates as gym-specific folders containing multiple workouts (strength + HIIT mixed or separated)
