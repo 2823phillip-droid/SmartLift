@@ -139,7 +139,7 @@ export default function WarmupScreen({ onComplete }: { onComplete: () => void })
     onComplete();
   };
 
-  const totalTimeLeft = phase === "dynamic" ? timeLeft : 300 + timeLeft;
+  const totalTimeLeft = timeLeft;
 
   if (loading) {
     return (
