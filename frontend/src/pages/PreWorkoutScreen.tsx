@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { api } from "../api";
 import type { SetLog, WorkoutSession } from "../types";
 import { lbsToKg, getUnitsPreference } from "../utils/units";
+import WarmupScreen from "./WarmupScreen";
 
 interface RecapExercise {
   name: string;
@@ -45,6 +46,7 @@ export default function PreWorkoutScreen({
   const [coachInput, setCoachInput] = useState("");
   const [coachMessages, setCoachMessages] = useState<Array<{ id: number; question: string; answer: string }>>([]);
   const [coachLoading, setCoachLoading] = useState(false);
+  const [showWarmup, setShowWarmup] = useState(false);
 
   const quickTags = ["tired", "good", "sore", "strong", "off day"];
   const toggleTag = (tag: string) => setTags((t) => (t.includes(tag) ? t.filter((x) => x !== tag) : [...t, tag]));
@@ -238,6 +240,10 @@ export default function PreWorkoutScreen({
 
   if (loading) return <div className="text-center text-slate-500 py-10">Loading...</div>;
 
+  if (showWarmup) {
+    return <WarmupScreen onComplete={() => setShowWarmup(false)} />;
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex items-center justify-between">
@@ -414,6 +420,14 @@ export default function PreWorkoutScreen({
           ))}
         </div>
       </div>
+
+      <button
+        onClick={() => setShowWarmup(true)}
+        className="w-full rounded-2xl bg-indigo-600 px-5 py-4 text-base font-semibold
+                   hover:bg-indigo-500 active:scale-[0.98] transition-all shadow-lg shadow-indigo-900/30"
+      >
+        Start Warmup
+      </button>
 
       <button
         onClick={start}
