@@ -78,5 +78,7 @@
 		<string>google</string>
 		<string>com.googleusercontent.apps.257512152576-9sc3cp3j240n5f365lqi1e6mcqtmhauf</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>Take a photo of your exercise equipment to help identify it later</string>
 </dict>
 </plist>

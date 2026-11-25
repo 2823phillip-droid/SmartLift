@@ -85,11 +85,17 @@ function ExerciseDetailView({ exercise, resolveMediaUrl, onBack }: { exercise: E
       {/* Content */}
       <div className="flex-1 overflow-y-auto" ref={contentRef}>
         <div className="max-w-2xl mx-auto px-4 py-6">
-          {/* Large GIF */}
+          {/* Large media */}
           <div className="mb-6">
             {exercise.gif_url ? (
               <img
                 src={resolveMediaUrl(exercise.gif_url)!}
+                alt={exercise.name}
+                className="w-64 h-64 rounded-2xl object-cover border-2 border-slate-700 bg-slate-800 shadow-xl"
+              />
+            ) : exercise.image_url ? (
+              <img
+                src={resolveMediaUrl(exercise.image_url)!}
                 alt={exercise.name}
                 className="w-64 h-64 rounded-2xl object-cover border-2 border-slate-700 bg-slate-800 shadow-xl"
               />
@@ -334,14 +340,14 @@ export default function ExerciseLibraryScreen({ onBack }: { onBack: () => void }
                       onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                     />
                   ) : ex.image_url ? (
-                    <img
-                      src={ex.image_url}
-                      alt={ex.name}
-                      className="h-full w-full object-cover"
-                      loading="lazy"
-                      onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
-                    />
-                  ) : (
+   <img
+     src={resolveMediaUrl(ex.image_url)!}
+     alt={ex.name}
+     className="h-full w-full object-cover"
+     loading="lazy"
+     onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+   />
+ ) : (
                     <div className="h-full w-full flex items-center justify-center text-xs text-slate-600 bg-slate-800">
                       {ex.name[0]?.toUpperCase()}
                     </div>
