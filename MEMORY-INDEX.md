@@ -3,7 +3,7 @@ last_updated: 2026-10-30
 created: 2026-10-17
 tags: [meta]
 related: README.md, TODO.md
-status: Mac Studio M5 Max only, master branch HEAD `60eddee`. Backend deployed to Fly (commits through `24fceb8`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 24). Rest timer override system complete: Dynamic Warmup screen built (commit `afd4ed7`): WarmupScreen with 5min dynamic + 5min stretches, GIF tiles, timer, Complete button → back to ready screen. Start Warmup button on PreWorkoutScreen. TODO.md updated with completed warmup items.
+status: Mac Studio M5 Max only, master branch HEAD `f2707fa`. Backend deployed to Fly (commits through `f2707fa`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 27, 17:09). AMRAP HIIT workout templates v1 deployed: template editor shows HIIT format + time limit + per-round weight/reps/distance editor (cardio=distance, bodyweight=reps only, weighted=weight+reps); distance unit respects user's metric/imperial preference (m/ft); exercise library API now returns category field enabling correct exercise type detection; active workout shows countdown timer + exercise tiles with correct fields per exercise; post-workout shows AMRAP result entry with distance editing. Rollback tag `rollback-before-amrap` at `28c28cf`.
 - Global rest timer setting in Settings UI
 - Template editor: per-exercise toggle (ON=override, OFF=use global), shows DB value for overridden exercises
 - Active workout: resolves rest time per exercise using is_overridden flag + global setting
