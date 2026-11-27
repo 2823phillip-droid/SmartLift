@@ -647,6 +647,8 @@ export default function TemplateEditorScreen({
               </div>
               )}
 
+          </div>
+
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-sm">Exercises</h3>
