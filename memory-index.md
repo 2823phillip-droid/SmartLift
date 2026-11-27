@@ -3,7 +3,7 @@ last_updated: 2026-10-30
 created: 2026-10-17
 tags: [meta]
 related: README.md, TODO.md
-status: Mac Studio M5 Max only, master branch HEAD `d98c39c`. Backend deployed to Fly (commits through `081b65b`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 27, 16:57). AMRAP HIIT workout templates v1 deployed: template editor shows HIIT format + time limit + per-round weight/reps/distance editor (cardio=distance, bodyweight=reps only, weighted=weight+reps); active workout shows countdown timer + exercise tiles with correct fields per exercise; post-workout shows AMRAP result entry with distance editing. Rollback tag `rollback-before-amrap` at `28c28cf`.
+status: Mac Studio M5 Max only, master branch HEAD `6128607`. Backend deployed to Fly (commits through `081b65b`). Backend healthy at smartlift-api.fly.dev/healthz. Frontend built and synced to iOS at `frontend/ios/App/App/public/assets/` (Nov 27, 17:02). AMRAP HIIT workout templates v1 deployed: template editor shows HIIT format + time limit + per-round weight/reps/distance editor (cardio=distance, bodyweight=reps only, weighted=weight+reps); distance unit respects user's metric/imperial preference (m/ft); active workout shows countdown timer + exercise tiles with correct fields per exercise; post-workout shows AMRAP result entry with distance editing. Rollback tag `rollback-before-amrap` at `28c28cf`.
 - Global rest timer setting in Settings UI
 - Template editor: per-exercise toggle (ON=override, OFF=use global), shows DB value for overridden exercises
 - Active workout: resolves rest time per exercise using is_overridden flag + global setting
