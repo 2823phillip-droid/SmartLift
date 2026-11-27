@@ -1515,28 +1515,51 @@ export default function ActiveWorkoutScreen({
 
           {/* Exercise tiles */}
           <div className="space-y-3">
-            {exercises.map((ex, idx) => (
-              <div key={ex.id} className="rounded-2xl border border-slate-700 bg-slate-900/50 p-4 space-y-2">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
-                    Exercise {idx + 1}
+            {exercises.map((ex, idx) => {
+              const perSetData = (() => {
+                try { return JSON.parse(ex.per_set_data || "[]"); } catch { return []; }
+              })();
+              const setData = perSetData[0] || {};
+              const isDistance = setData.distance && setData.distance > 0;
+              const isBodyweight = !ex.start_weight || ex.start_weight === 0;
+
+              return (
+                <div key={ex.id} className="rounded-2xl border border-slate-700 bg-slate-900/50 p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                      Exercise {idx + 1}
+                    </div>
+                  </div>
+                  <div className="text-lg font-semibold text-slate-100">{ex.name}</div>
+                  <div className="flex gap-6 text-sm text-slate-300">
+                    {isDistance ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-500">Distance/round:</span>
+                        <span className="font-semibold text-slate-100">{setData.distance}m</span>
+                      </div>
+                    ) : isBodyweight ? (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-slate-500">Reps/round:</span>
+                        <span className="font-semibold text-slate-100">{ex.reps_target}</span>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-slate-500">Weight:</span>
+                          <span className="font-semibold text-slate-100">
+                            {ex.start_weight ? formatWeight(toLbs(ex.start_weight), getUnitsPreference()) : 'BW'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-slate-500">Reps/round:</span>
+                          <span className="font-semibold">{ex.reps_target}</span>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
-                <div className="text-lg font-semibold text-slate-100">{ex.name}</div>
-                <div className="flex gap-6 text-sm text-slate-300">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-slate-500">Weight:</span>
-                    <span className="font-semibold text-slate-100">
-                      {ex.start_weight ? formatWeight(toLbs(ex.start_weight), getUnitsPreference()) : 'BW'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-slate-500">Reps/round:</span>
-                    <span className="font-semibold">{ex.reps_target}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           {/* Complete button */}

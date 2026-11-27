@@ -30,6 +30,7 @@ export default function PostWorkoutScreen({
   const [amrapRounds, setAmrapRounds] = useState<Record<number, number>>({});
   const [amrapEditedWeights, setAmrapEditedWeights] = useState<Record<number, number>>({});
   const [amrapEditedReps, setAmrapEditedReps] = useState<Record<number, number>>({});
+  const [amrapEditedDistances, setAmrapEditedDistances] = useState<Record<number, number>>({});
   const [saveTemplateMode, setSaveTemplateMode] = useState<"discard" | "values" | "valuesAndOrder" | null>(null);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -95,12 +96,13 @@ export default function PostWorkoutScreen({
 
   const saveAmrapResult = async () => {
     if (!sessionId || !workoutTemplate) return;
-    const result: Record<number, { rounds: number; actual_weight: number; actual_reps: number }> = {};
+    const result: Record<number, { rounds: number; actual_weight: number; actual_reps: number; actual_distance: number }> = {};
     for (const ex of template) {
       result[ex.id] = {
         rounds: amrapRounds[ex.id] || 0,
         actual_weight: amrapEditedWeights[ex.id] ?? ex.start_weight,
         actual_reps: amrapEditedReps[ex.id] ?? ex.reps_target,
+        actual_distance: amrapEditedDistances[ex.id] ?? (ex.per_set_data ? (() => { try { const d = JSON.parse(ex.per_set_data); return d[0]?.distance ?? 0; } catch { return 0; } })() : 0),
       };
     }
     await api.updateSessionAmrapResult(sessionId, { amrap_result: JSON.stringify(result) });
@@ -341,49 +343,91 @@ export default function PostWorkoutScreen({
           </div>
 
           <div className="space-y-3">
-            {template.map((ex) => (
-              <div key={ex.id} className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="text-sm font-semibold text-slate-100">{ex.name}</div>
-                  <div className="text-xs text-slate-500">
-                    Planned: {ex.start_weight ? formatWeight(ex.start_weight, getUnitsPreference()) : "BW"} x {ex.reps_target} reps/round
+            {template.map((ex) => {
+              const perSetData = (() => {
+                try { return JSON.parse(ex.per_set_data || "[]"); } catch { return []; }
+              })();
+              const setData = perSetData[0] || {};
+              const isDistance = setData.distance && setData.distance > 0;
+              const isBodyweight = !ex.start_weight || ex.start_weight === 0;
+
+              return (
+                <div key={ex.id} className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-slate-100">{ex.name}</div>
+                    <div className="text-xs text-slate-500">
+                      {isDistance
+                        ? `Planned: ${setData.distance}m per round`
+                        : isBodyweight
+                          ? `Planned: ${ex.reps_target} reps/round`
+                          : `Planned: ${ex.start_weight ? formatWeight(ex.start_weight, getUnitsPreference()) : "BW"} x ${ex.reps_target} reps/round`}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1">
+                      <label className="text-[10px] text-slate-500 uppercase tracking-wider">Rounds</label>
+                      <input
+                        type="number"
+                        min={0}
+                        value={amrapRounds[ex.id] || ""}
+                        onChange={(e) => setAmrapRounds((prev) => ({ ...prev, [ex.id]: Number(e.target.value) || 0 }))}
+                        placeholder="0"
+                        className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-center focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+                    {isDistance ? (
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-500 uppercase tracking-wider">Distance</label>
+                        <div className="flex gap-1">
+                          <input
+                            type="number"
+                            value={amrapEditedDistances[ex.id] ?? ""}
+                            onChange={(e) => setAmrapEditedDistances((prev) => ({ ...prev, [ex.id]: Number(e.target.value) || 0 }))}
+                            placeholder={String(setData.distance || "0")}
+                            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-center focus:outline-none focus:border-amber-500"
+                          />
+                          <span className="text-xs text-slate-500 self-center">m</span>
+                        </div>
+                      </div>
+                    ) : isBodyweight ? (
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-500 uppercase tracking-wider">Actual reps/round</label>
+                        <input
+                          type="number"
+                          value={amrapEditedReps[ex.id] ?? ""}
+                          onChange={(e) => setAmrapEditedReps((prev) => ({ ...prev, [ex.id]: Number(e.target.value) || 0 }))}
+                          placeholder={String(ex.reps_target)}
+                          className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-center focus:outline-none focus:border-amber-500"
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-500 uppercase tracking-wider">Actual weight</label>
+                          <input
+                            type="number"
+                            value={amrapEditedWeights[ex.id] ?? ""}
+                            onChange={(e) => setAmrapEditedWeights((prev) => ({ ...prev, [ex.id]: Number(e.target.value) || 0 }))}
+                            placeholder={ex.start_weight ? String(ex.start_weight) : "BW"}
+                            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-center focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-500 uppercase tracking-wider">Actual reps/round</label>
+                          <input
+                            type="number"
+                            value={amrapEditedReps[ex.id] ?? ""}
+                            onChange={(e) => setAmrapEditedReps((prev) => ({ ...prev, [ex.id]: Number(e.target.value) || 0 }))}
+                            placeholder={String(ex.reps_target)}
+                            className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-center focus:outline-none focus:border-amber-500"
+                          />
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-500 uppercase tracking-wider">Rounds</label>
-                    <input
-                      type="number"
-                      min={0}
-                      value={amrapRounds[ex.id] || ""}
-                      onChange={(e) => setAmrapRounds((prev) => ({ ...prev, [ex.id]: Number(e.target.value) || 0 }))}
-                      placeholder="0"
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-center focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-500 uppercase tracking-wider">Actual weight</label>
-                    <input
-                      type="number"
-                      value={amrapEditedWeights[ex.id] ?? ""}
-                      onChange={(e) => setAmrapEditedWeights((prev) => ({ ...prev, [ex.id]: Number(e.target.value) || 0 }))}
-                      placeholder={ex.start_weight ? String(ex.start_weight) : "BW"}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-center focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[10px] text-slate-500 uppercase tracking-wider">Actual reps/round</label>
-                    <input
-                      type="number"
-                      value={amrapEditedReps[ex.id] ?? ""}
-                      onChange={(e) => setAmrapEditedReps((prev) => ({ ...prev, [ex.id]: Number(e.target.value) || 0 }))}
-                      placeholder={String(ex.reps_target)}
-                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-center focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
 
           <button

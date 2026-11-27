@@ -24,7 +24,7 @@ import {
 } from "@dnd-kit/sortable";
 import { GripVertical } from "lucide-react";
 
-type SetRow = { weight: number; reps: number };
+type SetRow = { weight: number; reps: number; distance?: number };
 
 type DraftExercise = {
   localId: string;
@@ -36,6 +36,8 @@ type DraftExercise = {
   is_overridden: boolean;
   progression_type?: string;
   gif_url?: string | null;
+  category?: string;
+  primary_equipment?: string;
 };
 
 const DRAFT_KEY = "new-routine-draft-v1";
@@ -299,7 +301,7 @@ export default function TemplateEditorScreen({
         const ex = exercises[idx];
         if (!ex.name.trim()) continue;
         const perSetData = JSON.stringify(
-          ex.sets.map((s) => ({ weight: s.weight, reps: s.reps }))
+          ex.sets.map((s) => ({ weight: s.weight, reps: s.reps, distance: s.distance ?? 0 }))
         );
         console.log("[editor] saving exercise", { id: ex.id, localId: ex.localId, is_overridden: exerciseRestEditing[ex.localId], rest_seconds: exerciseRestOverrides[ex.localId] ?? globalRest });
         const base = {
@@ -343,6 +345,8 @@ export default function TemplateEditorScreen({
       sets: [{ weight: 0, reps: 0 }],
       rest_seconds: globalRest,
       is_overridden: false,
+      category: ex.category ?? undefined,
+      primary_equipment: ex.primary_equipment ?? undefined,
     };
     setExercises((e) => [...e, newEx]);
     setSearch("");
@@ -852,26 +856,55 @@ export default function TemplateEditorScreen({
                   </div>
                   {type === "hiit" ? (
                     <div className="grid grid-cols-2 gap-3">
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-500">Weight per round</label>
-                        <input
-                          type="number"
-                          value={ex.sets[0]?.weight || ""}
-                          onChange={(e) => updateSet(idx, 0, { weight: Number(e.target.value) || 0 })}
-                          placeholder="Lbs"
-                          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm font-semibold text-center"
-                        />
-                      </div>
-                      <div className="space-y-1">
-                        <label className="text-[10px] text-slate-500">Reps per round</label>
-                        <input
-                          type="number"
-                          value={ex.sets[0]?.reps || ""}
-                          onChange={(e) => updateSet(idx, 0, { reps: Number(e.target.value) || 0 })}
-                          placeholder="Reps"
-                          className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm font-semibold text-center"
-                        />
-                      </div>
+                      {ex.category === "cardio" ? (
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-500">Distance per round</label>
+                          <div className="flex gap-1">
+                            <input
+                              type="number"
+                              value={ex.sets[0]?.distance ?? ex.sets[0]?.weight ?? ""}
+                              onChange={(e) => updateSet(idx, 0, { distance: Number(e.target.value) || 0, weight: 0 })}
+                              placeholder="Meters"
+                              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm font-semibold text-center"
+                            />
+                            <span className="text-xs text-slate-500 self-center">m</span>
+                          </div>
+                        </div>
+                      ) : ex.primary_equipment === "bodyweight" ? (
+                        <div className="space-y-1">
+                          <label className="text-[10px] text-slate-500">Reps per round</label>
+                          <input
+                            type="number"
+                            value={ex.sets[0]?.reps || ""}
+                            onChange={(e) => updateSet(idx, 0, { reps: Number(e.target.value) || 0 })}
+                            placeholder="Reps"
+                            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm font-semibold text-center"
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <div className="space-y-1">
+                            <label className="text-[10px] text-slate-500">Weight per round</label>
+                            <input
+                              type="number"
+                              value={ex.sets[0]?.weight || ""}
+                              onChange={(e) => updateSet(idx, 0, { weight: Number(e.target.value) || 0 })}
+                              placeholder="Lbs"
+                              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm font-semibold text-center"
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[10px] text-slate-500">Reps per round</label>
+                            <input
+                              type="number"
+                              value={ex.sets[0]?.reps || ""}
+                              onChange={(e) => updateSet(idx, 0, { reps: Number(e.target.value) || 0 })}
+                              placeholder="Reps"
+                              className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm font-semibold text-center"
+                            />
+                          </div>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <div className="grid gap-2">
