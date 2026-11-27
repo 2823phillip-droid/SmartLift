@@ -70,6 +70,8 @@ export default function TemplateEditorScreen({
 }) {
   const [name, setName] = useState("");
   const [type, setType] = useState("strength");
+  const [hiitFormat, setHiitFormat] = useState("amrap");
+  const [timeLimitMinutes, setTimeLimitMinutes] = useState(10);
   const [exercises, setExercises] = useState<DraftExercise[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -106,7 +108,7 @@ export default function TemplateEditorScreen({
     }
   };
 
-  const loadDraft = (): { name: string; type: string; exercises: DraftExercise[] } | null => {
+  const loadDraft = (): { name: string; type: string; hiitFormat: string; timeLimitMinutes: number; exercises: DraftExercise[] } | null => {
     try {
       const raw = localStorage.getItem(DRAFT_KEY);
       if (!raw) return null;
@@ -116,7 +118,7 @@ export default function TemplateEditorScreen({
     }
   };
 
-  const saveDraft = (data: { name: string; type: string; exercises: DraftExercise[] }) => {
+  const saveDraft = (data: { name: string; type: string; hiitFormat: string; timeLimitMinutes: number; exercises: DraftExercise[] }) => {
     try {
       localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
     } catch {}
@@ -141,6 +143,8 @@ export default function TemplateEditorScreen({
           setGlobalRest(globalRestVal);
           setName(tpl.name);
           setType(tpl.type);
+          setHiitFormat(tpl.hiit_format || "amrap");
+          setTimeLimitMinutes(tpl.time_limit_seconds ? Math.round(tpl.time_limit_seconds / 60) : 10);
           setExercises(
             (tpl.exercises || []).map((ex: any) => {
               const key = `server-${ex.id}`;
@@ -202,8 +206,8 @@ export default function TemplateEditorScreen({
 
   useEffect(() => {
     if (templateId) return;
-    saveDraft({ name, type, exercises });
-  }, [name, type, exercises, templateId]);
+    saveDraft({ name, type, hiitFormat, timeLimitMinutes, exercises });
+  }, [name, type, hiitFormat, timeLimitMinutes, exercises, templateId]);
 
   const updateSet = (exIdx: number, setIdx: number, patch: Partial<SetRow>) => {
     setExercises((list) => {
@@ -268,6 +272,8 @@ export default function TemplateEditorScreen({
         tpl = (await api.updateTemplate(templateId, {
           name,
           type,
+          hiit_format: hiitFormat,
+          time_limit_seconds: timeLimitMinutes * 60,
         })) as WorkoutTemplate;
       } else {
         tpl = (await api.createTemplate({
@@ -275,6 +281,8 @@ export default function TemplateEditorScreen({
           name,
           type,
           order: 0,
+          hiit_format: hiitFormat,
+          time_limit_seconds: timeLimitMinutes * 60,
         })) as WorkoutTemplate;
       }
 
@@ -612,8 +620,32 @@ export default function TemplateEditorScreen({
               <option value="strength">Strength</option>
               <option value="hiit">HIIT</option>
               <option value="active_rest">Active Rest</option>
-            </select>
-          </div>
+              </select>
+              {type === "hiit" && (
+              <div className="space-y-3">
+                <select
+                  value={hiitFormat}
+                  onChange={(e) => setHiitFormat(e.target.value)}
+                  className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3.5 text-sm"
+                >
+                  <option value="amrap">AMRAP — As Many Rounds As Possible</option>
+                </select>
+                <div className="flex items-center gap-2">
+                  <label className="text-xs text-slate-500 font-semibold uppercase tracking-wider">Time Limit</label>
+                  <select
+                    value={timeLimitMinutes}
+                    onChange={(e) => setTimeLimitMinutes(Number(e.target.value))}
+                    className="w-full rounded-xl border border-slate-700 bg-slate-900 px-4 py-3.5 text-sm"
+                  >
+                    <option value={5}>5 minutes</option>
+                    <option value={10}>10 minutes</option>
+                    <option value={15}>15 minutes</option>
+                    <option value={20}>20 minutes</option>
+                    <option value={30}>30 minutes</option>
+                  </select>
+                </div>
+              </div>
+              )}
 
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -813,50 +845,79 @@ export default function TemplateEditorScreen({
                 )}
 
                 <div className="space-y-2">
-                  <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">Sets</div>
-                  <div className="grid gap-2">
-                    {ex.sets.map((s, setIdx) => (
-                      <div
-                        key={setIdx}
-                        className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-1.5 bg-slate-950/50 rounded-xl px-2 py-1.5"
-                      >
-                        <div className="text-[11px] font-bold text-slate-500 w-6 text-center">{setIdx + 1}</div>
+                  <div className="text-xs text-slate-500 uppercase tracking-wider font-semibold">
+                    {type === "hiit" ? "Per Round" : "Sets"}
+                  </div>
+                  {type === "hiit" ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-500">Weight per round</label>
                         <input
                           type="number"
-                          value={s.weight || ""}
-                          onChange={(e) => updateSet(idx, setIdx, { weight: Number(e.target.value) || 0 })}
+                          value={ex.sets[0]?.weight || ""}
+                          onChange={(e) => updateSet(idx, 0, { weight: Number(e.target.value) || 0 })}
                           placeholder="Lbs"
                           className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm font-semibold text-center"
                         />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[10px] text-slate-500">Reps per round</label>
                         <input
                           type="number"
-                          value={s.reps || ""}
-                          onChange={(e) => updateSet(idx, setIdx, { reps: Number(e.target.value) || 0 })}
+                          value={ex.sets[0]?.reps || ""}
+                          onChange={(e) => updateSet(idx, 0, { reps: Number(e.target.value) || 0 })}
                           placeholder="Reps"
                           className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm font-semibold text-center"
                         />
-                        {ex.sets.length > 1 && (
-                          <button
-                            onClick={() => removeSet(idx, setIdx)}
-                            className="text-rose-500/80 hover:text-rose-400 transition-colors px-2 py-1 rounded-lg hover:bg-rose-950/30"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-                            </svg>
-                          </button>
-                        )}
                       </div>
-                    ))}
-                  </div>
-                  <button
-                    onClick={() => addSet(idx)}
-                    className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors font-medium flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-indigo-950/30"
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                    </svg>
-                    Add Set
-                  </button>
+                    </div>
+                  ) : (
+                    <div className="grid gap-2">
+                      {ex.sets.map((s, setIdx) => (
+                        <div
+                          key={setIdx}
+                          className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-1.5 bg-slate-950/50 rounded-xl px-2 py-1.5"
+                        >
+                          <div className="text-[11px] font-bold text-slate-500 w-6 text-center">{setIdx + 1}</div>
+                          <input
+                            type="number"
+                            value={s.weight || ""}
+                            onChange={(e) => updateSet(idx, setIdx, { weight: Number(e.target.value) || 0 })}
+                            placeholder="Lbs"
+                            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm font-semibold text-center"
+                          />
+                          <input
+                            type="number"
+                            value={s.reps || ""}
+                            onChange={(e) => updateSet(idx, setIdx, { reps: Number(e.target.value) || 0 })}
+                            placeholder="Reps"
+                            className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm font-semibold text-center"
+                          />
+                          {ex.sets.length > 1 && (
+                            <button
+                              onClick={() => removeSet(idx, setIdx)}
+                              className="text-rose-500/80 hover:text-rose-400 transition-colors px-2 py-1 rounded-lg hover:bg-rose-950/30"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
+                              </svg>
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {type !== "hiit" && (
+                    <button
+                      onClick={() => addSet(idx)}
+                      className="text-sm text-indigo-400 hover:text-indigo-300 transition-colors font-medium flex items-center gap-1 px-2 py-1.5 rounded-lg hover:bg-indigo-950/30"
+                    >
+                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Add Set
+                    </button>
+                  )}
                 </div>
                 </SortableItem>
                 ))}

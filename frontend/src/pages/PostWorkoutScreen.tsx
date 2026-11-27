@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { api, withRetry } from "../api";
-import type { SetLog, WorkoutSession, ExerciseEntry } from "../types";
+import type { SetLog, WorkoutSession, ExerciseEntry, WorkoutTemplate } from "../types";
 import { formatWeight, getUnitsPreference, weightInputPlaceholder } from "../utils/units";
 
 export default function PostWorkoutScreen({
@@ -26,6 +26,10 @@ export default function PostWorkoutScreen({
   const [feedback, setFeedback] = useState("");
   const [coachSent, setCoachSent] = useState(false);
   const [template, setTemplate] = useState<ExerciseEntry[]>([]);
+  const [workoutTemplate, setWorkoutTemplate] = useState<WorkoutTemplate | null>(null);
+  const [amrapRounds, setAmrapRounds] = useState<Record<number, number>>({});
+  const [amrapEditedWeights, setAmrapEditedWeights] = useState<Record<number, number>>({});
+  const [amrapEditedReps, setAmrapEditedReps] = useState<Record<number, number>>({});
   const [saveTemplateMode, setSaveTemplateMode] = useState<"discard" | "values" | "valuesAndOrder" | null>(null);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -66,6 +70,9 @@ export default function PostWorkoutScreen({
       api.getExercises(templateId).then((exercises) => {
         setTemplate(exercises);
       });
+      api.getTemplate(templateId).then((tpl) => {
+        setWorkoutTemplate(tpl);
+      });
     }
   }, [sessionId, templateId]);
 
@@ -82,6 +89,21 @@ export default function PostWorkoutScreen({
       content: `Session summary: ${logs.length} sets logged. Volume: ${formatWeight(logs.reduce((a, b) => a + (b.actual_weight || 0) * (b.actual_reps || 0), 0), getUnitsPreference())}. Feedback: ${feedback}`,
     });
     setCoachSent(true);
+  };
+
+  const isAmrap = workoutTemplate?.type === "hiit" && workoutTemplate?.hiit_format === "amrap";
+
+  const saveAmrapResult = async () => {
+    if (!sessionId || !workoutTemplate) return;
+    const result: Record<number, { rounds: number; actual_weight: number; actual_reps: number }> = {};
+    for (const ex of template) {
+      result[ex.id] = {
+        rounds: amrapRounds[ex.id] || 0,
+        actual_weight: amrapEditedWeights[ex.id] ?? ex.start_weight,
+        actual_reps: amrapEditedReps[ex.id] ?? ex.reps_target,
+      };
+    }
+    await api.updateSessionAmrapResult(sessionId, { amrap_result: JSON.stringify(result) });
   };
 
   const adjustmentsSavedRef = useRef(false);
@@ -213,7 +235,7 @@ export default function PostWorkoutScreen({
           </div>
           <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-3 space-y-1">
             <div className="text-[10px] text-slate-500 uppercase tracking-widest">Time</div>
-            <div className="text-xl font-bold">{durationMinutes ?? "—"}</div>
+            <div className="text-xl font-bold">{durationMinutes ?? "\u2014"}</div>
             <div className="text-[10px] text-slate-500">min</div>
           </div>
         </div>
@@ -304,39 +326,111 @@ export default function PostWorkoutScreen({
 
   return (
     <div className="space-y-5">
-      <div className="text-center">
-        <div className="w-14 h-14 rounded-full bg-emerald-950/50 border border-emerald-800 flex items-center justify-center mx-auto mb-3">
-          <svg className="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-        </div>
-        <h2 className="text-2xl font-bold tracking-tight">Workout Summary</h2>
-        <p className="text-xs text-slate-500 mt-1">{logs.length} sets · {formatWeight(totalVolume, getUnitsPreference())} total</p>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold">Sets</h3>
-          <span className="text-xs text-slate-500">{logs.length} entries</span>
-        </div>
-        <div className="space-y-2">
-          {logs.map((log) => (
-            <div key={log.id} className="rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3">
-              <div className="flex items-center justify-between">
-                <span className="text-xs text-slate-500 font-semibold">Set {log.set_index}</span>
-                <span className="text-xs text-slate-500">{log.effort != null ? `E${log.effort}/10` : "effort not logged"}</span>
-              </div>
-              <div className="text-sm font-semibold mt-0.5">
-                {`${formatWeight(log.actual_weight ?? 0, getUnitsPreference())}`} × {log.actual_reps} reps
-              </div>
-              {log.notes && <div className="text-xs text-slate-400 mt-1 italic">"{log.notes}"</div>}
+      {isAmrap ? (
+        <>
+          <div className="text-center">
+            <div className="w-14 h-14 rounded-full bg-amber-950/50 border border-amber-800 flex items-center justify-center mx-auto mb-3">
+              <svg className="w-7 h-7 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
             </div>
-          ))}
-          {logs.length === 0 && (
-            <p className="text-sm text-slate-600 text-center py-6">No sets logged this session.</p>
-          )}
-        </div>
-      </div>
+            <h2 className="text-2xl font-bold tracking-tight">{workoutTemplate?.name || "AMRAP Workout"}</h2>
+            <p className="text-xs text-slate-500 mt-1">
+              AMRAP {workoutTemplate?.time_limit_seconds ? Math.floor(workoutTemplate.time_limit_seconds / 60) : 10}:00
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {template.map((ex) => (
+              <div key={ex.id} className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="text-sm font-semibold text-slate-100">{ex.name}</div>
+                  <div className="text-xs text-slate-500">
+                    Planned: {ex.start_weight ? formatWeight(ex.start_weight, getUnitsPreference()) : "BW"} x {ex.reps_target} reps/round
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-500 uppercase tracking-wider">Rounds</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={amrapRounds[ex.id] || ""}
+                      onChange={(e) => setAmrapRounds((prev) => ({ ...prev, [ex.id]: Number(e.target.value) || 0 }))}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-center focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-500 uppercase tracking-wider">Actual weight</label>
+                    <input
+                      type="number"
+                      value={amrapEditedWeights[ex.id] ?? ""}
+                      onChange={(e) => setAmrapEditedWeights((prev) => ({ ...prev, [ex.id]: Number(e.target.value) || 0 }))}
+                      placeholder={ex.start_weight ? String(ex.start_weight) : "BW"}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-center focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-[10px] text-slate-500 uppercase tracking-wider">Actual reps/round</label>
+                    <input
+                      type="number"
+                      value={amrapEditedReps[ex.id] ?? ""}
+                      onChange={(e) => setAmrapEditedReps((prev) => ({ ...prev, [ex.id]: Number(e.target.value) || 0 }))}
+                      placeholder={String(ex.reps_target)}
+                      className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-center focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <button
+            onClick={saveAmrapResult}
+            disabled={finishing}
+            className="w-full rounded-2xl bg-amber-600 px-5 py-4 text-base font-semibold hover:bg-amber-500 active:scale-[0.98] transition-all shadow-lg shadow-amber-900/30 disabled:opacity-60 disabled:cursor-wait disabled:active:scale-100"
+          >
+            Save AMRAP Result
+          </button>
+        </>
+      ) : (
+        <>
+          <div className="text-center">
+            <div className="w-14 h-14 rounded-full bg-emerald-950/50 border border-emerald-800 flex items-center justify-center mx-auto mb-3">
+              <svg className="w-7 h-7 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+              </svg>
+            </div>
+            <h2 className="text-2xl font-bold tracking-tight">Workout Summary</h2>
+            <p className="text-xs text-slate-500 mt-1">{logs.length} sets \u00b7 {formatWeight(totalVolume, getUnitsPreference())} total</p>
+          </div>
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold">Sets</h3>
+              <span className="text-xs text-slate-500">{logs.length} entries</span>
+            </div>
+            <div className="space-y-2">
+              {logs.map((log) => (
+                <div key={log.id} className="rounded-xl border border-slate-800 bg-slate-900/50 px-4 py-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs text-slate-500 font-semibold">Set {log.set_index}</span>
+                    <span className="text-xs text-slate-500">{log.effort != null ? `E${log.effort}/10` : "effort not logged"}</span>
+                  </div>
+                  <div className="text-sm font-semibold mt-0.5">
+                    {`${formatWeight(log.actual_weight ?? 0, getUnitsPreference())}`} \u00d7 {log.actual_reps} reps
+                  </div>
+                  {log.notes && <div className="text-xs text-slate-400 mt-1 italic">"{log.notes}"</div>}
+                </div>
+              ))}
+              {logs.length === 0 && (
+                <p className="text-sm text-slate-600 text-center py-6">No sets logged this session.</p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
 
       <button
         onClick={endWorkout}

@@ -108,6 +108,9 @@ class WorkoutTemplate(Base):
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     default_rest_seconds = Column(Integer, nullable=True)
     coach_rules = Column(Text, nullable=True)  # JSON: {"muscle_group": "progression_type"}
+    # HIIT sub-format fields (only relevant when type = hiit)
+    hiit_format = Column(String, nullable=True)  # "amrap" | "for_rounds" | "intervals"
+    time_limit_seconds = Column(Integer, nullable=True)  # for AMRAP / fixed-time formats
 
     user = relationship("User", back_populates="templates")
     context = relationship("Context", back_populates="templates")
@@ -202,6 +205,8 @@ class WorkoutSession(Base):
     set_logs = relationship("SetLog", back_populates="session", cascade="all, delete-orphan", order_by="SetLog.set_index")
     coach_messages = relationship("CoachMessage", back_populates="session", cascade="all, delete-orphan")
     cardio_logs = relationship("CardioLog", back_populates="session", cascade="all, delete-orphan")
+    # AMRAP result storage (JSON: {exercise_id: {rounds, actual_weight, actual_reps}})
+    amrap_result = Column(Text, nullable=True)
 
 class SetLog(Base):
     __tablename__ = "set_logs"

@@ -68,6 +68,9 @@ export interface WorkoutTemplate {
   type: string;
   order: number;
   default_rest_seconds?: number;
+  coach_rules?: string;
+  hiit_format?: string;       // "amrap" | "for_rounds" | "intervals"
+  time_limit_seconds?: number; // for AMRAP / fixed-time formats
   exercises: ExerciseEntry[];
 }
 
@@ -76,6 +79,9 @@ export interface WorkoutTemplateUpdate {
   type?: string;
   order?: number;
   default_rest_seconds?: number;
+  coach_rules?: string;
+  hiit_format?: string;
+  time_limit_seconds?: number;
 }
 
 export interface WorkoutSession {
@@ -88,6 +94,7 @@ export interface WorkoutSession {
   status: string;
   template_name?: string;
   context_name?: string;
+  amrap_result?: string; // JSON: {exercise_id: {rounds, actual_weight, actual_reps}}
 }
 
 export interface SetLog {

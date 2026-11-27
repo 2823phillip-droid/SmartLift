@@ -256,6 +256,9 @@ export interface Template {
   context_id?: number | null;
   order: number;
   default_rest_seconds?: number;
+  coach_rules?: string;
+  hiit_format?: string;
+  time_limit_seconds?: number;
   exercises: Exercise[];
 }
 
@@ -390,6 +393,11 @@ export const api = {
     request(`/sessions/${id}`, { method: "DELETE" }),
   deleteSetLog: (sessionId: number, logId: number) =>
     request(`/sessions/${sessionId}/set-logs/${logId}`, { method: "DELETE" }),
+  updateSessionAmrapResult: (sessionId: number, data: { amrap_result?: string }) =>
+    request(`/sessions/${sessionId}/amrap-result`, {
+      method: "PATCH",
+      body: JSON.stringify(data),
+    }),
   updateSetLog: (sessionId: number, logId: number, data: SetLogUpdate) =>
     request(`/sessions/${sessionId}/set-logs/${logId}`, {
       method: "PUT",

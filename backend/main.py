@@ -361,6 +361,20 @@ def _run_migrations():
                 conn.execute(_text("ALTER TABLE set_logs ADD COLUMN block_mode TEXT"))
                 conn.commit()
 
+            # HIIT / AMRAP columns
+            tcols = cols("workout_templates")
+            if "hiit_format" not in tcols:
+                conn.execute(_text("ALTER TABLE workout_templates ADD COLUMN hiit_format VARCHAR"))
+                conn.commit()
+            if "time_limit_seconds" not in tcols:
+                conn.execute(_text("ALTER TABLE workout_templates ADD COLUMN time_limit_seconds INTEGER"))
+                conn.commit()
+
+            scols = cols("workout_sessions")
+            if "amrap_result" not in scols:
+                conn.execute(_text("ALTER TABLE workout_sessions ADD COLUMN amrap_result TEXT"))
+                conn.commit()
+
             # Exercise library classification columns (Phase 2)
             elcols = cols("exercise_library")
             if "is_compound" not in elcols:
@@ -577,6 +591,9 @@ class WorkoutTemplateCreate(BaseModel):
     order: int = 0
     default_rest_seconds: Optional[int] = None
     coach_rules: Optional[str] = None  # JSON: {"muscle_group": "progression_type"}
+    # HIIT sub-format fields
+    hiit_format: Optional[str] = None  # "amrap" | "for_rounds" | "intervals"
+    time_limit_seconds: Optional[int] = None  # for AMRAP / fixed-time formats
 
 class WorkoutTemplateOut(BaseModel):
     id: int
@@ -586,6 +603,9 @@ class WorkoutTemplateOut(BaseModel):
     order: int
     default_rest_seconds: Optional[int] = None
     coach_rules: Optional[str] = None
+    # HIIT sub-format fields
+    hiit_format: Optional[str] = None
+    time_limit_seconds: Optional[int] = None
     exercises: List[ExerciseEntryOut] = []
 
     class Config:
@@ -597,6 +617,9 @@ class WorkoutTemplateUpdate(BaseModel):
     order: Optional[int] = None
     default_rest_seconds: Optional[int] = None
     coach_rules: Optional[str] = None
+    # HIIT sub-format fields
+    hiit_format: Optional[str] = None
+    time_limit_seconds: Optional[int] = None
 
 class ApiBaseModel(BaseModel):
     model_config = ConfigDict(from_attributes=True)
@@ -630,6 +653,8 @@ class SessionOut(ApiBaseModel):
     pre_workout_notes: Optional[str] = None
     post_workout_notes: Optional[str] = None
     status: str
+    # AMRAP result (JSON string)
+    amrap_result: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -1301,6 +1326,8 @@ def _template_out(tpl: WorkoutTemplate) -> WorkoutTemplateOut:
         order=tpl.order,
         default_rest_seconds=tpl.default_rest_seconds,
         coach_rules=tpl.coach_rules,
+        hiit_format=getattr(tpl, "hiit_format", None),
+        time_limit_seconds=getattr(tpl, "time_limit_seconds", None),
         exercises=[
             ExerciseEntryOut(
                 id=e.id,
@@ -1362,6 +1389,8 @@ def create_template(payload: WorkoutTemplateCreate, db: Session = Depends(get_db
                 order=payload.order,
                 default_rest_seconds=payload.default_rest_seconds,
                 coach_rules=payload.coach_rules,
+                hiit_format=payload.hiit_format,
+                time_limit_seconds=payload.time_limit_seconds,
                 user_id=current_user.id,
             )
             db.add(tpl)
@@ -1404,6 +1433,10 @@ def update_template(template_id: int, payload: WorkoutTemplateUpdate, db: Sessio
         tpl.default_rest_seconds = payload.default_rest_seconds
     if payload.coach_rules is not None:  # pyright: ignore [reportAttributeAccessIssue]
         tpl.coach_rules = payload.coach_rules
+    if payload.hiit_format is not None:
+        tpl.hiit_format = payload.hiit_format
+    if payload.time_limit_seconds is not None:
+        tpl.time_limit_seconds = payload.time_limit_seconds
     db.commit()
     db.refresh(tpl)
     return _template_out(tpl)
@@ -1761,6 +1794,10 @@ class SessionNotesUpdate(BaseModel):
     post_workout_notes: Optional[str] = None
 
 
+class SessionAmrapResultUpdate(BaseModel):
+    amrap_result: Optional[str] = None  # JSON: {exercise_id: {rounds, actual_weight, actual_reps}}
+
+
 @app.patch("/api/sessions/{session_id}/notes", response_model=SessionOut)
 def update_session_notes(session_id: int, payload: SessionNotesUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
     s = db.query(WorkoutSession).filter(WorkoutSession.id == session_id, WorkoutSession.user_id == current_user.id).first()
@@ -1782,6 +1819,29 @@ def update_session_notes(session_id: int, payload: SessionNotesUpdate, db: Sessi
         pre_workout_notes=s.pre_workout_notes,
         post_workout_notes=s.post_workout_notes,
         status=s.status.value,
+    )
+
+
+@app.patch("/api/sessions/{session_id}/amrap-result", response_model=SessionOut)
+def update_session_amrap_result(session_id: int, payload: SessionAmrapResultUpdate, db: Session = Depends(get_db), current_user: User = Depends(get_current_user_dep)):
+    s = db.query(WorkoutSession).filter(WorkoutSession.id == session_id, WorkoutSession.user_id == current_user.id).first()
+    if not s:
+        raise HTTPException(status_code=404, detail="Session not found")
+    if payload.amrap_result is not None:
+        s.amrap_result = payload.amrap_result
+    db.commit()
+    db.refresh(s)
+    return SessionOut(
+        id=s.id,
+        template_id=s.template_id,
+        started_at=s.started_at,
+        ended_at=s.ended_at,
+        pre_workout_mood=s.pre_workout_mood,
+        pre_workout_tags=json.loads(s.pre_workout_tags or "[]"),
+        pre_workout_notes=s.pre_workout_notes,
+        post_workout_notes=s.post_workout_notes,
+        status=s.status.value,
+        amrap_result=s.amrap_result,
     )
 
 
@@ -5387,6 +5447,8 @@ def list_settings(db: Session = Depends(get_db), current_user: User = Depends(ge
         order=tpl.order,
         default_rest_seconds=tpl.default_rest_seconds,
         coach_rules=tpl.coach_rules,
+        hiit_format=getattr(tpl, "hiit_format", None),
+        time_limit_seconds=getattr(tpl, "time_limit_seconds", None),
         exercises=[
             ExerciseEntryOut(
                 id=e.id,

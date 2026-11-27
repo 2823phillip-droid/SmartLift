@@ -38,6 +38,7 @@ export default function ActiveWorkoutScreen({
 }) {
   const [exercises, setExercises] = useState<ExerciseEntry[]>([]);
   const [template, setTemplate] = useState<WorkoutTemplate | null>(null);
+  const isAmrap = template?.type === "hiit" && template?.hiit_format === "amrap";
   const [logs, setLogs] = useState<SetLog[]>([]);
   const [globalRest, setGlobalRest] = useState(90);
   const [exerciseRestOverrides, setExerciseRestOverrides] = useState<Record<number, number>>({});
@@ -1486,6 +1487,64 @@ export default function ActiveWorkoutScreen({
             className="w-full rounded-2xl bg-slate-800 border border-slate-700 px-5 py-4 text-base font-semibold text-slate-200 hover:bg-slate-700 active:scale-[0.98] transition-all"
           >
             Skip Rest
+          </button>
+        </div>
+      )}
+
+      {isAmrap && (
+        <div className="space-y-6">
+          {/* Countdown timer */}
+          <div className="flex flex-col items-center justify-center py-8">
+            {(() => {
+              const timeLimit = template?.time_limit_seconds || 600;
+              const remaining = Math.max(0, timeLimit - workoutElapsed);
+              const mins = Math.floor(remaining / 60);
+              const secs = Math.floor(remaining % 60);
+              return (
+                <>
+                  <div className="text-6xl font-bold text-slate-100 tabular-nums tracking-wider">
+                    {mins}:{String(secs).padStart(2, '0')}
+                  </div>
+                  <div className="text-sm text-slate-400 mt-3">
+                    AMRAP {Math.floor(timeLimit / 60)}:00
+                  </div>
+                </>
+              );
+            })()}
+          </div>
+
+          {/* Exercise tiles */}
+          <div className="space-y-3">
+            {exercises.map((ex, idx) => (
+              <div key={ex.id} className="rounded-2xl border border-slate-700 bg-slate-900/50 p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-semibold text-slate-500 uppercase tracking-wider">
+                    Exercise {idx + 1}
+                  </div>
+                </div>
+                <div className="text-lg font-semibold text-slate-100">{ex.name}</div>
+                <div className="flex gap-6 text-sm text-slate-300">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500">Weight:</span>
+                    <span className="font-semibold text-slate-100">
+                      {ex.start_weight ? formatWeight(toLbs(ex.start_weight), getUnitsPreference()) : 'BW'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-slate-500">Reps/round:</span>
+                    <span className="font-semibold">{ex.reps_target}</span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Complete button */}
+          <button
+            onClick={() => onEnd && onEnd()}
+            className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-4 text-lg transition-colors active:scale-[0.98]"
+          >
+            Complete Workout
           </button>
         </div>
       )}
