@@ -1573,7 +1573,7 @@ export default function ActiveWorkoutScreen({
 
           {/* Complete button */}
           <button
-            onClick={() => onEnd && onEnd()}
+            onClick={finishWorkout}
             className="w-full rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-4 text-lg transition-colors active:scale-[0.98]"
           >
             Complete Workout
