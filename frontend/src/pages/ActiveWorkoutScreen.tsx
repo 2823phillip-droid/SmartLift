@@ -46,6 +46,8 @@ export default function ActiveWorkoutScreen({
   const [exerciseRestDraft, setExerciseRestDraft] = useState<Record<number, string>>({});
   const [workoutStart, setWorkoutStart] = useState<Date | null>(null);
   const [workoutElapsed, setWorkoutElapsed] = useState(0);
+  const [timerStarted, setTimerStarted] = useState(false);
+  const [timerPaused, setTimerPaused] = useState(false);
   const [restSeconds, setRestSeconds] = useState<number | null>(null);
 
   const [expandedExerciseId, setExpandedExerciseId] = useState<number | null>(null);
@@ -511,9 +513,10 @@ export default function ActiveWorkoutScreen({
   }, []);
 
   useEffect(() => {
-    if (!workoutStart) return;
+    if (!workoutStart || !timerStarted) return;
     let lastElapsed = 0;
     const tick = () => {
+      if (timerPaused) return;
       const direct = Math.floor((Date.now() - workoutStart.getTime()) / 1000);
       if (direct > 0) {
         lastElapsed = direct;
@@ -535,7 +538,7 @@ export default function ActiveWorkoutScreen({
 
   // Auto-end AMRAP when time runs out
   useEffect(() => {
-    if (!isAmrap || !workoutStart) return;
+    if (!isAmrap || !workoutStart || !timerStarted) return;
     const timeLimit = template?.time_limit_seconds || 600;
     if (workoutElapsed >= timeLimit) {
       finishWorkout();
@@ -1520,6 +1523,32 @@ export default function ActiveWorkoutScreen({
                 </>
               );
             })()}
+          </div>
+
+          {/* Timer controls */}
+          <div className="flex gap-3">
+            {!timerStarted ? (
+              <button
+                onClick={() => setTimerStarted(true)}
+                className="flex-1 rounded-2xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold py-3 text-base transition-colors active:scale-[0.98]"
+              >
+                Start Timer
+              </button>
+            ) : timerPaused ? (
+              <button
+                onClick={() => setTimerPaused(false)}
+                className="flex-1 rounded-2xl bg-amber-600 hover:bg-amber-500 text-white font-semibold py-3 text-base transition-colors active:scale-[0.98]"
+              >
+                Resume Timer
+              </button>
+            ) : (
+              <button
+                onClick={() => setTimerPaused(true)}
+                className="flex-1 rounded-2xl bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-3 text-base transition-colors active:scale-[0.98]"
+              >
+                Pause Timer
+              </button>
+            )}
           </div>
 
           {/* Exercise tiles */}
