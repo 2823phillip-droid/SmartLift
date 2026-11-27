@@ -27,9 +27,9 @@ export default function PostWorkoutScreen({
   const [coachSent, setCoachSent] = useState(false);
   const [template, setTemplate] = useState<ExerciseEntry[]>([]);
   const [workoutTemplate, setWorkoutTemplate] = useState<WorkoutTemplate | null>(null);
-  const [amrapRounds, setAmrapRounds] = useState<Record<number, number>>({});
+  const [amrapRounds, setAmrapRounds] = useState<Record<number, number | undefined>>({});
   const [amrapEditedWeights, setAmrapEditedWeights] = useState<Record<number, number>>({});
-  const [amrapEditedReps, setAmrapEditedReps] = useState<Record<number, number>>({});
+  const [amrapEditedReps, setAmrapEditedReps] = useState<Record<number, number | undefined>>({});
   const [amrapEditedDistances, setAmrapEditedDistances] = useState<Record<number, number | undefined>>({});
   const [saveTemplateMode, setSaveTemplateMode] = useState<"discard" | "values" | "valuesAndOrder" | null>(null);
   const [savingTemplate, setSavingTemplate] = useState(false);
@@ -369,8 +369,14 @@ export default function PostWorkoutScreen({
                       <input
                         type="number"
                         min={0}
-                        value={amrapRounds[ex.id] || ""}
-                        onChange={(e) => setAmrapRounds((prev) => ({ ...prev, [ex.id]: Number(e.target.value) || 0 }))}
+                        value={amrapRounds[ex.id] ?? ""}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setAmrapRounds((prev) => ({
+                            ...prev,
+                            [ex.id]: val === "" ? undefined : Number(val),
+                          }));
+                        }}
                         placeholder="0"
                         className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm font-semibold text-center focus:outline-none focus:border-amber-500"
                       />
@@ -401,7 +407,13 @@ export default function PostWorkoutScreen({
                         <input
                           type="number"
                           value={amrapEditedReps[ex.id] ?? ""}
-                          onChange={(e) => setAmrapEditedReps((prev) => ({ ...prev, [ex.id]: Number(e.target.value) || 0 }))}
+                          onChange={(e) => {
+                            const val = e.target.value;
+                            setAmrapEditedReps((prev) => ({
+                              ...prev,
+                              [ex.id]: val === "" ? undefined : Number(val),
+                            }));
+                          }}
                           placeholder={String(ex.reps_target)}
                           className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-center focus:outline-none focus:border-amber-500"
                         />
