@@ -864,10 +864,10 @@ export default function TemplateEditorScreen({
                               type="number"
                               value={ex.sets[0]?.distance ?? ex.sets[0]?.weight ?? ""}
                               onChange={(e) => updateSet(idx, 0, { distance: Number(e.target.value) || 0, weight: 0 })}
-                              placeholder="Meters"
+                              placeholder={getUnitsPreference() === "metric" ? "Meters" : "Feet"}
                               className="w-full rounded-lg border border-slate-700 bg-slate-900 px-2 py-2 text-sm font-semibold text-center"
                             />
-                            <span className="text-xs text-slate-500 self-center">m</span>
+                            <span className="text-xs text-slate-500 self-center">{getUnitsPreference() === "metric" ? "m" : "ft"}</span>
                           </div>
                         </div>
                       ) : ex.primary_equipment === "bodyweight" ? (

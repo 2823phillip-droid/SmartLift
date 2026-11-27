@@ -1535,7 +1535,7 @@ export default function ActiveWorkoutScreen({
                     {isDistance ? (
                       <div className="flex items-center gap-1.5">
                         <span className="text-slate-500">Distance/round:</span>
-                        <span className="font-semibold text-slate-100">{setData.distance}m</span>
+                        <span className="font-semibold text-slate-100">{setData.distance}{getUnitsPreference() === "metric" ? "m" : "ft"}</span>
                       </div>
                     ) : isBodyweight ? (
                       <div className="flex items-center gap-1.5">

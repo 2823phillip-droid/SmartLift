@@ -357,7 +357,7 @@ export default function PostWorkoutScreen({
                     <div className="text-sm font-semibold text-slate-100">{ex.name}</div>
                     <div className="text-xs text-slate-500">
                       {isDistance
-                        ? `Planned: ${setData.distance}m per round`
+                        ? `Planned: ${setData.distance}${getUnitsPreference() === "metric" ? "m" : "ft"} per round`
                         : isBodyweight
                           ? `Planned: ${ex.reps_target} reps/round`
                           : `Planned: ${ex.start_weight ? formatWeight(ex.start_weight, getUnitsPreference()) : "BW"} x ${ex.reps_target} reps/round`}
@@ -383,10 +383,10 @@ export default function PostWorkoutScreen({
                             type="number"
                             value={amrapEditedDistances[ex.id] ?? ""}
                             onChange={(e) => setAmrapEditedDistances((prev) => ({ ...prev, [ex.id]: Number(e.target.value) || 0 }))}
-                            placeholder={String(setData.distance || "0")}
+                            placeholder={getUnitsPreference() === "metric" ? `0 ${"Meters"}` : `0 ${"Feet"}`}
                             className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-center focus:outline-none focus:border-amber-500"
                           />
-                          <span className="text-xs text-slate-500 self-center">m</span>
+                          <span className="text-xs text-slate-500 self-center">{getUnitsPreference() === "metric" ? "m" : "ft"}</span>
                         </div>
                       </div>
                     ) : isBodyweight ? (
