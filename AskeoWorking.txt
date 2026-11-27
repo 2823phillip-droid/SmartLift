@@ -1,3 +1,34 @@
+Rest Timer Diagram
+
+
+
+                                        GLOBAL Settings                  
+                                               |
+                                               |
+             -------------------  -----------------------------------------
+             |                 |                        |                 |
+             |                 |                        |                 |
+             |                 \ <--- Broke             |                 \ <--- Broke 
+       Template Editor  Template Editor           Exercise Editor   Exercise Editor
+          Toggle Off      Toggle On                    Toggle Off       Toggle On
+
+
+Global rest timer updated
+   - Pushes out to everything still connectedt to it.
+   - All Templates Saved.
+      - The overridden values are saved too, but still have their original value because if the toggle is on, its cut off from the global timer.
+   - If the toggle is toggled to Off, and reconnected to the Global timer, it needs to do a pull and updated correctly, and then save the template again.
+
+
+
+
+
+
+
+
+
+
+
 -----------------------
 |Askeo                |
 |                     |
@@ -17,6 +48,28 @@
 ||-------------------||
 ||-------------------||
 || Other exercises   ||
+||-------------------||
+-----------------------
+
+-----------------------
+|Askeo                |
+|                     |
+|Back and Biecps      |
+| --------------------|
+| |   FOUNDATION     || 
+| --------------------|
+|  ET F C             |
+|---------------------|
+||   Barbell Deadlift||
+||   Session Targert ||
+||      Summary      ||
+||                   ||
+||   Weight  Reps    ||
+||   Effort          ||
+||   Form Qaulity    ||
+||-------------------||
+||-------------------||
+|| Settings Tab   ||
 ||-------------------||
 -----------------------
 
@@ -56,22 +109,134 @@ Model_Picker Logic on rotating models.
 #
 
 Logs:
-[Log] [WorkoutsScreen] contexts loaded – 4 (index-CJwdgZ-T.js, line 65)
-[Log] [WorkoutsScreen] templates loaded – 9 (index-CJwdgZ-T.js, line 65)
-[Log] [exercise] render phase – {selectedId: null, hasSelected: false} (index-CJwdgZ-T.js, line 73)
-[Log] [exercise] render phase – {selectedId: null, hasSelected: false} (index-CJwdgZ-T.js, line 73)
-[Log] [exercise] row click – {id: 15, selectedId: null} (index-CJwdgZ-T.js, line 73)
-[Log] [exercise] selectedExercise debug – {selectedId: 15, found: "Assisted Hanging Knee Raise", exercisesCount: 1391} (index-CJwdgZ-T.js, line 73)
-[Log] [exercise] render phase – {selectedId: 15, hasSelected: true} (index-CJwdgZ-T.js, line 73)
-[Log] [exercise] detail view rendering – "Assisted Hanging Knee Raise" (index-CJwdgZ-T.js, line 73)
-[Log] [exercise] row click – {id: 16, selectedId: 15} (index-CJwdgZ-T.js, line 73)
-[Log] [exercise] selectedExercise debug – {selectedId: 16, found: "Assisted Hanging Knee Raise With Throw Down", exercisesCount: 1391} (index-CJwdgZ-T.js, line 73)
-[Log] [exercise] render phase – {selectedId: 16, hasSelected: true} (index-CJwdgZ-T.js, line 73)
-[Log] [exercise] detail view rendering – "Assisted Hanging Knee Raise With Throw Down" (index-CJwdgZ-T.js, line 73)
-[Log] [exercise] row click – {id: 17, selectedId: 16} (index-CJwdgZ-T.js, line 73)
-[Log] [exercise] selectedExercise debug – {selectedId: 17, found: "Assisted Lying Calves Stretch", exercisesCount: 1391} (index-CJwdgZ-T.js, line 73)
-[Log] [exercise] render phase – {selectedId: 17, hasSelected: true} (index-CJwdgZ-T.js, line 73)
-[Log] [exercise] detail view rendering – "Assisted Lying Calves Stretch" (index-CJwdgZ-T.js, line 73)
+[Warning] [ActiveWorkoutScreen] MODULE LOADED - web bundle is running (index-B5V99_yn.js, line 73)
+[Error] Failed to load resource: the server responded with a status of 401 () (api_base, line 0)
+[Error] Failed to load resource: the server responded with a status of 404 () (healthz, line 0)
+[Error] Failed to load resource: the server responded with a status of 404 () (healthz, line 0)
+[Log] [WorkoutsScreen] contexts loaded – 4 (index-B5V99_yn.js, line 65)
+[Log] [WorkoutsScreen] templates loaded – 9 (index-B5V99_yn.js, line 65)
+[Log] [editor] global_rest_seconds setting: (3) (index-B5V99_yn.js, line 67)
+{key: "global_rest_seconds", value: "30"}
+"=>"
+30
+[Log] [editor] saving exercise – {id: 322, localId: "server-322", is_overridden: true, …} (index-B5V99_yn.js, line 67)
+{id: 322, localId: "server-322", is_overridden: true, rest_seconds: 90}Object
+[Log] [editor] saving exercise – {id: 426, localId: "server-426", is_overridden: false, …} (index-B5V99_yn.js, line 67)
+{id: 426, localId: "server-426", is_overridden: false, rest_seconds: 30}Object
+[Log] [editor] saving exercise – {id: 538, localId: "server-538", is_overridden: false, …} (index-B5V99_yn.js, line 67)
+{id: 538, localId: "server-538", is_overridden: false, rest_seconds: 30}Object
+[Log] [editor] saving exercise – {id: 427, localId: "server-427", is_overridden: false, …} (index-B5V99_yn.js, line 67)
+{id: 427, localId: "server-427", is_overridden: false, rest_seconds: 30}Object
+[Log] [editor] saving exercise – {id: 429, localId: "server-429", is_overridden: false, …} (index-B5V99_yn.js, line 67)
+{id: 429, localId: "server-429", is_overridden: false, rest_seconds: 30}Object
+[Log] [editor] saving exercise – {id: 430, localId: "server-430", is_overridden: false, …} (index-B5V99_yn.js, line 67)
+{id: 430, localId: "server-430", is_overridden: false, rest_seconds: 30}Object
+[Log] [WorkoutsScreen] contexts loaded – 4 (index-B5V99_yn.js, line 65)
+[Log] [WorkoutsScreen] templates loaded – 9 (index-B5V99_yn.js, line 65)
+[Error] Failed to load resource: the server responded with a status of 401 () (api_base, line 0)
+[Error] Failed to load resource: the server responded with a status of 404 () (healthz, line 0)
+[Error] Failed to load resource: the server responded with a status of 404 () (healthz, line 0)
+[Debug] [SettingsScreen] load – [{key: "units_preference", value: "imperial"}, {key: "coach_periodization_cycle_weeks", value: "4"}, {key: "equipment_barbell", value: "true"}, …] (17) (index-B5V99_yn.js, line 73)
+[{key: "units_preference", value: "imperial"}, {key: "coach_periodization_cycle_weeks", value: "4"}, {key: "equipment_barbell", value: "true"}, {key: "coach_force_deload", value: "false"}, {key: "coach_phase", value: "linear"}, {key: "coach_week_in_block", value: "1"}, {key: "equipment_dumbbells", value: "true"}, {key: "equipment_cable", value: "true"}, {key: "coach_deload_mode", value: "ai_driven"}, {key: "coach_custom_phase_order", value: "[\"linear\", \"double\", \"percentage\", \"autoregulated\"]"}, …]Array (17)
+[Debug] [SettingsScreen] load units_preference – "imperial" (index-B5V99_yn.js, line 73)
+[Log] [WorkoutsScreen] contexts loaded – 4 (index-B5V99_yn.js, line 65)
+[Log] [WorkoutsScreen] templates loaded – 9 (index-B5V99_yn.js, line 65)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – undefined – "is_overridden:" – undefined – "rest_seconds:" – undefined – "globalRest:" – 90 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Fetching block state... (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Block state response: – {id: 3, block_mode: "foundation", week_number: 1, …} (index-B5V99_yn.js, line 73)
+{id: 3, block_mode: "foundation", week_number: 1, start_date: "2026-10-10T19:51:08.720252+00:00", phase: "foundation_1", …}Object
+[Log] [ActiveWorkoutScreen] Block state set: – "foundation" (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – undefined – "is_overridden:" – undefined – "rest_seconds:" – undefined – "globalRest:" – 90 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Fetching progression for – 6 – "exercises..." (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 322 (Barbell Bench Press), library_id=99 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – undefined – "is_overridden:" – undefined – "rest_seconds:" – undefined – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – undefined – "is_overridden:" – undefined – "rest_seconds:" – undefined – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – undefined – "is_overridden:" – undefined – "rest_seconds:" – undefined – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 322: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-B5V99_yn.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 135, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 135 – "x" – 8 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 426 (Barbell Incline Bench Press), library_id=131 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – undefined – "is_overridden:" – undefined – "rest_seconds:" – undefined – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 426: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-B5V99_yn.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 95, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 95 – "x" – 8 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 538 (Arsenal Chest Fly), library_id=1400 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – undefined – "is_overridden:" – undefined – "rest_seconds:" – undefined – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 538: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-B5V99_yn.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 10, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 10 – "x" – 8 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 427 (Assisted Chest Dip (Kneeling)), library_id=14 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – undefined – "is_overridden:" – undefined – "rest_seconds:" – undefined – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 427: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-B5V99_yn.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 62.5, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 63 – "x" – 8 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 429 (Dumbbell Seated Triceps Extension), library_id=689 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] lastSessionByExercise – {322: Array, 426: Array, 427: Array, …} (index-B5V99_yn.js, line 73)
+{322: Array, 426: Array, 427: Array, 429: Array, 430: Array, 538: []}Object
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – undefined – "is_overridden:" – undefined – "rest_seconds:" – undefined – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Fetching session targets... (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 429: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-B5V99_yn.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 50, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 50 – "x" – 8 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculating for exercise 430 (Cable Triceps Pushdown (V-Bar)), library_id=410 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – undefined – "is_overridden:" – undefined – "rest_seconds:" – undefined – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Calculate response for 430: – {rep_floor: 8, rep_cap: 10, increment: 5, …} (index-B5V99_yn.js, line 73)
+{rep_floor: 8, rep_cap: 10, increment: 5, suggested_weight: 60, should_increase: false, …}Object
+[Log] [ActiveWorkoutScreen] Updated draft from progression: – 60 – "x" – 8 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Progression data: – {322: Object, 426: Object, 427: Object, …} (index-B5V99_yn.js, line 73)
+{322: Object, 426: Object, 427: Object, 429: Object, 430: Object, 538: Object}Object
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – undefined – "is_overridden:" – undefined – "rest_seconds:" – undefined – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] Session targets received: – 6 – "exercises" (index-B5V99_yn.js, line 73)
+[Log] [ActiveWorkoutScreen] auto-expand – 140 – "x" – 10 – "source:" – "backend" (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – "Barbell Bench Press" – "is_overridden:" – true – "rest_seconds:" – 90 – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – "Barbell Bench Press" – "is_overridden:" – true – "rest_seconds:" – 90 – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – "Barbell Bench Press" – "is_overridden:" – true – "rest_seconds:" – 90 – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – "Barbell Bench Press" – "is_overridden:" – true – "rest_seconds:" – 90 – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – "Barbell Bench Press" – "is_overridden:" – true – "rest_seconds:" – 90 – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – "Barbell Bench Press" – "is_overridden:" – true – "rest_seconds:" – 90 – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – "Barbell Bench Press" – "is_overridden:" – true – "rest_seconds:" – 90 – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – "Barbell Bench Press" – "is_overridden:" – true – "rest_seconds:" – 90 – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – "Barbell Bench Press" – "is_overridden:" – true – "rest_seconds:" – 90 – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – "Barbell Bench Press" – "is_overridden:" – true – "rest_seconds:" – 90 – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-B5V99_yn.js, line 73)
+[Log] [workout] resolveRest for – "Barbell Bench Press" – "is_overridden:" – true – "rest_seconds:" – 90 – "globalRest:" – 60 (index-B5V99_yn.js, line 73)
+
+
+
+
+
+Today, we're continuing at 140 lbs for 10 reps.
+
+The goal of Foundation is to hit 10 reps on ALL sets at the SAME weight, with effort ~6 on the first set. Let's build consistency at 140."
+[Log] [ActiveWorkoutScreen] Set logged — calcData coaching_message: – "Last set: 140 lbs × 10 reps E-10. Stay at 140 lbs — hit this next set at the same weight. Target: 10 reps.↵↵That first set felt heav…" (index-DLVAQm-y.js, line 73)
+"Last set: 140 lbs × 10 reps E-10. Stay at 140 lbs — hit this next set at the same weight. Target: 10 reps.
+
+That first set felt heavy (effort 10). 1 targets effort ~6 on the first set. If you want to build comfort at this weight, stay at 140.0 and aim for effort ~6 before we increase next session."
+[Warning] [ActiveWorkoutScreen] Updated progression after set 1: weight=140, reps=10 (index-DLVAQm-y.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DLVAQm-y.js, line 73, x26)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DLVAQm-y.js, line 73)
+[Warning] [ActiveWorkoutScreen] Component rendering (index-DLVAQm-y.js, line 73, x6)
 
 Last Summary Given (2026-10-30)
 Done. Updated all three documents to reflect the current state:
