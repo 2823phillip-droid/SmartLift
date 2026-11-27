@@ -30,7 +30,7 @@ export default function PostWorkoutScreen({
   const [amrapRounds, setAmrapRounds] = useState<Record<number, number>>({});
   const [amrapEditedWeights, setAmrapEditedWeights] = useState<Record<number, number>>({});
   const [amrapEditedReps, setAmrapEditedReps] = useState<Record<number, number>>({});
-  const [amrapEditedDistances, setAmrapEditedDistances] = useState<Record<number, number>>({});
+  const [amrapEditedDistances, setAmrapEditedDistances] = useState<Record<number, number | undefined>>({});
   const [saveTemplateMode, setSaveTemplateMode] = useState<"discard" | "values" | "valuesAndOrder" | null>(null);
   const [savingTemplate, setSavingTemplate] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -382,7 +382,13 @@ export default function PostWorkoutScreen({
                           <input
                             type="number"
                             value={amrapEditedDistances[ex.id] ?? ""}
-                            onChange={(e) => setAmrapEditedDistances((prev) => ({ ...prev, [ex.id]: Number(e.target.value) || 0 }))}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              setAmrapEditedDistances((prev) => ({
+                                ...prev,
+                                [ex.id]: val === "" ? undefined : Number(val),
+                              }));
+                            }}
                             placeholder={getUnitsPreference() === "metric" ? `0 ${"Meters"}` : `0 ${"Miles"}`}
                             className="w-full rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm text-center focus:outline-none focus:border-amber-500"
                           />
