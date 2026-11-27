@@ -533,6 +533,15 @@ export default function ActiveWorkoutScreen({
     };
   }, [workoutStart]);
 
+  // Auto-end AMRAP when time runs out
+  useEffect(() => {
+    if (!isAmrap || !workoutStart) return;
+    const timeLimit = template?.time_limit_seconds || 600;
+    if (workoutElapsed >= timeLimit) {
+      finishWorkout();
+    }
+  }, [workoutElapsed, isAmrap, template?.time_limit_seconds, workoutStart]);
+
   const getCurrentExercise = (): ExerciseEntry | undefined => {
     return exercises.find((e) => e.id === expandedExerciseId);
   };
@@ -1607,56 +1616,58 @@ export default function ActiveWorkoutScreen({
         </div>
       )}
 
-      <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} modifiers={[restrictToVerticalAxis]}>
-        <SortableContext items={visibleExercises.map((ex) => ex.id)} strategy={verticalListSortingStrategy}>
-          <div className="space-y-3">
-            {visibleExercises.map((exercise) => {
-              const completed = exerciseCompletedCount[exercise.id] || 0;
-              const displayTarget = resolveDisplayTarget(exercise);
-              const isExpanded = exercise.id === expandedExerciseId;
-              const exerciseLogs = logs.filter(l => l.exercise_entry_id === exercise.id);
-              const isComplete = completed >= displayTarget;
-              const editingRest = !!exerciseRestEditing[exercise.id];
-              const addingSet = addSetExerciseId === exercise.id;
+      {/* Traditional exercise list — strength workouts only */}
+      {!isAmrap && (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragStart={handleDragStart} onDragEnd={handleDragEnd} onDragCancel={handleDragCancel} modifiers={[restrictToVerticalAxis]}>
+          <SortableContext items={visibleExercises.map((ex) => ex.id)} strategy={verticalListSortingStrategy}>
+            <div className="space-y-3">
+              {visibleExercises.map((exercise) => {
+                const completed = exerciseCompletedCount[exercise.id] || 0;
+                const displayTarget = resolveDisplayTarget(exercise);
+                const isExpanded = exercise.id === expandedExerciseId;
+                const exerciseLogs = logs.filter(l => l.exercise_entry_id === exercise.id);
+                const isComplete = completed >= displayTarget;
+                const editingRest = !!exerciseRestEditing[exercise.id];
+                const addingSet = addSetExerciseId === exercise.id;
 
-              return (
-                <SortableExerciseCard
-                  key={exercise.id}
-                  exercise={exercise}
-                  exerciseLogs={exerciseLogs}
-                  completed={completed}
-                  displayTarget={displayTarget}
-                  isExpanded={isExpanded}
-                  isComplete={isComplete}
-                  editingRest={editingRest}
-                  addingSet={addingSet}
-                  isDragActive={isDragActive}
-                  isResting={isResting}
-                  onExpand={() => !isResting && expandExercise(exercise)}
-                  onAddSet={() => {
-                    setDisplaySetsTarget((prev) => ({
-                      ...prev,
-                      [exercise.id]: (prev[exercise.id] ?? exercise.sets_target) + 1,
-                    }));
-                    expandExercise(exercise);
-                    setAddSetExerciseId(exercise.id);
-                  }}
-                  onAddSetWithType={(isWarmup) => {
-                    // Only increment the display target for actual working sets,
-                    // not warmups — warmups don't count toward the exercise target.
-                    if (!isWarmup) {
+                return (
+                  <SortableExerciseCard
+                    key={exercise.id}
+                    exercise={exercise}
+                    exerciseLogs={exerciseLogs}
+                    completed={completed}
+                    displayTarget={displayTarget}
+                    isExpanded={isExpanded}
+                    isComplete={isComplete}
+                    editingRest={editingRest}
+                    addingSet={addingSet}
+                    isDragActive={isDragActive}
+                    isResting={isResting}
+                    onExpand={() => !isResting && expandExercise(exercise)}
+                    onAddSet={() => {
                       setDisplaySetsTarget((prev) => ({
                         ...prev,
                         [exercise.id]: (prev[exercise.id] ?? exercise.sets_target) + 1,
                       }));
-                    }
-                    expandExercise(exercise);
-                    setAddSetExerciseId(exercise.id);
-                    setWarmupSetTypes((prev) => ({ ...prev, [exercise.id]: isWarmup }));
-                    if (isWarmup) {
-                      // Set warmup weight to 50% of target, rounded to nearest 5 lbs
-                      const targetWeight = exerciseProgression[exercise.id]?.suggested_weight 
-                        ?? prescriptions[exercise.id]?.next_weight 
+                      expandExercise(exercise);
+                      setAddSetExerciseId(exercise.id);
+                    }}
+                    onAddSetWithType={(isWarmup) => {
+                      // Only increment the display target for actual working sets,
+                      // not warmups — warmups don't count toward the exercise target.
+                      if (!isWarmup) {
+                        setDisplaySetsTarget((prev) => ({
+                          ...prev,
+                          [exercise.id]: (prev[exercise.id] ?? exercise.sets_target) + 1,
+                        }));
+                      }
+                      expandExercise(exercise);
+                      setAddSetExerciseId(exercise.id);
+                      setWarmupSetTypes((prev) => ({ ...prev, [exercise.id]: isWarmup }));
+                      if (isWarmup) {
+                        // Set warmup weight to 50% of target, rounded to nearest 5 lbs
+                        const targetWeight = exerciseProgression[exercise.id]?.suggested_weight 
+                          ?? prescriptions[exercise.id]?.next_weight 
                         ?? exercise.start_weight 
                         ?? 0;
                       const warmupWeight = Math.round(targetWeight * 0.5 / 5) * 5;
@@ -1710,6 +1721,7 @@ export default function ActiveWorkoutScreen({
           </div>
         </SortableContext>
       </DndContext>
+      )}
 
       {/* Completion */}
       {allDone && (
