@@ -55,12 +55,23 @@ export default function PreWorkoutScreen({
     let cancelled = false;
     const load = async () => {
       try {
-        // Fetch block-state for the FOUNDATION pill
+        // Fetch template to determine type (strength vs HIIT)
+        let templateType: string | null = null;
         try {
-          const bs = await api.getBlockState();
-          setBlockState({ block_mode: bs.block_mode, phase: bs.phase, week_number: bs.week_number, phase_description: bs.phase_description });
+          const tpl = await api.getTemplate(templateId);
+          templateType = tpl.type;
         } catch (e) {
-          console.error("[PreWorkoutScreen] Failed to fetch block-state:", e);
+          console.error("[PreWorkoutScreen] Failed to fetch template:", e);
+        }
+
+        // Fetch block-state for the FOUNDATION pill (strength templates only)
+        if (templateType === "strength") {
+          try {
+            const bs = await api.getBlockState();
+            setBlockState({ block_mode: bs.block_mode, phase: bs.phase, week_number: bs.week_number, phase_description: bs.phase_description });
+          } catch (e) {
+            console.error("[PreWorkoutScreen] Failed to fetch block-state:", e);
+          }
         }
 
         const sessions = await api.getSessions();
