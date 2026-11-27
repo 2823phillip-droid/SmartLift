@@ -490,6 +490,7 @@ class ExerciseLibraryOut(BaseModel):
     muscle_group: Optional[str]
     equipment: Optional[str]
     primary_equipment: Optional[str]
+    category: Optional[str] = None
     default_rest_seconds: int
     video_url: Optional[str] = None
     image_url: Optional[str] = None
@@ -1554,6 +1555,7 @@ def search_exercise_library(q: str = "", db: Session = Depends(get_db), current_
             muscle_group=e.muscle_group,
             equipment=e.equipment,
             primary_equipment=getattr(e, "primary_equipment", None),
+            category=getattr(e, "category", None),
             default_rest_seconds=e.default_rest_seconds,
             video_url=e.video_url,
             image_url=e.image_url,
