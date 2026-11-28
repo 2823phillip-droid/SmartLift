@@ -48,6 +48,13 @@ export default function ActiveWorkoutScreen({
   const [workoutElapsed, setWorkoutElapsed] = useState(0);
   const [timerStarted, setTimerStarted] = useState(false);
   const [timerPaused, setTimerPaused] = useState(false);
+
+  // Reset elapsed time when timer is started (so waiting to start doesn't count)
+  useEffect(() => {
+    if (timerStarted) {
+      setWorkoutElapsed(0);
+    }
+  }, [timerStarted]);
   const [restSeconds, setRestSeconds] = useState<number | null>(null);
 
   const [expandedExerciseId, setExpandedExerciseId] = useState<number | null>(null);
