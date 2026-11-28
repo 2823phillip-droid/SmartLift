@@ -52,6 +52,7 @@ export default function ActiveWorkoutScreen({
   // Reset elapsed time when timer is started (so waiting to start doesn't count)
   useEffect(() => {
     if (timerStarted) {
+      timerStartTimeRef.current = Date.now();
       setWorkoutElapsed(0);
     }
   }, [timerStarted]);
@@ -98,6 +99,7 @@ export default function ActiveWorkoutScreen({
   const restTimerRef = useRef<number | null>(null);
   const restEndTimeRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
+  const timerStartTimeRef = useRef<number | null>(null);
   const lastLoggedSetRef = useRef<Record<number, SetLog>>({});
   const loggedSetCountRef = useRef<Record<number, number>>({});
   const isBuildingWorkoutRef = useRef(false);
@@ -524,7 +526,8 @@ export default function ActiveWorkoutScreen({
     let lastElapsed = 0;
     const tick = () => {
       if (timerPaused) return;
-      const direct = Math.floor((Date.now() - workoutStart.getTime()) / 1000);
+      const base = timerStartTimeRef.current || workoutStart.getTime();
+      const direct = Math.floor((Date.now() - base) / 1000);
       if (direct > 0) {
         lastElapsed = direct;
         setWorkoutElapsed(direct);
