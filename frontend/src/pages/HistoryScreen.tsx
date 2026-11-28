@@ -598,19 +598,6 @@ export default function HistoryScreen({
                   </div>
                 )}
 
-                {detail?.messages && detail.messages.length > 0 && (
-                  <div className="space-y-2">
-                    <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Coach Notes</div>
-                    <div className="space-y-1.5">
-                      {detail.messages.map((m: any) => (
-                        <div key={m.id} className="rounded-xl border border-indigo-800/40 bg-indigo-950/20 px-3 py-2.5">
-                          <p className="text-sm text-indigo-200 leading-relaxed">{m.content}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
                 {(!detail?.logs || detail.logs.length === 0) && (
                   <p className="text-sm text-slate-600 text-center py-3">No set data in this session.</p>
                 )}
