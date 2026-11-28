@@ -572,7 +572,19 @@ export default function HistoryScreen({
 
                 {s.amrap_result && (
                   <div className="space-y-3">
-                    <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">AMRAP Result</div>
+                    {(() => {
+                      const start = s.started_at ? new Date(s.started_at).getTime() : 0;
+                      const end = s.ended_at ? new Date(s.ended_at).getTime() : 0;
+                      const durationMin = end && start ? Math.round((end - start) / 60000) : 0;
+                      return (
+                        <>
+                          <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">AMRAP Result</div>
+                          {durationMin > 0 && (
+                            <div className="text-xs text-slate-400">{durationMin} min AMRAP</div>
+                          )}
+                        </>
+                      );
+                    })()}
                     <div className="space-y-2">
                       {((() => {
                         try {
