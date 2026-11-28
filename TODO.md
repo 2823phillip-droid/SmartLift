@@ -50,7 +50,7 @@ A progression-powered workout system:
 - [x] Exercise library (1384 exercises from ExerciseDB)
 - [x] Phase details table (weeks, reps split, progression models)
 - [x] AMRAP HIIT workout templates v1 — template editor (HIIT format + time limit + per-round editor), AMRAP execution (countdown timer + tiles + manual start/pause), post-workout (per-round weight/reps/distance logging), workout history (AMRAP results + time limit display); separate from progression model (supplemental only); amrap_result JSON on WorkoutSession returned in all session endpoints
-- [x] AMRAP timer bug fix — timer was counting from workout start, not from when Start was tapped; fixed by adding timerStartTimeRef to track when timer is actually started, tick() now uses timerStartTimeRef instead of workoutStart.getTime()
+- [x] AMRAP timer bug fix — timer was counting from workout start, not from when Start was tapped; fixed by adding timerStartTimeRef to track when timer is actually started, tick() now uses timerStartTimeRef instead of workoutStart.getTime(); pause/resume now accounts for pause duration — timerStartTimeRef adjusted on resume so timer continues smoothly
 
 **Next (this year):**
 - [ ] Web interface (workout builder, progression view, exercise library, routine management)
