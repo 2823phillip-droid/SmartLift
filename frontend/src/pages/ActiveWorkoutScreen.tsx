@@ -534,7 +534,7 @@ export default function ActiveWorkoutScreen({
         elapsedTimerRef.current = null;
       }
     };
-  }, [workoutStart]);
+  }, [workoutStart, timerStarted, timerPaused]);
 
   // Auto-end AMRAP when time runs out
   useEffect(() => {
