@@ -710,6 +710,7 @@ class SessionHistoryOut(ApiBaseModel):
     status: str
     template_name: Optional[str] = None
     context_name: Optional[str] = None
+    amrap_result: Optional[str] = None
 
 class SetLogUpdate(BaseModel):
     actual_weight: Optional[float] = None
@@ -1788,6 +1789,7 @@ def create_session(payload: SessionCreate, db: Session = Depends(get_db), curren
         pre_workout_notes=session.pre_workout_notes,
         post_workout_notes=session.post_workout_notes,
         status=session.status.value,
+        amrap_result=session.amrap_result,
     )
 
 
@@ -1888,6 +1890,7 @@ def list_sessions(
                 status=s.status.value,
                 template_name=template_name,
                 context_name=context_name,
+                amrap_result=s.amrap_result,
             )
         )
     return out
@@ -1907,6 +1910,7 @@ def get_session(session_id: int, db: Session = Depends(get_db), current_user: Us
         pre_workout_notes=s.pre_workout_notes,
         post_workout_notes=s.post_workout_notes,
         status=s.status.value,
+        amrap_result=s.amrap_result,
     )
 
 @app.post("/api/sessions/{session_id}/end", response_model=SessionOut)

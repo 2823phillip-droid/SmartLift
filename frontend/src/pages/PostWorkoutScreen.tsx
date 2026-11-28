@@ -555,13 +555,15 @@ export default function PostWorkoutScreen({
         </>
       )}
 
-      <button
-        onClick={endWorkout}
-        disabled={finishing}
-        className="w-full rounded-2xl bg-emerald-600 px-5 py-4 text-base font-semibold hover:bg-emerald-500 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/30 disabled:opacity-60 disabled:cursor-wait disabled:active:scale-100"
-      >
-        {finishing ? "Finishing..." : "Finish Workout"}
-      </button>
+      {!isAmrap && (
+        <button
+          onClick={endWorkout}
+          disabled={finishing}
+          className="w-full rounded-2xl bg-emerald-600 px-5 py-4 text-base font-semibold hover:bg-emerald-500 active:scale-[0.98] transition-all shadow-lg shadow-emerald-900/30 disabled:opacity-60 disabled:cursor-wait disabled:active:scale-100"
+        >
+          {finishing ? "Finishing..." : "Finish Workout"}
+        </button>
+      )}
 
       <button
         onClick={cancelWorkout}
