@@ -77,6 +77,7 @@ export default function HistoryScreen({
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [timeframe, setTimeframe] = useState<Timeframe>("all");
   const [templates, setTemplates] = useState<Record<string, string>>({});
+  const [templateLimits, setTemplateLimits] = useState<Record<number, number>>({});
   const [exerciseMap, setExerciseMap] = useState<Record<number, string>>({});
 
   const [selectedExercise, setSelectedExercise] = useState<string>("all");
@@ -100,10 +101,13 @@ export default function HistoryScreen({
         if (cancelled) return;
         setSessions(s as SessionHistory[]);
         const map: Record<string, string> = {};
+        const limits: Record<number, number> = {};
         (t as any[]).forEach((tpl: any) => {
           map[`${tpl.id}`] = tpl.name || `Template ${tpl.id}`;
+          if (tpl.time_limit_seconds) limits[tpl.id] = tpl.time_limit_seconds;
         });
         setTemplates(map);
+        setTemplateLimits(limits);
       } catch (err: any) {
         if (cancelled) return;
         setLoadError(err?.message || "Failed to load workout history");
@@ -572,19 +576,9 @@ export default function HistoryScreen({
 
                 {s.amrap_result && (
                   <div className="space-y-3">
-                    {(() => {
-                      const start = s.started_at ? new Date(s.started_at).getTime() : 0;
-                      const end = s.ended_at ? new Date(s.ended_at).getTime() : 0;
-                      const durationMin = end && start ? Math.round((end - start) / 60000) : 0;
-                      return (
-                        <>
-                          <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">AMRAP Result</div>
-                          {durationMin > 0 && (
-                            <div className="text-xs text-slate-400">{durationMin} min AMRAP</div>
-                          )}
-                        </>
-                      );
-                    })()}
+                    {s.template_id != null && templateLimits[s.template_id] && (
+                      <div className="text-xs text-slate-400">{Math.round(templateLimits[s.template_id] / 60)} min AMRAP</div>
+                    )}
                     <div className="space-y-2">
                       {((() => {
                         try {
