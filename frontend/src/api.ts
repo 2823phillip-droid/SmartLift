@@ -295,6 +295,7 @@ export interface SessionHistory extends Session {
   status: string;
   template_name?: string;
   context_name?: string;
+  amrap_result?: string;
 }
 
 export interface SetLog {

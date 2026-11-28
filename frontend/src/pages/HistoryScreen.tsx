@@ -569,6 +569,35 @@ export default function HistoryScreen({
                     })}
                   </div>
                 )}
+
+                {s.amrap_result && (
+                  <div className="space-y-3">
+                    <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">AMRAP Result</div>
+                    <div className="space-y-2">
+                      {((() => {
+                        try {
+                          const data = JSON.parse(s.amrap_result) as Record<string, { rounds: number; rounds_data: Array<{ actual_weight: number; actual_reps: number; actual_distance: number }> }>;
+                          return Object.entries(data).map(([exId, exData]) => {
+                            const exerciseName = exerciseMap[Number(exId)] || `Exercise ${exId}`;
+                            const rounds = exData.rounds || 0;
+                            const roundsData = exData.rounds_data || [];
+                            return (
+                              <div key={exId} className="space-y-1.5">
+                                <div className="text-xs font-semibold text-slate-400">{exerciseName} — {rounds} rounds</div>
+                                {roundsData.map((r: any, i: number) => (
+                                  <div key={i} className="text-xs text-slate-500">
+                                    Round {i + 1}: {r.actual_weight ? `${formatWeight(r.actual_weight, getUnitsPreference())} × ` : ""}{r.actual_reps} reps{r.actual_distance ? `, ${r.actual_distance} ${getUnitsPreference() === "metric" ? "m" : "mi"}` : ""}
+                                  </div>
+                                ))}
+                              </div>
+                            );
+                          });
+                        } catch { return null; }
+                      })())}
+                    </div>
+                  </div>
+                )}
+
                 {detail?.messages && detail.messages.length > 0 && (
                   <div className="space-y-2">
                     <div className="text-xs text-slate-500 uppercase tracking-widest font-semibold">Coach Notes</div>
