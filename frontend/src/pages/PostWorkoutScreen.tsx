@@ -131,6 +131,7 @@ export default function PostWorkoutScreen({
       };
     }
     await api.updateSessionAmrapResult(sessionId, { amrap_result: JSON.stringify(result) });
+    endWorkout();
   };
 
   const adjustmentsSavedRef = useRef(false);
