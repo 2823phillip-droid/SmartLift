@@ -56,6 +56,24 @@ export default function ActiveWorkoutScreen({
       setWorkoutElapsed(0);
     }
   }, [timerStarted]);
+
+  // Track pause start time
+  useEffect(() => {
+    if (timerPaused) {
+      pauseStartTimeRef.current = Date.now();
+    }
+  }, [timerPaused]);
+
+  // Adjust start time on resume to account for pause duration
+  useEffect(() => {
+    if (!timerPaused && pauseStartTimeRef.current) {
+      const pauseDuration = Date.now() - pauseStartTimeRef.current;
+      if (timerStartTimeRef.current) {
+        timerStartTimeRef.current += pauseDuration;
+      }
+      pauseStartTimeRef.current = null;
+    }
+  }, [timerPaused]);
   const [restSeconds, setRestSeconds] = useState<number | null>(null);
 
   const [expandedExerciseId, setExpandedExerciseId] = useState<number | null>(null);
@@ -100,6 +118,7 @@ export default function ActiveWorkoutScreen({
   const restEndTimeRef = useRef<number | null>(null);
   const elapsedTimerRef = useRef<number | null>(null);
   const timerStartTimeRef = useRef<number | null>(null);
+  const pauseStartTimeRef = useRef<number | null>(null);
   const lastLoggedSetRef = useRef<Record<number, SetLog>>({});
   const loggedSetCountRef = useRef<Record<number, number>>({});
   const isBuildingWorkoutRef = useRef(false);
